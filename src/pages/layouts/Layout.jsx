@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { AiOutlineHome, AiOutlineFileText, AiOutlineLogout } from "react-icons/ai";
-import Sidebar from '../../components/siderbar';
-import Navbar from '../../components/navbar';
-import { GetNotification } from '../GetNotification';
+import Sidebar from '../../components/Siderbar';
+import Navbar from '../../components/Navbar';
+// import { GetNotification } from '../GetNotification';
+
 
 export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -13,7 +14,7 @@ export default function Layout() {
 
     return (
         <div className="flex min-h-screen flex-col">
-            <GetNotification />
+            {/* <GetNotification /> */}
             <Navbar toggleSidebar={toggleSidebar} />
             <div className="flex flex-grow">
                 <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />

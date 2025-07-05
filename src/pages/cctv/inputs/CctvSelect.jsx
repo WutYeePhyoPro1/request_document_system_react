@@ -10,9 +10,11 @@ const CctvSelect = ({ label, name, options, value, onChange, required }) => {
                 name={name}
                 value={value}
                 onChange={onChange}
-                className="border border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 p-2 w-full rounded-md"
+                className="border focus:outline-none 0 p-2 w-full rounded-md"
+                style={{ borderColor: '#2ea2d1' }}
             >
-                <option value="">Select {label}</option>
+                {/* <option value="">Select {label}</option> */}
+                <option value="">Choose Reason</option>
                 {options.map((option, index) => (
                     <option key={index} value={option.value}>
                         {option.label}

@@ -16,7 +16,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
             md:relative md:w-64 md:translate-x-0`}
         >
 
-            <div className="p-2">
+            <div className="p-2 mt-6">
                 <div className="relative">
                     <FiSearch className="absolute left-3 top-2 text-gray-400" />
                     <input type="text" placeholder="Search" className="w-full pl-10 p-2 border rounded-md focus:outline-none" />

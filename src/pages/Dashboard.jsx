@@ -1,8 +1,25 @@
 import { Link } from "react-router-dom";
 import dashboardPhoto from "../assets/images/reqBa.png";
+import { useEffect, useState } from "react";
+import NavPath from "../components/NavPath";
+
+
 
 const Dashboard = () => {
-    // Example request categories (can be dynamic)
+
+    const [notifications, setNotifications] = useState([]);
+    useEffect(() => {
+        const storedNotifications = localStorage.getItem('notifications');
+        if (storedNotifications) {
+            try {
+                setNotifications(JSON.parse(storedNotifications));
+            } catch (error) {
+                console.error("Error parsing notifications:", error);
+            }
+        }
+    }, []);
+
+
     const requests = [
         { title: "HR Salary Deduct", icon: "💲", count: 0 },
         { title: "Asset Transfer", icon: "📂", count: 1 },
@@ -23,32 +40,35 @@ const Dashboard = () => {
 
     return (
         <div className="p-6">
-            {/* Background Section */}
             <div
                 className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
                 style={{ backgroundImage: `url(${dashboardPhoto})` }}
             ></div>
 
-            {/* Breadcrumbs */}
-            <div className="text-gray-600 text-sm mb-4">
-                <span>Home</span> / <span className="font-semibold">Dashboard</span>
-            </div>
+            <NavPath
+                segments={[
+                    { path: "/dashboard", label: "Home" },
+                    { path: "/dashboard", label: "Dashboard" },
+                ]}
+            />
 
-            {/* Request Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {requests.map((req, index) => (
                     <Link
                         key={index}
                         to={`/${req.title.toLowerCase().replace(/\s+/g, "-")}`}
-                        className="relative bg-white border border-blue-300 rounded-lg shadow-md p-4 flex items-center space-x-3 hover:shadow-lg transition"
+                        className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition
+                ${req.title === "CCTV Index"
+                                ? "bg-white border-blue-300 hover:shadow-lg cursor-pointer"
+                                : "bg-gray-300 border-gray-300 opacity-70 cursor-not-allowed"}`}
                     >
                         <span className="text-xl">{req.icon}</span>
-
                         <span className="font-semibold">{req.title}</span>
 
-                        {req.count > 0 && (
-                            <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                                {req.count}+
+
+                        {notifications.length > 0 && req.title === "CCTV Index" && (
+                            <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                                {notifications.length}+
                             </span>
                         )}
                     </Link>

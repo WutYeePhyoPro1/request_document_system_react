@@ -8,11 +8,12 @@ import Layout from "../pages/layouts/Layout.jsx";
 import Create from "../pages/Create.jsx";
 import Search from "../pages/Search.jsx";
 import CctvRecord from "../pages/cctv/CctvRecord.jsx";
-import Dashboard from "../pages/dashboard.jsx";
+import Dashboard from "../pages/Dashboard.jsx";
 import CctvForm from "../pages/cctv/CctvForm.jsx";
 import Login from "../pages/auth/Login.jsx";
 import CctvIndex from "../pages/cctv/CctvIndex.jsx";
 import CctvDetails from "../pages/cctv/CctvDetails.jsx";
+import CctvEdit from "../pages/cctv/CctvEdit.jsx";
 
 const router = createBrowserRouter([
     {
@@ -58,6 +59,10 @@ const router = createBrowserRouter([
             {
                 path: "cctv-details/:id",
                 element: <CctvDetails />
+            },
+            {
+                path: "cctv-edit/:id",
+                element: <CctvEdit />
             }
         ]
     }

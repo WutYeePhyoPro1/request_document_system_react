@@ -1,6 +1,7 @@
 import React from 'react';
 import cctvPhoto from "../../assets/images/ban1.png";
 import { Link } from 'react-router-dom';
+import NavPath from '../../components/NavPath';
 
 export default function CctvRecord() {
     return (
@@ -10,6 +11,15 @@ export default function CctvRecord() {
                 style={{ backgroundImage: `url(${cctvPhoto})` }}
             ></div>
 
+
+            <NavPath
+                segments={[
+                    { path: "/dashboard", label: "Home" },
+                    { path: "/dashboard", label: "Dashboard" },
+                    { path: "/cctv-index", label: "Cctv Request" },
+                    { path: "/cctv-request", label: "Cctv Record" }
+                ]}
+            />
             <div className="max-w-6xl mx-auto bg-white border border-gray-200 shadow-lg rounded-lg p-6">
                 <h2 className="text-center text-xl font-bold text-blue-700 mb-4">
                     Pro1 Global Co., Ltd

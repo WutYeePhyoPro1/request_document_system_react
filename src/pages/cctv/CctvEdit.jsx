@@ -1,29 +1,67 @@
-import React, { useState } from "react";
-import cctvPhoto from "../../assets/images/ban1.png";
-import CctvInput from "./inputs/CctvInput";
-import CctvSelect from "./inputs/CctvSelect";
-import CctvTextarea from "./inputs/CctvTextarea";
-import CctvCheckbox from "./inputs/CctvCheckbox";
-import { confirmAlert } from "react-confirm-alert";
-import { useNavigate } from "react-router-dom";
-import NavPath from "../../components/NavPath";
+import React, { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { fetchData } from '../../api/FetchApi';
+import CctvInput from './inputs/CctvInput';
+import CctvTextarea from './inputs/CctvTextarea';
+import CctvSelect from './inputs/CctvSelect';
+import CctvCheckbox from './inputs/CctvCheckbox';
+import { confirmAlert } from 'react-confirm-alert';
 
-export default function () {
+export default function CctvEdit() {
     const navigate = useNavigate();
+    const { id } = useParams();
+    const [recordDetails, setRecordDetails] = useState(null);
+    console.log(recordDetails);
+
+    // ✅ Updated: initial formData now includes all keys, including cctv_record
     const [formData, setFormData] = useState({
-        start_time: "",
-        place: "",
-        end_time: "",
-        case_type: "",
-        record_type: "",
-        issue_date: "",
-        description: "",
-        cctv_record: false,
-        form_id: 15,
-        layout_id: 14,
-        route: "cctv_record"
+        general_form_id: '',
+        start_time: '',
+        date: '',
+        end_time: '',
+        description: '',
+        place: '',
+        record_type: '',
+        case_type: '',
+        cctv_record: false // ✅ ensures checkbox is controlled from the start
     });
-    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // ✅ Enhanced handleChange: handles both text/select and checkbox inputs
+    const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    // Load record details into form
+    useEffect(() => {
+        if (recordDetails) {
+            setFormData({
+                general_form_id: recordDetails.general_form_id || '',
+                start_time: recordDetails.start_time || '',
+                date: recordDetails.date || '',
+                end_time: recordDetails.end_time || '',
+                description: recordDetails.description || '',
+                place: recordDetails.place || '',
+                record_type: recordDetails.record_type || '',
+                case_type: recordDetails.case_type || '',
+                cctv_record: recordDetails.cctv_record ?? false // ✅ fallback to false
+            });
+        }
+    }, [recordDetails]);
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!id || !token) return;
+        fetchData(
+            `/api/cctv-data/${id}`,
+            token,
+            'data details',
+            setRecordDetails
+        );
+    }, [id]);
 
     const caseTypes = [
         { label: "Check Process - လုပ်ငန်းစဉ်ကို စစ်ဆေးခြင်း", value: 1 },
@@ -37,36 +75,26 @@ export default function () {
     const recordTypes = [
         { label: "Phone Camera", value: "Phone Camera" },
         { label: "Download Data", value: "Download Data" }
-    ]
-
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData((prevData) => ({
-            ...prevData,
-            [name]: type === "checkbox" ? checked : value,
-        }));
-    };
+    ];
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsSubmitting(true);
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
         try {
-            const token = localStorage.getItem('token');
-            const response = await fetch("/api/cctv-records", {
-                method: "POST",
+            const response = await fetch(`/api/cctv-records/${id}`, {
+                method: 'PUT',
                 mode: "cors",
                 headers: {
-                    "Content-Type": "application/json",
+                    'Content-Type': 'application/json',
                     "Accept": "application/json",
-                    "Authorization": `Bearer ${token}`,
+                    Authorization: `Bearer ${token}`
                 },
                 credentials: "include",
-                body: JSON.stringify(formData),
+                body: JSON.stringify(formData)
             });
-
             const data = await response.json();
-
             if (!response.ok) {
                 if (response.status === 422) {
                     let errorMessages = "";
@@ -91,7 +119,7 @@ export default function () {
             } else {
                 confirmAlert({
                     title: "Success",
-                    message: "Form submitted successfully!",
+                    message: "Updated successfully!",
                     buttons: [
                         {
                             label: "OK",
@@ -103,7 +131,7 @@ export default function () {
                 });
             }
         } catch (error) {
-            console.error("Error submitting form:", error);
+            onsole.error("Error submitting form:", error);
             confirmAlert({
                 title: "Error",
                 message: "Something went wrong while submitting the form.",
@@ -114,56 +142,25 @@ export default function () {
                     },
                 ],
             });
-        } finally {
-            setIsSubmitting(false);
         }
     };
 
+
+
     return (
         <div className="p-4 md:p-6 lg:p-8">
-            <div
-                className="h-40 sm:h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
-                style={{ backgroundImage: `url(${cctvPhoto})` }}
-            ></div>
-            <NavPath
-                segments={[
-                    { path: "/dashboard", label: "Home" },
-                    { path: "/dashboard", label: "Dashboard" },
-                    { path: "/cctv-index", label: "Cctv Request" },
-                    { path: "/cctv-request", label: "Cctv Record" },
-                    { path: "/cctv-form", label: "Cctv Form" },
-                ]}
-            />
             <div className="p-4 sm:p-6 bg-white-100 rounded-lg shadow-md w-full">
+
                 <h2 className="text-center text-lg sm:text-xl font-semibold mb-4">
-                    CCTV Request Form
+                    Edit CCTV Request Form
                 </h2>
 
-                <form
-                    onSubmit={handleSubmit}
-                    className="grid grid-cols-1 sm:grid-cols-2 gap-4"
-                >
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <CctvInput
                         label="Start Time (AM/PM):"
                         type="time"
                         name="start_time"
                         value={formData.start_time}
-                        onChange={handleChange}
-                        required={true}
-                    />
-                    <CctvInput
-                        label="Place"
-                        type="text"
-                        name="place"
-                        value={formData.place}
-                        onChange={handleChange}
-                        required={true}
-                    />
-                    <CctvInput
-                        label="End Time (AM/PM):"
-                        type="time"
-                        name="end_time"
-                        value={formData.end_time}
                         onChange={handleChange}
                         required={true}
                     />
@@ -176,10 +173,10 @@ export default function () {
                         required={true}
                     />
                     <CctvInput
-                        label="Case Date"
-                        type="date"
-                        name="issue_date"
-                        value={formData.issue_date}
+                        label="End Time (AM/PM):"
+                        type="time"
+                        name="end_time"
+                        value={formData.end_time}
                         onChange={handleChange}
                         required={true}
                     />
@@ -190,33 +187,53 @@ export default function () {
                         onChange={handleChange}
                         required={true}
                     />
-                    <CctvCheckbox
-                        label="CCTV Record:"
-                        name="cctv_record"
-                        checked={formData.cctv_record}
-                        onChange={handleChange}
-                        required={true}
-                    />
-                    {formData.cctv_record && (
-                        <CctvSelect
-                            label="Record Type"
-                            name="record_type"
-                            options={recordTypes}
-                            value={formData.record_type}
+                    <div>
+                        <span className="text-red-500">
+                            ***cctv record ယူသွားလျှင် button ကို on ထားပေးရန်
+                            နှင့် record type ရွေးပေးရန်***
+                        </span>
+                        <CctvCheckbox
+                            label="CCTV Record:"
+                            name="cctv_record"
+                            checked={formData.cctv_record}
                             onChange={handleChange}
                             required={true}
                         />
-                    )}
+                    </div>
+                    <CctvInput
+                        label="Place"
+                        type="text"
+                        name="place"
+                        value={formData.place}
+                        onChange={handleChange}
+                        required={true}
+                    />
+                    <CctvSelect
+                        label="Record Type"
+                        name="record_type"
+                        options={recordTypes}
+                        value={formData.record_type}
+                        onChange={handleChange}
+                        required={true}
+                    />
+
                     <div className="col-span-1 sm:col-span-2 text-center">
                         <button
                             type="submit"
-                            disabled={isSubmitting}
-                            className="bg-gradient-to-r from-green-400 to-purple-500 text-white px-6 py-2 rounded-md w-full sm:w-auto"
+                            className="text-white px-6 py-2 rounded-md w-full sm:w-auto"
+                            style={{ backgroundColor: '#2ea2d1' }}
                         >
-                            {isSubmitting ? 'Processing...' : 'Submit'}
+                            Update
                         </button>
                     </div>
                 </form>
+
+                <Link
+                    to="/cctv-index"
+                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base mt-4"
+                >
+                    <span className="mr-1 sm:mr-2">←</span> Back
+                </Link>
             </div>
         </div>
     );

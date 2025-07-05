@@ -8,8 +8,9 @@ const CctvTextarea = ({ label, name, value, onChange, required }) => {
                 name={name}
                 value={value}
                 onChange={onChange}
-                className="border border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 p-2 w-full rounded-md"
+                className="border focus:outline-none p-2 w-full rounded-md"
                 rows="3"
+                style={{ borderColor: '#2ea2d1' }}
             ></textarea>
         </div>
     );
