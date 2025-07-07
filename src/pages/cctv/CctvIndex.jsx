@@ -433,7 +433,11 @@ export default function CctvIndex() {
                                     </div>
                                 ))}
                             </div>
-                            <div className="text-center text-sm text-gray-600 mt-4">Total {paginationInfo.total} Rows</div>
+                            {paginationInfo && (
+                                <div className="text-center text-sm text-gray-600 mt-4">
+                                    Total {paginationInfo.total} Rows
+                                </div>
+                            )}
                         </div>
 
                         <div className="navigation">
