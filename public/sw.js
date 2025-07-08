@@ -1,16 +1,22 @@
-self.addEventListener('push', function (event) {
-    const payload = event.data ? event.data.json() : {};
+const CACHE_NAME = "v1";
+const urlsToCache = [
+    "/",
+    "/index.html",
+    "/manifest.json",
+    "/PRO1logo",
+    "/PRO1logo"
+];
 
+self.addEventListener("install", (event) => {
     event.waitUntil(
-        self.registration.showNotification(payload.title, {
-            body: payload.body,
-            icon: '/icon.png',
-            data: { url: payload.url }
-        })
+        caches.open(CACHE_NAME).then((cache) => cache.addAll(urlsToCache))
     );
 });
 
-self.addEventListener('notificationclick', function (event) {
-    event.notification.close();
-    event.waitUntil(clients.openWindow(event.notification.data.url));
+self.addEventListener("fetch", (event) => {
+    event.respondWith(
+        caches.match(event.request).then((response) => {
+            return response || fetch(event.request);
+        })
+    );
 });

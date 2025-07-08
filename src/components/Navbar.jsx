@@ -24,47 +24,47 @@ export default function Navbar({ toggleSidebar }) {
         navigate('/login');
     };
 
-    const subscribeToPush = async () => {
-        try {
-            if (!('serviceWorker' in navigator)) {
-                console.error('Service Worker not supported');
-                return;
-            }
-            const registration = await navigator.serviceWorker.register('/sw.js');
-            const permission = await Notification.requestPermission();
-            if (permission !== 'granted') {
-                console.warn('Notification permission denied');
-                return;
-            }
+    // const subscribeToPush = async () => {
+    //     try {
+    //         if (!('serviceWorker' in navigator)) {
+    //             console.error('Service Worker not supported');
+    //             return;
+    //         }
+    //         const registration = await navigator.serviceWorker.register('/sw.js');
+    //         const permission = await Notification.requestPermission();
+    //         if (permission !== 'granted') {
+    //             console.warn('Notification permission denied');
+    //             return;
+    //         }
 
-            let subscription = await registration.pushManager.getSubscription();
-            if (subscription) {
-                await subscription.unsubscribe();
-            }
+    //         let subscription = await registration.pushManager.getSubscription();
+    //         if (subscription) {
+    //             await subscription.unsubscribe();
+    //         }
 
-            subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(
-                    'BCPKeVfYglhfqpsmmQXv-MP7oihVtZiVzRUXkVxojeQgAlGOWB07YI77J-A8awLcqv4ZKNPHVFQimsrutIIeRhM'
-                ),
-            });
+    //         subscription = await registration.pushManager.subscribe({
+    //             userVisibleOnly: true,
+    //             applicationServerKey: urlBase64ToUint8Array(
+    //                 'BCPKeVfYglhfqpsmmQXv-MP7oihVtZiVzRUXkVxojeQgAlGOWB07YI77J-A8awLcqv4ZKNPHVFQimsrutIIeRhM'
+    //             ),
+    //         });
 
-            const response = await fetch('/api/notifications/push/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: JSON.stringify(subscription),
-            });
+    //         const response = await fetch('/api/notifications/push/subscribe', {
+    //             method: 'POST',
+    //             headers: {
+    //                 'Content-Type': 'application/json',
+    //                 'Authorization': `Bearer ${token}`,
+    //             },
+    //             body: JSON.stringify(subscription),
+    //         });
 
-            if (!response.ok) {
-                throw new Error('Failed to save subscription');
-            }
-        } catch (error) {
-            console.error('Error in subscribeToPush:', error);
-        }
-    };
+    //         if (!response.ok) {
+    //             throw new Error('Failed to save subscription');
+    //         }
+    //     } catch (error) {
+    //         console.error('Error in subscribeToPush:', error);
+    //     }
+    // };
 
     function urlBase64ToUint8Array(base64String) {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -117,7 +117,7 @@ export default function Navbar({ toggleSidebar }) {
         };
 
         fetchNotifications();
-        subscribeToPush();
+        // subscribeToPush();
         const interval = setInterval(fetchNotifications, 10000);
         return () => clearInterval(interval);
     }, [userRoleId, token]);

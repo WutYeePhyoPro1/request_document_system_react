@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './App.css'
+import InstallButton from './components/ui/InstallButton';
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
@@ -14,9 +15,10 @@ if ('serviceWorker' in navigator) {
 function App() {
     return (
         <>
-            <h1 class="text-3xl font-bold underline">
+            {/* <h1 class="text-3xl font-bold underline">
                 Hello world!
-            </h1>
+            </h1> */}
+            <InstallButton />
         </>
     )
 }

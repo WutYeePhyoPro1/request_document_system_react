@@ -1,14 +1,19 @@
 {
-    "short_name": "Request Document System",
+    "short_name": "RequestDoc",
     "name": "Request Document System Web App",
     "icons": [
         {
             "src": "PRO1logo.png",
             "sizes": "192x192",
             "type": "image/png"
+        },
+        {
+            "src": "PRO1logo.png",
+            "sizes": "512x512",
+            "type": "image/png"
         }
     ],
-    "start_url": "/",
+    "start_url": ".",
     "display": "standalone",
     "theme_color": "#000000",
     "background_color": "#ffffff"

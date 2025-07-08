@@ -6,8 +6,12 @@ import NavPath from '../../components/NavPath';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { fetchData } from '../../api/FetchApi';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from "react-router-dom";
+import Select from 'react-select'
+
 
 export default function CctvIndex() {
+    const navigate = useNavigate();
     const [cctvRequests, setCctvRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
@@ -16,30 +20,23 @@ export default function CctvIndex() {
     const { user } = useAuth();
     const userId = user?.id ?? '';
     const [UserNotification, setUserNotification] = useState([]);
+    const [isSearchMode, setIsSearchMode] = useState(false);
 
-    // useEffect(() => {
-    //     const pusher = new Pusher("7f54d776052e8e1407bf", {
-    //         cluster: "ap1",
-    //         encrypted: true,
-    //     });
 
-    //     const channel = pusher.subscribe("my-channel");
-    //     channel.bind("my-event", (data) => {
-    //         console.log("Received notification: ", data.message);
-    //         alert(JSON.stringify(data.message));
-    //     });
-
-    //     return () => {
-    //         pusher.unsubscribe("my-channel");
-    //         pusher.disconnect();
-    //     };
-    // }, []);
+    const statusOptions = [
+        { value: "Ongoing", label: "Ongoing" },
+        { value: "BM Approved", label: "BM Approved" },
+        { value: "Approved", label: "Approved" },
+        { value: "Completed", label: "Completed" },
+        { value: "Cancel", label: "Cancel" },
+    ];
 
     const [formData, setFormData] = useState({
         formDocNo: '',
         issueDate: '',
+        startDate: '',
         endDate: '',
-        status: '',
+        status: [],
         branch: 'All Branch'
     });
 
@@ -47,7 +44,6 @@ export default function CctvIndex() {
 
     const fetchCctvRecords = async (page = 1) => {
         try {
-
             const response = await fetch(`/api/cctv-records?page=${page}`, {
                 method: "GET",
                 // mode: "cors",
@@ -111,16 +107,47 @@ export default function CctvIndex() {
 
         fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
     }, []);
-
     const form_id = 15;
 
     const handleSearch = async (e) => {
         e.preventDefault();
+        setIsSearchMode(true);
+        const payload = {
+            form_doc_no: formData.formDocNo,
+            start_date: formData.startDate,
+            end_date: formData.endDate,
+            search_status: formData.status,
+            branch_id: formData.branch === "Head Office" ? 1 : 0,
+        };
+
         try {
-            const response = await axios.get(`/users/search_notifications/${form_id}`, formData);
+            const response = await fetch(`/api/users/search_notifications/${form_id}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Search failed: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+
+            console.log("Search result:", result);
+            setCctvRequests(result.data.data);
+            setPaginationInfo(result.data);
+            setCurrentPage(result.data.current_page);
+
         } catch (error) {
-            console.error('Error searching:', error);
+            console.error("Error during search:", error);
+        } finally {
+            setLoading(false);
         }
+
     }
 
     const handleChange = (e) => {
@@ -188,14 +215,14 @@ export default function CctvIndex() {
 
                             <div className="flex flex-col">
                                 <label htmlFor="startDate" className="mb-1 font-medium text-gray-700">
-                                    Issue Date
+                                    From Date
                                 </label>
                                 <input
                                     id="startDate"
                                     type="date"
                                     className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
                                     style={{ borderColor: '#2ea2d1' }}
-                                    value={formData.issueDate}
+                                    value={formData.startDate}
                                     onChange={handleChange}
                                 />
                             </div>
@@ -218,16 +245,26 @@ export default function CctvIndex() {
                                 <label htmlFor="status" className="mb-1 font-medium text-gray-700">
                                     Status
                                 </label>
-                                <input
+                                <Select
                                     id="status"
-                                    type="text"
-                                    placeholder="Status"
-                                    className="border  focus:outline-none p-2 w-full rounded-md"
-                                    value={formData.status}
-                                    onChange={handleChange}
-                                    style={{ borderColor: '#2ea2d1' }}
+                                    isMulti
+                                    name="status"
+                                    options={statusOptions}
+                                    className="basic-multi-select"
+                                    classNamePrefix="select"
+                                    value={statusOptions.filter(option => formData.status.includes(option.value))}
+                                    onChange={(selected) => {
+                                        const selectedValues = selected.map((opt) => opt.value);
+                                        setFormData((prev) => ({
+                                            ...prev,
+                                            status: selectedValues,
+                                        }));
+                                    }}
+                                    placeholder="Select Status"
                                 />
                             </div>
+
+
 
                             <div className="flex flex-col">
                                 <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
@@ -252,10 +289,35 @@ export default function CctvIndex() {
                                 }}
                                     onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
                                     onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}>
-
                                     Search
                                 </button>
                             </div>
+
+                            {isSearchMode && (
+                                <div className="flex items-end">
+                                    <button
+                                        className="text-white px-4 py-2 rounded w-full cursor-pointer"
+                                        onClick={() => {
+                                            setIsSearchMode(false);   // Exit search mode
+                                            fetchCctvRecords(1);      // Re-fetch default
+                                            setFormData({             // Optional: reset filters
+                                                formDocNo: '',
+                                                startDate: '',
+                                                endDate: '',
+                                                status: [],
+                                                branch: 'All Branch'
+                                            });
+                                        }}
+                                        style={{ backgroundColor: '#4b5563' }}
+                                        onMouseEnter={(e) => (e.target.style.backgroundColor = '#6b7280')}
+                                        onMouseLeave={(e) => (e.target.style.backgroundColor = '#4b5563')}
+                                    >
+                                        Back
+                                    </button>
+                                </div>
+                            )}
+
+
                         </div>
 
                         <div className="overflow-x-auto">
@@ -273,42 +335,32 @@ export default function CctvIndex() {
                                     </tr>
                                 </thead>
                                 <tbody>
+
+
                                     {cctvRequests && cctvRequests.map((item, index) => (
-                                        <tr key={item.id}>
+                                        <tr
+                                            key={item.id}
+                                            onClick={() => navigate(`/cctv-details/${item.id}`)}
+                                            className="cursor-pointer hover:bg-[#efefef] transition"
+                                        >
                                             <td className="py-2 px-4 border-b">
                                                 {(paginationInfo.current_page - 1) * paginationInfo.per_page + index + 1}.
                                             </td>
                                             <td className="py-2 px-4 border-b">
-
                                                 <StatusBadge status={item.status} />
-                                                {/* <span
-                                                    className={`text-orange-600 bg-orange-100 rounded-full px-3 py-1 text-xs font-semibold ${item.status === 'Ongoing'
-                                                        ? 'bg-[#fbb193] text-[#e1341e]'
-                                                        : item.status === 'BM Approved'
-                                                            ? 'bg-[#ffeaab] text-[#e6ac00]'
-                                                            : 'bg-gray-200 text-gray-600'
-                                                        }`}
-                                                >
-                                                    {item.status}
-                                                </span> */}
-
-
                                             </td>
-                                            <td className="py-2 px-4 border-b text-blue-600 font-medium cursor-pointer hover:underline">
-                                                <Link to={`/cctv-details/${item.id}`}>
-                                                    {item.form_doc_no}
-                                                    {UserNotification.some(noti =>
-                                                        noti.form_id === item.form_id &&
-                                                        noti.specific_form_id === item.id &&
-                                                        noti.form_doc_no === item.form_doc_no
-                                                    ) && (
-                                                            <span className="inline-flex items-center justify-center w-3.5 h-3 rounded bg-red-600 text-white text-[10px] leading-none ml-1">
-                                                                ...
-                                                            </span>
-                                                        )}
-                                                </Link>
+                                            <td className="py-2 px-4 border-b text-blue-600 font-medium">
+                                                {item.form_doc_no}
+                                                {UserNotification.some(noti =>
+                                                    noti.form_id === item.form_id &&
+                                                    noti.specific_form_id === item.id &&
+                                                    noti.form_doc_no === item.form_doc_no
+                                                ) && (
+                                                        <span className="inline-flex items-center justify-center w-3.5 h-3 rounded bg-red-600 text-white text-[10px] leading-none ml-1">
+                                                            ...
+                                                        </span>
+                                                    )}
                                             </td>
-
                                             <td className="py-2 px-4 border-b">Branch {item.to_branch}</td>
                                             <td className="py-2 px-4 border-b">Miss. {item.requester_name}</td>
                                             <td className="py-2 px-4 border-b">{item.date}</td>
@@ -333,37 +385,25 @@ export default function CctvIndex() {
                                                 </button>
                                             </td>
                                         </tr>
+
                                     ))}
                                 </tbody>
                             </table>
 
                             <div className="xl:hidden space-y-4 mt-4">
                                 {cctvRequests && cctvRequests.map((item) => (
-                                    <div key={item.id} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+                                    <div key={item.id}
+                                        onClick={() => navigate(`/cctv-details/${item.id}`)} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:bg-[#efefef]">
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Status:</span>
-                                            {/* <span
-                                                className={`rounded-full px-3 py-1 text-xs font-semibold w-fit ${item.status === 'Ongoing'
-                                                    ? 'bg-[#fbb193] text-[#e1341e]'
-                                                    : item.status === 'check'
-                                                        ? 'bg-[#fedec3] text-[#fb923c]'
-                                                        : item.status === 'BM Approved'
-                                                            ? 'bg-[#ffeaab] text-[#e6ac00]'
-                                                            : 'bg-gray-200 text-gray-600'
-                                                    }`}
-                                            >
-                                                {item.status}
-                                            </span> */}
                                             <StatusBadge status={item.status} />
                                         </div>
-
-
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Document No:</span>
                                             <span className="text-blue-600 font-medium flex items-center">
-                                                <Link to={`/cctv-details/${item.id}`}>
-                                                    {item.form_doc_no}
-                                                </Link>
+                                                {/* <Link to={`/cctv-details/${item.id}`}> */}
+                                                {item.form_doc_no}
+                                                {/* </Link> */}
 
                                                 {UserNotification?.some(noti =>
                                                     noti.form_id === item.form_id &&
@@ -400,7 +440,6 @@ export default function CctvIndex() {
                                                 title={item.asset_type === 1 || item.asset_type === 'on' ? "Camera On" : "Camera Off"}
                                             >
                                                 {item.asset_type === 1 || item.asset_type === 'on' ? (
-                                                    // Camera ON
                                                     <svg
                                                         xmlns="http://www.w3.org/2000/svg"
                                                         width="16"
@@ -433,6 +472,7 @@ export default function CctvIndex() {
                                     </div>
                                 ))}
                             </div>
+
                             {paginationInfo && (
                                 <div className="text-center text-sm text-gray-600 mt-4">
                                     Total {paginationInfo.total} Rows

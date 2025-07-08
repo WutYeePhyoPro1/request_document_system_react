@@ -4,6 +4,7 @@ import { DiVim } from 'react-icons/di';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import pro1Logo from "../../assets/images/finallogo.png";
+import InstallButton from '../../components/ui/InstallButton';
 
 
 export default function Login() {
@@ -105,6 +106,8 @@ export default function Login() {
                             </div>
 
                             <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-12">
+
+                                <InstallButton />
                                 <button
                                     type="submit"
                                     className="w-full py-2 sm:py-3 px-4 text-xs sm:text-sm md:text-base lg:text-lg font-semibold rounded text-white focus:outline-none transition-colors duration-300 transform hover:scale-[1.01] cursor-pointer"
@@ -120,6 +123,7 @@ export default function Login() {
                             </div>
                         </form>
                     </div>
+
                 </div>
             </div>
         </div>
