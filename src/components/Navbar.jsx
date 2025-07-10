@@ -229,19 +229,19 @@ export default function Navbar({ toggleSidebar }) {
                             </div>
                             <ul className="text-sm text-gray-700">
                                 <li>
-                                    <Link to="/change-password" className="block px-4 py-2 hover:bg-gray-100">
+                                    <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
                                         🔒 Change Password
-                                    </Link>
+                                    </span>
                                 </li>
                                 <li>
-                                    <Link to="/head-office" className="block px-4 py-2 hover:bg-gray-100">
+                                    <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
                                         🏢 Head Office
-                                    </Link>
+                                    </span>
                                 </li>
                                 <li>
-                                    <Link to="/system-development" className="block px-4 py-2 hover:bg-gray-100">
+                                    <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
                                         🖥️ System Development
-                                    </Link>
+                                    </span>
                                 </li>
                                 <li>
                                     <button
@@ -252,6 +252,8 @@ export default function Navbar({ toggleSidebar }) {
                                     </button>
                                 </li>
                             </ul>
+
+
                         </div>
                     )}
                 </div>

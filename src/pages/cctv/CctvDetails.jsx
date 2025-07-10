@@ -163,51 +163,6 @@ export default function CctvDetails() {
         }).replace(',', '');
     }
 
-    // const handleSubmit = async (submitStatus) => {
-    //     setIsSubmitting(true);
-    //     const token = localStorage.getItem('token');
-    //     try {
-    //         const url = `/api/users/cctv_record/${form_id}/${layout_id}/${general_form_id}/approve?route=${route}`;
-    //         const response = await fetch(url, {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Authorization': `Bearer ${token}`,
-    //                 'Content-Type': 'application/json',
-    //                 'Accept': 'application/json',
-    //             },
-    //             body: JSON.stringify({
-    //                 comment: remark,
-    //                 actual_user_id: actualUserId,
-    //                 status: submitStatus,
-    //                 action: action
-    //             }),
-    //         });
-    //         const data = await response.json();
-    //         if (!response.ok) {
-    //             throw new Error(data.message || 'Failed to submit');
-    //         } else {
-    //             confirmAlert({
-    //                 title: "Success",
-    //                 message: "Form submitted successfully!",
-    //                 buttons: [
-    //                     {
-    //                         label: "OK",
-    //                         onClick: () => {
-    //                             navigate("/cctv-index");
-    //                         },
-    //                     },
-    //                 ],
-    //             });
-    //         }
-    //     } catch (error) {
-    //         console.error('Error:', error);
-    //         alert(error.message || 'An error occurred');
-    //     } finally {
-    //         setIsSubmitting(false);
-    //     }
-    // };
-
-
     const handleSubmit = async (submitStatus) => {
         setIsSubmitting(true);
         const token = localStorage.getItem('token');
@@ -273,6 +228,37 @@ export default function CctvDetails() {
             setIsSubmitting(false);
         }
     };
+
+    // const handleDownloadPdf = async () => {
+    //     try {
+    //         const response = await fetch(`/api/users/${recordDetails.id}/print`, {
+    //             method: 'GET',
+    //             headers: {
+    //                 'Authorization': `Bearer ${localStorage.getItem('token')}`, // if protected
+    //                 'Accept': 'application/pdf',
+    //             }
+    //         });
+
+    //         if (!response.ok) {
+    //             throw new Error('Failed to download PDF');
+    //         }
+
+    //         const blob = await response.blob();
+    //         const url = window.URL.createObjectURL(blob);
+
+    //         const link = document.createElement('a');
+    //         link.href = url;
+    //         link.download = `${recordDetails.form_doc_no || 'document'}.pdf`;
+    //         document.body.appendChild(link);
+    //         link.click();
+    //         document.body.removeChild(link);
+    //         window.URL.revokeObjectURL(url);
+    //     } catch (error) {
+    //         console.error("Download error:", error);
+    //         alert("Failed to download PDF.");
+    //     }
+    // };
+
 
 
     const handleApprove = () => handleSubmit('Approved');
@@ -971,19 +957,30 @@ export default function CctvDetails() {
                     <span className="mr-1 sm:mr-2">←</span> Back
                 </Link>
 
-                {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") ? (
-                    <Link
+                {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
+                    <a
                         href={`/users/${recordDetails.id}/print`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        // className="inline-flex items-center px-4 py-2 rounded text-white text-sm font-medium"
-                        className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white  items-center text-sm sm:text-base"
+                        className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
                         style={{ backgroundColor: "#D75E28" }}
                     >
-                        {/* <i className="bi bi-download mr-2"></i>  */}
-                        Download Pdf
-                    </Link>
-                ) : null}
+                        Download Pdf aa
+                    </a>
+                )} */}
+
+                {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
+                    <button
+                        // onClick={handleDownloadPdf}
+                        className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
+                        style={{ backgroundColor: "#D75E28" }}
+                    >
+                        <i className="bi bi-download mr-2"></i>
+                        Download PDF
+                    </button>
+                )}
+
+
 
 
 

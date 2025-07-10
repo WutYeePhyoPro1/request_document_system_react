@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import loginPhoto from "../../assets/images/login.png";
 import { DiVim } from 'react-icons/di';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +13,53 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [remember, setRemember] = useState(false);
     const navigate = useNavigate();
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+    const [isVisible, setIsVisible] = useState(false);
+    console.log(isVisible);
+
+    useEffect(() => {
+        const handleBeforeInstallPrompt = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setIsVisible(true);
+        };
+
+        window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        const savedPrompt = sessionStorage.getItem('deferredPrompt');
+        if (savedPrompt) {
+            setDeferredPrompt(JSON.parse(savedPrompt));
+            setIsVisible(true);
+        }
+
+        return () => {
+            window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        };
+    }, []);
+
+    const handleInstallClick = () => {
+        if (deferredPrompt) {
+            alert('hiii')
+            deferredPrompt.prompt();
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                setDeferredPrompt(null);
+                setIsVisible(false);
+                sessionStorage.removeItem('deferredPrompt');
+            });
+        }
+    };
+
+    useEffect(() => {
+        if (deferredPrompt) {
+            sessionStorage.setItem('deferredPrompt', JSON.stringify(deferredPrompt));
+        }
+    }, [deferredPrompt]);
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();

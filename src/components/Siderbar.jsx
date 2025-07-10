@@ -32,21 +32,26 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                         </Link>
                     </li>
                     {[
-                        { name: "Asset", icon: FaBox },
-                        { name: "Office Use", icon: FaUsers },
-                        { name: "Merchandise", icon: FaShoppingCart },
-                        { name: "Security", icon: FaShieldAlt },
-                        { name: "Big Damage Issue", icon: FaBook }
+                        { name: "Asset", icon: FaBox, disabled: true },
+                        { name: "Office Use", icon: FaUsers, disabled: true },
+                        { name: "Merchandise", icon: FaShoppingCart, disabled: true },
+                        { name: "Security", icon: FaShieldAlt, disabled: true },
+                        { name: "Big Damage Issue", icon: FaBook, disabled: true }
                     ].map((item) => (
                         <li key={item.name}>
-                            <button onClick={() => toggleMenu(item.name)} className="flex items-center justify-between w-full p-3 hover:bg-gray-100 rounded-md">
+                            <button
+                                onClick={() => !item.disabled && toggleMenu(item.name)}
+                                className={`flex items-center justify-between w-full p-3 rounded-md ${item.disabled ? "bg-gray-50 text-gray-400 cursor-not-allowed opacity-50" : "hover:bg-gray-100"
+                                    }`}
+                                disabled={item.disabled}
+                            >
                                 <div className="flex items-center">
                                     <item.icon className="text-blue-400" size={20} />
                                     <span className="ml-3">{item.name}</span>
                                 </div>
-                                {(openMenus[item.name] ? <FiChevronUp /> : <FiChevronDown />)}
+                                {openMenus[item.name] ? <FiChevronUp /> : <FiChevronDown />}
                             </button>
-                            {openMenus[item.name] && (
+                            {!item.disabled && openMenus[item.name] && (
                                 <ul className="ml-6 text-gray-600">
                                     <li className="p-2 hover:text-purple-700">Submenu 1</li>
                                     <li className="p-2 hover:text-purple-700">Submenu 2</li>
@@ -55,21 +60,22 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                         </li>
                     ))}
 
+
                     <li>
-                        <button onClick={() => toggleMenu("User Guide")} className="flex items-center justify-between w-full p-3 hover:bg-gray-100 rounded-md">
+                        <button
+                            onClick={() => { }}
+                            disabled={true}
+                            className="flex items-center justify-between w-full p-3 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed opacity-50"
+                        >
                             <div className="flex items-center">
-                                <FiInfo className="text-blue-400" size={20} />
-                                {<span className="ml-3">User Guide</span>}
+                                <FiInfo className="text-blue-300" size={20} />
+                                <span className="ml-3">User Guide</span>
                             </div>
-                            {(openMenus["User Guide"] ? <FiChevronUp /> : <FiChevronDown />)}
+                            <FiChevronDown />
                         </button>
-                        {openMenus["User Guide"] && (
-                            <ul className="ml-6 text-gray-600">
-                                <li className="p-2 hover:text-purple-700">Help</li>
-                                <li className="p-2 hover:text-purple-700">Support</li>
-                            </ul>
-                        )}
                     </li>
+
+
                 </ul>
             </nav>
         </div>
