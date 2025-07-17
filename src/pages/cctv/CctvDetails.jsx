@@ -20,6 +20,7 @@ export default function CctvDetails() {
     const [originalData, setOriginatorData] = useState(null);
     const [approverData, setApproverData] = useState(null);
     const [cctvData, setCctvData] = useState(null);
+    console.log(cctvData?.[0]?.cctv_record);
     const cctvId = cctvData?.[0]?.id;
     const [approvalProcessUser, setApprovalProcessUser] = useState(null);
     const [videoRecord, setVideoRecord] = useState(false);
@@ -65,6 +66,8 @@ export default function CctvDetails() {
         return false;
     };
 
+    // ဒီ approver() ဆိုတဲ့ function ဟာ လက်ရှိအသုံးပြုသူ (logged-in user) က တစ်ခုတည်းသော form တွင် အတည်ပြုသူ (Approver) ဖြစ်ခွင့်ရှိ/မရှိကို စစ်ဆေးတဲ့ function တစ်ခုပါ။ ပထမဦးဆုံးအနေဖြင့် function သည် ပေးထားသော data ထဲမှ general_form_id ကို ယူပြီး ApprovalProcessUser ထဲမှ user_type က A1 ဖြစ်တဲ့ အသုံးပြုသူ (Checker) ကိုလက်ရှိ login ဝင်ထားသူဖြစ်မဖြစ်စစ်သည်။ ထို့နောက် $data->g_remark တန်ဖိုးပေါ်မူတည်ပြီး checker ကို CS (change form, create brand/category မျိုး) သို့မဟုတ် C ဟု သတ်မှတ်သည်။ ထိုအချိန်တွင် $checker ရှိ/မရှိနှင့် $data->status တန်ဖိုးအပေါ်မူတည်ပြီး အသုံးပြုသူက Approver ဖြစ်နိုင်မည့်အခြေအနေများကို စစ်တင်သည်။ ထိုအခြေအနေများမှာ – checker ရှိပြီး status က Checked ဖြစ်ခြင်း၊ checker မရှိဘဲ status က Ongoing သို့မဟုတ် Ongoing(Edit) ဖြစ်ခြင်း၊ သို့မဟုတ် checker ရှိပြီး status က Ongoing ဖြစ်ပြီး remark က office_use ဖြစ်ခြင်း – တို့ဖြစ်သည်။ ထို့နောက် User table ထဲမှ လက်ရှိအသုံးပြုသူ၏ role_id ကိုယူပြီး၊ ထို user က Role table ထဲမှာ Approver ဟုအမည်ပေးထားသော role ကိုပိုင်ဆိုင်ထားသည့် ID နှင့် တူ/မတူစစ်သည်။ နောက်ဆုံးတွင်၊ လက်ရှိ user သည် 해당 process ထဲမှ A1 user ဖြစ်ပြီး Approver role ကို ပိုင်ဆိုင်ထားသည်ဆိုပါက true ကို return ပြန်ပါသည်။ မမှန်ပါက return မရှိတော့ function သည် null ပြန်နိုင်သည်။ ဒီ logic ဟာ လက်ရှိ user က form တစ်စောင်အတွက် Approver ဖြစ်နိုင်မလားဆိုတာဖော်ထုတ်ရန် အသုံးပြုသည်။
+
     const checkBranchITApprover = () => {
         if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'BM Approved') return false;
         const current_user = approvalProcessUser.find(
@@ -76,6 +79,10 @@ export default function CctvDetails() {
         return current_user && isBranchITUser;
     };
 
+    // လက်ရှိဖောင်ကို ACK အဖြစ်ချဲ့သွင်းခံထားရတဲ့ Branch IT user ဖြစ်လား ?
+    //     ဆိုတာစစ်တာဖြစ်ပါတယ်။
+    // အကယ်၍ ဒါမှန်ခဲ့ရင်တော့ true ပြန်တယ်၊ မဟုတ်ရင် false ပြန်တယ်။
+
     const checkManager = () => {
         if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'Approved') return false;
         const current_user = approvalProcessUser.find(
@@ -86,6 +93,8 @@ export default function CctvDetails() {
         const isManager = user?.role_id === 3;
         return current_user && isManager;
     }
+
+    // လက်ရှိ user ဟာ လက်ရှိဖောင် process ထဲမှာ A2 အဖြစ်ပါဝင်ပြီး၊ သူ့ရဲ့ role က Approver(Manager) ဖြစ်လား ?ဖြစ်တယ်ဆိုရင် true ပြန်တယ်။ မဟုတ်ရင် false ပြန်တယ်။
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -259,8 +268,6 @@ export default function CctvDetails() {
     //     }
     // };
 
-
-
     const handleApprove = () => handleSubmit('Approved');
     const handleBTP = () => handleSubmit('Back To Previous');
     const handleCancel = () => handleSubmit('Cancel');
@@ -400,13 +407,11 @@ export default function CctvDetails() {
                         >
                             {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                         </button>
-                        {/* <span className="text-red-500 ml-2">({recordDetails?.status ? recordDetails.status : ''})</span> */}
                         <StatusBadge status={recordDetails?.status ? recordDetails.status : ''} />
 
 
                     </h2>
                     <div className="text-gray-600 text-sm sm:text-base">
-                        {/* {recordDetails?.date ? recordDetails.date : ''} */}
                         {recordDetails?.created_at ? formatDate(recordDetails.created_at) : ''}
                     </div>
                 </div>
@@ -480,7 +485,7 @@ export default function CctvDetails() {
                                             <td className="text-center">
                                                 <button
                                                     onClick={() => setIsVideoDownloadOpen(true)}
-                                                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
                                                 >
                                                     <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
                                                     Download video
@@ -618,29 +623,36 @@ export default function CctvDetails() {
                     </div>
                 </div>
                 <div className="mb-6">
-                    {isBranchITApprover && (
-                        <CctvUploadVideo
-                            recordId={cctvId}
-                            generalId={general_form_id}
-                            docNo={formDocno}
-                        />
-                    )}
 
-                    <div>
-                        {isBranchITApprover && recordDetails.status === 'BM Approved' && (
-                            <>
-                                <span className="text-red-500 text-sm"></span>
-                                {/* {errors.video} */}
-                                <span className="text-red-500 text-sm">**record vedio ယူခြင်း / မယူခြင်း များကို Action button တွင်ပြင်ဆင်နိုင်ပါသည်**</span>
-                            </>
+                    {/* အထွေထွေဖောင် BM Approved ဖြစ်ပြီး၊ CCTV Record ကို on လုပ်ထားသည့်အချိန်တွင်သာ —
+                    လက်ရှိ user က Branch IT ဖြစ်ရမယ်။
+                    ဒီသုံးချက်အမှန်ဖြစ်မှသာ
+                    ➡ "Upload" button တစ်ခုပြတယ်
+                    ➡ ဖိုင်တင်ဖို့ Modal ဖွင့်ခေါ်မယ်
+                    ➡ အနီရောင်သတိပေးစာပါပြတယ်။ */}
+
+                    {isBranchITApprover &&
+                        recordDetails.status === 'BM Approved' &&
+                        cctvData?.[0]?.cctv_record === 'on' && (
+                            <CctvUploadVideo
+                                recordId={cctvData?.[0]?.id}
+                                generalId={general_form_id}
+                                docNo={formDocno}
+                            />
                         )}
 
+                    <div>
+                        {isBranchITApprover &&
+                            recordDetails.status === 'BM Approved' &&
+                            cctvData?.[0]?.cctv_record === 'on' && (
+                                <>
+                                    <span className="text-red-500 text-sm"></span>
+                                    {/* {errors.video} */}
+                                    <span className="text-red-500 text-sm">**record vedio ယူခြင်း / မယူခြင်း များကို Action button တွင်ပြင်ဆင်နိုင်ပါသည်**</span>
+                                </>
+                            )}
                     </div>
 
-                    {/* {isApprover && (
-                        <div className="row mb-3">
-                        </div>
-                    )} */}
 
                     {isApprover && (
                         <div className="mb-6">

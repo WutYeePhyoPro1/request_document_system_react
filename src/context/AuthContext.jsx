@@ -1,8 +1,8 @@
-
-
-// import { createContext, useContext, useState } from 'react';
+// import { createContext, useContext, useEffect, useState } from 'react';
 // import { confirmAlert } from 'react-confirm-alert';
+// import { jwtDecode } from 'jwt-decode'; // ✅ must install this
 // import 'react-confirm-alert/src/react-confirm-alert.css';
+// import { useNavigate } from 'react-router-dom'; // ✅ navigate on timeout
 
 // const AuthContext = createContext();
 
@@ -18,6 +18,7 @@
 
 // export const AuthProvider = ({ children }) => {
 //     const [user, setUser] = useState(getUserFromStorage());
+//     const navigate = useNavigate(); // ✅ for redirect after timeout
 
 //     const login = async (employee_number, password, remember = false) => {
 //         try {
@@ -38,12 +39,7 @@
 //                 confirmAlert({
 //                     title: "Login Failed",
 //                     message: data.message || "Something went wrong.",
-//                     buttons: [
-//                         {
-//                             label: "OK",
-//                             onClick: () => { }
-//                         }
-//                     ],
+//                     buttons: [{ label: "OK", onClick: () => { } }],
 //                 });
 //                 return false;
 //             }
@@ -52,12 +48,7 @@
 //             confirmAlert({
 //                 title: "Error",
 //                 message: "Network error or server issue.",
-//                 buttons: [
-//                     {
-//                         label: "OK",
-//                         onClick: () => { }
-//                     }
-//                 ],
+//                 buttons: [{ label: "OK", onClick: () => { } }],
 //             });
 //             return false;
 //         }
@@ -68,7 +59,43 @@
 //         localStorage.removeItem('token');
 //         localStorage.removeItem('user');
 //         localStorage.removeItem('notifications');
+//         window.location.href = "/login"; // 🔁 redirect to login page
 //     };
+
+//     // ⏰ Auto logout when JWT token expires
+//     useEffect(() => {
+//         const token = localStorage.getItem('token');
+//         if (!token) return;
+
+//         let timeoutId;
+
+//         try {
+//             const decoded = jwtDecode(token);
+//             const expTime = decoded.exp * 1000; // ms
+//             const now = Date.now();
+//             const timeLeft = expTime - now;
+
+//             if (timeLeft <= 0) {
+//                 logout();
+//                 return;
+//             }
+
+//             timeoutId = setTimeout(() => {
+//                 logout();
+//                 confirmAlert({
+//                     title: "Session Expired",
+//                     message: "Your session has expired. Please log in again.",
+//                     buttons: [{ label: "OK", onClick: () => navigate("/login") }],
+
+//                 });
+//             }, timeLeft);
+//         } catch (err) {
+//             console.error("Invalid token. Logging out...");
+//             logout();
+//         }
+
+//         return () => clearTimeout(timeoutId);
+//     }, [user]); // re-run when login/logout
 
 //     return (
 //         <AuthContext.Provider value={{ user, login, logout }}>
@@ -116,11 +143,20 @@ export const AuthProvider = ({ children }) => {
                 setUser(data.user);
                 return true;
             } else {
-                showError(data.message || "Something went wrong.");
+                confirmAlert({
+                    title: "Login Failed",
+                    message: data.message || "Something went wrong.",
+                    buttons: [{ label: "OK", onClick: () => { } }],
+                });
                 return false;
             }
         } catch (error) {
-            showError("Network error or server issue.");
+            console.error("Error during login:", error);
+            confirmAlert({
+                title: "Error",
+                message: "Network error or server issue.",
+                buttons: [{ label: "OK", onClick: () => { } }],
+            });
             return false;
         }
     };
@@ -130,17 +166,10 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('notifications');
+        window.location.href = "/login"; // ✅ Safe redirect
     };
 
-    const showError = (message) => {
-        confirmAlert({
-            title: "Error",
-            message,
-            buttons: [{ label: "OK", onClick: () => { } }],
-        });
-    };
-
-    // ⏰ Set up auto-logout timer
+    // ⏰ Auto logout when JWT token expires
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -149,26 +178,26 @@ export const AuthProvider = ({ children }) => {
 
         try {
             const decoded = jwtDecode(token);
-            const expirationTime = decoded.exp * 1000; // Convert to milliseconds
-            const currentTime = Date.now();
-            const timeLeft = expirationTime - currentTime;
+            const expTime = decoded.exp * 1000; // ms
+            const now = Date.now();
+            const timeLeft = expTime - now;
 
             if (timeLeft <= 0) {
                 logout();
                 return;
             }
 
-            // Set timeout to auto-logout when token expires
             timeoutId = setTimeout(() => {
                 logout();
                 confirmAlert({
                     title: "Session Expired",
                     message: "Your session has expired. Please log in again.",
-                    buttons: [{ label: "OK", onClick: () => { } }],
+                    buttons: [{ label: "OK", onClick: () => window.location.href = "/login" }]
                 });
             }, timeLeft);
         } catch (err) {
-            logout(); // Invalid token
+            console.error("Invalid token. Logging out...");
+            logout();
         }
 
         return () => clearTimeout(timeoutId);

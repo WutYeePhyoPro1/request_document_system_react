@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 export default function InstallButton() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
     const [showInstall, setShowInstall] = useState(false);
-    console.log(deferredPrompt, showInstall);
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
@@ -38,7 +37,6 @@ export default function InstallButton() {
                 onClick={handleInstallClick}
                 className="bg-blue-600 text-white px-4 py-2 rounded shadow hover:bg-blue-700"
             >
-                aa
                 Install App
             </button>
         </div>
