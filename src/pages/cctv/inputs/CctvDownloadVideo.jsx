@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { confirmAlert } from 'react-confirm-alert';
 
-export default function CctvDownloadVideo({ empId, onClose }) {
+export default function CctvDownloadVideo({ empId, id, onClose }) {
 
     console.log(empId);
 
@@ -11,10 +11,10 @@ export default function CctvDownloadVideo({ empId, onClose }) {
         e.preventDefault();
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`/api/cctv-records/download-video/${empId}`, {
+            const response = await fetch(`/api/cctv-records/download-video/${empId}/${id}`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${token}`,
+                    "Authorization": `Bearer ${token} `,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({

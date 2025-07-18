@@ -20,7 +20,6 @@ export default function CctvDetails() {
     const [originalData, setOriginatorData] = useState(null);
     const [approverData, setApproverData] = useState(null);
     const [cctvData, setCctvData] = useState(null);
-    console.log(cctvData?.[0]?.cctv_record);
     const cctvId = cctvData?.[0]?.id;
     const [approvalProcessUser, setApprovalProcessUser] = useState(null);
     const [videoRecord, setVideoRecord] = useState(false);
@@ -519,6 +518,7 @@ export default function CctvDetails() {
                         {IsVideoDownloadOpen && (
                             <CctvDownloadVideo
                                 empId={user?.employee_number}
+                                id={general_form_id}
                                 onClose={() => setIsVideoDownloadOpen(false)}
                             />
                         )}
