@@ -6,39 +6,109 @@ export default function CctvDownloadVideo({ empId, id, onClose }) {
     console.log(empId);
 
     const [password, setPassword] = useState('');
+    const [isDownloading, setIsDownloading] = useState(false);
+
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setIsDownloading(true);
+
+        // try {
+        //     const token = localStorage.getItem('token');
+        //     const response = await fetch(`/api/cctv-records/download-video/${empId}/${id}`, {
+        //         method: "POST",
+        //         headers: {
+        //             "Authorization": `Bearer ${token} `,
+        //             "Content-Type": "application/json",
+        //         },
+        //         body: JSON.stringify({
+        //             username: empId,
+        //             password: password
+        //         }),
+        //     });
+
+        //     const result = await response.json();
+        //     if (response.ok) {
+
+        //     } else if (response.status === 401) {
+        //         confirmAlert({
+        //             title: 'Input is wrong',
+        //             text: result.message,
+        //             icon: 'warning',
+        //             confirmButtonText: 'OK'
+        //         });
+        //     }
+
+        // } catch (error) {
+        //     console.error(error);
+        //     // alert('An error occurred during the download.');
+        // }
+
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`/api/cctv-records/download-video/${empId}/${id}`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${token} `,
+                    "Authorization": `Bearer ${token}`,
                     "Content-Type": "application/json",
                 },
                 body: JSON.stringify({
-                    username: empId,
                     password: password
                 }),
             });
-
-            const result = await response.json();
-            if (response.ok) {
-
-            } else if (response.status === 401) {
-                confirmAlert({
-                    title: 'Input is wrong',
-                    text: result.message,
-                    icon: 'warning',
-                    confirmButtonText: 'OK'
-                });
+            console.log(response);
+            if (!response.ok) {
+                if (response.status === 401) {
+                    const result = await response.json();
+                    confirmAlert({
+                        title: 'Input is wrong',
+                        message: result.error || 'Unauthorized access',
+                        buttons: [{ label: 'OK' }]
+                    });
+                } else if (response.status === 404) {
+                    confirmAlert({
+                        title: 'Error',
+                        message: 'File not found on the disk',
+                        buttons: [{ label: 'OK' }]
+                    });
+                } else {
+                    confirmAlert({
+                        title: 'Error',
+                        message: 'Video could not be downloaded.',
+                        buttons: [{ label: 'OK' }]
+                    });
+                }
+                return;
             }
 
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const match = contentDisposition && contentDisposition.match(/filename="?(.+)"?/);
+            const filename = match?.[1] || 'cctv-video.mp4';
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+
+            onClose(); // close modal after download
         } catch (error) {
-            console.error(error);
-            // alert('An error occurred during the download.');
+            console.error('Download error:', error);
+            confirmAlert({
+                title: 'Error',
+                message: 'Network or server issue occurred.',
+                buttons: [{ label: 'OK' }]
+            });
+        } finally {
+            setIsDownloading(false);
         }
+
+
     };
 
 
