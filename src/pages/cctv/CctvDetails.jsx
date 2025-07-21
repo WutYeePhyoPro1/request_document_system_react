@@ -40,6 +40,7 @@ export default function CctvDetails() {
     const [IsVideoDownloadOpen, setIsVideoDownloadOpen] = useState(false);
     const [showAlert, setShowAlert] = useState(true);
     const [CancelData, setCancelData] = useState(null);
+    const [loading, setLoading] = useState(true);
 
 
 
@@ -98,6 +99,7 @@ export default function CctvDetails() {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!id || !token) return;
+        setLoading(true); // <-- Start loading
         fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
             setRecordDetails(recordData);
             fetchData(
@@ -140,6 +142,7 @@ export default function CctvDetails() {
                     setCancelData
                 );
             }
+            setLoading(false);
         });
     }, [id]);
 
@@ -313,663 +316,676 @@ export default function CctvDetails() {
         }
     }
 
-
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
 
     return (
-        <div className="p-4 sm:p-6">
-            {isBranchITApprover && isOpen && (
-                <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-                        <div className="border-b-4 border-red-500 p-6">
-                            <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-xl font-bold text-gray-800">
-                                    CCTV Form တွင် ပြင်ဆင်ထားသည့်အချက်များ
-                                </h3>
-                                <button
-                                    onClick={() => setIsOpen(false)}
-                                    className="text-gray-500 hover:text-gray-700 transition-colors"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-6 w-6"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M6 18L18 6M6 6l12 12"
-                                        />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <div className="space-y-3 text-gray-700 mb-6">
-                                <p>
-                                    1. <strong>video record</strong> ယူခြင်း မယူခြင်းများကို သက်ဆိုင်ရာ{' '}
-                                    <strong>Branch IT</strong> များပြင်ဆင်နိုင်ခြင်း
-                                </p>
-                                <p>
-                                    2. <strong>Case Type</strong> ရွေးချယ်ခြင်းများကို{' '}
-                                    <strong>SD Manager</strong> နှင့် သက်ဆိုင်ရာ{' '}
-                                    <strong>Branch IT</strong> များပြင်ဆင်နိုင်ခြင်း
-                                </p>
-                                <p>
-                                    3. အထက်ဖော်ပြပါ အဆင့်များကို approve မပေးရသေးသောအချိန်တွင် သာပြုလုပ်ပေးပါရန်
-                                </p>
-                            </div>
-
-                            <div className="flex justify-end">
-                                <button
-                                    onClick={() => setIsOpen(false)}
-                                    className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
-                                >
-                                    Close
-                                </button>
-                            </div>
-
+        <>
+            {
+                loading ? (
+                    <div className="flex justify-center items-center min-h-screen" >
+                        <div className="text-xl font-bold text-black">
+                            Loading
+                            <span className="animate-pulse">.</span>
+                            <span className="animate-pulse delay-200">.</span>
+                            <span className="animate-pulse delay-400">.</span>
                         </div>
                     </div>
-                </div>
-            )}
 
-            <div
-                className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
-                style={{ backgroundImage: `url(${dashboardPhoto})` }}
-            >
-            </div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6">
-                <NavPath
-                    segments={[
-                        { path: "/dashboard", label: "Dashboard" },
-                        { path: "/cctv-index", label: "Cctv Request" },
-                        { path: `/cctv-details/${id}`, label: "Cctv Details" }
-                    ]}
-                />
+                ) : (
 
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
-                    <h2 className="text-base sm:text-lg font-semibold">
-                        CCTV Request Form({recordDetails?.form_doc_no ? recordDetails.form_doc_no : ''})
-                        <button
-                            onClick={handleCopy}
-                            className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
-                                ? 'text-green-600 bg-green-50'
-                                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
-                                }`}
-                            title={copied ? "Copied!" : "Copy ID"}
-                            disabled={copied}
-                        >
-                            {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
-                        </button>
-                        <StatusBadge status={recordDetails?.status ? recordDetails.status : ''} />
-
-
-                    </h2>
-                    <div className="text-gray-600 text-sm sm:text-base">
-                        {recordDetails?.created_at ? formatDate(recordDetails.created_at) : ''}
-                    </div>
-                </div>
-
-                <div className="mb-6">
-                    <h3 className="font-medium mb-2">Detail ❶</h3>
-                    <div className="overflow-x-auto">
-
-
-                        <table className="hidden xl:table  min-w-full border text-xs sm:text-sm">
-                            <thead>
-                                <tr className="bg-gray-100">
-                                    <th className="border p-1 sm:p-2">No</th>
-                                    <th className="border p-1 sm:p-2">Start Time</th>
-                                    <th className="border p-1 sm:p-2">End Time</th>
-                                    <th className="border p-1 sm:p-2">Case Date</th>
-                                    <th className="border p-1 sm:p-2 hidden sm:table-cell">Case Type</th>
-                                    <th className="border p-1 sm:p-2">Place</th>
-                                    <th className="border p-1 sm:p-2 hidden md:table-cell">Branch</th>
-                                    <th className="border p-1 sm:p-2 hidden lg:table-cell">Record Type</th>
-                                    <th className="border p-1 sm:p-2 hidden xl:table-cell">Description</th>
-                                    <th className="border p-1 sm:p-2 hidden md:table-cell">Replay Date</th>
-                                    <th className="border p-1 sm:p-2 hidden lg:table-cell">Record Video</th>
-                                    {/* {isApprover || isBranchITApprover || user?.employee_number === '000-000024' && (
-                                        <th className="border p-1 sm:p-2 hidden lg:table-cell">Action</th>
-                                    )} */}
-                                    {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
-                                        <th className="border p-1 sm:p-2 hidden lg:table-cell">Action</th>
-                                    )}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {cctvData?.map((item, index) => (
-                                    <tr key={item.id}>
-                                        <td className="border p-1 sm:p-2">
-                                            {index + 1}
-                                            <input type="hidden" name="specific_form_id[]" value={item.id} />
-                                        </td>
-                                        <td className="border p-1 sm:p-2">
-                                            {formatTime(item.start_time)}
-                                        </td>
-                                        <td className="border p-1 sm:p-2">
-                                            {formatTime(item.end_time)}
-                                        </td>
-                                        <td className="border p-1 sm:p-2">
-                                            {item.issue_date}
-                                        </td>
-                                        <td className="border p-1 sm:p-2 hidden sm:table-cell">
-                                            {renderCaseType(item.case_type)}
-                                        </td>
-                                        <td className="border p-1 sm:p-2">{item.place}</td>
-                                        <td className="border p-1 sm:p-2 hidden md:table-cell">
-
-                                            {item?.branch_name || '-'}
-                                        </td>
-                                        <td className="border p-1 sm:p-2 hidden lg:table-cell">
-                                            {item.record_type && item.record_type !== 'null' ? item.record_type : '-'}
-                                        </td>
-                                        <td className="border p-1 sm:p-2 hidden xl:table-cell">
-                                            {item.description}
-                                        </td>
-                                        <td className="border p-1 sm:p-2 hidden md:table-cell">
-                                            {formatDate(item.created_at)}
-                                        </td>
-
-                                        {videoRecord?.exists && (
-                                            (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
-                                            (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
-                                            (user?.employee_number === '000-000548')
-                                        ) ? (
-                                            <td className="text-center">
-                                                <button
-                                                    onClick={() => setIsVideoDownloadOpen(true)}
-                                                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+                    <div className="p-4 sm:p-6">
+                        {isBranchITApprover && isOpen && (
+                            <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
+                                <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+                                    <div className="border-b-4 border-red-500 p-6">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <h3 className="text-xl font-bold text-gray-800">
+                                                CCTV Form တွင် ပြင်ဆင်ထားသည့်အချက်များ
+                                            </h3>
+                                            <button
+                                                onClick={() => setIsOpen(false)}
+                                                className="text-gray-500 hover:text-gray-700 transition-colors"
+                                            >
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    className="h-6 w-6"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
                                                 >
-                                                    <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
-                                                    Download video
-                                                </button>
-                                            </td>
-                                        ) : (
-                                            <td className="text-center">-</td>
-                                        )}
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M6 18L18 6M6 6l12 12"
+                                                    />
+                                                </svg>
+                                            </button>
+                                        </div>
 
-                                        {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
-                                            <td className="border p-1 sm:p-2 hidden lg:table-cell">
-                                                <Link
-                                                    to={`/cctv-edit/${item.id}`}
-                                                    className="text-white font-bold py-1 px-3 rounded cursor-pointer text-sm"
-                                                    style={{
-                                                        backgroundColor: '#2ea2d1',
-                                                    }}
-                                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
-                                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}
-                                                >
-                                                    Edit
-                                                </Link>
-                                            </td>
-                                        )}
+                                        <div className="space-y-3 text-gray-700 mb-6">
+                                            <p>
+                                                1. <strong>video record</strong> ယူခြင်း မယူခြင်းများကို သက်ဆိုင်ရာ{' '}
+                                                <strong>Branch IT</strong> များပြင်ဆင်နိုင်ခြင်း
+                                            </p>
+                                            <p>
+                                                2. <strong>Case Type</strong> ရွေးချယ်ခြင်းများကို{' '}
+                                                <strong>SD Manager</strong> နှင့် သက်ဆိုင်ရာ{' '}
+                                                <strong>Branch IT</strong> များပြင်ဆင်နိုင်ခြင်း
+                                            </p>
+                                            <p>
+                                                3. အထက်ဖော်ပြပါ အဆင့်များကို approve မပေးရသေးသောအချိန်တွင် သာပြုလုပ်ပေးပါရန်
+                                            </p>
+                                        </div>
 
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                        <div className="flex justify-end">
+                                            <button
+                                                onClick={() => setIsOpen(false)}
+                                                className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
 
-                        {IsVideoDownloadOpen && (
-                            <CctvDownloadVideo
-                                empId={user?.employee_number}
-                                id={general_form_id}
-                                onClose={() => setIsVideoDownloadOpen(false)}
-                            />
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
-
-                        <div className="lg:hidden space-y-4 mt-4 font-medium text-sm sm:text-base">
-                            {cctvData?.map((item, index) => (
-                                <div key={item.id} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">No:</span>
-                                        <span>{index + 1}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Start Time:</span>
-                                        <span>{formatTime(item.start_time)}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">End Time:</span>
-                                        <span>{formatTime(item.end_time)}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Case Date:</span>
-                                        <span>{item.issue_date}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Case Type:</span>
-                                        <span>{renderCaseType(item.case_type)}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Place:</span>
-                                        <span>{item.place}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Branch:</span>
-                                        <span>{item.branch_name || '-'}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Record Type:</span>
-                                        <span>{item.record_type && item.record_type !== 'null' ? item.record_type : '-'}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Description:</span>
-                                        <span>{item.description}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mb-2">
-                                        <span className="font-semibold text-gray-700">Replay Date:</span>
-                                        <span>{formatDate(item.created_at)}</span>
-                                    </div>
-
-                                    <div className="flex flex-col mt-2">
-                                        <span className="font-semibold text-gray-700">Record Video:</span>
-
-                                    </div>
-
-                                    {videoRecord?.exists && (
-                                        (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
-                                        (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
-                                        (user?.employee_number === '000-000548')
-                                    ) ? (
-
-                                        <span className="text-gray-800">
-
-                                            <button
-                                                onClick={() => setIsVideoDownloadOpen(true)}
-                                                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
-                                            >
-                                                <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
-                                                Download video
-                                            </button>
-                                        </span>
-
-
-                                    ) : (
-                                        <span className="text-gray-800"> - </span>
-                                    )}
-
-                                    {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
-                                        <div className="flex flex-col mt-2">
-                                            <span className="font-semibold text-gray-700">Action:</span>
-                                            <Link
-                                                to={`/cctv-edit/${item.id}`}
-                                                className="bg-[#2ea2d1] text-white font-semibold py-1 px-3 rounded w-fit hover:bg-[#6fc3df]"
-                                            >
-                                                Edit
-                                            </Link>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                        <div
+                            className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
+                            style={{ backgroundImage: `url(${dashboardPhoto})` }}
+                        >
                         </div>
+                        <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6">
+                            <NavPath
+                                segments={[
+                                    { path: "/dashboard", label: "Dashboard" },
+                                    { path: "/cctv-index", label: "Cctv Request" },
+                                    { path: `/cctv-details/${id}`, label: "Cctv Details" }
+                                ]}
+                            />
+
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+                                <h2 className="text-base sm:text-lg font-semibold">
+                                    CCTV Request Form({recordDetails?.form_doc_no ? recordDetails.form_doc_no : ''})
+                                    <button
+                                        onClick={handleCopy}
+                                        className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                                            ? 'text-green-600 bg-green-50'
+                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                            }`}
+                                        title={copied ? "Copied!" : "Copy ID"}
+                                        disabled={copied}
+                                    >
+                                        {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                    </button>
+                                    <StatusBadge status={recordDetails?.status ? recordDetails.status : ''} />
 
 
-                    </div>
-                </div>
-                <div className="mb-6">
+                                </h2>
+                                <div className="text-gray-600 text-sm sm:text-base">
+                                    {recordDetails?.created_at ? formatDate(recordDetails.created_at) : ''}
+                                </div>
+                            </div>
 
-                    {/* အထွေထွေဖောင် BM Approved ဖြစ်ပြီး၊ CCTV Record ကို on လုပ်ထားသည့်အချိန်တွင်သာ —
+                            <div className="mb-6">
+                                <h3 className="font-medium mb-2">Detail ❶</h3>
+                                <div className="overflow-x-auto">
+
+
+                                    <table className="hidden xl:table  min-w-full border text-xs sm:text-sm">
+                                        <thead>
+                                            <tr className="bg-gray-100">
+                                                <th className="border p-1 sm:p-2">No</th>
+                                                <th className="border p-1 sm:p-2">Start Time</th>
+                                                <th className="border p-1 sm:p-2">End Time</th>
+                                                <th className="border p-1 sm:p-2">Case Date</th>
+                                                <th className="border p-1 sm:p-2 hidden sm:table-cell">Case Type</th>
+                                                <th className="border p-1 sm:p-2">Place</th>
+                                                <th className="border p-1 sm:p-2 hidden md:table-cell">Branch</th>
+                                                <th className="border p-1 sm:p-2 hidden lg:table-cell">Record Type</th>
+                                                <th className="border p-1 sm:p-2 hidden xl:table-cell">Description</th>
+                                                <th className="border p-1 sm:p-2 hidden md:table-cell">Replay Date</th>
+                                                <th className="border p-1 sm:p-2 hidden lg:table-cell">Record Video</th>
+                                                {/* {isApprover || isBranchITApprover || user?.employee_number === '000-000024' && (
+                                        <th className="border p-1 sm:p-2 hidden lg:table-cell">Action</th>
+                                    )} */}
+                                                {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
+                                                    <th className="border p-1 sm:p-2 hidden lg:table-cell">Action</th>
+                                                )}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {cctvData?.map((item, index) => (
+                                                <tr key={item.id}>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {index + 1}
+                                                        <input type="hidden" name="specific_form_id[]" value={item.id} />
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {formatTime(item.start_time)}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {formatTime(item.end_time)}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {item.issue_date}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden sm:table-cell">
+                                                        {renderCaseType(item.case_type)}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">{item.place}</td>
+                                                    <td className="border p-1 sm:p-2 hidden md:table-cell">
+
+                                                        {item?.branch_name || '-'}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden lg:table-cell">
+                                                        {item.record_type && item.record_type !== 'null' ? item.record_type : '-'}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden xl:table-cell">
+                                                        {item.description}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden md:table-cell">
+                                                        {formatDate(item.created_at)}
+                                                    </td>
+
+                                                    {videoRecord?.exists && (
+                                                        (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
+                                                        (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
+                                                        (user?.employee_number === '000-000548')
+                                                    ) ? (
+                                                        <td className="text-center">
+                                                            <button
+                                                                onClick={() => setIsVideoDownloadOpen(true)}
+                                                                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+                                                            >
+                                                                <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
+                                                                Download video
+                                                            </button>
+                                                        </td>
+                                                    ) : (
+                                                        <td className="text-center">-</td>
+                                                    )}
+
+                                                    {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
+                                                        <td className="border p-1 sm:p-2 hidden lg:table-cell">
+                                                            <Link
+                                                                to={`/cctv-edit/${item.id}`}
+                                                                className="text-white font-bold py-1 px-3 rounded cursor-pointer text-sm"
+                                                                style={{
+                                                                    backgroundColor: '#2ea2d1',
+                                                                }}
+                                                                onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
+                                                                onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}
+                                                            >
+                                                                Edit
+                                                            </Link>
+                                                        </td>
+                                                    )}
+
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+
+                                    {IsVideoDownloadOpen && (
+                                        <CctvDownloadVideo
+                                            empId={user?.employee_number}
+                                            id={general_form_id}
+                                            onClose={() => setIsVideoDownloadOpen(false)}
+                                        />
+                                    )}
+
+
+                                    <div className="lg:hidden space-y-4 mt-4 font-medium text-sm sm:text-base">
+                                        {cctvData?.map((item, index) => (
+                                            <div key={item.id} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">No:</span>
+                                                    <span>{index + 1}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Start Time:</span>
+                                                    <span>{formatTime(item.start_time)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">End Time:</span>
+                                                    <span>{formatTime(item.end_time)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Case Date:</span>
+                                                    <span>{item.issue_date}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Case Type:</span>
+                                                    <span>{renderCaseType(item.case_type)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Place:</span>
+                                                    <span>{item.place}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Branch:</span>
+                                                    <span>{item.branch_name || '-'}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Record Type:</span>
+                                                    <span>{item.record_type && item.record_type !== 'null' ? item.record_type : '-'}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Description:</span>
+                                                    <span>{item.description}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Replay Date:</span>
+                                                    <span>{formatDate(item.created_at)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mt-2">
+                                                    <span className="font-semibold text-gray-700">Record Video:</span>
+
+                                                </div>
+
+                                                {videoRecord?.exists && (
+                                                    (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
+                                                    (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
+                                                    (user?.employee_number === '000-000548')
+                                                ) ? (
+
+                                                    <span className="text-gray-800">
+
+                                                        <button
+                                                            onClick={() => setIsVideoDownloadOpen(true)}
+                                                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                                        >
+                                                            <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
+                                                            Download video
+                                                        </button>
+                                                    </span>
+
+
+                                                ) : (
+                                                    <span className="text-gray-800"> - </span>
+                                                )}
+
+                                                {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
+                                                    <div className="flex flex-col mt-2">
+                                                        <span className="font-semibold text-gray-700">Action:</span>
+                                                        <Link
+                                                            to={`/cctv-edit/${item.id}`}
+                                                            className="bg-[#2ea2d1] text-white font-semibold py-1 px-3 rounded w-fit hover:bg-[#6fc3df]"
+                                                        >
+                                                            Edit
+                                                        </Link>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+
+                                </div>
+                            </div>
+                            <div className="mb-6">
+
+                                {/* အထွေထွေဖောင် BM Approved ဖြစ်ပြီး၊ CCTV Record ကို on လုပ်ထားသည့်အချိန်တွင်သာ —
                     လက်ရှိ user က Branch IT ဖြစ်ရမယ်။
                     ဒီသုံးချက်အမှန်ဖြစ်မှသာ
                     ➡ "Upload" button တစ်ခုပြတယ်
                     ➡ ဖိုင်တင်ဖို့ Modal ဖွင့်ခေါ်မယ်
                     ➡ အနီရောင်သတိပေးစာပါပြတယ်။ */}
 
-                    {isBranchITApprover &&
-                        recordDetails.status === 'BM Approved' &&
-                        cctvData?.[0]?.cctv_record === 'on' && (
-                            <CctvUploadVideo
-                                recordId={cctvData?.[0]?.id}
-                                generalId={general_form_id}
-                                docNo={formDocno}
-                            />
-                        )}
+                                {isBranchITApprover &&
+                                    recordDetails.status === 'BM Approved' &&
+                                    cctvData?.[0]?.cctv_record === 'on' && (
+                                        <CctvUploadVideo
+                                            recordId={cctvData?.[0]?.id}
+                                            generalId={general_form_id}
+                                            docNo={formDocno}
+                                        />
+                                    )}
 
-                    <div>
-                        {isBranchITApprover &&
-                            recordDetails.status === 'BM Approved' &&
-                            cctvData?.[0]?.cctv_record === 'on' && (
+                                <div>
+                                    {isBranchITApprover &&
+                                        recordDetails.status === 'BM Approved' &&
+                                        cctvData?.[0]?.cctv_record === 'on' && (
+                                            <>
+                                                <span className="text-red-500 text-sm"></span>
+                                                {/* {errors.video} */}
+                                                <span className="text-red-500 text-sm">**record vedio ယူခြင်း / မယူခြင်း များကို Action button တွင်ပြင်ဆင်နိုင်ပါသည်**</span>
+                                            </>
+                                        )}
+                                </div>
+
+
+                                {isApprover && (
+                                    <div className="mb-6">
+                                        <h4 className="font-medium mb-2">Remark</h4>
+                                        <textarea
+                                            value={remark}
+                                            onChange={(e) => setRemark(e.target.value)}
+                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Write remark about this and please be careful not more than 200 characters."
+                                            rows={3}
+                                            maxLength={200}
+                                        />
+                                        <div className="mt-2">
+                                            <button
+                                                onClick={handleBMApprove}
+                                                disabled={isSubmitting}
+                                                className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
+                                            >
+                                                {isSubmitting ? 'Processing...' : 'Approve'}
+                                            </button>
+                                            <button
+                                                onClick={handleCancel}
+                                                className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isBranchITApprover && (
+                                    <div className="mb-6">
+                                        <h4 className="font-medium mb-2">Remark</h4>
+                                        <textarea
+                                            value={remark}
+                                            onChange={(e) => setRemark(e.target.value)}
+                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Write remark about this and please be careful not more than 200 characters."
+                                            rows={3}
+                                            maxLength={200}
+                                        />
+                                        <div className="mt-2">
+                                            <button
+                                                onClick={handleApprove}
+                                                disabled={isSubmitting}
+                                                className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
+                                            >
+                                                {isSubmitting ? 'Processing...' : 'Approve'}
+                                            </button>
+                                            <button
+                                                onClick={handleCancel}
+                                                className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* isManager */}
+
+                                {isManager && (
+                                    <div className="mb-6">
+                                        <h4 className="font-medium mb-2">Remark</h4>
+                                        <textarea
+                                            value={remark}
+                                            onChange={(e) => setRemark(e.target.value)}
+                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Write remark about this and please be careful not more than 200 characters."
+                                            rows={3}
+                                            maxLength={200}
+                                        />
+                                        <div className="mt-2">
+                                            <button
+                                                onClick={handleComplete}
+                                                disabled={isSubmitting}
+                                                className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
+                                            >
+                                                {isSubmitting ? 'Processing...' : 'Approve'}
+                                            </button>
+                                            <button
+                                                onClick={handleCancel}
+                                                className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                            {route === 'cctv_record' && isManager && recordDetails?.status === 'Approved' && (
+                                                <button
+                                                    onClick={ApproveBackToPrevious}
+                                                    className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
+                                                >
+                                                    Back to Previous
+                                                </button>
+                                            )}
+
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>
+
+
+                            {recordDetails?.status === 'Cancel' && (
                                 <>
-                                    <span className="text-red-500 text-sm"></span>
-                                    {/* {errors.video} */}
-                                    <span className="text-red-500 text-sm">**record vedio ယူခြင်း / မယူခြင်း များကို Action button တွင်ပြင်ဆင်နိုင်ပါသည်**</span>
+                                    {showAlert && CancelData && (
+                                        <div className="flex flex-row">
+                                            <div
+                                                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full"
+                                                role="alert"
+                                            >
+                                                <span className="block sm:inline">
+                                                    This form was rejected by <span className="font-bold">{CancelData.title}{CancelData.name}</span>
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="absolute top-0 bottom-0 right-0 px-4 py-3 focus:outline-none cursor-pointe"
+                                                    onClick={() => setShowAlert(false)}
+                                                    aria-label="Close"
+                                                >
+                                                    <svg
+                                                        className="fill-current h-6 w-6 text-red-500"
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        viewBox="0 0 20 20"
+                                                    >
+                                                        <title>Close</title>
+                                                        <path d="M14.348 5.652a1 1 0 0 0-1.414 0L10 8.586 7.066 5.652a1 1 0 1 0-1.414 1.414L8.586 10l-2.934 2.934a1 1 0 1 0 1.414 1.414L10 11.414l2.934 2.934a1 1 0 0 0 1.414-1.414L11.414 10l2.934-2.934a1 1 0 0 0 0-1.414z" />
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+
+
+
+                                    {recordDetails.cancel_form?.file && (
+                                        <>
+                                            <div className="mt-4">
+                                                <img
+                                                    src={`/storage/uploads/cancel_form/${recordDetails.cancel_form.file}`}
+                                                    alt="Cancelled Form Attachment"
+                                                    className="w-full max-w-lg mx-auto rounded shadow"
+                                                />
+                                            </div>
+                                            <div className="mt-4">
+                                                <img
+                                                    src={`/storage/uploads/cancel_form/${recordDetails.cancel_form.file}`}
+                                                    alt="Cancelled Form Attachment"
+                                                    className="w-full max-w-lg mx-auto rounded shadow"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                 </>
                             )}
-                    </div>
 
 
-                    {isApprover && (
-                        <div className="mb-6">
-                            <h4 className="font-medium mb-2">Remark</h4>
-                            <textarea
-                                value={remark}
-                                onChange={(e) => setRemark(e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Write remark about this and please be careful not more than 200 characters."
-                                rows={3}
-                                maxLength={200}
-                            />
-                            <div className="mt-2">
-                                <button
-                                    onClick={handleBMApprove}
-                                    disabled={isSubmitting}
-                                    className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
-                                >
-                                    {isSubmitting ? 'Processing...' : 'Approve'}
-                                </button>
-                                <button
-                                    onClick={handleCancel}
-                                    className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {isBranchITApprover && (
-                        <div className="mb-6">
-                            <h4 className="font-medium mb-2">Remark</h4>
-                            <textarea
-                                value={remark}
-                                onChange={(e) => setRemark(e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Write remark about this and please be careful not more than 200 characters."
-                                rows={3}
-                                maxLength={200}
-                            />
-                            <div className="mt-2">
-                                <button
-                                    onClick={handleApprove}
-                                    disabled={isSubmitting}
-                                    className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
-                                >
-                                    {isSubmitting ? 'Processing...' : 'Approve'}
-                                </button>
-                                <button
-                                    onClick={handleCancel}
-                                    className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* isManager */}
-
-                    {isManager && (
-                        <div className="mb-6">
-                            <h4 className="font-medium mb-2">Remark</h4>
-                            <textarea
-                                value={remark}
-                                onChange={(e) => setRemark(e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Write remark about this and please be careful not more than 200 characters."
-                                rows={3}
-                                maxLength={200}
-                            />
-                            <div className="mt-2">
-                                <button
-                                    onClick={handleComplete}
-                                    disabled={isSubmitting}
-                                    className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
-                                >
-                                    {isSubmitting ? 'Processing...' : 'Approve'}
-                                </button>
-                                <button
-                                    onClick={handleCancel}
-                                    className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
-                                >
-                                    Cancel
-                                </button>
-                                {route === 'cctv_record' && isManager && recordDetails?.status === 'Approved' && (
-                                    <button
-                                        onClick={ApproveBackToPrevious}
-                                        className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
-                                    >
-                                        Back to Previous
-                                    </button>
-                                )}
-
-                            </div>
-                        </div>
-                    )}
-
-                </div>
-
-
-                {recordDetails?.status === 'Cancel' && (
-                    <>
-                        {showAlert && CancelData && (
-                            <div className="flex flex-row">
-                                <div
-                                    className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full"
-                                    role="alert"
-                                >
-                                    <span className="block sm:inline">
-                                        This form was rejected by <span className="font-bold">{CancelData.title}{CancelData.name}</span>
-                                    </span>
-                                    <button
-                                        type="button"
-                                        className="absolute top-0 bottom-0 right-0 px-4 py-3 focus:outline-none cursor-pointe"
-                                        onClick={() => setShowAlert(false)}
-                                        aria-label="Close"
-                                    >
-                                        <svg
-                                            className="fill-current h-6 w-6 text-red-500"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            viewBox="0 0 20 20"
-                                        >
-                                            <title>Close</title>
-                                            <path d="M14.348 5.652a1 1 0 0 0-1.414 0L10 8.586 7.066 5.652a1 1 0 1 0-1.414 1.414L8.586 10l-2.934 2.934a1 1 0 1 0 1.414 1.414L10 11.414l2.934 2.934a1 1 0 0 0 1.414-1.414L11.414 10l2.934-2.934a1 1 0 0 0 0-1.414z" />
-                                        </svg>
-                                    </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 mt-6">
+                                <div className="border p-3 sm:p-4 rounded">
+                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">Staff/Eyewitness</h4>
+                                    {/* {recordDetails?.status === "Ongoing" && ( */}
+                                    <>
+                                        <p className="text-xs sm:text-sm">
+                                            {originalData?.title ? `${originalData.title}.` : ''}
+                                            {originalData?.name ? originalData.name : ''}
+                                        </p>
+                                        <p className="text-xs sm:text-sm">
+                                            ({originalData?.department ? originalData.department : ''})
+                                        </p>
+                                        <p className="text-gray-500 text-xs">
+                                            {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}
+                                        </p>
+                                    </>
+                                    {/* )} */}
                                 </div>
+
+
+                                <div className="border p-3 sm:p-4 rounded">
+                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
+                                        {(approverData &&
+                                            (
+                                                recordDetails?.status === 'BM Approved' ||
+                                                recordDetails?.status === 'Approved' ||
+                                                recordDetails?.status === 'Received' ||
+                                                recordDetails?.status === 'Acknowledged' ||
+                                                recordDetails?.status === 'Completed' ||
+                                                (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
+                                            ))
+                                            ? 'Approved By'
+                                            : 'Approved By BM / ABM'}
+                                    </h4>
+
+                                    {approverData && (
+                                        recordDetails?.status === 'BM Approved' ||
+                                        recordDetails?.status === 'Approved' ||
+                                        recordDetails?.status === 'Received' ||
+                                        recordDetails?.status === 'Acknowledged' ||
+                                        recordDetails?.status === 'Completed' ||
+                                        (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
+                                    ) ? (
+                                        <>
+                                            <p className="text-xs sm:text-sm">
+                                                {approverData?.title ? `${approverData.title}.` : ''}
+                                                {approverData?.name ?? ''}
+                                            </p>
+                                            <p className="text-xs sm:text-sm">
+                                                ({approverData?.department ?? ''})
+                                            </p>
+                                            <p className="text-gray-500 text-xs">
+                                                {approverData?.created_at ? formatDateTime(approverData.created_at) : ''}
+                                            </p>
+                                            {approverData?.comment && (
+                                                <p className="text-info italic text-xs sm:text-sm">
+                                                    "{approverData.comment}"
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <p className="text-muted text-xs sm:text-sm opacity-25">
+                                            -
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="border p-3 sm:p-4 rounded">
+                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
+                                        {(acknowledgerData &&
+                                            (
+                                                recordDetails?.status === 'Approved' ||
+                                                recordDetails?.status === 'Completed' ||
+                                                (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
+                                            ))
+                                            ? 'Checked By'
+                                            : 'Checked by Branch IT'}
+                                    </h4>
+
+                                    {(acknowledgerData &&
+                                        (
+                                            recordDetails?.status === 'Approved' ||
+                                            recordDetails?.status === 'Completed' ||
+                                            (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
+                                        )) ? (
+                                        <>
+                                            <p className="text-xs sm:text-sm">
+                                                {acknowledgerData?.title ? `${acknowledgerData.title}.` : ''}
+                                                {acknowledgerData?.name ?? ''}
+                                            </p>
+                                            <p className="text-xs sm:text-sm">
+                                                ({acknowledgerData?.department ?? ''})
+                                            </p>
+                                            <p className="text-gray-500 text-xs">
+                                                {acknowledgerData?.created_at ? formatDateTime(acknowledgerData.created_at) : ''}
+                                            </p>
+                                            {acknowledgerData?.comment && (
+                                                <p className="text-info italic text-xs sm:text-sm">
+                                                    "{acknowledgerData.comment}"
+                                                </p>
+                                            )}
+
+                                        </>
+                                    ) : (
+                                        <p className="text-muted text-xs sm:text-sm opacity-25">
+                                            -
+                                        </p>
+                                    )}
+                                </div>
+
+
+                                <div className="border p-3 sm:p-4 rounded">
+                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
+                                        {(managerData &&
+                                            (
+                                                recordDetails?.status === 'Completed' ||
+                                                (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
+                                            ))
+                                            ? 'Acknowledged By'
+                                            : 'Acknowledged by SD Manager'}
+                                    </h4>
+
+                                    {(managerData &&
+                                        (
+                                            recordDetails?.status === 'Completed' ||
+                                            (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
+                                        )) ? (
+                                        <>
+                                            <p className="text-xs sm:text-sm">
+                                                {managerData?.title ? `${managerData.title}.` : ''}
+                                                {managerData?.name ?? ''}
+                                            </p>
+                                            <p className="text-xs sm:text-sm">
+                                                {managerData?.department ?? ''}
+                                            </p>
+                                            <p className="text-gray-500 text-xs">
+                                                {managerData?.created_at ? formatDateTime(managerData.created_at) : ''}
+                                            </p>
+                                            {managerData?.comment && (
+                                                <p className="text-info italic text-xs sm:text-sm">
+                                                    "{managerData.comment}"
+                                                </p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <p className="text-muted text-xs sm:text-sm opacity-25">
+                                            -
+                                        </p>
+                                    )}
+                                </div>
+
                             </div>
-                        )}
 
+                            <Link
+                                to="/cctv-index"
+                                className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
+                            >
+                                <span className="mr-1 sm:mr-2">←</span> Back
+                            </Link>
 
-
-                        {recordDetails.cancel_form?.file && (
-                            <>
-                                <div className="mt-4">
-                                    <img
-                                        src={`/storage/uploads/cancel_form/${recordDetails.cancel_form.file}`}
-                                        alt="Cancelled Form Attachment"
-                                        className="w-full max-w-lg mx-auto rounded shadow"
-                                    />
-                                </div>
-                                <div className="mt-4">
-                                    <img
-                                        src={`/storage/uploads/cancel_form/${recordDetails.cancel_form.file}`}
-                                        alt="Cancelled Form Attachment"
-                                        className="w-full max-w-lg mx-auto rounded shadow"
-                                    />
-                                </div>
-                            </>
-                        )}
-                    </>
-                )}
-
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 mt-6">
-                    <div className="border p-3 sm:p-4 rounded">
-                        <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">Staff/Eyewitness</h4>
-                        {/* {recordDetails?.status === "Ongoing" && ( */}
-                        <>
-                            <p className="text-xs sm:text-sm">
-                                {originalData?.title ? `${originalData.title}.` : ''}
-                                {originalData?.name ? originalData.name : ''}
-                            </p>
-                            <p className="text-xs sm:text-sm">
-                                ({originalData?.department ? originalData.department : ''})
-                            </p>
-                            <p className="text-gray-500 text-xs">
-                                {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}
-                            </p>
-                        </>
-                        {/* )} */}
-                    </div>
-
-
-                    <div className="border p-3 sm:p-4 rounded">
-                        <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
-                            {(approverData &&
-                                (
-                                    recordDetails?.status === 'BM Approved' ||
-                                    recordDetails?.status === 'Approved' ||
-                                    recordDetails?.status === 'Received' ||
-                                    recordDetails?.status === 'Acknowledged' ||
-                                    recordDetails?.status === 'Completed' ||
-                                    (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
-                                ))
-                                ? 'Approved By'
-                                : 'Approved By BM / ABM'}
-                        </h4>
-
-                        {approverData && (
-                            recordDetails?.status === 'BM Approved' ||
-                            recordDetails?.status === 'Approved' ||
-                            recordDetails?.status === 'Received' ||
-                            recordDetails?.status === 'Acknowledged' ||
-                            recordDetails?.status === 'Completed' ||
-                            (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
-                        ) ? (
-                            <>
-                                <p className="text-xs sm:text-sm">
-                                    {approverData?.title ? `${approverData.title}.` : ''}
-                                    {approverData?.name ?? ''}
-                                </p>
-                                <p className="text-xs sm:text-sm">
-                                    ({approverData?.department ?? ''})
-                                </p>
-                                <p className="text-gray-500 text-xs">
-                                    {approverData?.created_at ? formatDateTime(approverData.created_at) : ''}
-                                </p>
-                                {approverData?.comment && (
-                                    <p className="text-info italic text-xs sm:text-sm">
-                                        "{approverData.comment}"
-                                    </p>
-                                )}
-                            </>
-                        ) : (
-                            <p className="text-muted text-xs sm:text-sm opacity-25">
-                                -
-                            </p>
-                        )}
-                    </div>
-
-                    <div className="border p-3 sm:p-4 rounded">
-                        <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
-                            {(acknowledgerData &&
-                                (
-                                    recordDetails?.status === 'Approved' ||
-                                    recordDetails?.status === 'Completed' ||
-                                    (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
-                                ))
-                                ? 'Checked By'
-                                : 'Checked by Branch IT'}
-                        </h4>
-
-                        {(acknowledgerData &&
-                            (
-                                recordDetails?.status === 'Approved' ||
-                                recordDetails?.status === 'Completed' ||
-                                (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
-                            )) ? (
-                            <>
-                                <p className="text-xs sm:text-sm">
-                                    {acknowledgerData?.title ? `${acknowledgerData.title}.` : ''}
-                                    {acknowledgerData?.name ?? ''}
-                                </p>
-                                <p className="text-xs sm:text-sm">
-                                    ({acknowledgerData?.department ?? ''})
-                                </p>
-                                <p className="text-gray-500 text-xs">
-                                    {acknowledgerData?.created_at ? formatDateTime(acknowledgerData.created_at) : ''}
-                                </p>
-                                {acknowledgerData?.comment && (
-                                    <p className="text-info italic text-xs sm:text-sm">
-                                        "{acknowledgerData.comment}"
-                                    </p>
-                                )}
-
-                            </>
-                        ) : (
-                            <p className="text-muted text-xs sm:text-sm opacity-25">
-                                -
-                            </p>
-                        )}
-                    </div>
-
-
-                    <div className="border p-3 sm:p-4 rounded">
-                        <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
-                            {(managerData &&
-                                (
-                                    recordDetails?.status === 'Completed' ||
-                                    (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
-                                ))
-                                ? 'Acknowledged By'
-                                : 'Acknowledged by SD Manager'}
-                        </h4>
-
-                        {(managerData &&
-                            (
-                                recordDetails?.status === 'Completed' ||
-                                (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
-                            )) ? (
-                            <>
-                                <p className="text-xs sm:text-sm">
-                                    {managerData?.title ? `${managerData.title}.` : ''}
-                                    {managerData?.name ?? ''}
-                                </p>
-                                <p className="text-xs sm:text-sm">
-                                    {managerData?.department ?? ''}
-                                </p>
-                                <p className="text-gray-500 text-xs">
-                                    {managerData?.created_at ? formatDateTime(managerData.created_at) : ''}
-                                </p>
-                                {managerData?.comment && (
-                                    <p className="text-info italic text-xs sm:text-sm">
-                                        "{managerData.comment}"
-                                    </p>
-                                )}
-                            </>
-                        ) : (
-                            <p className="text-muted text-xs sm:text-sm opacity-25">
-                                -
-                            </p>
-                        )}
-                    </div>
-
-                </div>
-
-                <Link
-                    to="/cctv-index"
-                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
-                >
-                    <span className="mr-1 sm:mr-2">←</span> Back
-                </Link>
-
-                {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
+                            {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
                     <a
                         href={`/users/${recordDetails.id}/print`}
                         target="_blank"
@@ -981,22 +997,28 @@ export default function CctvDetails() {
                     </a>
                 )} */}
 
-                {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
-                    <button
-                        // onClick={handleDownloadPdf}
-                        className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
-                        style={{ backgroundColor: "#D75E28" }}
-                    >
-                        <i className="bi bi-download mr-2"></i>
-                        Download PDF
-                    </button>
-                )}
+                            {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
+                                <button
+                                    // onClick={handleDownloadPdf}
+                                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
+                                    style={{ backgroundColor: "#D75E28" }}
+                                >
+                                    <i className="bi bi-download mr-2"></i>
+                                    Download PDF
+                                </button>
+                            )} */}
 
 
 
 
 
-            </div>
-        </div >
+                        </div>
+                    </div >
+
+                )
+
+            }
+
+        </>
     );
 }

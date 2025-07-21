@@ -19,24 +19,3 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </React.StrictMode>
 );
 
-// import React from "react";
-// import ReactDOM from "react-dom/client";
-// import './App.css';
-// import 'react-confirm-alert/src/react-confirm-alert.css';
-// import { StrictMode } from 'react';
-
-// import { RouterProvider } from 'react-router-dom';
-// import router from './router';
-// import { AuthProvider } from './context/AuthContext';
-
-// ReactDOM.createRoot(document.getElementById("root")).render(
-//     <StrictMode>
-//         <RouterProvider
-//             router={{
-//                 ...router,
-//                 render: (children) => <AuthProvider>{children}</AuthProvider>
-//             }}
-//         />
-//     </StrictMode>
-// );
-

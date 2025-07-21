@@ -10,8 +10,6 @@ export default function CctvRecord() {
                 className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
                 style={{ backgroundImage: `url(${cctvPhoto})` }}
             ></div>
-
-
             <NavPath
                 segments={[
                     { path: "/dashboard", label: "Home" },
@@ -20,7 +18,7 @@ export default function CctvRecord() {
                     { path: "/cctv-request", label: "Cctv Record" }
                 ]}
             />
-            <div className="max-w-6xl mx-auto bg-white border border-gray-200 shadow-lg rounded-lg p-6">
+            <div className="max-w-8xl mx-auto bg-white border border-gray-200 shadow-lg rounded-lg p-6">
                 <h2 className="text-center text-xl font-bold text-blue-700 mb-4">
                     Pro1 Global Co., Ltd
                 </h2>
@@ -38,19 +36,19 @@ export default function CctvRecord() {
                     <p className="text-gray-700 mt-2">
                         ၂။ CCTV ကြည့်ရူ့ရန် အခန်းတွင်းသို့ ကြည့်ရူ့မည်သူ ၂ ယောက်သာ ဝင်ခွင့်ပြုမည်။ ၎င်း၂ယောက်သည် / (Manager (သို့) Assistant Manager (သို့) Supervisor သက်သေနှင့် မြင်တွေ့သူ) ဖြစ်ရမည်။
                     </p>
-                    <p className="font-bold text-gray-900 mt-2">
+                    <p className="text-gray-700 mt-2">
                         ၃။
-                        SEVER ခန်းအတွင်းသို့ CUSTOMER နှင့် Supplier များကို ခေါ်ဆောင်ကြည့်ရူ့ခွင့်မပြုပါ။
+                        <span className="font-bold text-gray-900"> SEVER </span>ခန်းအတွင်းသို့ <span className="font-bold text-gray-900"> CUSTOMER </span>  နှင့် <span className="font-bold text-gray-900"> Supplier </span> များကို ခေါ်ဆောင်ကြည့်ရူ့ခွင့်မပြုပါ။
                     </p>
-                    <p className="font-bold text-gray-900 mt-2">
+                    <p className="text-gray-700 mt-2">
                         ၄။
                         သက်ဆိုင်ရာ Department ၏ Manager (သို့) Assistant Manager တစ်ယောက်ထဲမှ စစ်ဆေး ကြည့်ရှုလိုလျှင် အချိန်မရွှေး ကြည့်ခွင့်ရှိသည်။
                     </p>
-                    <p className="font-bold text-gray-900 mt-2">
+                    <p className="text-gray-700 mt-2">
                         ၅။
                         အရေးကြီးကိစ္စရပ်များအားအခြေနေပေါ်မူတည်၍ Syetem Development ၏ဆုံးဖြတ်ချက်ကိုသာ အတည်ပြုရန် နှင့် ထိုကိစ္စရပ်များအားကြည့်ရှုပြီးနောက် CCTV Form တွင်ပြန်လည် ဖြည့်သွင်းပေးပါရန်။
                     </p>
-                    <p className="font-bold text-gray-900 mt-2">
+                    <p className="text-gray-700 mt-2">
                         ၆။
                         Export ထုတ်ယူသွားသော Vedio record များအား တစ်ခြားသူတစ်ယောက်(၀န်ထမ်းဖြစ်စေ/ပြင်ပလူဖြစ်စေ)/ Social media / public / channel များသို့ လွဲပြောင်းပေးခြင်း/‌‌‌‌‌‌‌ေ၀မျှပေးခြင်း လုံး၀မပြု လုပ်ရပါ။ ပြုလုပ်ပါက vedio record ထုပ်ယူခဲ့သူသာလျှင် တာ၀န်ရှိသည်။
                     </p>
