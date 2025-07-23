@@ -66,7 +66,34 @@ export default function CctvIndex() {
         }
     };
 
-    const fetchSearchResults = async (page = 1) => {
+    // const fetchSearchResults = async (page = 1) => {
+    // const fetchSearchResults = async (page = 1, payload) => {
+
+    //     try {
+    //         const response = await fetch(`/api/users/search_notifications/${form_id}?page=${page}`, {
+    //             method: "POST",
+    //             headers: {
+    //                 "Content-Type": "application/json",
+    //                 "Accept": "application/json",
+    //                 "Authorization": `Bearer ${token}`,
+    //             },
+    //             body: JSON.stringify(payload),
+    //         });
+
+    //         if (!response.ok) throw new Error(`Search page failed: ${response.statusText}`);
+    //         const result = await response.json();
+    //         setCctvRequests(result.data.data);
+    //         setPaginationInfo(result.data);
+    //         setCurrentPage(result.data.current_page);
+    //     } catch (error) {
+    //         console.error("Error fetching search page:", error);
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
+
+
+    const fetchSearchResults = async (page = 1, payload) => {
         try {
             const response = await fetch(`/api/users/search_notifications/${form_id}?page=${page}`, {
                 method: "POST",
@@ -75,7 +102,7 @@ export default function CctvIndex() {
                     "Accept": "application/json",
                     "Authorization": `Bearer ${token}`,
                 },
-                body: JSON.stringify(searchPayload),
+                body: JSON.stringify(payload), // ✅ use parameter
             });
 
             if (!response.ok) throw new Error(`Search page failed: ${response.statusText}`);
@@ -89,6 +116,7 @@ export default function CctvIndex() {
             setLoading(false);
         }
     };
+
 
     const fetchBranches = async () => {
         try {
@@ -110,7 +138,8 @@ export default function CctvIndex() {
     const handlePageClick = (page) => {
         if (page >= 1 && page <= paginationInfo.last_page) {
             if (isSearchMode && searchPayload) {
-                fetchSearchResults(page);
+                // fetchSearchResults(page);
+                fetchSearchResults(page, searchPayload);
             } else {
                 fetchCctvRecords(page);
             }
@@ -137,29 +166,30 @@ export default function CctvIndex() {
         };
 
         setSearchPayload(payload);
+        await fetchSearchResults(1, payload);
 
-        try {
-            const response = await fetch(`/api/users/search_notifications/${form_id}?page=1`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
-                body: JSON.stringify(payload),
-            });
+        // try {
+        //     const response = await fetch(`/api/users/search_notifications/${form_id}?page=1`, {
+        //         method: "POST",
+        //         headers: {
+        //             "Content-Type": "application/json",
+        //             "Accept": "application/json",
+        //             "Authorization": `Bearer ${token}`,
+        //         },
+        //         body: JSON.stringify(payload),
+        //     });
 
-            if (!response.ok) throw new Error(`Search failed: ${response.statusText}`);
+        //     if (!response.ok) throw new Error(`Search failed: ${response.statusText}`);
 
-            const result = await response.json();
-            setCctvRequests(result.data.data);
-            setPaginationInfo(result.data);
-            setCurrentPage(result.data.current_page);
-        } catch (error) {
-            console.error("Error during search:", error);
-        } finally {
-            setLoading(false);
-        }
+        //     const result = await response.json();
+        //     setCctvRequests(result.data.data);
+        //     setPaginationInfo(result.data);
+        //     setCurrentPage(result.data.current_page);
+        // } catch (error) {
+        //     console.error("Error during search:", error);
+        // } finally {
+        //     setLoading(false);
+        // }
     }
 
     const handleChange = (e) => {
@@ -329,15 +359,26 @@ export default function CctvIndex() {
                                     <button
                                         className="text-white px-4 py-2 rounded w-full cursor-pointer"
                                         onClick={() => {
-                                            setIsSearchMode(false);   // Exit search mode
-                                            fetchCctvRecords(1);      // Re-fetch default
-                                            setFormData({             // Optional: reset filters
+                                            // setIsSearchMode(false);   // Exit search mode
+                                            // fetchCctvRecords(1);      // Re-fetch default
+                                            // setFormData({             // Optional: reset filters
+                                            //     formDocNo: '',
+                                            //     startDate: '',
+                                            //     endDate: '',
+                                            //     status: [],
+                                            //     branch: 'All Branch'
+                                            // });
+                                            setIsSearchMode(false);
+                                            setSearchPayload(null); // ✅ Reset stored filter
+                                            fetchCctvRecords(1);
+                                            setFormData({
                                                 formDocNo: '',
                                                 startDate: '',
                                                 endDate: '',
                                                 status: [],
-                                                branch: 'All Branch'
+                                                branch: ''
                                             });
+
                                         }}
                                         style={{ backgroundColor: '#4b5563' }}
                                         onMouseEnter={(e) => (e.target.style.backgroundColor = '#6b7280')}
