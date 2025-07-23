@@ -6,10 +6,23 @@ import NavPath from '../../components/NavPath';
 export default function CctvRecord() {
     return (
         <div className="p-6">
-            <div
+            {/* <div
                 className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
                 style={{ backgroundImage: `url(${cctvPhoto})` }}
             ></div>
+            <div
+                className="h-48 w-full bg-contain bg-center bg-no-repeat rounded-lg shadow-md mb-6"
+                style={{ backgroundImage: `url(${cctvPhoto})` }}
+            ></div> */}
+            <img
+                src={cctvPhoto}
+                className="w-full h-auto object-contain rounded-lg shadow-md mb-6"
+            />
+
+
+
+
+
             <NavPath
                 segments={[
                     { path: "/dashboard", label: "Home" },

@@ -13,10 +13,12 @@ import Select from 'react-select'
 export default function CctvIndex() {
     const navigate = useNavigate();
     const [cctvRequests, setCctvRequests] = useState([]);
+    console.log(cctvRequests);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [paginationInfo, setPaginationInfo] = useState(null);
     const [branches, setBranches] = useState([]);
+    console.log(branches);
     const { user } = useAuth();
     const userId = user?.id ?? '';
     const [UserNotification, setUserNotification] = useState([]);
@@ -390,9 +392,12 @@ export default function CctvIndex() {
                                                         </span>
                                                     )}
                                             </td>
-                                            <td className="py-2 px-4 border-b">Branch {item.to_branch}</td>
+                                            <td className="py-2 px-4 border-b">
+                                                {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'}
+                                            </td>
+
                                             <td className="py-2 px-4 border-b">Miss. {item.requester_name}</td>
-                                            <td className="py-2 px-4 border-b">{item.date}</td>
+                                            <td className="py-2 px-4 border-b">{item.cctv_record?.issue_date || ''}</td>
                                             <td className="py-2 px-4 border-b">{item.created_at.slice(0, 10)}</td>
                                             <td className="py-2 px-4 border-b text-center">
 
@@ -456,7 +461,8 @@ export default function CctvIndex() {
                                         </div>
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Case Date:</span>
-                                            <span>{item.date}</span>
+                                            <td>{item.cctv_record?.issue_date || ''}</td>
+
                                         </div>
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Created Date:</span>

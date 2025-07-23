@@ -121,10 +121,14 @@ export default function () {
 
     return (
         <div className="p-4 md:p-6 lg:p-8">
-            <div
+            {/* <div
                 className="h-40 sm:h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
                 style={{ backgroundImage: `url(${cctvPhoto})` }}
-            ></div>
+            ></div> */}
+            <img
+                src={cctvPhoto}
+                className="w-full h-auto object-contain rounded-lg shadow-md mb-6"
+            />
             <NavPath
                 segments={[
                     { path: "/dashboard", label: "Home" },

@@ -24,6 +24,7 @@ export default function CctvDetails() {
     const [approvalProcessUser, setApprovalProcessUser] = useState(null);
     const [videoRecord, setVideoRecord] = useState(false);
     const [isApprover, setIsApprover] = useState(false);
+    console.log(isApprover);
     const [isBranchITApprover, setIsBranchITApprover] = useState(false);
     const [acknowledgerData, setAcknowledgerData] = useState(false);
     const [managerData, setManagerData] = useState(false);
@@ -31,7 +32,7 @@ export default function CctvDetails() {
     const form_id = 15;
     const layout_id = 14;
     const general_form_id = recordDetails?.id ?? '';
-    const actualUserId = user?.id ?? "702";
+    const actualUserId = user?.id;
     const route = "cctv_record";
     const [remark, setRemark] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,7 +67,9 @@ export default function CctvDetails() {
         return false;
     };
 
-    // ဒီ approver() ဆိုတဲ့ function ဟာ လက်ရှိအသုံးပြုသူ (logged-in user) က တစ်ခုတည်းသော form တွင် အတည်ပြုသူ (Approver) ဖြစ်ခွင့်ရှိ/မရှိကို စစ်ဆေးတဲ့ function တစ်ခုပါ။ ပထမဦးဆုံးအနေဖြင့် function သည် ပေးထားသော data ထဲမှ general_form_id ကို ယူပြီး ApprovalProcessUser ထဲမှ user_type က A1 ဖြစ်တဲ့ အသုံးပြုသူ (Checker) ကိုလက်ရှိ login ဝင်ထားသူဖြစ်မဖြစ်စစ်သည်။ ထို့နောက် $data->g_remark တန်ဖိုးပေါ်မူတည်ပြီး checker ကို CS (change form, create brand/category မျိုး) သို့မဟုတ် C ဟု သတ်မှတ်သည်။ ထိုအချိန်တွင် $checker ရှိ/မရှိနှင့် $data->status တန်ဖိုးအပေါ်မူတည်ပြီး အသုံးပြုသူက Approver ဖြစ်နိုင်မည့်အခြေအနေများကို စစ်တင်သည်။ ထိုအခြေအနေများမှာ – checker ရှိပြီး status က Checked ဖြစ်ခြင်း၊ checker မရှိဘဲ status က Ongoing သို့မဟုတ် Ongoing(Edit) ဖြစ်ခြင်း၊ သို့မဟုတ် checker ရှိပြီး status က Ongoing ဖြစ်ပြီး remark က office_use ဖြစ်ခြင်း – တို့ဖြစ်သည်။ ထို့နောက် User table ထဲမှ လက်ရှိအသုံးပြုသူ၏ role_id ကိုယူပြီး၊ ထို user က Role table ထဲမှာ Approver ဟုအမည်ပေးထားသော role ကိုပိုင်ဆိုင်ထားသည့် ID နှင့် တူ/မတူစစ်သည်။ နောက်ဆုံးတွင်၊ လက်ရှိ user သည် 해당 process ထဲမှ A1 user ဖြစ်ပြီး Approver role ကို ပိုင်ဆိုင်ထားသည်ဆိုပါက true ကို return ပြန်ပါသည်။ မမှန်ပါက return မရှိတော့ function သည် null ပြန်နိုင်သည်။ ဒီ logic ဟာ လက်ရှိ user က form တစ်စောင်အတွက် Approver ဖြစ်နိုင်မလားဆိုတာဖော်ထုတ်ရန် အသုံးပြုသည်။
+    // ဒီ approver() ဆိုတဲ့ function ဟာ လက်ရှိအသုံးပြုသူ (logged-in user) က တစ်ခုတည်းသော form တွင် အတည်ပြုသူ (Approver) ဖြစ်ခွင့်ရှိ/မရှိကို စစ်ဆေးတဲ့ function တစ်ခုပါ။ ပထမဦးဆုံးအနေဖြင့် function သည် ပေးထားသော data ထဲမှ general_form_id ကို ယူပြီး ApprovalProcessUser ထဲမှ user_type က A1 ဖြစ်တဲ့ အသုံးပြုသူ (Checker) ကိုလက်ရှိ login ဝင်ထားသူဖြစ်မဖြစ်စစ်သည်။ ထို့နောက် $data->g_remark တန်ဖိုးပေါ်မူတည်ပြီး checker ကို CS (change form, create brand/category မျိုး) သို့မဟုတ် C ဟု သတ်မှတ်သည်။ ထိုအချိန်တွင် $checker ရှိ/မရှိနှင့် $data->status တန်ဖိုးအပေါ်မူတည်ပြီး အသုံးပြုသူက Approver ဖြစ်နိုင်မည့်အခြေအနေများကို စစ်တင်သည်။ ထိုအခြေအနေများမှာ – checker ရှိပြီး status က Checked ဖြစ်ခြင်း၊ checker မရှိဘဲ status က Ongoing သို့မဟုတ် Ongoing(Edit) ဖြစ်ခြင်း၊ သို့မဟုတ် checker ရှိပြီး status က Ongoing ဖြစ်ပြီး remark က office_use ဖြစ်ခြင်း – တို့ဖြစ်သည်။ ထို့နောက် User table ထဲမှ လက်ရှိအသုံးပြုသူ၏ role_id ကိုယူပြီး၊ ထို user က Role table ထဲမှာ Approver ဟုအမည်ပေးထားသော role ကိုပိုင်ဆိုင်ထားသည့် ID နှင့် တူ/မတူစစ်သည်။ နောက်ဆုံးတွင်၊ လက်ရှိ user သည် process ထဲမှ A1 user ဖြစ်ပြီး Approver role ကို ပိုင်ဆိုင်ထားသည်ဆိုပါက true ကို return ပြန်ပါသည်။ မမှန်ပါက return မရှိတော့ function သည် null ပြန်နိုင်သည်။ ဒီ logic ဟာ လက်ရှိ user က form တစ်စောင်အတွက် Approver ဖြစ်နိုင်မလားဆိုတာဖော်ထုတ်ရန် အသုံးပြုသည်။
+
+
 
     const checkBranchITApprover = () => {
         if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'BM Approved') return false;
