@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import Pusher from 'pusher-js';
 import NavPath from '../../components/NavPath';
@@ -13,17 +13,16 @@ import Select from 'react-select'
 export default function CctvIndex() {
     const navigate = useNavigate();
     const [cctvRequests, setCctvRequests] = useState([]);
-    console.log(cctvRequests);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [paginationInfo, setPaginationInfo] = useState(null);
     const [branches, setBranches] = useState([]);
-    console.log(branches);
     const { user } = useAuth();
     const userId = user?.id ?? '';
     const [UserNotification, setUserNotification] = useState([]);
     const [isSearchMode, setIsSearchMode] = useState(false);
     const [searchPayload, setSearchPayload] = useState(null);
+    const location = useLocation();
 
     const statusOptions = [
         { value: "Ongoing", label: "Ongoing" },
@@ -66,34 +65,8 @@ export default function CctvIndex() {
         }
     };
 
-    // const fetchSearchResults = async (page = 1) => {
-    // const fetchSearchResults = async (page = 1, payload) => {
-
-    //     try {
-    //         const response = await fetch(`/api/users/search_notifications/${form_id}?page=${page}`, {
-    //             method: "POST",
-    //             headers: {
-    //                 "Content-Type": "application/json",
-    //                 "Accept": "application/json",
-    //                 "Authorization": `Bearer ${token}`,
-    //             },
-    //             body: JSON.stringify(payload),
-    //         });
-
-    //         if (!response.ok) throw new Error(`Search page failed: ${response.statusText}`);
-    //         const result = await response.json();
-    //         setCctvRequests(result.data.data);
-    //         setPaginationInfo(result.data);
-    //         setCurrentPage(result.data.current_page);
-    //     } catch (error) {
-    //         console.error("Error fetching search page:", error);
-    //     } finally {
-    //         setLoading(false);
-    //     }
-    // };
-
-
     const fetchSearchResults = async (page = 1, payload) => {
+        setLoading(true);
         try {
             const response = await fetch(`/api/users/search_notifications/${form_id}?page=${page}`, {
                 method: "POST",
@@ -102,7 +75,7 @@ export default function CctvIndex() {
                     "Accept": "application/json",
                     "Authorization": `Bearer ${token}`,
                 },
-                body: JSON.stringify(payload), // ✅ use parameter
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) throw new Error(`Search page failed: ${response.statusText}`);
@@ -146,11 +119,60 @@ export default function CctvIndex() {
         }
     };
 
+    // useEffect(() => {
+    //     fetchBranches();
+    //     fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
+    // }, [userId]);
+
+
+    // useEffect(() => {
+    //     fetchBranches();
+    //     fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
+
+    //     const restoredPayload = location.state?.searchPayload;
+    //     const restoredFormData = location.state?.formData;
+
+
+    //     if (location.state?.restoreSearch && restoredPayload) {
+
+    //         console.log(restoredPayload, restoredFormData);
+
+    //         setIsSearchMode(true);
+    //         setSearchPayload(restoredPayload);
+    //         setFormData(restoredFormData || {});
+    //         fetchSearchResults(1, restoredPayload);
+    //     } else {
+    //         fetchCctvRecords();
+    //     }
+    // }, []);
+
+
+    // useEffect(() => {
+    //     if (!isSearchMode) {
+    //         fetchCctvRecords();
+    //     }
+    // }, [isSearchMode]);
+
+
     useEffect(() => {
-        fetchCctvRecords();
         fetchBranches();
         fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
-    }, []);
+
+        const restoredPayload = location.state?.searchPayload;
+        const restoredFormData = location.state?.formData;
+
+        if (location.state?.restoreSearch && restoredPayload) {
+            console.log('Restoring previous search:', restoredPayload, restoredFormData);
+            setIsSearchMode(true);
+            setSearchPayload(restoredPayload);
+            setFormData(restoredFormData || {});
+            fetchSearchResults(1, restoredPayload);
+        } else {
+            setIsSearchMode(false); // ✅ important to explicitly clear
+            fetchCctvRecords();
+        }
+    }, [userId]);
+
 
     const handleSearch = async (e) => {
         e.preventDefault();
@@ -162,34 +184,10 @@ export default function CctvIndex() {
             end_date: formData.endDate,
             search_status: formData.status,
             branch_id: formData.branch ? formData.branch : 0,
-            // branch_id: formData.branch || 0,
         };
 
         setSearchPayload(payload);
         await fetchSearchResults(1, payload);
-
-        // try {
-        //     const response = await fetch(`/api/users/search_notifications/${form_id}?page=1`, {
-        //         method: "POST",
-        //         headers: {
-        //             "Content-Type": "application/json",
-        //             "Accept": "application/json",
-        //             "Authorization": `Bearer ${token}`,
-        //         },
-        //         body: JSON.stringify(payload),
-        //     });
-
-        //     if (!response.ok) throw new Error(`Search failed: ${response.statusText}`);
-
-        //     const result = await response.json();
-        //     setCctvRequests(result.data.data);
-        //     setPaginationInfo(result.data);
-        //     setCurrentPage(result.data.current_page);
-        // } catch (error) {
-        //     console.error("Error during search:", error);
-        // } finally {
-        //     setLoading(false);
-        // }
     }
 
     const handleChange = (e) => {
@@ -198,7 +196,6 @@ export default function CctvIndex() {
     };
 
     return (
-
         <>
             {
                 loading ? (
@@ -303,24 +300,6 @@ export default function CctvIndex() {
                                 />
                             </div>
 
-
-
-                            {/* <div className="flex flex-col">
-                                <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
-                                    Branch
-                                </label>
-                                <select
-                                    id="branch"
-                                    className="border focus:outline-none p-2 w-full rounded-md"
-                                    value={formData.branch}
-                                    onChange={handleChange}
-                                    style={{ borderColor: '#2ea2d1' }}
-                                >
-                                    <option>All Branch</option>
-                                    <option>Head Office</option>
-                                </select>
-                            </div> */}
-
                             <div className="flex flex-col">
                                 <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
                                     Branch
@@ -369,7 +348,7 @@ export default function CctvIndex() {
                                             //     branch: 'All Branch'
                                             // });
                                             setIsSearchMode(false);
-                                            setSearchPayload(null); // ✅ Reset stored filter
+                                            setSearchPayload(null);
                                             fetchCctvRecords(1);
                                             setFormData({
                                                 formDocNo: '',
@@ -412,7 +391,18 @@ export default function CctvIndex() {
                                     {cctvRequests && cctvRequests.map((item, index) => (
                                         <tr
                                             key={item.id}
-                                            onClick={() => navigate(`/cctv-details/${item.id}`)}
+                                            // onClick={() => navigate(`/cctv-details/${item.id}`)}
+
+                                            onClick={() =>
+                                                navigate(`/cctv-details/${item.id}`, {
+                                                    state: {
+                                                        fromSearch: isSearchMode,
+                                                        searchPayload,
+                                                        formData,
+                                                    }
+                                                })
+                                            }
+
                                             className="cursor-pointer hover:bg-[#efefef] transition"
                                         >
                                             <td className="py-2 px-4 border-b">
@@ -468,7 +458,21 @@ export default function CctvIndex() {
                             <div className="xl:hidden space-y-4 mt-4">
                                 {cctvRequests && cctvRequests.map((item) => (
                                     <div key={item.id}
-                                        onClick={() => navigate(`/cctv-details/${item.id}`)} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:bg-[#efefef]">
+
+
+                                        // onClick={() => navigate(`/cctv-details/${item.id}`)} 
+
+                                        onClick={() =>
+                                            navigate(`/cctv-details/${item.id}`, {
+                                                state: {
+                                                    fromSearch: isSearchMode,
+                                                    searchPayload,
+                                                    formData,
+                                                }
+                                            })
+                                        }
+
+                                        className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:bg-[#efefef]">
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Status:</span>
                                             <StatusBadge status={item.status} />
@@ -502,8 +506,7 @@ export default function CctvIndex() {
                                         </div>
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Case Date:</span>
-                                            <td>{item.cctv_record?.issue_date || ''}</td>
-
+                                            <span>{item.cctv_record?.issue_date || ''}</span>
                                         </div>
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Created Date:</span>
@@ -570,10 +573,10 @@ export default function CctvIndex() {
                                             }}
                                             disabled={!link.url}
                                             className={`flex items-center justify-center px-3 h-8 leading-tight cursor-pointer
-                    ${link.active ? 'text-gray-600 border border-[#2ea2d1] bg-[#2ea2d1]' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700'}
-                    ${index === 0 ? 'rounded-s-lg' : ''}
-                    ${index === paginationInfo.links.length - 1 ? 'rounded-e-lg' : ''}
-                `}
+                                            ${link.active ? 'text-gray-600 border border-[#2ea2d1] bg-[#2ea2d1]' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700'}
+                                            ${index === 0 ? 'rounded-s-lg' : ''}
+                                            ${index === paginationInfo.links.length - 1 ? 'rounded-e-lg' : ''}
+                                        `}
                                         >
                                             {link.label === '&laquo; Previous' ? 'Previous' :
                                                 link.label === 'Next &raquo;' ? 'Next' : link.label}

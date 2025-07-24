@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import dashboardPhoto from "../../assets/images/reqBa.png";
 import { FiCopy } from 'react-icons/fi';
 import { useEffect, useState } from 'react';
@@ -24,7 +24,6 @@ export default function CctvDetails() {
     const [approvalProcessUser, setApprovalProcessUser] = useState(null);
     const [videoRecord, setVideoRecord] = useState(false);
     const [isApprover, setIsApprover] = useState(false);
-    console.log(isApprover);
     const [isBranchITApprover, setIsBranchITApprover] = useState(false);
     const [acknowledgerData, setAcknowledgerData] = useState(false);
     const [managerData, setManagerData] = useState(false);
@@ -42,6 +41,14 @@ export default function CctvDetails() {
     const [showAlert, setShowAlert] = useState(true);
     const [CancelData, setCancelData] = useState(null);
     const [loading, setLoading] = useState(true);
+
+    const location = useLocation();
+    const fromSearch = location.state?.fromSearch;
+    const searchPayload = location.state?.searchPayload;
+    const formData = location.state?.formData;
+
+
+    console.log(fromSearch, searchPayload, formData);
 
 
 
@@ -981,12 +988,25 @@ export default function CctvDetails() {
 
                             </div>
 
-                            <Link
+                            {/* <Link
                                 to="/cctv-index"
                                 className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
                             >
                                 <span className="mr-1 sm:mr-2">←</span> Back
+                            </Link> */}
+
+                            <Link
+                                to="/cctv-index"
+                                state={{
+                                    restoreSearch: true,
+                                    searchPayload,
+                                    formData,
+                                }}
+                                className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
+                            >
+                                <span className="mr-1 sm:mr-2">←</span> Back
                             </Link>
+
 
                             {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
                     <a
