@@ -111,48 +111,12 @@ export default function CctvIndex() {
     const handlePageClick = (page) => {
         if (page >= 1 && page <= paginationInfo.last_page) {
             if (isSearchMode && searchPayload) {
-                // fetchSearchResults(page);
                 fetchSearchResults(page, searchPayload);
             } else {
                 fetchCctvRecords(page);
             }
         }
     };
-
-    // useEffect(() => {
-    //     fetchBranches();
-    //     fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
-    // }, [userId]);
-
-
-    // useEffect(() => {
-    //     fetchBranches();
-    //     fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
-
-    //     const restoredPayload = location.state?.searchPayload;
-    //     const restoredFormData = location.state?.formData;
-
-
-    //     if (location.state?.restoreSearch && restoredPayload) {
-
-    //         console.log(restoredPayload, restoredFormData);
-
-    //         setIsSearchMode(true);
-    //         setSearchPayload(restoredPayload);
-    //         setFormData(restoredFormData || {});
-    //         fetchSearchResults(1, restoredPayload);
-    //     } else {
-    //         fetchCctvRecords();
-    //     }
-    // }, []);
-
-
-    // useEffect(() => {
-    //     if (!isSearchMode) {
-    //         fetchCctvRecords();
-    //     }
-    // }, [isSearchMode]);
-
 
     useEffect(() => {
         fetchBranches();
@@ -168,7 +132,7 @@ export default function CctvIndex() {
             setFormData(restoredFormData || {});
             fetchSearchResults(1, restoredPayload);
         } else {
-            setIsSearchMode(false); // ✅ important to explicitly clear
+            setIsSearchMode(false);
             fetchCctvRecords();
         }
     }, [userId]);
@@ -347,6 +311,7 @@ export default function CctvIndex() {
                                             //     status: [],
                                             //     branch: 'All Branch'
                                             // });
+                                            setLoading(true);
                                             setIsSearchMode(false);
                                             setSearchPayload(null);
                                             fetchCctvRecords(1);
@@ -440,12 +405,23 @@ export default function CctvIndex() {
                                                         </svg>
                                                     ) : (
                                                         // Camera OFF
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" className="bi bi-camera-video-off-fill" viewBox="0 0 16 16">
-                                                            <path d="M10.961 12.365 8.596 10H6.5A1.5 1.5 0 0 1 5 8.5V6.404L2.635 4.04a.5.5 0 1 1 .707-.707l11 11a.5.5 0 0 1-.707.707l-2.674-2.674z" />
-                                                            <path d="M5 5.121v3.379a.5.5 0 0 0 .5.5h1.379L5 5.121z" />
-                                                            <path d="M11 8.5v1.379l-1.121-1.121H11z" />
-                                                            <path d="M14 4.833v6.334a.5.5 0 0 1-.854.353L12 10.086V11.5A1.5 1.5 0 0 1 10.5 13H9.121l-1-1H10.5a.5.5 0 0 0 .5-.5V9.879l-6-6V4.5a.5.5 0 0 1 .146.354V4.5a.5.5 0 0 1 .5-.5h3A1.5 1.5 0 0 1 11 5.5v1.586l2.146-2.146a.5.5 0 0 1 .854.353z" />
+                                                        // <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" className="bi bi-camera-video-off-fill ml-[2px] mt-[1px]" viewBox="0 0 16 16">
+                                                        //     <path d="M10.961 12.365 8.596 10H6.5A1.5 1.5 0 0 1 5 8.5V6.404L2.635 4.04a.5.5 0 1 1 .707-.707l11 11a.5.5 0 0 1-.707.707l-2.674-2.674z" />
+                                                        //     <path d="M5 5.121v3.379a.5.5 0 0 0 .5.5h1.379L5 5.121z" />
+                                                        //     <path d="M11 8.5v1.379l-1.121-1.121H11z" />
+                                                        //     <path d="M14 4.833v6.334a.5.5 0 0 1-.854.353L12 10.086V11.5A1.5 1.5 0 0 1 10.5 13H9.121l-1-1H10.5a.5.5 0 0 0 .5-.5V9.879l-6-6V4.5a.5.5 0 0 1 .146.354V4.5a.5.5 0 0 1 .5-.5h3A1.5 1.5 0 0 1 11 5.5v1.586l2.146-2.146a.5.5 0 0 1 .854.353z" />
+                                                        // </svg>
+
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="white">
+
+                                                            <rect x="3" y="6" width="10" height="10" rx="2" fill="white" />
+                                                            <polygon points="13,8 17,6 17,14 13,12" fill="white" />
+
+
+                                                            <line x1="3" y1="3" x2="17" y2="17" stroke="black" stroke-width="2" />
                                                         </svg>
+
+
                                                     )}
                                                 </button>
                                             </td>
@@ -531,19 +507,29 @@ export default function CctvIndex() {
                                                     </svg>
                                                 ) : (
                                                     // Camera OFF
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        width="16"
-                                                        height="16"
-                                                        fill="white"
-                                                        className="bi bi-camera-video-off-fill"
-                                                        viewBox="0 0 16 16"
-                                                    >
-                                                        <path d="M10.961 12.365 8.596 10H6.5A1.5 1.5 0 0 1 5 8.5V6.404L2.635 4.04a.5.5 0 1 1 .707-.707l11 11a.5.5 0 0 1-.707.707l-2.674-2.674z" />
-                                                        <path d="M5 5.121v3.379a.5.5 0 0 0 .5.5h1.379L5 5.121z" />
-                                                        <path d="M11 8.5v1.379l-1.121-1.121H11z" />
-                                                        <path d="M14 4.833v6.334a.5.5 0 0 1-.854.353L12 10.086V11.5A1.5 1.5 0 0 1 10.5 13H9.121l-1-1H10.5a.5.5 0 0 0 .5-.5V9.879l-6-6V4.5a.5.5 0 0 1 .146.354V4.5a.5.5 0 0 1 .5-.5h3A1.5 1.5 0 0 1 11 5.5v1.586l2.146-2.146a.5.5 0 0 1 .854.353z" />
+                                                    // <svg
+                                                    //     xmlns="http://www.w3.org/2000/svg"
+                                                    //     width="16"
+                                                    //     height="16"
+                                                    //     fill="white"
+                                                    //     className="bi bi-camera-video-off-fill"
+                                                    //     viewBox="0 0 16 16"
+                                                    // >
+                                                    //     <path d="M10.961 12.365 8.596 10H6.5A1.5 1.5 0 0 1 5 8.5V6.404L2.635 4.04a.5.5 0 1 1 .707-.707l11 11a.5.5 0 0 1-.707.707l-2.674-2.674z" />
+                                                    //     <path d="M5 5.121v3.379a.5.5 0 0 0 .5.5h1.379L5 5.121z" />
+                                                    //     <path d="M11 8.5v1.379l-1.121-1.121H11z" />
+                                                    //     <path d="M14 4.833v6.334a.5.5 0 0 1-.854.353L12 10.086V11.5A1.5 1.5 0 0 1 10.5 13H9.121l-1-1H10.5a.5.5 0 0 0 .5-.5V9.879l-6-6V4.5a.5.5 0 0 1 .146.354V4.5a.5.5 0 0 1 .5-.5h3A1.5 1.5 0 0 1 11 5.5v1.586l2.146-2.146a.5.5 0 0 1 .854.353z" />
+                                                    // </svg>
+
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="white">
+
+                                                        <rect x="3" y="6" width="10" height="10" rx="2" fill="white" />
+                                                        <polygon points="13,8 17,6 17,14 13,12" fill="white" />
+
+
+                                                        <line x1="3" y1="3" x2="17" y2="17" stroke="black" stroke-width="2" />
                                                     </svg>
+
                                                 )}
                                             </button>
                                         </div>
