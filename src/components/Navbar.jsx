@@ -1,126 +1,143 @@
-import React, { useState, useRef, useEffect } from "react";
+// import React, { useState, useRef, useEffect } from "react";
+// import { Link, useNavigate } from "react-router-dom";
+// import finalLogo from "../assets/images/finallogo.png";
+// import { AiOutlineMenu } from "react-icons/ai";
+// import { useAuth } from '../context/AuthContext';
+// import NotificationIcon from './Notification';
+
+// export default function Navbar({ toggleSidebar }) {
+//     const { user, logout } = useAuth();
+//     const [menuOpen, setMenuOpen] = useState(false);
+//     const userRoleId = user ? user.id : null;
+//     const dropdownRef = useRef(null);
+//     const navigate = useNavigate();
+
+//     const [notifications, setNotifications] = useState(() => {
+//         const savedNotifications = localStorage.getItem('notifications');
+//         return savedNotifications ? JSON.parse(savedNotifications) : [];
+//     });
+
+//     const token = localStorage.getItem('token');
+
+//     const handleLogout = () => {
+//         logout();
+//         navigate('/login');
+//     };
+
+
+//     function urlBase64ToUint8Array(base64String) {
+//         const padding = '='.repeat((4 - base64String.length % 4) % 4);
+//         const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+//         const rawData = window.atob(base64);
+//         const outputArray = new Uint8Array(rawData.length);
+//         for (let i = 0; i < rawData.length; ++i) {
+//             outputArray[i] = rawData.charCodeAt(i);
+//         }
+//         return outputArray;
+//     }
+
+//     useEffect(() => {
+//         function handleClickOutside(event) {
+//             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+//                 setMenuOpen(false);
+//             }
+//         }
+//         document.addEventListener("mousedown", handleClickOutside);
+//         return () => document.removeEventListener("mousedown", handleClickOutside);
+//     }, []);
+
+//     useEffect(() => {
+//         const fetchNotifications = async () => {
+//             if (!user || !token) return;
+//             try {
+//                 const response = await fetch(`/api/notifications/${userRoleId}`, {
+//                     headers: { Authorization: `Bearer ${token}` },
+//                 });
+//                 if (!response.ok) throw new Error("Unauthorized access");
+
+//                 const data = await response.json();
+
+//                 const newNotifications = data.map(notification => ({
+//                     form_id: notification.data.form_id,
+//                     specific_form_id: notification.data.specific_form_id,
+//                     form_doc_no: notification.data.form_doc_no,
+//                     created_at: notification.created_at,
+//                     form_name: notification.form_name,
+//                     status: notification.status
+//                 }));
+
+//                 if (newNotifications.length > notifications.length) {
+//                     setNotifications(newNotifications);
+//                     localStorage.setItem("notifications", JSON.stringify(newNotifications));
+//                 }
+//             } catch (error) {
+//                 console.error("Error fetching notifications:", error);
+//             }
+//         };
+
+//         fetchNotifications();
+//         // subscribeToPush();
+//         const interval = setInterval(fetchNotifications, 10000);
+//         return () => clearInterval(interval);
+//     }, [userRoleId, token]);
+
+import React, { useState, useRef, useEffect, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import finalLogo from "../assets/images/finallogo.png";
 import { AiOutlineMenu } from "react-icons/ai";
+import finalLogo from "../assets/images/finallogo.png";
+
 import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
+import { NotificationContext } from "../context/NotificationContext"; // ✅
 
 export default function Navbar({ toggleSidebar }) {
     const { user, logout } = useAuth();
+    const { notifications, setNotifications } = useContext(NotificationContext); // ✅
+    const token = localStorage.getItem("token");
+    const userRoleId = user?.id;
+
     const [menuOpen, setMenuOpen] = useState(false);
-    const userRoleId = user ? user.id : null;
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
-    const [notifications, setNotifications] = useState(() => {
-        const savedNotifications = localStorage.getItem('notifications');
-        return savedNotifications ? JSON.parse(savedNotifications) : [];
-    });
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            if (!user || !token) return;
 
-    const token = localStorage.getItem('token');
+            try {
+                const res = await fetch(`/api/notifications/${userRoleId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+
+                if (!res.ok) throw new Error("Unauthorized");
+
+                const data = await res.json();
+
+                const parsed = data.map(n => ({
+                    form_id: n.data.form_id,
+                    specific_form_id: n.data.specific_form_id,
+                    form_doc_no: n.data.form_doc_no,
+                    created_at: n.created_at,
+                    form_name: n.form_name,
+                    status: n.status,
+                }));
+
+                setNotifications(parsed); // ✅ context update
+                localStorage.setItem("notifications", JSON.stringify(parsed)); // fallback store
+            } catch (err) {
+                console.error("Notification fetch error:", err);
+            }
+        };
+
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 10000);
+        return () => clearInterval(interval);
+    }, [userRoleId, token, setNotifications]);
 
     const handleLogout = () => {
         logout();
         navigate('/login');
     };
-
-    // const subscribeToPush = async () => {
-    //     try {
-    //         if (!('serviceWorker' in navigator)) {
-    //             console.error('Service Worker not supported');
-    //             return;
-    //         }
-    //         const registration = await navigator.serviceWorker.register('/sw.js');
-    //         const permission = await Notification.requestPermission();
-    //         if (permission !== 'granted') {
-    //             console.warn('Notification permission denied');
-    //             return;
-    //         }
-
-    //         let subscription = await registration.pushManager.getSubscription();
-    //         if (subscription) {
-    //             await subscription.unsubscribe();
-    //         }
-
-    //         subscription = await registration.pushManager.subscribe({
-    //             userVisibleOnly: true,
-    //             applicationServerKey: urlBase64ToUint8Array(
-    //                 'BCPKeVfYglhfqpsmmQXv-MP7oihVtZiVzRUXkVxojeQgAlGOWB07YI77J-A8awLcqv4ZKNPHVFQimsrutIIeRhM'
-    //             ),
-    //         });
-
-    //         const response = await fetch('/api/notifications/push/subscribe', {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Content-Type': 'application/json',
-    //                 'Authorization': `Bearer ${token}`,
-    //             },
-    //             body: JSON.stringify(subscription),
-    //         });
-
-    //         if (!response.ok) {
-    //             throw new Error('Failed to save subscription');
-    //         }
-    //     } catch (error) {
-    //         console.error('Error in subscribeToPush:', error);
-    //     }
-    // };
-
-    function urlBase64ToUint8Array(base64String) {
-        const padding = '='.repeat((4 - base64String.length % 4) % 4);
-        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const rawData = window.atob(base64);
-        const outputArray = new Uint8Array(rawData.length);
-        for (let i = 0; i < rawData.length; ++i) {
-            outputArray[i] = rawData.charCodeAt(i);
-        }
-        return outputArray;
-    }
-
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setMenuOpen(false);
-            }
-        }
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
-    useEffect(() => {
-        const fetchNotifications = async () => {
-            if (!user || !token) return;
-            try {
-                const response = await fetch(`/api/notifications/${userRoleId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!response.ok) throw new Error("Unauthorized access");
-
-                const data = await response.json();
-
-                const newNotifications = data.map(notification => ({
-                    form_id: notification.data.form_id,
-                    specific_form_id: notification.data.specific_form_id,
-                    form_doc_no: notification.data.form_doc_no,
-                    created_at: notification.created_at,
-                    form_name: notification.form_name,
-                    status: notification.status
-                }));
-
-                if (newNotifications.length > notifications.length) {
-                    setNotifications(newNotifications);
-                    localStorage.setItem("notifications", JSON.stringify(newNotifications));
-                }
-            } catch (error) {
-                console.error("Error fetching notifications:", error);
-            }
-        };
-
-        fetchNotifications();
-        // subscribeToPush();
-        const interval = setInterval(fetchNotifications, 10000);
-        return () => clearInterval(interval);
-    }, [userRoleId, token]);
 
     return (
         <nav className="bg-[#A9D8E9] text-gray-800 py-4 px-6 flex items-center justify-between relative">
