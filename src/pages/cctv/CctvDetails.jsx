@@ -47,11 +47,6 @@ export default function CctvDetails() {
     const searchPayload = location.state?.searchPayload;
     const formData = location.state?.formData;
 
-
-    console.log(fromSearch, searchPayload, formData);
-
-
-
     const checkApprover = () => {
         if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'Ongoing') return false;
         const isSpecialRemark = ['change form', 'create brand', 'create category'].includes(recordDetails.g_remark);
@@ -300,6 +295,35 @@ export default function CctvDetails() {
     //             console.error('Failed to copy: ', err);
     //         });
     // };
+
+    const fallbackCopy = (text) => {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+
+        // Avoid scrolling to bottom
+        textArea.style.position = "fixed";
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+
+        try {
+            const successful = document.execCommand("copy");
+            if (successful) {
+                console.log("Fallback: Copying text command was successful");
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } else {
+                console.error("Fallback: Copying text command was unsuccessful");
+            }
+        } catch (err) {
+            console.error("Fallback: Unable to copy", err);
+        }
+
+        document.body.removeChild(textArea);
+    };
 
     const handleCopy = () => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -860,7 +884,7 @@ export default function CctvDetails() {
                                         {originalData?.title ? `${originalData.title}.` : ''}
                                         {originalData?.name ? originalData.name : ''}
                                     </p>
-                                    <p className="text-gray-700">
+                                    <p className="text-gray-700 text-sm">
                                         ({originalData?.department ? originalData.department : ''})
                                     </p>
                                     <p className="text-xs text-gray-400"> {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}</p>
