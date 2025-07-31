@@ -289,15 +289,32 @@ export default function CctvDetails() {
     const ApproveBackToPrevious = () => handleSubmit('Back To Previous');
 
     const formDocno = recordDetails?.form_doc_no ? recordDetails.form_doc_no : '';
+
+    // const handleCopy = () => {
+    //     navigator.clipboard.writeText(formDocno)
+    //         .then(() => {
+    //             setCopied(true);
+    //             setTimeout(() => setCopied(false), 2000);
+    //         })
+    //         .catch(err => {
+    //             console.error('Failed to copy: ', err);
+    //         });
+    // };
+
     const handleCopy = () => {
-        navigator.clipboard.writeText(formDocno)
-            .then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            })
-            .catch(err => {
-                console.error('Failed to copy: ', err);
-            });
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(formDocno)
+                .then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                })
+                .catch((err) => {
+                    console.error("Clipboard copy failed:", err);
+                    fallbackCopy(formDocno);
+                });
+        } else {
+            fallbackCopy(formDocno);
+        }
     };
 
     function formatTime(time) {
@@ -836,28 +853,23 @@ export default function CctvDetails() {
 
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 mt-6">
-                                <div className="border p-3 sm:p-4 rounded">
-                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">Staff/Eyewitness</h4>
-                                    {/* {recordDetails?.status === "Ongoing" && ( */}
-                                    <>
-                                        <p className="text-xs sm:text-sm">
-                                            {originalData?.title ? `${originalData.title}.` : ''}
-                                            {originalData?.name ? originalData.name : ''}
-                                        </p>
-                                        <p className="text-xs sm:text-sm">
-                                            ({originalData?.department ? originalData.department : ''})
-                                        </p>
-                                        <p className="text-gray-500 text-xs">
-                                            {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}
-                                        </p>
-                                    </>
-                                    {/* )} */}
+
+                                <div className="space-y-1">
+                                    <p className="text-gray-500">Staff / Eyewitness</p>
+                                    <p className="text-sm text-gray-800 font-semibold">
+                                        {originalData?.title ? `${originalData.title}.` : ''}
+                                        {originalData?.name ? originalData.name : ''}
+                                    </p>
+                                    <p className="text-gray-700">
+                                        ({originalData?.department ? originalData.department : ''})
+                                    </p>
+                                    <p className="text-xs text-gray-400"> {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}</p>
                                 </div>
 
 
-                                <div className="border p-3 sm:p-4 rounded">
-                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
-                                        {(approverData &&
+                                <div className="space-y-1">
+                                    <p className="text-gray-500">
+                                        {approverData &&
                                             (
                                                 recordDetails?.status === 'BM Approved' ||
                                                 recordDetails?.status === 'Approved' ||
@@ -865,126 +877,122 @@ export default function CctvDetails() {
                                                 recordDetails?.status === 'Acknowledged' ||
                                                 recordDetails?.status === 'Completed' ||
                                                 (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
-                                            ))
+                                            )
                                             ? 'Approved By'
                                             : 'Approved By BM / ABM'}
-                                    </h4>
+                                    </p>
 
-                                    {approverData && (
-                                        recordDetails?.status === 'BM Approved' ||
-                                        recordDetails?.status === 'Approved' ||
-                                        recordDetails?.status === 'Received' ||
-                                        recordDetails?.status === 'Acknowledged' ||
-                                        recordDetails?.status === 'Completed' ||
-                                        (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
-                                    ) ? (
+                                    {approverData &&
+                                        (
+                                            recordDetails?.status === 'BM Approved' ||
+                                            recordDetails?.status === 'Approved' ||
+                                            recordDetails?.status === 'Received' ||
+                                            recordDetails?.status === 'Acknowledged' ||
+                                            recordDetails?.status === 'Completed' ||
+                                            (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
+                                        ) ? (
                                         <>
-                                            <p className="text-xs sm:text-sm">
+                                            <p className="text-sm text-gray-800 font-semibold">
                                                 {approverData?.title ? `${approverData.title}.` : ''}
                                                 {approverData?.name ?? ''}
                                             </p>
-                                            <p className="text-xs sm:text-sm">
+                                            <p className="text-sm text-gray-700">
                                                 ({approverData?.department ?? ''})
                                             </p>
-                                            <p className="text-gray-500 text-xs">
+                                            <p className="text-xs text-gray-400">
                                                 {approverData?.created_at ? formatDateTime(approverData.created_at) : ''}
                                             </p>
                                             {approverData?.comment && (
-                                                <p className="text-info italic text-xs sm:text-sm">
+                                                <p className="italic text-blue-500 text-sm">
                                                     "{approverData.comment}"
                                                 </p>
                                             )}
                                         </>
                                     ) : (
-                                        <p className="text-muted text-xs sm:text-sm opacity-25">
-                                            -
-                                        </p>
+                                        <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
 
-                                <div className="border p-3 sm:p-4 rounded">
-                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
-                                        {(acknowledgerData &&
+
+                                <div className="space-y-1">
+                                    <p className="text-gray-500">
+                                        {acknowledgerData &&
                                             (
                                                 recordDetails?.status === 'Approved' ||
                                                 recordDetails?.status === 'Completed' ||
                                                 (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
-                                            ))
+                                            )
                                             ? 'Checked By'
                                             : 'Checked by Branch IT'}
-                                    </h4>
+                                    </p>
 
-                                    {(acknowledgerData &&
+                                    {acknowledgerData &&
                                         (
                                             recordDetails?.status === 'Approved' ||
                                             recordDetails?.status === 'Completed' ||
                                             (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
-                                        )) ? (
+                                        ) ? (
                                         <>
-                                            <p className="text-xs sm:text-sm">
+                                            <p className="text-sm text-gray-800 font-semibold">
                                                 {acknowledgerData?.title ? `${acknowledgerData.title}.` : ''}
                                                 {acknowledgerData?.name ?? ''}
                                             </p>
-                                            <p className="text-xs sm:text-sm">
+                                            <p className="text-sm text-gray-700">
                                                 ({acknowledgerData?.department ?? ''})
                                             </p>
-                                            <p className="text-gray-500 text-xs">
+                                            <p className="text-xs text-gray-400">
                                                 {acknowledgerData?.created_at ? formatDateTime(acknowledgerData.created_at) : ''}
                                             </p>
                                             {acknowledgerData?.comment && (
-                                                <p className="text-info italic text-xs sm:text-sm">
+                                                <p className="italic text-blue-500 text-sm">
                                                     "{acknowledgerData.comment}"
                                                 </p>
                                             )}
-
                                         </>
                                     ) : (
-                                        <p className="text-muted text-xs sm:text-sm opacity-25">
-                                            -
-                                        </p>
+                                        <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
 
 
-                                <div className="border p-3 sm:p-4 rounded">
-                                    <h4 className="font-medium mb-1 sm:mb-2 text-sm sm:text-base">
-                                        {(managerData &&
+                                <div className="space-y-1">
+                                    <p className="text-gray-500">
+                                        {managerData &&
                                             (
                                                 recordDetails?.status === 'Completed' ||
                                                 (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
-                                            ))
+                                            )
                                             ? 'Acknowledged By'
                                             : 'Acknowledged by SD Manager'}
-                                    </h4>
+                                    </p>
 
-                                    {(managerData &&
+                                    {managerData &&
                                         (
                                             recordDetails?.status === 'Completed' ||
                                             (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
-                                        )) ? (
+                                        ) ? (
                                         <>
-                                            <p className="text-xs sm:text-sm">
+                                            <p className="text-sm text-gray-800 font-semibold">
                                                 {managerData?.title ? `${managerData.title}.` : ''}
                                                 {managerData?.name ?? ''}
                                             </p>
-                                            <p className="text-xs sm:text-sm">
+                                            <p className="text-sm text-gray-700">
                                                 {managerData?.department ?? ''}
                                             </p>
-                                            <p className="text-gray-500 text-xs">
+                                            <p className="text-xs text-gray-400">
                                                 {managerData?.created_at ? formatDateTime(managerData.created_at) : ''}
                                             </p>
                                             {managerData?.comment && (
-                                                <p className="text-info italic text-xs sm:text-sm">
+                                                <p className="italic text-blue-500 text-sm">
                                                     "{managerData.comment}"
                                                 </p>
                                             )}
                                         </>
                                     ) : (
-                                        <p className="text-muted text-xs sm:text-sm opacity-25">
-                                            -
-                                        </p>
+                                        <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
+
 
                             </div>
 

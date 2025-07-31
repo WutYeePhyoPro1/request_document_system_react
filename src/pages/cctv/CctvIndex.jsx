@@ -121,10 +121,8 @@ export default function CctvIndex() {
     useEffect(() => {
         fetchBranches();
         fetchData(`/api/user/notifications/${userId}`, token, 'user unread notification', setUserNotification);
-
         const restoredPayload = location.state?.searchPayload;
         const restoredFormData = location.state?.formData;
-
         if (location.state?.restoreSearch && restoredPayload) {
             console.log('Restoring previous search:', restoredPayload, restoredFormData);
             setIsSearchMode(true);
@@ -182,9 +180,9 @@ export default function CctvIndex() {
                             ]}
                         />
 
-                        <div className="flex justify-between pb-2">
+                        <div className="flex justify-between pb-2 mr-4">
                             <h2 className="text-xl font-semibold mb-4">CCTV Request Form</h2>
-                            <Link to="/cctv-request" className="text-white font-bold py-2 px-4 rounded cursor-pointer"
+                            <Link to="/cctv-request" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
                                 style={{
                                     backgroundColor: '#2ea2d1',
                                 }}
@@ -195,7 +193,7 @@ export default function CctvIndex() {
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm">
                             <div className="flex flex-col">
                                 <label htmlFor="formDocNo" className="mb-1 font-medium text-gray-700">
                                     Form Doc No
@@ -286,7 +284,6 @@ export default function CctvIndex() {
                             </div>
 
 
-
                             <div className="flex items-end">
                                 <button className="text-white px-4 py-2 rounded w-full cursor-pointer" onClick={handleSearch} style={{
                                     backgroundColor: '#2ea2d1',
@@ -302,15 +299,6 @@ export default function CctvIndex() {
                                     <button
                                         className="text-white px-4 py-2 rounded w-full cursor-pointer"
                                         onClick={() => {
-                                            // setIsSearchMode(false);   // Exit search mode
-                                            // fetchCctvRecords(1);      // Re-fetch default
-                                            // setFormData({             // Optional: reset filters
-                                            //     formDocNo: '',
-                                            //     startDate: '',
-                                            //     endDate: '',
-                                            //     status: [],
-                                            //     branch: 'All Branch'
-                                            // });
                                             setLoading(true);
                                             setIsSearchMode(false);
                                             setSearchPayload(null);
@@ -418,7 +406,7 @@ export default function CctvIndex() {
                                                             <polygon points="13,8 17,6 17,14 13,12" fill="white" />
 
 
-                                                            <line x1="3" y1="3" x2="17" y2="17" stroke="black" stroke-width="2" />
+                                                            <line x1="3" y1="3" x2="17" y2="17" stroke="black" strokeWidth="2" />
                                                         </svg>
 
 
@@ -527,7 +515,7 @@ export default function CctvIndex() {
                                                         <polygon points="13,8 17,6 17,14 13,12" fill="white" />
 
 
-                                                        <line x1="3" y1="3" x2="17" y2="17" stroke="black" stroke-width="2" />
+                                                        <line x1="3" y1="3" x2="17" y2="17" stroke="black" strokeWidth="2" />
                                                     </svg>
 
                                                 )}
