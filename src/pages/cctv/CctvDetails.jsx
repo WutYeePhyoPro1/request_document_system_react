@@ -104,7 +104,7 @@ export default function CctvDetails() {
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!id || !token) return;
-        setLoading(true); // <-- Start loading
+        setLoading(true);
         fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
             setRecordDetails(recordData);
             fetchData(
@@ -485,8 +485,6 @@ export default function CctvDetails() {
                             <div className="mb-6">
                                 <h3 className="font-medium mb-2">Detail ❶</h3>
                                 <div className="overflow-x-auto">
-
-
                                     <table className="hidden xl:table  min-w-full border text-xs sm:text-sm">
                                         <thead>
                                             <tr className="bg-gray-100">
@@ -781,7 +779,7 @@ export default function CctvDetails() {
 
                                 {/* isManager */}
 
-                                {isManager && (
+                                {/* {isManager && (
                                     <div className="mb-6">
                                         <h4 className="font-medium mb-2">Remark</h4>
                                         <textarea
@@ -817,6 +815,48 @@ export default function CctvDetails() {
 
                                         </div>
                                     </div>
+                                )} */}
+
+
+                                {isManager && (
+
+                                    <div className="mb-6">
+                                        <h4 className="font-medium mb-2">Remark</h4>
+                                        <textarea
+                                            value={remark}
+                                            onChange={(e) => setRemark(e.target.value)}
+                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Write remark about this and please be careful not more than 200 characters."
+                                            rows={3}
+                                            maxLength={200}
+                                        />
+
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            <button
+                                                onClick={handleComplete}
+                                                disabled={isSubmitting}
+                                                className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
+                                            >
+                                                {isSubmitting ? 'Processing...' : 'Approve'}
+                                            </button>
+                                            <button
+                                                onClick={handleCancel}
+                                                className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
+                                            >
+                                                Cancel
+                                            </button>
+                                            {route === 'cctv_record' && isManager && recordDetails?.status === 'Approved' && (
+                                                <button
+                                                    onClick={ApproveBackToPrevious}
+                                                    className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
+                                                >
+                                                    Back to Previous
+                                                </button>
+                                            )}
+                                        </div>
+
+                                    </div>
+
                                 )}
 
                             </div>
@@ -876,8 +916,7 @@ export default function CctvDetails() {
                             )}
 
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 mt-6">
-
+                            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 mt-6">
                                 <div className="space-y-1">
                                     <p className="text-gray-500">Staff / Eyewitness</p>
                                     <p className="text-sm text-gray-800 font-semibold">
@@ -889,8 +928,6 @@ export default function CctvDetails() {
                                     </p>
                                     <p className="text-xs text-gray-400"> {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}</p>
                                 </div>
-
-
                                 <div className="space-y-1">
                                     <p className="text-gray-500">
                                         {approverData &&
@@ -936,8 +973,6 @@ export default function CctvDetails() {
                                         <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
-
-
                                 <div className="space-y-1">
                                     <p className="text-gray-500">
                                         {acknowledgerData &&
@@ -977,8 +1012,6 @@ export default function CctvDetails() {
                                         <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
-
-
                                 <div className="space-y-1">
                                     <p className="text-gray-500">
                                         {managerData &&
@@ -1016,8 +1049,6 @@ export default function CctvDetails() {
                                         <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
-
-
                             </div>
 
                             {/* <Link

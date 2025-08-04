@@ -422,10 +422,6 @@ export default function CctvIndex() {
                             <div className="xl:hidden space-y-4 mt-4">
                                 {cctvRequests && cctvRequests.map((item) => (
                                     <div key={item.id}
-
-
-                                        // onClick={() => navigate(`/cctv-details/${item.id}`)} 
-
                                         onClick={() =>
                                             navigate(`/cctv-details/${item.id}`, {
                                                 state: {
@@ -462,7 +458,7 @@ export default function CctvIndex() {
 
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Branch:</span>
-                                            <span>Branch {item.to_branch}</span>
+                                            {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'}
                                         </div>
                                         <div className="flex flex-col mb-2">
                                             <span className="font-semibold text-gray-700">Requested By:</span>

@@ -39,7 +39,7 @@ import Sidebar from '../../components/Siderbar'
 import Navbar from '../../components/Navbar'
 
 export default function Layout() {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
 
     return (
