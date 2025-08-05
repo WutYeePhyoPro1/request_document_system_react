@@ -9,7 +9,8 @@ export default defineConfig({
         host: true,
         proxy: {
             '/api': {
-                target: 'http://localhost:8000',
+                // target: 'http://localhost:8000',
+                target: 'https://rds.sdpghc.net/',
                 changeOrigin: true,
                 secure: false,
                 rewrite: (path) => path.replace(/^\/api/, '/api')

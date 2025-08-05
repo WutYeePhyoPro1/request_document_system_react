@@ -21,9 +21,9 @@ export default function Notification({ notifications }) {
             <div className="relative cursor-pointer" onClick={toggleDropdown}>
                 <FaBell className="text-2xl text-gray-700" />
                 {hasNotifications && (
-                    <span className="absolute -top-3 -right-3 flex items-center justify-center 
+                    <span className="absolute -top-4 -right-3 flex items-center justify-center 
                                     h-6 w-6 text-sm font-bold text-white bg-red-600 rounded-full
-                                    border-2 border-white shadow-lg">
+                                    border-2 border-white shadow-lg p-3">
                         {notifications.length}
                     </span>
                 )}
