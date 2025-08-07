@@ -1,46 +1,46 @@
-
-// import React, { useState } from 'react'
-// import { Outlet } from 'react-router-dom'
-// import { AuthProvider } from '../../context/AuthContext' // ✅ Import AuthProvider
-// import Sidebar from '../../components/Siderbar'
-// import Navbar from '../../components/Navbar'
-
-
-// export default function Layout() {
-//     const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-//     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
-
-//     return (
-//         <AuthProvider>
-//             <div className="flex min-h-screen flex-col">
-//                 {/* <GetNotification /> */}
-//                 <Navbar toggleSidebar={toggleSidebar} />
-//                 <div className="flex flex-grow">
-//                     <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-//                     <div className="flex-grow p-3">
-//                         <Outlet />
-//                     </div>
-//                 </div>
-//                 <footer className="bg-[#A9D8E9] text-gray text-center py-4">
-//                     <p className="text-sm">
-//                         &copy; {new Date().getFullYear()} Pro1 Global Home Center. All rights reserved.
-//                     </p>
-//                 </footer>
-//             </div>
-//         </AuthProvider>
-//     )
-// }
-
-
 import React, { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import { AuthProvider } from '../../context/AuthContext'
 import Sidebar from '../../components/Siderbar'
 import Navbar from '../../components/Navbar'
 
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').then(function (registration) {
+            console.log('ServiceWorker registration successful');
+        }, function (err) {
+            // console.log('ServiceWorker registration failed: ', err);
+        });
+    });
+}
+
+export const subscribeUser = async (registration) => {
+    console.log('Subscribing user to push notifications...');
+    if (!registration || !registration.pushManager) {
+        console.error('Push manager not available.');
+        return;
+    }
+    const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: 'BCPKeVfYglhfqpsmmQXv-MP7oihVtZiVzRUXkVxojeQgAlGOWB07YI77J-A8awLcqv4ZKNPHVFQimsrutIIeRhM',
+    });
+
+    console.log('User subscribed:', subscription);
+    return subscription;
+};
+
+export const requestNotificationPermission = async () => {
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+        console.log('Notification permission granted.');
+    } else {
+        console.log('Notification permission denied.');
+    }
+};
+
 export default function Layout() {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen)
+    const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     return (
         <AuthProvider>

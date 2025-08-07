@@ -180,8 +180,8 @@ export default function CctvIndex() {
                             ]}
                         />
 
-                        <div className="flex justify-between pb-2 mr-4">
-                            <h2 className="text-xl font-semibold mb-4">CCTV Request Form</h2>
+                        <div className="flex justify-between mr-4">
+                            <h2 className="text-xl font-semibold ">CCTV Request Form</h2>
                             <Link to="/cctv-request" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
                                 style={{
                                     backgroundColor: '#2ea2d1',
@@ -193,7 +193,7 @@ export default function CctvIndex() {
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
                             <div className="flex flex-col">
                                 <label htmlFor="formDocNo" className="mb-1 font-medium text-gray-700">
                                     Form Doc No
@@ -344,8 +344,6 @@ export default function CctvIndex() {
                                     {cctvRequests && cctvRequests.map((item, index) => (
                                         <tr
                                             key={item.id}
-                                            // onClick={() => navigate(`/cctv-details/${item.id}`)}
-
                                             onClick={() =>
                                                 navigate(`/cctv-details/${item.id}`, {
                                                     state: {
@@ -419,108 +417,102 @@ export default function CctvIndex() {
                                 </tbody>
                             </table>
 
+
+
                             <div className="xl:hidden space-y-4 mt-4">
-                                {cctvRequests && cctvRequests.map((item) => (
-                                    <div key={item.id}
+                                {cctvRequests?.map((item) => (
+                                    <div
+                                        key={item.id}
                                         onClick={() =>
                                             navigate(`/cctv-details/${item.id}`, {
-                                                state: {
-                                                    fromSearch: isSearchMode,
-                                                    searchPayload,
-                                                    formData,
-                                                }
+                                                state: { fromSearch: isSearchMode, searchPayload, formData }
                                             })
                                         }
-
-                                        className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm hover:bg-[#efefef]">
-                                        <div className="flex flex-col mb-2">
-                                            <span className="font-semibold text-gray-700">Status:</span>
-                                            <StatusBadge status={item.status} />
-                                        </div>
-                                        <div className="flex flex-col mb-2">
-                                            <span className="font-semibold text-gray-700">Document No:</span>
-                                            <span className="text-blue-600 font-medium flex items-center">
-                                                {/* <Link to={`/cctv-details/${item.id}`}> */}
+                                        className="p-4 border border-gray-200 rounded-lg bg-white shadow hover:bg-gray-100 transition cursor-pointer"
+                                    >
+                                        {/* <div className="flex items-center justify-between mb-2">
+                                            <span className="text-blue-600 font-semibold text-base flex items-center">
                                                 {item.form_doc_no}
-                                                {/* </Link> */}
 
-                                                {UserNotification?.some(noti =>
-                                                    noti.form_id === item.form_id &&
-                                                    noti.specific_form_id === item.id &&
-                                                    noti.form_doc_no === item.form_doc_no
-                                                ) && (
-                                                        <span className="inline-flex items-center justify-center w-3.5 h-3 rounded bg-red-600 text-white text-[10px] leading-none ml-1">
-                                                            ...
-                                                        </span>
-                                                    )}
                                             </span>
-                                        </div>
-
-                                        <div className="flex flex-col mb-2">
-                                            <span className="font-semibold text-gray-700">Branch:</span>
-                                            {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'}
-                                        </div>
-                                        <div className="flex flex-col mb-2">
-                                            <span className="font-semibold text-gray-700">Requested By:</span>
-                                            <span>Miss. {item.requester_name}</span>
-                                        </div>
-                                        <div className="flex flex-col mb-2">
-                                            <span className="font-semibold text-gray-700">Case Date:</span>
-                                            <span>{item.cctv_record?.issue_date || ''}</span>
-                                        </div>
-                                        <div className="flex flex-col mb-2">
-                                            <span className="font-semibold text-gray-700">Created Date:</span>
-                                            <span>{item.created_at.slice(0, 10)}</span>
-                                        </div>
-                                        <div className="flex flex-col mt-3">
-                                            <span className="font-semibold text-gray-700">Video: {item.asset_type}</span>
-                                            <button
-                                                className="bg-gray-600 text-white p-2 rounded hover:bg-gray-700 mt-1 w-fit"
-                                                title={item.asset_type === 1 || item.asset_type === 'on' ? "Camera On" : "Camera Off"}
-                                            >
-                                                {item.asset_type === 1 || item.asset_type === 'on' ? (
-                                                    <svg
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        width="16"
-                                                        height="16"
-                                                        fill="white"
-                                                        className="bi bi-camera-video-fill"
-                                                        viewBox="0 0 16 16"
+                                            {UserNotification?.some(noti =>
+                                                noti.form_id === item.form_id &&
+                                                noti.specific_form_id === item.id &&
+                                                noti.form_doc_no === item.form_doc_no
+                                            ) && (
+                                                    <span
+                                                        title="New Notification"
+                                                        className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-xs"
                                                     >
-                                                        <path d="M0 5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v.5l3.106-1.553A.5.5 0 0 1 15 4.5v7a.5.5 0 0 1-.894.316L11 10.5V11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V5z" />
-                                                    </svg>
-                                                ) : (
-                                                    // Camera OFF
-                                                    // <svg
-                                                    //     xmlns="http://www.w3.org/2000/svg"
-                                                    //     width="16"
-                                                    //     height="16"
-                                                    //     fill="white"
-                                                    //     className="bi bi-camera-video-off-fill"
-                                                    //     viewBox="0 0 16 16"
-                                                    // >
-                                                    //     <path d="M10.961 12.365 8.596 10H6.5A1.5 1.5 0 0 1 5 8.5V6.404L2.635 4.04a.5.5 0 1 1 .707-.707l11 11a.5.5 0 0 1-.707.707l-2.674-2.674z" />
-                                                    //     <path d="M5 5.121v3.379a.5.5 0 0 0 .5.5h1.379L5 5.121z" />
-                                                    //     <path d="M11 8.5v1.379l-1.121-1.121H11z" />
-                                                    //     <path d="M14 4.833v6.334a.5.5 0 0 1-.854.353L12 10.086V11.5A1.5 1.5 0 0 1 10.5 13H9.121l-1-1H10.5a.5.5 0 0 0 .5-.5V9.879l-6-6V4.5a.5.5 0 0 1 .146.354V4.5a.5.5 0 0 1 .5-.5h3A1.5 1.5 0 0 1 11 5.5v1.586l2.146-2.146a.5.5 0 0 1 .854.353z" />
-                                                    // </svg>
-
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="white">
-
-                                                        <rect x="3" y="6" width="10" height="10" rx="2" fill="white" />
-                                                        <polygon points="13,8 17,6 17,14 13,12" fill="white" />
-
-
-                                                        <line x1="3" y1="3" x2="17" y2="17" stroke="black" strokeWidth="2" />
-                                                    </svg>
-
+                                                        !
+                                                    </span>
                                                 )}
-                                            </button>
-                                        </div>
 
+                                        </div> */}
+
+                                        <div className="flex items-center justify-between mb-2">
+    <div className="flex items-center gap-1 text-blue-600 font-semibold text-base">
+        <span>{item.form_doc_no}</span>
+        {UserNotification?.some(noti =>
+            noti.form_id === item.form_id &&
+            noti.specific_form_id === item.id &&
+            noti.form_doc_no === item.form_doc_no
+        ) && (
+            <span
+                title="New Notification"
+                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-xs"
+            >
+                !
+            </span>
+        )}
+    </div>
+    <span className="text-sm text-gray-700">
+        {/* {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'} */}
+        <StatusBadge status={item.status} />
+    </span>
+</div>
+
+
+                                        <div className="text-sm text-gray-700 space-y-1">
+
+
+                                            <div className="flex justify-between">
+                                                <span>Miss. {item.requester_name}</span>
+                                                <span>{branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'}</span>
+
+                                            </div>
+
+                                            <div className="flex justify-between">
+                                                <span>{item.cctv_record?.issue_date || '—'}</span>
+                                                <span>{item.created_at.slice(0, 10)}</span>
+                                            </div>
+
+                                            <div className="flex justify-between items-center">
+                                                <button
+                                                    className="bg-gray-600 text-white p-2 rounded hover:bg-gray-700"
+                                                    title={item.asset_type === 1 || item.asset_type === 'on' ? "Camera On" : "Camera Off"}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    {item.asset_type === 1 || item.asset_type === 'on' ? (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" viewBox="0 0 16 16">
+                                                            <path d="M0 5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v.5l3.106-1.553A.5.5 0 0 1 15 4.5v7a.5.5 0 0 1-.894.316L11 10.5V11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V5z" />
+                                                        </svg>
+                                                    ) : (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 20 20" fill="white">
+                                                            <rect x="3" y="6" width="10" height="10" rx="2" fill="white" />
+                                                            <polygon points="13,8 17,6 17,14 13,12" fill="white" />
+                                                            <line x1="3" y1="3" x2="17" y2="17" stroke="black" strokeWidth="2" />
+                                                        </svg>
+                                                    )}
+                                                </button>
+                                               
+
+                                            </div>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
+
 
                             {paginationInfo && (
                                 <div className="text-center text-sm text-gray-600 mt-4">
@@ -529,7 +521,7 @@ export default function CctvIndex() {
                             )}
                         </div>
 
-                        <div className="navigation">
+                        {/* <div className="navigation">
                             <ul className="inline-flex -space-x-px text-sm">
                                 {paginationInfo?.links?.map((link, index) => (
                                     <li key={index}>
@@ -554,7 +546,36 @@ export default function CctvIndex() {
                                     </li>
                                 ))}
                             </ul>
+                        </div> */}
+
+
+                        <div className="navigation w-full overflow-x-auto">
+                            <ul className="inline-flex whitespace-nowrap min-w-max -space-x-px text-sm">
+                                {paginationInfo?.links?.map((link, index) => (
+                                    <li key={index}>
+                                        <button
+                                            onClick={() => {
+                                                if (link.url) {
+                                                    const url = new URL(link.url);
+                                                    const page = url.searchParams.get('page');
+                                                    handlePageClick(Number(page));
+                                                }
+                                            }}
+                                            disabled={!link.url}
+                                            className={`flex items-center justify-center px-3 min-w-[40px] h-8 leading-tight cursor-pointer
+                        ${link.active ? 'text-gray-600 border border-[#2ea2d1] bg-[#2ea2d1]' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700'}
+                        ${index === 0 ? 'rounded-s-lg' : ''}
+                        ${index === paginationInfo.links.length - 1 ? 'rounded-e-lg' : ''}
+                    `}
+                                        >
+                                            {link.label === '&laquo; Previous' ? 'Previous' :
+                                                link.label === 'Next &raquo;' ? 'Next' : link.label}
+                                        </button>
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
+
 
                     </div >
                 )

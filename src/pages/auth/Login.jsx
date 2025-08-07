@@ -16,7 +16,44 @@ export default function Login() {
     const [deferredPrompt, setDeferredPrompt] = useState(null);
 
     const [isVisible, setIsVisible] = useState(false);
-    console.log(isVisible);
+    const token = localStorage.getItem("token");
+
+        const subscribeToPush = async () => {
+            if (!('serviceWorker' in navigator)) {
+                console.error('Service Worker not supported');
+                return;
+            }
+    
+            // Register Service Worker
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log(registration);
+    
+            // Request Notification Permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                // console.error('Notification permission denied');
+                return;
+            }
+    
+            // Subscribe to Push
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: 'BCPKeVfYglhfqpsmmQXv-MP7oihVtZiVzRUXkVxojeQgAlGOWB07YI77J-A8awLcqv4ZKNPHVFQimsrutIIeRhM', // Replace with your VAPID_PUBLIC_KEY
+            });
+    
+            // Send subscription to backend
+            await fetch('/api/notifications/push/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(subscription),
+            });
+    
+            console.log('Push subscription saved.');
+        };
+
 
     useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
@@ -24,7 +61,7 @@ export default function Login() {
             setDeferredPrompt(e);
             setIsVisible(true);
         };
-
+        subscribeToPush();
         window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
         const savedPrompt = sessionStorage.getItem('deferredPrompt');
         if (savedPrompt) {

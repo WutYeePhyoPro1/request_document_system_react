@@ -1,7 +1,7 @@
 import { Link, useLocation, useParams } from 'react-router-dom';
 import dashboardPhoto from "../../assets/images/reqBa.png";
 import { FiCopy } from 'react-icons/fi';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import NavPath from '../../components/NavPath';
 import { useAuth } from '../../context/AuthContext';
 import { fetchData } from '../../api/FetchApi';
@@ -46,6 +46,9 @@ export default function CctvDetails() {
     const fromSearch = location.state?.fromSearch;
     const searchPayload = location.state?.searchPayload;
     const formData = location.state?.formData;
+
+    const hasFetchedInitial = useRef(false);
+    console.log(hasFetchedInitial.current);
 
     const checkApprover = () => {
         if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'Ongoing') return false;
@@ -101,19 +104,30 @@ export default function CctvDetails() {
 
     // လက်ရှိ user ဟာ လက်ရှိဖောင် process ထဲမှာ A2 အဖြစ်ပါဝင်ပြီး၊ သူ့ရဲ့ role က Approver(Manager) ဖြစ်လား ?ဖြစ်တယ်ဆိုရင် true ပြန်တယ်။ မဟုတ်ရင် false ပြန်တယ်။
 
+
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (!id || !token) return;
+        if (!id || !token || hasFetchedInitial.current) return;
+
+        hasFetchedInitial.current = true;
         setLoading(true);
+
         fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
             setRecordDetails(recordData);
+
+            // ✅ Fetch originator
             fetchData(
                 `/api/cctv-records/fetch-originator/${id}`,
                 token,
                 'originator details',
                 setOriginatorData
             );
-            if (recordData.status === "Ongoing" || "BM Approved") {
+
+            // ✅ Fetch approver
+            if (
+                recordData.status === "BM Approved" ||
+                recordData.status === "Approved" || recordData.status === "Completed"
+            ) {
                 fetchData(
                     `/api/cctv-records/fetch-approver/${id}`,
                     token,
@@ -121,7 +135,11 @@ export default function CctvDetails() {
                     setApproverData
                 );
             }
-            if (recordData.status === "Ongoing" || "BM Approved" || recordData.status === "Approved") {
+
+            // ✅ Fetch acknowledger
+            if (
+                recordData.status === "Approved" || recordData.status === "Completed"
+            ) {
                 fetchData(
                     `/api/cctv-records/fetch-acknowledger/${id}`,
                     token,
@@ -130,6 +148,7 @@ export default function CctvDetails() {
                 );
             }
 
+            // ✅ Fetch manager
             if (recordData.status === "Completed") {
                 fetchData(
                     `/api/cctv-records/fetch-manager/${id}`,
@@ -139,6 +158,7 @@ export default function CctvDetails() {
                 );
             }
 
+            // ✅ Fetch cancel details
             if (recordData.status === "Cancel") {
                 fetchData(
                     `/api/cctv-records/fetch-cancel/${id}`,
@@ -147,19 +167,41 @@ export default function CctvDetails() {
                     setCancelData
                 );
             }
+
             setLoading(false);
         });
     }, [id]);
 
+
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!recordDetails?.id || !token) return;
+
         const general_form_id = recordDetails.id;
-        fetchData(`/api/cctv_record/${route}/${form_id}/${layout_id}/${general_form_id}/detail`, token, 'details cctvform', setCctvData);
-        fetchData(`/api/approval-process-users/${general_form_id}`, token, 'approval process users', setApprovalProcessUser);
-        fetchData(`/api/video-record/${general_form_id}`, token, 'cctv record', setVideoRecord);
+
+        fetchData(
+            `/api/cctv_record/${route}/${form_id}/${layout_id}/${general_form_id}/detail`,
+            token,
+            'details cctvform',
+            setCctvData
+        );
+
+        fetchData(
+            `/api/approval-process-users/${general_form_id}`,
+            token,
+            'approval process users',
+            setApprovalProcessUser
+        );
+
+        fetchData(
+            `/api/video-record/${general_form_id}`,
+            token,
+            'cctv record',
+            setVideoRecord
+        );
     }, [recordDetails]);
 
+    // ✅ 3. Set user roles once related data is loaded
     useEffect(() => {
         setIsApprover(checkApprover());
         setIsBranchITApprover(checkBranchITApprover());
@@ -245,35 +287,6 @@ export default function CctvDetails() {
         }
     };
 
-    // const handleDownloadPdf = async () => {
-    //     try {
-    //         const response = await fetch(`/api/users/${recordDetails.id}/print`, {
-    //             method: 'GET',
-    //             headers: {
-    //                 'Authorization': `Bearer ${localStorage.getItem('token')}`, // if protected
-    //                 'Accept': 'application/pdf',
-    //             }
-    //         });
-
-    //         if (!response.ok) {
-    //             throw new Error('Failed to download PDF');
-    //         }
-
-    //         const blob = await response.blob();
-    //         const url = window.URL.createObjectURL(blob);
-
-    //         const link = document.createElement('a');
-    //         link.href = url;
-    //         link.download = `${recordDetails.form_doc_no || 'document'}.pdf`;
-    //         document.body.appendChild(link);
-    //         link.click();
-    //         document.body.removeChild(link);
-    //         window.URL.revokeObjectURL(url);
-    //     } catch (error) {
-    //         console.error("Download error:", error);
-    //         alert("Failed to download PDF.");
-    //     }
-    // };
 
     const handleApprove = () => handleSubmit('Approved');
     const handleBTP = () => handleSubmit('Back To Previous');
@@ -284,17 +297,6 @@ export default function CctvDetails() {
     const ApproveBackToPrevious = () => handleSubmit('Back To Previous');
 
     const formDocno = recordDetails?.form_doc_no ? recordDetails.form_doc_no : '';
-
-    // const handleCopy = () => {
-    //     navigator.clipboard.writeText(formDocno)
-    //         .then(() => {
-    //             setCopied(true);
-    //             setTimeout(() => setCopied(false), 2000);
-    //         })
-    //         .catch(err => {
-    //             console.error('Failed to copy: ', err);
-    //         });
-    // };
 
     const fallbackCopy = (text) => {
         const textArea = document.createElement("textarea");
@@ -1051,12 +1053,6 @@ export default function CctvDetails() {
                                 </div>
                             </div>
 
-                            {/* <Link
-                                to="/cctv-index"
-                                className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
-                            >
-                                <span className="mr-1 sm:mr-2">←</span> Back
-                            </Link> */}
 
                             <Link
                                 to="/cctv-index"
