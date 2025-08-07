@@ -104,6 +104,55 @@ export default function CctvDetails() {
 
     // လက်ရှိ user ဟာ လက်ရှိဖောင် process ထဲမှာ A2 အဖြစ်ပါဝင်ပြီး၊ သူ့ရဲ့ role က Approver(Manager) ဖြစ်လား ?ဖြစ်တယ်ဆိုရင် true ပြန်တယ်။ မဟုတ်ရင် false ပြန်တယ်။
 
+    // useEffect(() => {
+    //     const token = localStorage.getItem('token');
+    //     if (!id || !token) return;
+    //     setLoading(true);
+    //     fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
+    //         setRecordDetails(recordData);
+    //         fetchData(
+    //             `/api/cctv-records/fetch-originator/${id}`,
+    //             token,
+    //             'originator details',
+    //             setOriginatorData
+    //         );
+    //         if (recordData.status === "Ongoing" || "BM Approved") {
+    //             fetchData(
+    //                 `/api/cctv-records/fetch-approver/${id}`,
+    //                 token,
+    //                 'approver details',
+    //                 setApproverData
+    //             );
+    //         }
+    //         if (recordData.status === "Ongoing" || "BM Approved" || recordData.status === "Approved") {
+    //             fetchData(
+    //                 `/api/cctv-records/fetch-acknowledger/${id}`,
+    //                 token,
+    //                 'acknowledger details',
+    //                 setAcknowledgerData
+    //             );
+    //         }
+
+    //         if (recordData.status === "Completed") {
+    //             fetchData(
+    //                 `/api/cctv-records/fetch-manager/${id}`,
+    //                 token,
+    //                 'Manager details',
+    //                 setManagerData
+    //             );
+    //         }
+
+    //         if (recordData.status === "Cancel") {
+    //             fetchData(
+    //                 `/api/cctv-records/fetch-cancel/${id}`,
+    //                 token,
+    //                 'Cancel details',
+    //                 setCancelData
+    //             );
+    //         }
+    //         setLoading(false);
+    //     });
+    // }, [id]);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -207,6 +256,21 @@ export default function CctvDetails() {
         setIsBranchITApprover(checkBranchITApprover());
         setIsManager(checkManager());
     }, [recordDetails, approvalProcessUser, user]);
+
+    // useEffect(() => {
+    //     const token = localStorage.getItem('token');
+    //     if (!recordDetails?.id || !token) return;
+    //     const general_form_id = recordDetails.id;
+    //     fetchData(`/api/cctv_record/${route}/${form_id}/${layout_id}/${general_form_id}/detail`, token, 'details cctvform', setCctvData);
+    //     fetchData(`/api/approval-process-users/${general_form_id}`, token, 'approval process users', setApprovalProcessUser);
+    //     fetchData(`/api/video-record/${general_form_id}`, token, 'cctv record', setVideoRecord);
+    // }, [recordDetails]);
+
+    // useEffect(() => {
+    //     setIsApprover(checkApprover());
+    //     setIsBranchITApprover(checkBranchITApprover());
+    //     setIsManager(checkManager());
+    // }, [recordDetails, approvalProcessUser, user]);
 
     function formatDateTime(isoString) {
         const date = new Date(isoString);

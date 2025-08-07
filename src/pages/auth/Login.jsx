@@ -1,20 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import loginPhoto from "../../assets/images/login.png";
-import { DiVim } from 'react-icons/di';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import pro1Logo from "../../assets/images/finallogo.png";
 import InstallButton from '../../components/ui/InstallButton';
 
-
 export default function Login() {
-    const { login } = useAuth();
+    const { login, user } = useAuth(); // Updated: added user
     const [employee_number, setemployee_number] = useState("");
     const [password, setPassword] = useState("");
     const [remember, setRemember] = useState(false);
     const navigate = useNavigate();
     const [deferredPrompt, setDeferredPrompt] = useState(null);
-
     const [isVisible, setIsVisible] = useState(false);
     const token = localStorage.getItem("token");
 
@@ -55,6 +52,14 @@ export default function Login() {
         };
 
 
+    // 🔁 Redirect if already logged in
+    useEffect(() => {
+        if (user) {
+            navigate('/cctv-index', { replace: true });
+        }
+    }, [user, navigate]);
+
+    // PWA install prompt setup
     useEffect(() => {
         const handleBeforeInstallPrompt = (e) => {
             e.preventDefault();
@@ -76,7 +81,6 @@ export default function Login() {
 
     const handleInstallClick = () => {
         if (deferredPrompt) {
-            alert('hiii')
             deferredPrompt.prompt();
             deferredPrompt.userChoice.then((choiceResult) => {
                 if (choiceResult.outcome === 'accepted') {
@@ -97,7 +101,6 @@ export default function Login() {
         }
     }, [deferredPrompt]);
 
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         const success = await login(employee_number, password, remember);
@@ -107,7 +110,6 @@ export default function Login() {
     };
 
     return (
-
         <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-gray-100">
             <div className="w-full max-w-4xl lg:max-w-6xl xl:max-w-7xl rounded-lg p-4 sm:p-6 lg:p-8 bg-[#ecfeff] shadow-lg" style={{ border: '1px solid rgb(46, 162, 209)' }}>
                 <div className="flex flex-col sm:flex-row items-center justify-between mb-6 sm:mb-8 lg:mb-10 gap-4">
@@ -152,7 +154,6 @@ export default function Login() {
                                     />
                                 </div>
 
-
                                 <div>
                                     <label className='text-xs sm:text-sm md:text-base lg:text-lg text-slate-800 font-medium mb-1 sm:mb-2 block'>
                                         Password
@@ -186,11 +187,9 @@ export default function Login() {
                                         </label>
                                     </div>
                                 </div>
-
                             </div>
 
                             <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-12">
-
                                 <InstallButton />
                                 <button
                                     type="submit"
@@ -203,17 +202,11 @@ export default function Login() {
                                 >
                                     Log in
                                 </button>
-
                             </div>
                         </form>
                     </div>
-
                 </div>
             </div>
         </div>
     );
 }
-
-
-
-

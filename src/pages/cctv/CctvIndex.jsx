@@ -451,26 +451,26 @@ export default function CctvIndex() {
                                         </div> */}
 
                                         <div className="flex items-center justify-between mb-2">
-    <div className="flex items-center gap-1 text-blue-600 font-semibold text-base">
-        <span>{item.form_doc_no}</span>
-        {UserNotification?.some(noti =>
-            noti.form_id === item.form_id &&
-            noti.specific_form_id === item.id &&
-            noti.form_doc_no === item.form_doc_no
-        ) && (
-            <span
-                title="New Notification"
-                className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-xs"
-            >
-                !
-            </span>
-        )}
-    </div>
-    <span className="text-sm text-gray-700">
-        {/* {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'} */}
-        <StatusBadge status={item.status} />
-    </span>
-</div>
+                                            <div className="flex items-center gap-1 text-blue-600 font-semibold text-base">
+                                                <span>{item.form_doc_no}</span>
+                                                {UserNotification?.some(noti =>
+                                                    noti.form_id === item.form_id &&
+                                                    noti.specific_form_id === item.id &&
+                                                    noti.form_doc_no === item.form_doc_no
+                                                ) && (
+                                                        <span
+                                                            title="New Notification"
+                                                            className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-600 text-white text-xs"
+                                                        >
+                                                            !
+                                                        </span>
+                                                    )}
+                                            </div>
+                                            <span className="text-sm text-gray-700">
+                                                {/* {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'} */}
+                                                <StatusBadge status={item.status} />
+                                            </span>
+                                        </div>
 
 
                                         <div className="text-sm text-gray-700 space-y-1">
@@ -505,7 +505,7 @@ export default function CctvIndex() {
                                                         </svg>
                                                     )}
                                                 </button>
-                                               
+
 
                                             </div>
                                         </div>

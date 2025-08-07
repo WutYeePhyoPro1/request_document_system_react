@@ -1,3 +1,4 @@
+// src/routes/router.jsx
 import {
     createBrowserRouter,
     Navigate
@@ -14,11 +15,19 @@ import Login from "../pages/auth/Login.jsx";
 import CctvIndex from "../pages/cctv/CctvIndex.jsx";
 import CctvDetails from "../pages/cctv/CctvDetails.jsx";
 import CctvEdit from "../pages/cctv/CctvEdit.jsx";
+import AutoLogin from "../context/AutoLogin.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+
+const user = JSON.parse(localStorage.getItem('user')); // basic fallback
 
 const router = createBrowserRouter([
     {
         path: "/login",
-        element: <Login />,
+        element: user ? <Navigate to="/cctv-index" /> : <Login />,
+    },
+    {
+        path: "/auto-login",
+        element: <AutoLogin />,
     },
     {
         path: "/",
@@ -69,4 +78,3 @@ const router = createBrowserRouter([
 ]);
 
 export default router;
-

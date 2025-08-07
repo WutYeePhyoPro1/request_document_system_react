@@ -63,11 +63,8 @@ export default function Navbar({ toggleSidebar }) {
                 const res = await fetch(`/api/notifications/${userRoleId}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-
                 if (!res.ok) throw new Error("Unauthorized");
-
                 const data = await res.json();
-
                 const parsed = data.map(n => ({
                     form_id: n.data.form_id,
                     specific_form_id: n.data.specific_form_id,
@@ -77,8 +74,8 @@ export default function Navbar({ toggleSidebar }) {
                     status: n.status,
                 }));
 
-                setNotifications(parsed); // ✅ context update
-                localStorage.setItem("notifications", JSON.stringify(parsed)); // fallback store
+                setNotifications(parsed);
+                localStorage.setItem("notifications", JSON.stringify(parsed));
             } catch (err) {
                 console.error("Notification fetch error:", err);
             }
@@ -106,54 +103,11 @@ export default function Navbar({ toggleSidebar }) {
 
             <div className="flex items-center space-x-4">
                 <NotificationIcon notifications={notifications} />
-                {/* <div className="relative" ref={dropdownRef}>
-                    <button
-                        onClick={() => setMenuOpen(!menuOpen)}
-                        className="flex items-center space-x-2 bg-white px-2 py-1 rounded-md shadow-sm hover:bg-gray-100 text-sm cursor-pointer"
-                    >
-                        <span className="font-semibold">{user?.name || "User"}</span>
-                        <svg className="w-4 h-4 ml-1" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
-                        </svg>
-                    </button>
-
-                    {menuOpen && (
-                        <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                            <div className="p-3 font-semibold border-b border-gray-100">{user?.name}</div>
-                            <ul className="text-sm text-gray-700">
-                                <li>
-                                    <Link to="/change-password" className="block px-4 py-2 hover:bg-gray-100">
-                                        🔒 Change Password
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link to="/head-office" className="block px-4 py-2 hover:bg-gray-100">
-                                        🏢 Head Office
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link to="/system-development" className="block px-4 py-2 hover:bg-gray-100">
-                                        🖥️ System Development
-                                    </Link>
-                                </li>
-                                <li>
-                                    <button
-                                        onClick={handleLogout}
-                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
-                                    >
-                                        🚪 Sign Out
-                                    </button>
-                                </li>
-                            </ul>
-                        </div>
-                    )}
-                </div> */}
                 <div className="relative" ref={dropdownRef}>
                     <button
                         onClick={() => setMenuOpen(!menuOpen)}
                         className="flex items-center space-x-2 bg-white px-2 py-1 rounded-md shadow-sm hover:bg-gray-100 text-sm cursor-pointer"
                     >
-                        {/* Human icon - shows on mobile only */}
                         <svg
                             className="w-5 h-5 md:hidden"
                             fill="none"
@@ -167,11 +121,7 @@ export default function Navbar({ toggleSidebar }) {
                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                         </svg>
-
-                        {/* Username - shows on medium screens and up */}
                         <span className="hidden md:inline font-semibold">{user?.name || "User"}</span>
-
-                        {/* Dropdown chevron */}
                         <svg
                             className="w-4 h-4"
                             fill="currentColor"
@@ -184,7 +134,6 @@ export default function Navbar({ toggleSidebar }) {
                     {menuOpen && (
                         <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                             <div className="p-3 font-semibold border-b border-gray-100 flex items-center">
-                                {/* Human icon in dropdown header */}
                                 <svg
                                     className="w-5 h-5 mr-2"
                                     fill="none"
@@ -225,8 +174,6 @@ export default function Navbar({ toggleSidebar }) {
                                     </button>
                                 </li>
                             </ul>
-
-
                         </div>
                     )}
                 </div>
