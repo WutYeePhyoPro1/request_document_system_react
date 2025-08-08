@@ -27,7 +27,7 @@ export default function Navbar({ toggleSidebar }) {
 
         // Register Service Worker
         const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log(registration);
+        // console.log(registration);e
 
         // Request Notification Permission
         const permission = await Notification.requestPermission();

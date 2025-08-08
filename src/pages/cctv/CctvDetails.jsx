@@ -17,20 +17,15 @@ export default function CctvDetails() {
     const { user } = useAuth();
     const [copied, setCopied] = useState(false);
     const [recordDetails, setRecordDetails] = useState(null);
-    const [originalData, setOriginatorData] = useState(null);
-    const [approverData, setApproverData] = useState(null);
     const [cctvData, setCctvData] = useState(null);
     const cctvId = cctvData?.[0]?.id;
     const [approvalProcessUser, setApprovalProcessUser] = useState(null);
     const [videoRecord, setVideoRecord] = useState(false);
     const [isApprover, setIsApprover] = useState(false);
     const [isBranchITApprover, setIsBranchITApprover] = useState(false);
-    const [acknowledgerData, setAcknowledgerData] = useState(false);
-    const [managerData, setManagerData] = useState(false);
     const [isManager, setIsManager] = useState(false);
     const form_id = 15;
     const layout_id = 14;
-    const general_form_id = recordDetails?.id ?? '';
     const actualUserId = user?.id;
     const route = "cctv_record";
     const [remark, setRemark] = useState('');
@@ -39,31 +34,30 @@ export default function CctvDetails() {
     const [isOpen, setIsOpen] = useState(true);
     const [IsVideoDownloadOpen, setIsVideoDownloadOpen] = useState(false);
     const [showAlert, setShowAlert] = useState(true);
-    const [CancelData, setCancelData] = useState(null);
     const [loading, setLoading] = useState(true);
 
     const location = useLocation();
     const fromSearch = location.state?.fromSearch;
     const searchPayload = location.state?.searchPayload;
     const formData = location.state?.formData;
-
     const hasFetchedInitial = useRef(false);
-    console.log(hasFetchedInitial.current);
+
 
     const checkApprover = () => {
-        if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'Ongoing') return false;
-        const isSpecialRemark = ['change form', 'create brand', 'create category'].includes(recordDetails.g_remark);
+        if (!recordDetails || !approvalProcessUser || recordDetails.form.status !== 'Ongoing') return false;
+
+        const isSpecialRemark = ['change form', 'create brand', 'create category'].includes(recordDetails.form.g_remark);
         const checkerType = isSpecialRemark ? 'CS' : 'C';
         const checker = approvalProcessUser.find(u => u.user_type === checkerType);
         const statusConditions = (
-            (checker && recordDetails.status === 'Checked') ||
-            (!checker && ['Ongoing', 'Ongoing(Edit)'].includes(recordDetails.status)) ||
-            (checker && recordDetails.status === 'Ongoing' && recordDetails.g_remark === 'office_use')
+            (checker && recordDetails.form.status === 'Checked') ||
+            (!checker && ['Ongoing', 'Ongoing(Edit)'].includes(recordDetails.form.status)) ||
+            (checker && recordDetails.form.status === 'Ongoing' && recordDetails.form.g_remark === 'office_use')
         );
         if (statusConditions) {
             const currentUser = approvalProcessUser.find(u =>
                 u.user_type === 'A1' &&
-                u.general_form_id === recordDetails.id &&
+                u.general_form_id === recordDetails.form.id &&
                 u.admin_id === actualUserId
             );
             const isUserApprover = user?.role_id === 3;
@@ -72,87 +66,27 @@ export default function CctvDetails() {
         return false;
     };
 
-    // ဒီ approver() ဆိုတဲ့ function ဟာ လက်ရှိအသုံးပြုသူ (logged-in user) က တစ်ခုတည်းသော form တွင် အတည်ပြုသူ (Approver) ဖြစ်ခွင့်ရှိ/မရှိကို စစ်ဆေးတဲ့ function တစ်ခုပါ။ ပထမဦးဆုံးအနေဖြင့် function သည် ပေးထားသော data ထဲမှ general_form_id ကို ယူပြီး ApprovalProcessUser ထဲမှ user_type က A1 ဖြစ်တဲ့ အသုံးပြုသူ (Checker) ကိုလက်ရှိ login ဝင်ထားသူဖြစ်မဖြစ်စစ်သည်။ ထို့နောက် $data->g_remark တန်ဖိုးပေါ်မူတည်ပြီး checker ကို CS (change form, create brand/category မျိုး) သို့မဟုတ် C ဟု သတ်မှတ်သည်။ ထိုအချိန်တွင် $checker ရှိ/မရှိနှင့် $data->status တန်ဖိုးအပေါ်မူတည်ပြီး အသုံးပြုသူက Approver ဖြစ်နိုင်မည့်အခြေအနေများကို စစ်တင်သည်။ ထိုအခြေအနေများမှာ – checker ရှိပြီး status က Checked ဖြစ်ခြင်း၊ checker မရှိဘဲ status က Ongoing သို့မဟုတ် Ongoing(Edit) ဖြစ်ခြင်း၊ သို့မဟုတ် checker ရှိပြီး status က Ongoing ဖြစ်ပြီး remark က office_use ဖြစ်ခြင်း – တို့ဖြစ်သည်။ ထို့နောက် User table ထဲမှ လက်ရှိအသုံးပြုသူ၏ role_id ကိုယူပြီး၊ ထို user က Role table ထဲမှာ Approver ဟုအမည်ပေးထားသော role ကိုပိုင်ဆိုင်ထားသည့် ID နှင့် တူ/မတူစစ်သည်။ နောက်ဆုံးတွင်၊ လက်ရှိ user သည် process ထဲမှ A1 user ဖြစ်ပြီး Approver role ကို ပိုင်ဆိုင်ထားသည်ဆိုပါက true ကို return ပြန်ပါသည်။ မမှန်ပါက return မရှိတော့ function သည် null ပြန်နိုင်သည်။ ဒီ logic ဟာ လက်ရှိ user က form တစ်စောင်အတွက် Approver ဖြစ်နိုင်မလားဆိုတာဖော်ထုတ်ရန် အသုံးပြုသည်။
-
-
-
     const checkBranchITApprover = () => {
-        if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'BM Approved') return false;
+        if (!recordDetails || !approvalProcessUser || recordDetails.form.status !== 'BM Approved') return false;
         const current_user = approvalProcessUser.find(
             u => u.user_type === 'ACK' &&
-                u.general_form_id === recordDetails.id &&
+                u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
         const isBranchITUser = user?.role_id === 8;
         return current_user && isBranchITUser;
     };
 
-    // လက်ရှိဖောင်ကို ACK အဖြစ်ချဲ့သွင်းခံထားရတဲ့ Branch IT user ဖြစ်လား ?
-    //     ဆိုတာစစ်တာဖြစ်ပါတယ်။
-    // အကယ်၍ ဒါမှန်ခဲ့ရင်တော့ true ပြန်တယ်၊ မဟုတ်ရင် false ပြန်တယ်။
-
     const checkManager = () => {
-        if (!recordDetails || !approvalProcessUser || recordDetails.status !== 'Approved') return false;
+        if (!recordDetails || !approvalProcessUser || recordDetails.form.status !== 'Approved') return false;
         const current_user = approvalProcessUser.find(
             u => u.user_type === 'A2' &&
-                u.general_form_id === recordDetails.id &&
+                u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
         const isManager = user?.role_id === 3;
         return current_user && isManager;
     }
-
-    // လက်ရှိ user ဟာ လက်ရှိဖောင် process ထဲမှာ A2 အဖြစ်ပါဝင်ပြီး၊ သူ့ရဲ့ role က Approver(Manager) ဖြစ်လား ?ဖြစ်တယ်ဆိုရင် true ပြန်တယ်။ မဟုတ်ရင် false ပြန်တယ်။
-
-    // useEffect(() => {
-    //     const token = localStorage.getItem('token');
-    //     if (!id || !token) return;
-    //     setLoading(true);
-    //     fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
-    //         setRecordDetails(recordData);
-    //         fetchData(
-    //             `/api/cctv-records/fetch-originator/${id}`,
-    //             token,
-    //             'originator details',
-    //             setOriginatorData
-    //         );
-    //         if (recordData.status === "Ongoing" || "BM Approved") {
-    //             fetchData(
-    //                 `/api/cctv-records/fetch-approver/${id}`,
-    //                 token,
-    //                 'approver details',
-    //                 setApproverData
-    //             );
-    //         }
-    //         if (recordData.status === "Ongoing" || "BM Approved" || recordData.status === "Approved") {
-    //             fetchData(
-    //                 `/api/cctv-records/fetch-acknowledger/${id}`,
-    //                 token,
-    //                 'acknowledger details',
-    //                 setAcknowledgerData
-    //             );
-    //         }
-
-    //         if (recordData.status === "Completed") {
-    //             fetchData(
-    //                 `/api/cctv-records/fetch-manager/${id}`,
-    //                 token,
-    //                 'Manager details',
-    //                 setManagerData
-    //             );
-    //         }
-
-    //         if (recordData.status === "Cancel") {
-    //             fetchData(
-    //                 `/api/cctv-records/fetch-cancel/${id}`,
-    //                 token,
-    //                 'Cancel details',
-    //                 setCancelData
-    //             );
-    //         }
-    //         setLoading(false);
-    //     });
-    // }, [id]);
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -164,58 +98,24 @@ export default function CctvDetails() {
         fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
             setRecordDetails(recordData);
 
-            // ✅ Fetch originator
-            fetchData(
-                `/api/cctv-records/fetch-originator/${id}`,
-                token,
-                'originator details',
-                setOriginatorData
-            );
 
-            // ✅ Fetch approver
-            if (
-                recordData.status === "BM Approved" ||
-                recordData.status === "Approved" || recordData.status === "Completed"
-            ) {
-                fetchData(
-                    `/api/cctv-records/fetch-approver/${id}`,
-                    token,
-                    'approver details',
-                    setApproverData
-                );
-            }
+            // if (recordData.status === "Completed") {
+            //     fetchData(
+            //         `/api/cctv-records/fetch-manager/${id}`,
+            //         token,
+            //         'Manager details',
+            //         setManagerData
+            //     );
+            // }
 
-            // ✅ Fetch acknowledger
-            if (
-                recordData.status === "Approved" || recordData.status === "Completed"
-            ) {
-                fetchData(
-                    `/api/cctv-records/fetch-acknowledger/${id}`,
-                    token,
-                    'acknowledger details',
-                    setAcknowledgerData
-                );
-            }
-
-            // ✅ Fetch manager
-            if (recordData.status === "Completed") {
-                fetchData(
-                    `/api/cctv-records/fetch-manager/${id}`,
-                    token,
-                    'Manager details',
-                    setManagerData
-                );
-            }
-
-            // ✅ Fetch cancel details
-            if (recordData.status === "Cancel") {
-                fetchData(
-                    `/api/cctv-records/fetch-cancel/${id}`,
-                    token,
-                    'Cancel details',
-                    setCancelData
-                );
-            }
+            // if (recordData.form.status === "Cancel") {
+            //     fetchData(
+            //         `/api/cctv-records/fetch-cancel/${id}`,
+            //         token,
+            //         'Cancel details',
+            //         setCancelData
+            //     );
+            // }
 
             setLoading(false);
         });
@@ -224,26 +124,23 @@ export default function CctvDetails() {
 
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (!recordDetails?.id || !token) return;
-
-        const general_form_id = recordDetails.id;
-
+        if (!recordDetails?.form?.id || !token) return;
         fetchData(
-            `/api/cctv_record/${route}/${form_id}/${layout_id}/${general_form_id}/detail`,
+            `/api/cctv_record/${route}/${form_id}/${layout_id}/${id}/detail`,
             token,
             'details cctvform',
             setCctvData
         );
 
         fetchData(
-            `/api/approval-process-users/${general_form_id}`,
+            `/api/approval-process-users/${id}`,
             token,
             'approval process users',
             setApprovalProcessUser
         );
 
         fetchData(
-            `/api/video-record/${general_form_id}`,
+            `/api/video-record/${id}`,
             token,
             'cctv record',
             setVideoRecord
@@ -257,20 +154,6 @@ export default function CctvDetails() {
         setIsManager(checkManager());
     }, [recordDetails, approvalProcessUser, user]);
 
-    // useEffect(() => {
-    //     const token = localStorage.getItem('token');
-    //     if (!recordDetails?.id || !token) return;
-    //     const general_form_id = recordDetails.id;
-    //     fetchData(`/api/cctv_record/${route}/${form_id}/${layout_id}/${general_form_id}/detail`, token, 'details cctvform', setCctvData);
-    //     fetchData(`/api/approval-process-users/${general_form_id}`, token, 'approval process users', setApprovalProcessUser);
-    //     fetchData(`/api/video-record/${general_form_id}`, token, 'cctv record', setVideoRecord);
-    // }, [recordDetails]);
-
-    // useEffect(() => {
-    //     setIsApprover(checkApprover());
-    //     setIsBranchITApprover(checkBranchITApprover());
-    //     setIsManager(checkManager());
-    // }, [recordDetails, approvalProcessUser, user]);
 
     function formatDateTime(isoString) {
         const date = new Date(isoString);
@@ -289,7 +172,7 @@ export default function CctvDetails() {
         setIsSubmitting(true);
         const token = localStorage.getItem('token');
         try {
-            const url = `/api/users/cctv_record/${form_id}/${layout_id}/${general_form_id}/approve?route=${route}`;
+            const url = `/api/users/cctv_record/${form_id}/${layout_id}/${id}/approve?route=${route}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -308,7 +191,6 @@ export default function CctvDetails() {
             const data = await response.json();
 
             if (!response.ok) {
-                // Handle validation errors like video.required
                 if (data.errors) {
                     const errorMessages = Object.values(data.errors).flat().join('\n');
                     confirmAlert({
@@ -326,7 +208,6 @@ export default function CctvDetails() {
                 return;
             }
 
-            // Success case
             confirmAlert({
                 title: "Success",
                 message: "Form submitted successfully!",
@@ -360,7 +241,7 @@ export default function CctvDetails() {
     const handleComplete = () => handleSubmit('Completed');
     const ApproveBackToPrevious = () => handleSubmit('Back To Previous');
 
-    const formDocno = recordDetails?.form_doc_no ? recordDetails.form_doc_no : '';
+    const formDocno = recordDetails?.form?.form_doc_no ? recordDetails.form.form_doc_no : '';
 
     const fallbackCopy = (text) => {
         const textArea = document.createElement("textarea");
@@ -527,7 +408,7 @@ export default function CctvDetails() {
 
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
                                 <h2 className="text-base sm:text-lg font-semibold">
-                                    CCTV Request Form({recordDetails?.form_doc_no ? recordDetails.form_doc_no : ''})
+                                    CCTV Request Form({recordDetails?.form?.form_doc_no ? recordDetails?.form?.form_doc_no : ''})
                                     <button
                                         onClick={handleCopy}
                                         className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
@@ -539,12 +420,12 @@ export default function CctvDetails() {
                                     >
                                         {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                                     </button>
-                                    <StatusBadge status={recordDetails?.status ? recordDetails.status : ''} />
+                                    <StatusBadge status={recordDetails?.form?.status ? recordDetails?.form?.status : ''} />
 
 
                                 </h2>
                                 <div className="text-gray-600 text-sm sm:text-base">
-                                    {recordDetails?.created_at ? formatDate(recordDetails.created_at) : ''}
+                                    {recordDetails?.form?.created_at ? formatDate(recordDetails?.form?.created_at) : ''}
                                 </div>
                             </div>
 
@@ -649,7 +530,7 @@ export default function CctvDetails() {
                                     {IsVideoDownloadOpen && (
                                         <CctvDownloadVideo
                                             empId={user?.employee_number}
-                                            id={general_form_id}
+                                            id={id}
                                             onClose={() => setIsVideoDownloadOpen(false)}
                                         />
                                     )}
@@ -763,11 +644,11 @@ export default function CctvDetails() {
                     ➡ အနီရောင်သတိပေးစာပါပြတယ်။ */}
 
                                 {isBranchITApprover &&
-                                    recordDetails.status === 'BM Approved' &&
+                                    recordDetails.form.status === 'BM Approved' &&
                                     cctvData?.[0]?.cctv_record === 'on' && (
                                         <CctvUploadVideo
                                             recordId={cctvData?.[0]?.id}
-                                            generalId={general_form_id}
+                                            generalId={id}
                                             docNo={formDocno}
                                         />
                                     )}
@@ -843,47 +724,6 @@ export default function CctvDetails() {
                                     </div>
                                 )}
 
-                                {/* isManager */}
-
-                                {/* {isManager && (
-                                    <div className="mb-6">
-                                        <h4 className="font-medium mb-2">Remark</h4>
-                                        <textarea
-                                            value={remark}
-                                            onChange={(e) => setRemark(e.target.value)}
-                                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                            placeholder="Write remark about this and please be careful not more than 200 characters."
-                                            rows={3}
-                                            maxLength={200}
-                                        />
-                                        <div className="mt-2">
-                                            <button
-                                                onClick={handleComplete}
-                                                disabled={isSubmitting}
-                                                className="bg-green-400 hover:bg-green-500 text-white font-bold py-2 px-4 rounded cursor-pointer"
-                                            >
-                                                {isSubmitting ? 'Processing...' : 'Approve'}
-                                            </button>
-                                            <button
-                                                onClick={handleCancel}
-                                                className="bg-red-400 hover:bg-red-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
-                                            >
-                                                Cancel
-                                            </button>
-                                            {route === 'cctv_record' && isManager && recordDetails?.status === 'Approved' && (
-                                                <button
-                                                    onClick={ApproveBackToPrevious}
-                                                    className="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded ml-2 cursor-pointer"
-                                                >
-                                                    Back to Previous
-                                                </button>
-                                            )}
-
-                                        </div>
-                                    </div>
-                                )} */}
-
-
                                 {isManager && (
 
                                     <div className="mb-6">
@@ -928,16 +768,16 @@ export default function CctvDetails() {
                             </div>
 
 
-                            {recordDetails?.status === 'Cancel' && (
+                            {recordDetails?.form?.status === 'Cancel' && (
                                 <>
-                                    {showAlert && CancelData && (
+                                    {showAlert && recordDetails?.cancel != null && (
                                         <div className="flex flex-row">
                                             <div
                                                 className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative w-full"
                                                 role="alert"
                                             >
                                                 <span className="block sm:inline">
-                                                    This form was rejected by <span className="font-bold">{CancelData.title}{CancelData.name}</span>
+                                                    This form was rejected by <span className="font-bold">{recordDetails?.cancel?.title}{recordDetails?.cancel?.name}</span>
                                                 </span>
                                                 <button
                                                     type="button"
@@ -960,11 +800,11 @@ export default function CctvDetails() {
 
 
 
-                                    {recordDetails.cancel_form?.file && (
+                                    {recordDetails?.form?.cancel_form?.file && (
                                         <>
                                             <div className="mt-4">
                                                 <img
-                                                    src={`/storage/uploads/cancel_form/${recordDetails.cancel_form.file}`}
+                                                    src={`/storage/uploads/cancel_form/${recordDetails?.form.cancel_form.file}`}
                                                     alt="Cancelled Form Attachment"
                                                     className="w-full max-w-lg mx-auto rounded shadow"
                                                 />
@@ -978,6 +818,7 @@ export default function CctvDetails() {
                                             </div>
                                         </>
                                     )}
+
                                 </>
                             )}
 
@@ -986,52 +827,57 @@ export default function CctvDetails() {
                                 <div className="space-y-1">
                                     <p className="text-gray-500">Staff / Eyewitness</p>
                                     <p className="text-sm text-gray-800 font-semibold">
-                                        {originalData?.title ? `${originalData.title}.` : ''}
-                                        {originalData?.name ? originalData.name : ''}
+                                        {recordDetails?.form?.originators?.title ? `${recordDetails.form.originators.title} ` : ''}
+                                        {recordDetails?.form?.originators?.name ? `${recordDetails.form.originators.name}` : ''}
                                     </p>
                                     <p className="text-gray-700 text-sm">
-                                        ({originalData?.department ? originalData.department : ''})
+                                        ({recordDetails?.form?.originators?.departments?.name ?? ''})
                                     </p>
-                                    <p className="text-xs text-gray-400"> {originalData?.created_at ? formatDateTime(originalData.created_at) : ''}</p>
+                                    <p className="text-xs text-gray-400">
+                                        {recordDetails?.form?.created_at
+                                            ? formatDateTime(recordDetails.form.created_at)
+                                            : ''}
+                                    </p>
                                 </div>
+
                                 <div className="space-y-1">
                                     <p className="text-gray-500">
-                                        {approverData &&
+                                        {recordDetails?.approver &&
                                             (
-                                                recordDetails?.status === 'BM Approved' ||
-                                                recordDetails?.status === 'Approved' ||
-                                                recordDetails?.status === 'Received' ||
-                                                recordDetails?.status === 'Acknowledged' ||
-                                                recordDetails?.status === 'Completed' ||
-                                                (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
+                                                recordDetails?.form?.status === 'BM Approved' ||
+                                                recordDetails?.form?.status === 'Approved' ||
+                                                recordDetails?.form?.status === 'Received' ||
+                                                recordDetails?.form?.status === 'Acknowledged' ||
+                                                recordDetails?.form?.status === 'Completed' ||
+                                                (recordDetails?.form?.status === 'Cancel' && recordDetails?.approver?.status !== 'Cancel')
                                             )
                                             ? 'Approved By'
                                             : 'Approved By BM / ABM'}
                                     </p>
 
-                                    {approverData &&
+                                    {recordDetails?.approver &&
                                         (
-                                            recordDetails?.status === 'BM Approved' ||
-                                            recordDetails?.status === 'Approved' ||
-                                            recordDetails?.status === 'Received' ||
-                                            recordDetails?.status === 'Acknowledged' ||
-                                            recordDetails?.status === 'Completed' ||
-                                            (recordDetails?.status === 'Cancel' && approverData?.status !== 'Cancel')
+                                            recordDetails?.form?.status === 'BM Approved' ||
+                                            recordDetails?.form?.status === 'Approved' ||
+                                            recordDetails?.form?.status === 'Received' ||
+                                            recordDetails?.form?.status === 'Acknowledged' ||
+                                            recordDetails?.form?.status === 'Completed' ||
+                                            (recordDetails?.form?.status === 'Cancel' && recordDetails?.approver?.status !== 'Cancel')
                                         ) ? (
                                         <>
                                             <p className="text-sm text-gray-800 font-semibold">
-                                                {approverData?.title ? `${approverData.title}.` : ''}
-                                                {approverData?.name ?? ''}
+                                                {recordDetails.approver?.title ? `${recordDetails.approver.title}.` : ''}
+                                                {recordDetails.approver?.name ?? ''}
                                             </p>
                                             <p className="text-sm text-gray-700">
-                                                ({approverData?.department ?? ''})
+                                                ({recordDetails.approver?.department ?? ''})
                                             </p>
                                             <p className="text-xs text-gray-400">
-                                                {approverData?.created_at ? formatDateTime(approverData.created_at) : ''}
+                                                {recordDetails.approver?.created_at ? formatDateTime(recordDetails.approver.created_at) : ''}
                                             </p>
-                                            {approverData?.comment && (
+                                            {recordDetails.approver?.comment && (
                                                 <p className="italic text-blue-500 text-sm">
-                                                    "{approverData.comment}"
+                                                    "{recordDetails.approver.comment}"
                                                 </p>
                                             )}
                                         </>
@@ -1039,38 +885,39 @@ export default function CctvDetails() {
                                         <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
+
                                 <div className="space-y-1">
                                     <p className="text-gray-500">
-                                        {acknowledgerData &&
+                                        {recordDetails?.acknowledger &&
                                             (
-                                                recordDetails?.status === 'Approved' ||
-                                                recordDetails?.status === 'Completed' ||
-                                                (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
+                                                recordDetails?.form?.status === 'Approved' ||
+                                                recordDetails?.form?.status === 'Completed' ||
+                                                (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                             )
                                             ? 'Checked By'
                                             : 'Checked by Branch IT'}
                                     </p>
 
-                                    {acknowledgerData &&
+                                    {recordDetails?.acknowledger &&
                                         (
-                                            recordDetails?.status === 'Approved' ||
-                                            recordDetails?.status === 'Completed' ||
-                                            (recordDetails?.status === 'Cancel' && acknowledgerData?.status !== 'Cancel')
+                                            recordDetails?.form?.status === 'Approved' ||
+                                            recordDetails?.form?.status === 'Completed' ||
+                                            (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                         ) ? (
                                         <>
                                             <p className="text-sm text-gray-800 font-semibold">
-                                                {acknowledgerData?.title ? `${acknowledgerData.title}.` : ''}
-                                                {acknowledgerData?.name ?? ''}
+                                                {recordDetails.acknowledger?.title ? `${recordDetails.acknowledger.title}.` : ''}
+                                                {recordDetails.acknowledger?.name ?? ''}
                                             </p>
                                             <p className="text-sm text-gray-700">
-                                                ({acknowledgerData?.department ?? ''})
+                                                ({recordDetails.acknowledger?.department ?? ''})
                                             </p>
                                             <p className="text-xs text-gray-400">
-                                                {acknowledgerData?.created_at ? formatDateTime(acknowledgerData.created_at) : ''}
+                                                {recordDetails.acknowledger?.created_at ? formatDateTime(recordDetails.acknowledger.created_at) : ''}
                                             </p>
-                                            {acknowledgerData?.comment && (
+                                            {recordDetails.acknowledger?.comment && (
                                                 <p className="italic text-blue-500 text-sm">
-                                                    "{acknowledgerData.comment}"
+                                                    "{recordDetails.acknowledger.comment}"
                                                 </p>
                                             )}
                                         </>
@@ -1078,36 +925,37 @@ export default function CctvDetails() {
                                         <p className="text-xs text-gray-400 opacity-25">-</p>
                                     )}
                                 </div>
+
                                 <div className="space-y-1">
                                     <p className="text-gray-500">
-                                        {managerData &&
+                                        {recordDetails?.manager &&
                                             (
-                                                recordDetails?.status === 'Completed' ||
-                                                (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
+                                                recordDetails?.form?.status === 'Completed' ||
+                                                (recordDetails?.form?.status === 'Cancel' && recordDetails?.manager?.status !== 'Cancel')
                                             )
                                             ? 'Acknowledged By'
                                             : 'Acknowledged by SD Manager'}
                                     </p>
 
-                                    {managerData &&
+                                    {recordDetails?.manager &&
                                         (
-                                            recordDetails?.status === 'Completed' ||
-                                            (recordDetails?.status === 'Cancel' && managerData?.status !== 'Cancel')
+                                            recordDetails?.form?.status === 'Completed' ||
+                                            (recordDetails?.form?.status === 'Cancel' && recordDetails?.manager?.status !== 'Cancel')
                                         ) ? (
                                         <>
                                             <p className="text-sm text-gray-800 font-semibold">
-                                                {managerData?.title ? `${managerData.title}.` : ''}
-                                                {managerData?.name ?? ''}
+                                                {recordDetails.manager?.title ? `${recordDetails.manager.title}.` : ''}
+                                                {recordDetails.manager?.name ?? ''}
                                             </p>
                                             <p className="text-sm text-gray-700">
-                                                {managerData?.department ?? ''}
+                                                {recordDetails.manager?.department ?? ''}
                                             </p>
                                             <p className="text-xs text-gray-400">
-                                                {managerData?.created_at ? formatDateTime(managerData.created_at) : ''}
+                                                {recordDetails.manager?.created_at ? formatDateTime(recordDetails.manager.created_at) : ''}
                                             </p>
-                                            {managerData?.comment && (
+                                            {recordDetails.manager?.comment && (
                                                 <p className="italic text-blue-500 text-sm">
-                                                    "{managerData.comment}"
+                                                    "{recordDetails.manager.comment}"
                                                 </p>
                                             )}
                                         </>
@@ -1116,7 +964,6 @@ export default function CctvDetails() {
                                     )}
                                 </div>
                             </div>
-
 
                             <Link
                                 to="/cctv-index"
