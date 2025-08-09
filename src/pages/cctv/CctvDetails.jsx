@@ -17,17 +17,14 @@ export default function CctvDetails() {
     const { user } = useAuth();
     const [copied, setCopied] = useState(false);
     const [recordDetails, setRecordDetails] = useState(null);
-    const [cctvData, setCctvData] = useState(null);
-    const cctvId = cctvData?.[0]?.id;
-    const [approvalProcessUser, setApprovalProcessUser] = useState(null);
-    const [videoRecord, setVideoRecord] = useState(false);
     const [isApprover, setIsApprover] = useState(false);
     const [isBranchITApprover, setIsBranchITApprover] = useState(false);
     const [isManager, setIsManager] = useState(false);
-    const form_id = 15;
-    const layout_id = 14;
     const actualUserId = user?.id;
     const route = "cctv_record";
+    const form_id = 15;
+    const layout_id = 14;
+
     const [remark, setRemark] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [action, setAction] = useState('');
@@ -44,18 +41,21 @@ export default function CctvDetails() {
 
 
     const checkApprover = () => {
-        if (!recordDetails || !approvalProcessUser || recordDetails.form.status !== 'Ongoing') return false;
+        if (!recordDetails || recordDetails.form.status !== 'Ongoing') return false;
+
+        const approvalProcessUsers = recordDetails.approval_process_users;
+        if (!approvalProcessUsers) return false;
 
         const isSpecialRemark = ['change form', 'create brand', 'create category'].includes(recordDetails.form.g_remark);
         const checkerType = isSpecialRemark ? 'CS' : 'C';
-        const checker = approvalProcessUser.find(u => u.user_type === checkerType);
+        const checker = approvalProcessUsers.find(u => u.user_type === checkerType);
         const statusConditions = (
             (checker && recordDetails.form.status === 'Checked') ||
             (!checker && ['Ongoing', 'Ongoing(Edit)'].includes(recordDetails.form.status)) ||
             (checker && recordDetails.form.status === 'Ongoing' && recordDetails.form.g_remark === 'office_use')
         );
         if (statusConditions) {
-            const currentUser = approvalProcessUser.find(u =>
+            const currentUser = approvalProcessUsers.find(u =>
                 u.user_type === 'A1' &&
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === actualUserId
@@ -67,8 +67,12 @@ export default function CctvDetails() {
     };
 
     const checkBranchITApprover = () => {
-        if (!recordDetails || !approvalProcessUser || recordDetails.form.status !== 'BM Approved') return false;
-        const current_user = approvalProcessUser.find(
+        if (!recordDetails || recordDetails.form.status !== 'BM Approved') return false;
+
+        const approvalProcessUsers = recordDetails.approval_process_users;
+        if (!approvalProcessUsers) return false;
+
+        const current_user = approvalProcessUsers.find(
             u => u.user_type === 'ACK' &&
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
@@ -78,8 +82,12 @@ export default function CctvDetails() {
     };
 
     const checkManager = () => {
-        if (!recordDetails || !approvalProcessUser || recordDetails.form.status !== 'Approved') return false;
-        const current_user = approvalProcessUser.find(
+        if (!recordDetails || recordDetails.form.status !== 'Approved') return false;
+
+        const approvalProcessUsers = recordDetails.approval_process_users;
+        if (!approvalProcessUsers) return false;
+
+        const current_user = approvalProcessUsers.find(
             u => u.user_type === 'A2' &&
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
@@ -97,62 +105,18 @@ export default function CctvDetails() {
 
         fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
             setRecordDetails(recordData);
-
-
-            // if (recordData.status === "Completed") {
-            //     fetchData(
-            //         `/api/cctv-records/fetch-manager/${id}`,
-            //         token,
-            //         'Manager details',
-            //         setManagerData
-            //     );
-            // }
-
-            // if (recordData.form.status === "Cancel") {
-            //     fetchData(
-            //         `/api/cctv-records/fetch-cancel/${id}`,
-            //         token,
-            //         'Cancel details',
-            //         setCancelData
-            //     );
-            // }
-
             setLoading(false);
         });
     }, [id]);
 
 
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!recordDetails?.form?.id || !token) return;
-        fetchData(
-            `/api/cctv_record/${route}/${form_id}/${layout_id}/${id}/detail`,
-            token,
-            'details cctvform',
-            setCctvData
-        );
-
-        fetchData(
-            `/api/approval-process-users/${id}`,
-            token,
-            'approval process users',
-            setApprovalProcessUser
-        );
-
-        fetchData(
-            `/api/video-record/${id}`,
-            token,
-            'cctv record',
-            setVideoRecord
-        );
-    }, [recordDetails]);
 
     // ✅ 3. Set user roles once related data is loaded
     useEffect(() => {
         setIsApprover(checkApprover());
         setIsBranchITApprover(checkBranchITApprover());
         setIsManager(checkManager());
-    }, [recordDetails, approvalProcessUser, user]);
+    }, [recordDetails, user]);
 
 
     function formatDateTime(isoString) {
@@ -246,8 +210,6 @@ export default function CctvDetails() {
     const fallbackCopy = (text) => {
         const textArea = document.createElement("textarea");
         textArea.value = text;
-
-        // Avoid scrolling to bottom
         textArea.style.position = "fixed";
         textArea.style.top = "0";
         textArea.style.left = "0";
@@ -391,7 +353,6 @@ export default function CctvDetails() {
                                 </div>
                             </div>
                         )}
-
                         <div
                             className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
                             style={{ backgroundImage: `url(${dashboardPhoto})` }}
@@ -455,7 +416,7 @@ export default function CctvDetails() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {cctvData?.map((item, index) => (
+                                            {recordDetails?.detail_datas?.map((item, index) => (
                                                 <tr key={item.id}>
                                                     <td className="border p-1 sm:p-2">
                                                         {index + 1}
@@ -488,7 +449,7 @@ export default function CctvDetails() {
                                                         {formatDate(item.created_at)}
                                                     </td>
 
-                                                    {videoRecord?.exists && (
+                                                    {recordDetails?.video_record && (
                                                         (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
                                                         (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
                                                         (user?.employee_number === '000-000548')
@@ -537,7 +498,7 @@ export default function CctvDetails() {
 
 
                                     <div className="lg:hidden space-y-4 mt-4 font-medium text-sm sm:text-base">
-                                        {cctvData?.map((item, index) => (
+                                        {recordDetails?.detail_datas?.map((item, index) => (
                                             <div key={item.id} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
                                                 <div className="flex flex-col mb-2">
                                                     <span className="font-semibold text-gray-700">No:</span>
@@ -594,7 +555,7 @@ export default function CctvDetails() {
 
                                                 </div>
 
-                                                {videoRecord?.exists && (
+                                                {recordDetails?.video_record && (
                                                     (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
                                                     (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
                                                     (user?.employee_number === '000-000548')
@@ -645,9 +606,9 @@ export default function CctvDetails() {
 
                                 {isBranchITApprover &&
                                     recordDetails.form.status === 'BM Approved' &&
-                                    cctvData?.[0]?.cctv_record === 'on' && (
+                                    recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
                                         <CctvUploadVideo
-                                            recordId={cctvData?.[0]?.id}
+                                            recordId={recordDetails?.detail_datas?.[0]?.id}
                                             generalId={id}
                                             docNo={formDocno}
                                         />
@@ -656,7 +617,7 @@ export default function CctvDetails() {
                                 <div>
                                     {isBranchITApprover &&
                                         recordDetails.status === 'BM Approved' &&
-                                        cctvData?.[0]?.cctv_record === 'on' && (
+                                        recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
                                             <>
                                                 <span className="text-red-500 text-sm"></span>
                                                 {/* {errors.video} */}
