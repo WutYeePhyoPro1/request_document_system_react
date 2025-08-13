@@ -497,7 +497,7 @@ export default function CctvDetails() {
                                     )}
 
 
-                                    <div className="lg:hidden space-y-4 mt-4 font-medium text-sm sm:text-base">
+                                    {/* <div className="lg:hidden space-y-4 mt-4 font-medium text-sm sm:text-base">
                                         {recordDetails?.detail_datas?.map((item, index) => (
                                             <div key={item.id} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
                                                 <div className="flex flex-col mb-2">
@@ -590,7 +590,78 @@ export default function CctvDetails() {
                                                 )}
                                             </div>
                                         ))}
+                                    </div> */}
+
+
+                                    <div className="lg:hidden space-y-4 mt-4 px-2">
+                                        {recordDetails?.detail_datas?.map((item, index) => (
+                                            <div
+                                                key={item.id}
+                                                onClick={() => navigate(`/cctv-details/${item.id}`)}
+                                                className="p-4 border border-gray-300 rounded-lg bg-white shadow-md hover:shadow-lg transition cursor-pointer"
+                                                style={{ minWidth: "280px" }} // prevent too narrow cards
+                                            >
+                                                {/* Top row: No, Record Type, Branch */}
+                                                <div className="flex justify-between items-center mb-3 text-blue-700 font-semibold text-sm tracking-wide">
+                                                    <span>{index + 1}</span>
+                                                    <span className="max-w-[40%] text-center">{item.record_type && item.record_type !== 'null' ? item.record_type : '-'}</span>
+                                                    <span className="truncate max-w-[40%] text-right">{item.branch_name || '-'}</span>
+                                                </div>
+
+                                                {/* Data pairs grid */}
+                                                <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-gray-700 text-sm">
+                                                    <span className="truncate">{formatTime(item.start_time)}</span>
+                                                    <span className="truncate">{formatTime(item.end_time)}</span>
+
+                                                    <span className="truncate">{item.issue_date}</span>
+                                                    <span className="truncate">{item.place}</span>
+
+                                                    <span className="truncate">{renderCaseType(item.case_type)}</span>
+                                                    <span className="truncate">{formatDate(item.created_at)}</span>
+
+                                                    {/* Description full width */}
+                                                    <span className="col-span-2 truncate">{item.description}</span>
+                                                </div>
+
+                                                {/* Video download */}
+                                                <div className="mt-4 flex items-center">
+                                                    <span className="text-gray-700 font-semibold mr-2">Video:</span>
+                                                    {recordDetails?.video_record && (
+                                                        (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
+                                                        (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
+                                                        (user?.employee_number === '000-000548')
+                                                    ) ? (
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setIsVideoDownloadOpen(true);
+                                                            }}
+                                                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                                        >
+                                                            <i className="bi bi-cloud-arrow-down-fill mr-1"></i> Download
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-gray-500">-</span>
+                                                    )}
+                                                </div>
+
+                                                {/* Edit button */}
+                                                {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
+                                                    <div className="mt-4">
+                                                        <Link
+                                                            to={`/cctv-edit/${item.id}`}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            className="block bg-[#2ea2d1] text-white font-semibold py-1 px-3 rounded w-fit hover:bg-[#6fc3df] transition"
+                                                        >
+                                                            Edit
+                                                        </Link>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
+
+
 
 
                                 </div>
