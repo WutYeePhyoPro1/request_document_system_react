@@ -17,7 +17,7 @@ import CctvDetails from "../pages/cctv/CctvDetails.jsx";
 import CctvEdit from "../pages/cctv/CctvEdit.jsx";
 import AutoLogin from "../context/AutoLogin.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
-
+import Demo from "../pages/requestDiscount/index.tsx";
 const user = JSON.parse(localStorage.getItem('user')); // basic fallback
 
 const router = createBrowserRouter([
@@ -72,6 +72,10 @@ const router = createBrowserRouter([
             {
                 path: "cctv-edit/:id",
                 element: <CctvEdit />
+            } ,
+            {
+                path: "request-discount" ,
+                element: <Demo/>
             }
         ]
     }

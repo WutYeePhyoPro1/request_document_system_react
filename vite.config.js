@@ -1,16 +1,18 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import tsconfigPaths from "vite-tsconfig-paths"
+
 
 // https://vite.dev/config/
 export default defineConfig({
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss() , tsconfigPaths()],
     server: {
         host: true,
         proxy: {
             '/api': {
-                // target: 'http://localhost:8000',
-                target: 'https://rds.sdpghc.net/',
+                target: 'http://localhost:8000',
+                // target: 'https://rds.sdpghc.net/',
                 changeOrigin: true,
                 secure: false,
                 rewrite: (path) => path.replace(/^\/api/, '/api')
