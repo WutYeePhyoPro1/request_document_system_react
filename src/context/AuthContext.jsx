@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ employee_number, password, remember }),
             });
-
+            
             const data = await response.json();
 
             if (response.ok) {

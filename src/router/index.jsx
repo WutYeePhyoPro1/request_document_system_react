@@ -6,7 +6,6 @@ import {
 
 import Home from '../pages/Home.jsx'
 import Layout from "../pages/layouts/Layout.jsx";
-import Create from "../pages/Create.jsx";
 import Search from "../pages/Search.jsx";
 import CctvRecord from "../pages/cctv/CctvRecord.jsx";
 import Dashboard from "../pages/Dashboard.jsx";
@@ -18,8 +17,8 @@ import CctvEdit from "../pages/cctv/CctvEdit.jsx";
 import AutoLogin from "../context/AutoLogin.jsx";
 import { useAuth } from "../context/AuthContext.jsx";
 import Demo from "../pages/requestDiscount/index.tsx";
-const user = JSON.parse(localStorage.getItem('user')); // basic fallback
-
+import Create from "../pages/requestDiscount/create.tsx"
+const user = JSON.parse(localStorage.getItem('user')); 
 const router = createBrowserRouter([
     {
         path: "/login",
@@ -76,6 +75,10 @@ const router = createBrowserRouter([
             {
                 path: "request-discount" ,
                 element: <Demo/>
+            },
+            {
+                path: "request-discount-create" ,
+                element: <Create/>
             }
         ]
     }
