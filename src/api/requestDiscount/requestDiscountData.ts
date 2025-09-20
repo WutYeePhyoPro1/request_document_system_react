@@ -35,16 +35,32 @@ export const getCreateData = async(token:string): Promise<requestDiscountCreateR
   }
 };
 
+export const getDetailData = async (
+  token: string,
+  id: number | any
+): Promise<FormData[]> => {
+  try {
+    const response = await API.get<FormData[]>(`/request_discount/show/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-export const getStoreData = async (token: string | null, data: FormData) => {
-  return API.post(`/request_discount/store`, data, {
+    return response.data; 
+  } catch (error) {
+    console.error("Error fetching request discount Detail data:", error);
+    throw error;
+  }
+};
+
+export const getStoreData = async (token: string | null, formData: FormData) => {
+  return API.post(`/request_discount/store`, formData, {
     headers: {
       Authorization: `Bearer ${token}`,
+      
       "Content-Type": "multipart/form-data",
+      
     },
   });
 };
-
 
 
 export const searchInvoiceData = async (
@@ -59,8 +75,8 @@ export const searchInvoiceData = async (
       }
     );
 
-    console.log("Search Invoice>>", response.data.data);
-    return response.data.data;
+    console.log("Search Invoice>>", response.data);
+    return response.data;
   } catch (error) {
     console.error("Error fetching request discount search invoice data:", error);
     throw error;
