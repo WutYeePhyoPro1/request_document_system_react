@@ -6,13 +6,17 @@ import { useParams } from "react-router-dom";
 import { FiCopy } from "react-icons/fi";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { dateFormat, handleCopy } from "../../utils/requestDiscountUtil/helper";
+import { useDisclosure } from "@mantine/hooks";
+import { Modal, Button } from "@mantine/core";
+import AddAttachFile from "./addAttachFile";
 
 const Detail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [detailData, setDetailData] = useState<FormData[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const { id } = useParams<{ id: string }>();
-
+  console.log("id>>" , id);
+  const [opened, { open, close }] = useDisclosure(false);
   useEffect(() => {
     const fetchRequestDiscountDetail = async (): Promise<void> => {
       const token = localStorage.getItem("token");
@@ -54,6 +58,7 @@ const Detail: React.FC = () => {
       item.attach_product?.map((rdImage) => rdImage.file) || [],
   }));
   console.log("Element>>", element);
+   
   return (
     <div>
       {loading ? (
@@ -120,9 +125,9 @@ const Detail: React.FC = () => {
               </div>
               <div className="bodyData">
                 <div className="staffData  ">
-                  {detailData.data?.map((item) => (
-                    <div className="grid grid-cols-2 sm:grid-col-1 gap-6">
-                      <div className="space-y-4 border rounded-lg p-6 shadoe-sm">
+                  <div className="flex flex-justify items-center gap-4 w-full flex-wrap">
+                    {detailData.data?.map((item) => (
+                      <div className="space-y-4 border rounded-lg p-6 shadoe-sm lg:w-3/5 md:w-full">
                         <div className="flex flex-col sm:flex-row sm:items-center border-b pb-2">
                           <div className="w-48 font-semibold text-gray-700">
                             Request Sale Staff
@@ -162,32 +167,58 @@ const Detail: React.FC = () => {
                             ))}
                           </div>
                         </div>
-                         <div className="flex flex-col sm:flex-row sm:items-center border-b pb-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center border-b pb-2">
                           <div className="w-48 font-semibold text-gray-700">
                             Remark
                           </div>
                           <div className="flex-1">{item.remark}</div>
                         </div>
                       </div>
-                      <div className="flex flex-col items-center space-y-3">
-          <a href="#" className="text-blue-600 underline">
-            Operation Attach File
-          </a>
-          {item.attach_product?.map((img, i) => (
-            <img
-              key={i}
-              src={img.file}
-              alt="Discount Attachment"
-              className="w-40 h-40 object-cover rounded border"
-            />
-          ))}
-          <div className="text-gray-600 text-sm flex items-center gap-1">
-            <span>ℹ️</span> Upload Your File
-          </div>
-        </div>
-      </div>
-                   
-                  ))}
+                    ))}
+                    <div className="flex flex-col items-center space-y-3">
+                      <Modal
+                        opened={opened}
+                        onClose={close}
+                        title="Authentication"
+                        centered
+                      >
+                        <div className="flex flex-justify flex-col gap-2 ">
+                          <AddAttachFile generalFormId={id} />
+                          
+                        </div>
+                      </Modal>
+                      {/* {detailData.files?.map((img, i) => (
+                        <>
+                          <a
+                            href={img.file_url}
+                            className="text-blue-600 underline"
+                          >
+                            Operation Attach File
+                          </a>
+                          <img
+                            key={i}
+                            src={img.file_url}
+                            alt="Discount Attachment"
+                            className="w-20 h-20 object-cover rounded border"
+                          />
+                        </>
+                      ))} */}
+                  { detailData.files?.[0] && (
+                    <>
+                    <a href={detailData.files[0].file_url} className="text-blue-600 underline" target="_blank"> Operation Attach File</a>
+                    <img src={detailData.files[0].file_url} alt={detailData.files[0].name || "Discount Attachment"} className="w-40 h-40 object-cover rounded border" />
+                    </>
+                    
+                  ) }
+
+                      <Button
+                        className="text-gray-600 text-sm flex items-center gap-1"
+                        onClick={open}
+                      >
+                        <span>ℹ️</span> Upload Your File
+                      </Button>
+                    </div>
+                  </div>
                 </div>
                 <div className="tableData"></div>
               </div>

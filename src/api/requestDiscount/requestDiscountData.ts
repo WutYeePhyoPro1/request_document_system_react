@@ -1,7 +1,7 @@
 
 import type { requestDiscountFetchData } from "../../utils/requestDiscountUtil";
 import axios from "axios";
-import type { requestDiscountCreateResponse, searchInvoiceNumber } from "../../utils/requestDiscountUtil/create";
+import type { InvoiceFile, requestDiscountCreateResponse, searchInvoiceNumber } from "../../utils/requestDiscountUtil/create";
 
 const API = axios.create({
   baseURL: "/api",
@@ -82,3 +82,13 @@ export const searchInvoiceData = async (
     throw error;
   }
 };
+
+export const reUploadFile = async (
+  token:string , formData: InvoiceFile)  => {
+    return API.post(`/request_discount/upload-request-discount`,formData , {
+      headers: {
+        Authorization: `Bearer ${token}` ,
+        "Content-Type" : "multipart/form-data" ,
+      }
+    })
+  }

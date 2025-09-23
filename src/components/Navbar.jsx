@@ -97,7 +97,7 @@ export default function Navbar({ toggleSidebar }) {
             <Link to="/dashboard" className="flex items-center space-x-2">
                 <img src={finalLogo} alt="homepage" className="h-8 sm:h-10 md:h-12 object-contain" />
             </Link>
-            <span className="hidden sm:block text-xl sm:text-lg md:text-xl lg:text-2xl font-bold text-custom-blue sm:pl-4">
+            <span className="hidden lg:block text-xl sm:text-lg md:text-xl lg:text-2xl font-bold text-custom-blue sm:pl-4">
                 REQUEST DOCUMENT SYSTEM
             </span>
 
@@ -109,7 +109,7 @@ export default function Navbar({ toggleSidebar }) {
                         className="flex items-center space-x-2 bg-white px-2 py-1 rounded-md shadow-sm hover:bg-gray-100 text-sm cursor-pointer"
                     >
                         <svg
-                            className="w-5 h-5 md:hidden"
+                            className="w-5 h-5 lg:hidden"
                             fill="none"
                             viewBox="0 0 24 24"
                             stroke="currentColor"
@@ -121,7 +121,7 @@ export default function Navbar({ toggleSidebar }) {
                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                         </svg>
-                        <span className="hidden md:inline font-semibold">{user?.name || "User"}</span>
+                        <span className="hidden lg:inline font-semibold">{user?.name || "User"}</span>
                         <svg
                             className="w-4 h-4"
                             fill="currentColor"
@@ -178,7 +178,7 @@ export default function Navbar({ toggleSidebar }) {
                     )}
                 </div>
 
-                <button onClick={toggleSidebar} className="block sm:hidden text-gray-700">
+                <button onClick={toggleSidebar} className="block lg:hidden  text-gray-700">
                     <AiOutlineMenu size={28} />
                 </button>
             </div>
