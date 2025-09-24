@@ -16,7 +16,9 @@ import CctvIndex from "../pages/cctv/CctvIndex.jsx";
 import CctvDetails from "../pages/cctv/CctvDetails.jsx";
 import CctvEdit from "../pages/cctv/CctvEdit.jsx";
 import AutoLogin from "../context/AutoLogin.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
+import OfficeUseIndex from "../pages/officeuse/OfficeUseIndex.jsx";
+import OfficeUseCreate from "../pages/officeuse/OfficeUseCreate.jsx";
+import PurchaseRequest from "../pages/officeuse/purchase_request/PurchaseRequest.jsx";
 
 const user = JSON.parse(localStorage.getItem('user')); // basic fallback
 
@@ -72,6 +74,18 @@ const router = createBrowserRouter([
             {
                 path: "cctv-edit/:id",
                 element: <CctvEdit />
+            },
+            {
+                path: "office-use",
+                element: <OfficeUseIndex />
+            },
+            {
+                path: "office-use-create",
+                element: <OfficeUseCreate />
+            },
+            {
+                path: "purchase-request",
+                element: <PurchaseRequest />
             }
         ]
     }

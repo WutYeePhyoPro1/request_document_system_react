@@ -211,6 +211,14 @@ export default function CctvIndex() {
                                 />
                             </div>
 
+                            {/* <div class="col-12 col-lg-2 col-md-6 mb-3">
+                                <label for="form_doc_no" class="col-sm-6 col-form-label custom-fs" style="white-space: nowrap">Form Doc No</label>
+                                <div class="">
+                                    <input type="text" id="form_doc_no" name="form_doc_no" class="form-control custom-rounded custom-fs fw-bold custom-text" value="{{ request()->get('form_doc_no') }}">
+
+                                </div>
+                            </div> */}
+
                             <div className="flex flex-col">
                                 <label htmlFor="startDate" className="mb-1 font-medium text-gray-700">
                                     From Date
@@ -386,9 +394,15 @@ export default function CctvIndex() {
                                                 <button className="bg-gray-600 text-white p-2 rounded hover:bg-gray-700" title={item.asset_type === 1 ? "Camera On" : "Camera Off"}>
                                                     {item.asset_type === 1 || item.asset_type === 'on' ? (
                                                         // Camera ON
+
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" className="bi bi-camera-video-fill" viewBox="0 0 16 16">
                                                             <path d="M0 5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v.5l3.106-1.553A.5.5 0 0 1 15 4.5v7a.5.5 0 0 1-.894.316L11 10.5V11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V5z" />
+
                                                         </svg>
+
+
+
+
                                                     ) : (
                                                         // Camera OFF
                                                         // <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="white" className="bi bi-camera-video-off-fill ml-[2px] mt-[1px]" viewBox="0 0 16 16">

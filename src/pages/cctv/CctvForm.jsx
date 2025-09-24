@@ -23,6 +23,7 @@ export default function () {
         layout_id: 14,
         route: "cctv_record"
     });
+    console.log(JSON.stringify(formData), "formData");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const caseTypes = [
@@ -38,7 +39,6 @@ export default function () {
         { label: "Phone Camera", value: "Phone Camera" },
         { label: "Download Data", value: "Download Data" }
     ]
-
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;

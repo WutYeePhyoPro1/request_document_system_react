@@ -26,14 +26,17 @@ export default function CctvEdit() {
         cctv_record: false // ✅ ensures checkbox is controlled from the start
     });
 
+    // console.log("Form Data State:", formData); // Debugging log
+
     // ✅ Enhanced handleChange: handles both text/select and checkbox inputs
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: type === 'checkbox' ? (checked ? "on" : "off") : value
         }));
     };
+
 
     // Load record details into form
     useEffect(() => {
@@ -195,11 +198,12 @@ export default function CctvEdit() {
                         <CctvCheckbox
                             label="CCTV Record:"
                             name="cctv_record"
-                            checked={formData.cctv_record}
+                            checked={formData.cctv_record === "on"} // ✅ checked only if value is "on"
                             onChange={handleChange}
-                            required={true}
+                            required={false}
                         />
                     </div>
+
                     <CctvInput
                         label="Place"
                         type="text"
@@ -208,14 +212,20 @@ export default function CctvEdit() {
                         onChange={handleChange}
                         required={true}
                     />
-                    <CctvSelect
-                        label="Record Type"
-                        name="record_type"
-                        options={recordTypes}
-                        value={formData.record_type}
-                        onChange={handleChange}
-                        required={true}
-                    />
+
+                    {/* ✅ conditional rendering for Record Type */}
+                    {formData.cctv_record === "on" && (
+                        <CctvSelect
+                            label="Record Type"
+                            name="record_type"
+                            options={recordTypes}
+                            value={formData.record_type}
+                            onChange={handleChange}
+                            required={true} // only required when on
+                        />
+                    )}
+
+
 
                     <div className="col-span-1 sm:col-span-2 text-center">
                         <button
