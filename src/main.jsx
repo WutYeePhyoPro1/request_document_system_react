@@ -6,16 +6,20 @@ import router from './router';
 import { MantineProvider } from "@mantine/core";
 
 import { AuthProvider } from './context/AuthContext';
-import { NotificationProvider } from './context/NotificationContext'; // ✅ import
+import { NotificationProvider } from './context/NotificationContext'; 
+import store from "./store/store"
+import { Provider } from "react-redux";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>
-        <MantineProvider>
+        <Provider store={store}>
+            <MantineProvider >
             <AuthProvider>
             <NotificationProvider>
                 <RouterProvider router={router} />
             </NotificationProvider>
         </AuthProvider>
         </MantineProvider>
+        </Provider>
     </React.StrictMode>
 );

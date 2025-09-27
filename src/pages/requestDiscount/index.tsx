@@ -8,14 +8,26 @@ import { Link } from 'react-router-dom';
 import { dateFormat } from '../../utils/requestDiscountUtil/helper';
 import { DatePickerInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '../../store';
+import { fetchRequestDiscountData } from '../../store/discountSlice';
 
 
   
 export default function Demo() {
+  const dispatch = useDispatch<AppDispatch>();
+  const {mainData , loading} = useSelector((state:RootState) => state.discount)
   const [discountData, setDiscountData] = useState<IndexData[] >([]);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage , setActivePage] = useState<number>(1);
   const [value , setValue] = useState<string | null>(null);
+  useEffect(() => {
+    const token = localStorage.getItem("token") ;
+    if(token ){
+      dispatch(fetchRequestDiscountData({token}));
+    }
+  } , [dispatch]);
+  console.log("MainData>" , mainData) ;
 const fetchData = async (): Promise<void> => {
   const token = localStorage.getItem("token");
   if(!token) return ;

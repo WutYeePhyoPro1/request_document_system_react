@@ -35,21 +35,21 @@ export const getCreateData = async(token:string): Promise<requestDiscountCreateR
   }
 };
 
-export const getDetailData = async (
-  token: string,
-  id: number | any
-): Promise<FormData[]> => {
-  try {
-    const response = await API.get<FormData[]>(`/request_discount/show/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+// export const getDetailData = async (
+//   token: string,
+//   id: number | any
+// ): Promise<FormData[]> => {
+//   try {
+//     const response = await API.get<FormData[]>(`/request_discount/show/${id}`, {
+//       headers: { Authorization: `Bearer ${token}` },
+//     });
 
-    return response.data; 
-  } catch (error) {
-    console.error("Error fetching request discount Detail data:", error);
-    throw error;
-  }
-};
+//     return response.data; 
+//   } catch (error) {
+//     console.error("Error fetching request discount Detail data:", error);
+//     throw error;
+//   }
+// };
 
 export const getStoreData = async (token: string | null, formData: FormData) => {
   return API.post(`/request_discount/store`, formData, {
@@ -92,3 +92,11 @@ export const reUploadFile = async (
       }
     })
   }
+// export const deleteFile = async (token:string , id:number | any) => {
+//   return API.get(`/request_discount/deleteFile/${id}` , {
+//     headers: {Authorization: `Bearer ${token}`} ,
+//   }).catch((error:string) => {
+//     console.log("Error fetching Deleted:" , error)
+//     throw error ;
+//   })
+// }

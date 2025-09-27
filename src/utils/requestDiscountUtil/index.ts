@@ -32,3 +32,7 @@ export interface indexData {
 
 }
 
+export interface fetchAPi {
+    token:string ;
+    id:number ;
+}

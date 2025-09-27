@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import dashboardPhoto from "../../assets/images/reqBa.png";
 import NavPath from "../../components/NavPath";
-import { getDetailData } from "../../api/requestDiscount/requestDiscountData";
+// import { deleteFile, getDetailData } from "../../api/requestDiscount/requestDiscountData";
 import { useParams } from "react-router-dom";
 import { FiCopy } from "react-icons/fi";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -9,31 +9,29 @@ import { dateFormat, handleCopy } from "../../utils/requestDiscountUtil/helper";
 import { useDisclosure } from "@mantine/hooks";
 import { Modal, Button } from "@mantine/core";
 import AddAttachFile from "./addAttachFile";
+import Swal from "sweetalert2";
+import RequestDiscountDataDetailTable from "./requestDiscountDataDetailTable";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../store";
+import { deleteDiscountFile, fetchDetailData } from "../../store/discountSlice";
+import ApproveForm from "./approveForm";
 
 const Detail: React.FC = () => {
-  const [loading, setLoading] = useState<boolean>(false);
-  const [detailData, setDetailData] = useState<FormData[]>([]);
+  const {id} = useParams<{id:string}>() ;
+  const dispatch = useDispatch<AppDispatch>();
+  const {detailData , loading } = useSelector((state:RootState)=> state.discount) ;
   const [copied, setCopied] = useState<boolean>(false);
-  const { id } = useParams<{ id: string }>();
-  console.log("id>>" , id);
-  const [opened, { open, close }] = useDisclosure(false);
+  const [fileOpened, { open: openFileModal, close: closeFileModal }] = useDisclosure(false);
   useEffect(() => {
-    const fetchRequestDiscountDetail = async (): Promise<void> => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-      try {
-        const requestDiscountData: FormData[] = await getDetailData(token, id);
-        setDetailData(requestDiscountData);
-      } catch (error) {
-        console.error("Error fetching discount detail data:", error);
-      }
-    };
-    fetchRequestDiscountDetail();
-  }, []);
+    const token = localStorage.getItem("token");
+    if (token && id) {
+      dispatch(fetchDetailData({ token, id }));
+    }
+  }, [dispatch, id]);
+    
   console.log("Detail>>", detailData);
-  const formDocNo = detailData?.form?.form_doc_no
-    ? detailData.form.form_doc_no
-    : "";
+  const formDocNo = detailData?.form?.form_doc_no || "";
+
 
   const onCopyClick = () => {
     handleCopy(
@@ -47,7 +45,7 @@ const Detail: React.FC = () => {
       }
     );
   };
-  const element = detailData.data?.map((item) => ({
+  const element = detailData?.data?.map((item) => ({
     requestSaleStaff: item.sale_staff,
     saleInvoiceNo: item.sale_invoice,
     customerName: item.customer_name,
@@ -57,7 +55,30 @@ const Detail: React.FC = () => {
     requestDiscountImge:
       item.attach_product?.map((rdImage) => rdImage.file) || [],
   }));
-  console.log("Element>>", element);
+ const handleDete = async(fileID:number) => {
+const token: string = localStorage.getItem("token") || "";
+ Swal.fire({
+  title: "Are you sure?",
+  text: "This file will be permanently deleted!" ,
+  icon: "warning" ,
+  showCancelButton: true ,
+  confirmButtonColor: "#d33" ,
+  cancelButtonColor: "#3085d6",
+  confirmButtonText: "Yes , delete it !" ,
+  cancelButtonText: "Cancel",
+ }).then(async(result) => {
+  if(result.isConfirmed){
+    try {
+       await dispatch(deleteDiscountFile({token , id:fileID}));
+
+        Swal.fire("Deleted!", "The file has been removed.", "success");
+      } catch (error: any) {
+        console.error("Error deleting file:", error);
+        Swal.fire("Error!", "Something went wrong. Try again.", "error");
+      }
+  }
+ })
+ }
    
   return (
     <div>
@@ -125,9 +146,9 @@ const Detail: React.FC = () => {
               </div>
               <div className="bodyData">
                 <div className="staffData  ">
-                  <div className="flex flex-justify items-center gap-4 w-full flex-wrap">
-                    {detailData.data?.map((item) => (
-                      <div className="space-y-4 border rounded-lg p-6 shadoe-sm lg:w-3/5 md:w-full">
+                  <div className="flex flex-justify items-center gap-8 w-full flex-wrap">
+                    {detailData?.data?.map((item) => (
+                      <div className="space-y-4 border rounded-lg p-6 shadoe-sm lg:w-3/5 md:w-3/5">
                         <div className="flex flex-col sm:flex-row sm:items-center border-b pb-2">
                           <div className="w-48 font-semibold text-gray-700">
                             Request Sale Staff
@@ -176,51 +197,60 @@ const Detail: React.FC = () => {
                       </div>
                     ))}
                     <div className="flex flex-col items-center space-y-3">
-                      <Modal
-                        opened={opened}
-                        onClose={close}
-                        title="Authentication"
-                        centered
-                      >
-                        <div className="flex flex-justify flex-col gap-2 ">
-                          <AddAttachFile generalFormId={id} />
-                          
-                        </div>
-                      </Modal>
-                      {/* {detailData.files?.map((img, i) => (
-                        <>
-                          <a
-                            href={img.file_url}
-                            className="text-blue-600 underline"
-                          >
-                            Operation Attach File
-                          </a>
-                          <img
+                     
+                      <Modal size="45rem"  opened={fileOpened} onClose={closeFileModal} title="Attach Photo" centered >
+                       <div className="flex flex-wrap gap-4 items-center justify-center">
+                        {detailData?.files?.map((img, i) => (
+                        <div className="flex flex-col ">
+                        <img
                             key={i}
                             src={img.file_url}
                             alt="Discount Attachment"
-                            className="w-20 h-20 object-cover rounded border"
+                            className="w-20  h-20 object-cover rounded border"
                           />
-                        </>
-                      ))} */}
-                  { detailData.files?.[0] && (
+                       
+                           <a
+                            href={img.file_url}
+                            className="text-blue-600 underline"
+                          >
+                            {img.name}
+                          </a>
+                          <Button   onClick={() => handleDete(img.id)} color="red" variant="filled" size="xs" >Delete</Button>
+                          
+                          
+                        </div>
+                      ))}
+                       </div>
+                      </Modal>
+                     
+                  { detailData?.files?.[0] && (
                     <>
                     <a href={detailData.files[0].file_url} className="text-blue-600 underline" target="_blank"> Operation Attach File</a>
-                    <img src={detailData.files[0].file_url} alt={detailData.files[0].name || "Discount Attachment"} className="w-40 h-40 object-cover rounded border" />
+                    <img src={detailData.files[0].file_url} alt={detailData.files[0].name || "Discount Attachment"} className="w-40 h-40 object-cover rounded border" onClick={openFileModal} />
+                    
                     </>
                     
                   ) }
 
-                      <Button
-                        className="text-gray-600 text-sm flex items-center gap-1"
-                        onClick={open}
-                      >
-                        <span>ℹ️</span> Upload Your File
-                      </Button>
+                      <AddAttachFile generalFormId={id} />
                     </div>
                   </div>
                 </div>
-                <div className="tableData"></div>
+                <div className="tableData">
+                  <RequestDiscountDataDetailTable  />
+                </div>
+                <hr className="mt-8 mb-6"/>
+                <div className="approve">
+                  <ApproveForm/>
+                </div>
+                <div className="userData">
+                  <div className="">
+                    <h1>Prepared By</h1>
+                    <h1>Miss.{detailData?.form?.originators?.name}</h1>
+                    <h1>({detailData?.form?.originators?.departments?.name})</h1>
+                    <h1>{dateFormat(detailData?.form?.created_at)}</h1>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
