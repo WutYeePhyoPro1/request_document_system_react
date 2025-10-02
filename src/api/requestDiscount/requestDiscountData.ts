@@ -9,25 +9,14 @@ const API = axios.create({
 });
 
 
-export const getRequestDiscountData = async(token:string): Promise<requestDiscountFetchData[] > => {
-    try{
-        const response = await API.get('/request_discount' , {
-            headers: {Authorization: `Bearer ${token}`} ,
-        });
-        //  console.log("ApiData>>" , response.data , response.data.data.length);
-        return response.data.data ?? [];
-    } catch (error) {
-    console.error("Error fetching request discount index data:", error);
-    throw error;
-  }
-};
+
 
 export const getCreateData = async(token:string): Promise<requestDiscountCreateResponse[] > => {
   try{
    const response = await API.get<requestDiscountCreateResponse>('/request_discount/create' , {
       headers: {Authorization: `Bearer ${token}`} ,
     });
-    // console.log("apiCreateData>>" , response.data);
+     console.log("apiCreateData>>" , response.data);
     return response.data ?? [];
   }catch(error){
     console.error("Error fetching request discount create data:" , error);
@@ -35,21 +24,7 @@ export const getCreateData = async(token:string): Promise<requestDiscountCreateR
   }
 };
 
-// export const getDetailData = async (
-//   token: string,
-//   id: number | any
-// ): Promise<FormData[]> => {
-//   try {
-//     const response = await API.get<FormData[]>(`/request_discount/show/${id}`, {
-//       headers: { Authorization: `Bearer ${token}` },
-//     });
 
-//     return response.data; 
-//   } catch (error) {
-//     console.error("Error fetching request discount Detail data:", error);
-//     throw error;
-//   }
-// };
 
 export const getStoreData = async (token: string | null, formData: FormData) => {
   return API.post(`/request_discount/store`, formData, {
@@ -92,11 +67,3 @@ export const reUploadFile = async (
       }
     })
   }
-// export const deleteFile = async (token:string , id:number | any) => {
-//   return API.get(`/request_discount/deleteFile/${id}` , {
-//     headers: {Authorization: `Bearer ${token}`} ,
-//   }).catch((error:string) => {
-//     console.log("Error fetching Deleted:" , error)
-//     throw error ;
-//   })
-// }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Table, Checkbox, Pagination, Select, MultiSelect } from '@mantine/core';
 import '@mantine/core/styles.css';
-import { getRequestDiscountData } from '../../api/requestDiscount/requestDiscountData';
 import type { IndexData } from '../../utils/requestDiscountUtil';
 import NavPath from '../../components/NavPath';
 import { Link } from 'react-router-dom';
@@ -21,26 +20,24 @@ export default function Demo() {
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage , setActivePage] = useState<number>(1);
   const [value , setValue] = useState<string | null>(null);
-  useEffect(() => {
-    const token = localStorage.getItem("token") ;
-    if(token ){
-      dispatch(fetchRequestDiscountData({token}));
+   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    
+    if (token) {
+      dispatch(fetchRequestDiscountData({ token }));
     }
-  } , [dispatch]);
-  console.log("MainData>" , mainData) ;
-const fetchData = async (): Promise<void> => {
-  const token = localStorage.getItem("token");
-  if(!token) return ;
-  try {
-    const data:IndexData[] = await getRequestDiscountData(token);
-    setDiscountData(data);
-  } catch (error) {
-     console.error("Error fetching discount data:", error);
-  }
-}
-useEffect(() => {
-  fetchData();
-} , []);
+  }, [dispatch]);
+
+  // Add this useEffect to sync mainData with discountData
+  useEffect(() => {
+    if (mainData?.length) {
+      console.log("Setting discount data from mainData");
+      setDiscountData(mainData);
+    }
+  }, [mainData]); 
+
+  console.log("MainData>", mainData);
 const pageSize:number = 10 ;
 const start = (activePage - 1 )* pageSize ;
 const end = start + pageSize;

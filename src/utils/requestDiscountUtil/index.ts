@@ -36,3 +36,13 @@ export interface fetchAPi {
     token:string ;
     id:number ;
 }
+
+export interface ApproveFormData{
+    
+    bm_discount?:number[];
+    product_id?:number[] ;
+    status?: string ;
+    comment?:string;
+   
+
+}

@@ -29,9 +29,9 @@ const Detail: React.FC = () => {
     }
   }, [dispatch, id]);
     
-  console.log("Detail>>", detailData);
   const formDocNo = detailData?.form?.form_doc_no || "";
 
+const formId = detailData?.form?.id || null ;
 
   const onCopyClick = () => {
     handleCopy(
@@ -79,6 +79,7 @@ const token: string = localStorage.getItem("token") || "";
   }
  })
  }
+
    
   return (
     <div>
