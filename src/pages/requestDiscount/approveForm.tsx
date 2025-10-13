@@ -54,7 +54,7 @@ const navigate = useNavigate();
         title: "Success",
         text: `Form has been ${statusValue} successfully!`,
       });
-      navigate('/request-discount') ;
+      navigate(`/request-discount-detail/${formId}`) ;
     } catch (error: any) {
       Swal.fire({
         icon: "error",
@@ -105,7 +105,7 @@ const navigate = useNavigate();
           </>
         )}
 
-      {detailData?.form?.status === "BM Approved" && (
+      {detailData?.supervisor == true && detailData?.form?.status === "BM Approved" && (
         <>
           <h1>Remark</h1>
           <div className="flex flex-justify items-center gap-4 w-full">

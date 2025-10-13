@@ -12,14 +12,15 @@ import { Provider } from "react-redux";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
     <React.StrictMode>
-        <Provider store={store}>
+       
+            <Provider store={store}>
             <MantineProvider >
-            <AuthProvider>
+            
             <NotificationProvider>
                 <RouterProvider router={router} />
             </NotificationProvider>
-        </AuthProvider>
         </MantineProvider>
-        </Provider>
+         </Provider>
+       
     </React.StrictMode>
 );

@@ -15,7 +15,7 @@ useEffect(() => {
   if (detailData?.discountProduct) {
     const productIds = detailData.discountProduct.map((item: any) => item.product_id || item.id);
     dispatch(setProductIds(productIds));
-    console.log("Product IDs set:", productIds);
+    // console.log("Product IDs set:", productIds);
   }
 }, [detailData?.discountProduct, dispatch]);
 const handleBmDiscountChange = (index: number, e: React.ChangeEvent<HTMLInputElement>, maxDiscount: number) => {

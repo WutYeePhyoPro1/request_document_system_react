@@ -28,6 +28,7 @@ const Detail: React.FC = () => {
       dispatch(fetchDetailData({ token, id }));
     }
   }, [dispatch, id]);
+  console.log("DetailData>>" , detailData) ;
     
   const formDocNo = detailData?.form?.form_doc_no || "";
 
@@ -244,12 +245,26 @@ const token: string = localStorage.getItem("token") || "";
                 <div className="approve">
                   <ApproveForm/>
                 </div>
-                <div className="userData">
+                <div className="userData flex flex-justify gap-6 items-center">
                   <div className="">
-                    <h1>Prepared By</h1>
+                    <span>Prepared By</span>
                     <h1>Miss.{detailData?.form?.originators?.name}</h1>
                     <h1>({detailData?.form?.originators?.departments?.name})</h1>
                     <h1>{dateFormat(detailData?.form?.created_at)}</h1>
+                  </div>
+                  <div className="">
+                    <span>Checked By</span>
+                    <h1>{detailData?.approveData?.title}{detailData?.approveData?.name}</h1>
+                    <h1>({detailData?.approveData?.department})</h1>
+                    <h1>{dateFormat(detailData?.approveData?.created_at)}</h1>
+                    <span>{detailData?.approveData?.comment}</span>
+                  </div>
+                   <div className="">
+                    <span>Approve By Caegory Head</span>
+                    <h1>{detailData?.approveData?.title}{detailData?.approveData?.name}</h1>
+                    <h1>({detailData?.approveData?.department})</h1>
+                    <h1>{dateFormat(detailData?.approveData?.created_at)}</h1>
+                    <span>{detailData?.approveData?.comment}</span>
                   </div>
                 </div>
               </div>
