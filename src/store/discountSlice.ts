@@ -75,6 +75,21 @@ export const deleteDiscountFile = createAsyncThunk<number, fetchAPi>(
     }
   }
 );
+export const cateCheck = createAsyncThunk('discount/cateCheck' , async(checkIds:number[] , {rejectWithValue}) => {
+  try{
+    const token = localStorage.getItem("token") ;
+    const response = await API.post(`/request_discount/req/cate_check/` ,{check: checkIds} , {
+      headers : {
+        Authorization : `Bearer ${token}` ,
+        'Content-Type' : 'application/json' ,
+      },
+    });
+    return response.data ;
+  }catch(error:any) {
+    console.error("Error approving form:" , error) ;
+    return rejectWithValue(error.response?.data || "Failed to approve form") ;
+  }
+})
 
  export const discountApproveForm = createAsyncThunk<ApproveFormData , {formId:number ; data:ApproveFormData} >('discount/approveForm' , async({formId , data} , {rejectWithValue}) => {
   try {
@@ -129,7 +144,12 @@ const discountSlice = createSlice({
             ...action.payload
           }
         };
-      });
+      }).addCase(cateCheck.fulfilled, (state, action) => {
+  state.loading = false;
+  // you can trigger UI update if needed
+  console.log("Checkboxes updated:", action.payload);
+})
+;
   },
 });
 

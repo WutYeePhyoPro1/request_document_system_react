@@ -9,6 +9,7 @@ export interface ApproveState {
     comment?: string;
     bm_discount?: number[];
     product_id?: number[];
+    category_discount? : number [] ;
   };
 }
 
@@ -37,6 +38,11 @@ export const approveSlice = createSlice({
       }
       state.formData.bm_discount[action.payload.index] = action.payload.value;
     },
+    setCategoryDiscount:(state , action: PayloadAction<{index: number ; value:number}>) => {
+      if(!state.formData.category_discount) {
+        state.formData.category_discount = [] ;
+      }
+    },
     setProductIds: (state, action: PayloadAction<number[]>) => {
       state.formData.product_id = action.payload;
     },
@@ -46,5 +52,5 @@ export const approveSlice = createSlice({
   }
 });
 
-export const { setStatus, setComment, setBmDiscount, setProductIds, resetApproveData } = approveSlice.actions;
+export const { setStatus, setComment, setBmDiscount, setProductIds, resetApproveData , setCategoryDiscount } = approveSlice.actions;
 export default approveSlice.reducer;
