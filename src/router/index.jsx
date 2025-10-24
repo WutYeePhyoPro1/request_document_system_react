@@ -15,10 +15,11 @@ import CctvIndex from "../pages/cctv/CctvIndex.jsx";
 import CctvDetails from "../pages/cctv/CctvDetails.jsx";
 import CctvEdit from "../pages/cctv/CctvEdit.jsx";
 import AutoLogin from "../context/AutoLogin.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
 import Demo from "../pages/requestDiscount/index.tsx";
 import Create from "../pages/requestDiscount/create.tsx"
 import Detail from "../pages/requestDiscount/detail.js";
+import ProtectedRoute from "../routes/ProtectedRoute.jsx";
+
 const user = JSON.parse(localStorage.getItem('user')); 
 const router = createBrowserRouter([
     {
@@ -31,7 +32,9 @@ const router = createBrowserRouter([
     },
     {
         path: "/",
-        element: <Layout />,
+        element:( <ProtectedRoute>
+        <Layout />
+      </ProtectedRoute>),
         children: [
             {
                 index: true,
