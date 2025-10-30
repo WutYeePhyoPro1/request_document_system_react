@@ -75,21 +75,7 @@ export const deleteDiscountFile = createAsyncThunk<number, fetchAPi>(
     }
   }
 );
-export const cateCheck = createAsyncThunk('discount/cateCheck' , async(checkIds:number[] , {rejectWithValue}) => {
-  try{
-    const token = localStorage.getItem("token") ;
-    const response = await API.post(`/request_discount/req/cate_check/` ,{check: checkIds} , {
-      headers : {
-        Authorization : `Bearer ${token}` ,
-        'Content-Type' : 'application/json' ,
-      },
-    });
-    return response.data ;
-  }catch(error:any) {
-    console.error("Error approving form:" , error) ;
-    return rejectWithValue(error.response?.data || "Failed to approve form") ;
-  }
-})
+
 
  export const discountApproveForm = createAsyncThunk<ApproveFormData , {formId:number ; data:ApproveFormData} >('discount/approveForm' , async({formId , data} , {rejectWithValue}) => {
   try {
@@ -110,7 +96,31 @@ export const cateCheck = createAsyncThunk('discount/cateCheck' , async(checkIds:
 const discountSlice = createSlice({
   name: "discount",
   initialState,
-  reducers: {},
+ reducers: {
+    setDetailData: (state, action) => {
+      state.detailData = action.payload;
+    },
+    updateDetailData: (state, action) => {
+      // ✅ Update all properties in detailData dynamically
+      state.detailData = {
+        ...state.detailData,
+        ...action.payload, // merges all fields (form, reqAcknowledge, etc.)
+      };
+    },
+    updateDiscountCheck: (state, action) => {
+    const { updatedProducts } = action.payload;
+    updatedProducts.forEach((updated) => {
+      const target = state.detailData.discountProduct.find(
+        (item) => item.product_id === updated.product_id
+      );
+      if (target) {
+        target.check = updated.check;
+        target.category_discount = updated.category_discount;
+      }
+    });
+  },
+  },
+    
   extraReducers: (builder) => {
     builder
       .addCase(fetchDetailData.pending, (state) => {
@@ -144,13 +154,9 @@ const discountSlice = createSlice({
             ...action.payload
           }
         };
-      }).addCase(cateCheck.fulfilled, (state, action) => {
-  state.loading = false;
-  // you can trigger UI update if needed
-  console.log("Checkboxes updated:", action.payload);
-})
+      })
 ;
   },
 });
-
+export const { setDetailData, updateDetailData } = discountSlice.actions;
 export default discountSlice.reducer;

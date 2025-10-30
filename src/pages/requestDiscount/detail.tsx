@@ -28,10 +28,7 @@ const Detail: React.FC = () => {
       dispatch(fetchDetailData({ token, id }));
     }
   }, [dispatch, id]);
-  console.log("DetailData>>" , detailData) ;
-    
   const formDocNo = detailData?.form?.form_doc_no || "";
-
 const formId = detailData?.form?.id || null ;
 
   const onCopyClick = () => {
