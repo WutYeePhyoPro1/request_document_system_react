@@ -152,7 +152,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
           <Input
             className="border border-blue-300 rounded w-20"
             type="number"
-            defaultValue={item.bm_discount ?? item.request_discount}
+            // defaultValue={item.bm_discount ?? item.request_discount}
             value={
               formData.bm_discount?.[index] ??
               item.bm_discount ??
@@ -172,7 +172,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
           <Input
             className="border border-blue-300 rounded w-20"
             type="number"
-            defaultValue={item.category_discount ?? item.bm_discount}
+            // defaultValue={item.category_discount ?? item.bm_discount}
             value={
               formData.category_discount?.[index] ??
               item.category_discount ??

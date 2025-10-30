@@ -68,38 +68,49 @@ const ApproveForm: React.FC = () => {
       return;
     }
     // ✅ Build arrays only for checked rows
-    const checkedItems = 
-    statusValue === "cateCheck" ?
-    detailData?.discountProduct
-      ?.map((item, index) => {
-        const isChecked = formData.check?.[index] === "checked";
-        if (!isChecked) return null;
+    const checkedItems =
+      statusValue === "cateCheck"
+        ? detailData?.discountProduct
+            ?.map((item, index) => {
+              const isChecked = formData.check?.[index] === "checked";
+              if (!isChecked) return null;
 
-        return {
-          product_id: item.product_id ?? item.id,
-          category_discount: formData.category_discount?.[index] ?? item.category_discount ?? 0,
-          check: "checked",
-        };
-      })
-      .filter(Boolean) : detailData?.discountProduct?.map((item, index) => ({
-        product_id: item.product_id ?? item.id,
-        category_discount: formData.category_discount?.[index] ?? item.category_discount ?? 0,
-        check: formData.check?.[index] ?? item.check ?? null,
-      })) || [];
+              return {
+                product_id: item.product_id ?? item.id,
+                category_discount:
+                  formData.category_discount?.[index] ??
+                  item.category_discount ??
+                  0,
+                check: "checked",
+              };
+            })
+            .filter(Boolean)
+        : detailData?.discountProduct?.map((item, index) => ({
+            product_id: item.product_id ?? item.id,
+            category_discount:
+              formData.category_discount?.[index] ??
+              item.category_discount ??
+              0,
+            check: formData.check?.[index] ?? item.check ?? null,
+          })) || [];
 
-  // 🔥 FIX: Build bm_discount array for ALL products
-  const bmDiscountArray = detailData?.discountProduct?.map((item, index) => 
-    formData.bm_discount?.[index] ?? item.bm_discount ?? item.request_discount
-  ) || [];
+    // 🔥 FIX: Build bm_discount array for ALL products
+    const bmDiscountArray =
+      detailData?.discountProduct?.map(
+        (item, index) =>
+          formData.bm_discount?.[index] ??
+          item.bm_discount ??
+          item.request_discount
+      ) || [];
 
-  const submitData = {
-    status: statusValue,
-    comment: formData.comment || "",
-    bm_discount: bmDiscountArray, // Send for all products
-    product_id: checkedItems.map((v) => v.product_id),
-    category_discount: checkedItems.map((v) => v.category_discount),
-    check: checkedItems.map((v) => v.check),
-  };
+    const submitData = {
+      status: statusValue,
+      comment: formData.comment || "",
+      bm_discount: bmDiscountArray, // Send for all products
+      product_id: checkedItems.map((v) => v.product_id),
+      category_discount: checkedItems.map((v) => v.category_discount),
+      check: checkedItems.map((v) => v.check),
+    };
 
     const confirmBox = await Swal.fire({
       title: "Are you Sure?",
@@ -142,10 +153,10 @@ const ApproveForm: React.FC = () => {
           text: `Form has been ${statusValue} successfully!`,
         });
         // navigate(`/request-discount-detail/${formId}`);
-       const token = localStorage.getItem("token");
-      if (token && formId) {
-        await dispatch(fetchDetailData({ token, id: formId.toString() }));
-      }
+        const token = localStorage.getItem("token");
+        if (token && formId) {
+          await dispatch(fetchDetailData({ token, id: formId.toString() }));
+        }
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error: any) {
         Swal.fire({
