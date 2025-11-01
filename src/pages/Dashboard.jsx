@@ -104,7 +104,7 @@ const Dashboard = () => {
               <span className="text-xl">{icon}</span>
               <span className="font-semibold">{form.name}{count}</span>
 
-              {/* ✅ Notification Badge */}
+             
               {count > 0 && (
                 <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
                   {count}+
