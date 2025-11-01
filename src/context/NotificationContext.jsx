@@ -14,7 +14,7 @@ export const NotificationProvider = ({ children }) => {
         }
         setLoading(false);
     }, []);
-
+// console.log("Hello Testing>>" , notifications)
     return (
         <NotificationContext.Provider value={{ notifications, setNotifications, loading }}>
             {children}

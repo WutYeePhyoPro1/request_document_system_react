@@ -65,7 +65,7 @@ const router = createBrowserRouter([
                 element: <CctvForm />
             },
             {
-                path: "cctv-index",
+                path: "cctv_record",
                 element: <CctvIndex />
             },
             {
@@ -77,7 +77,7 @@ const router = createBrowserRouter([
                 element: <CctvEdit />
             } ,
             {
-                path: "request-discount" ,
+                path: "request_discount" ,
                 element: <Demo/>
             },
             {

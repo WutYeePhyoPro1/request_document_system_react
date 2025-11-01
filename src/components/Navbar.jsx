@@ -25,7 +25,6 @@ export default function Navbar({ toggleSidebar }) {
             return;
         }
 
-        // Register Service Worker
         const registration = await navigator.serviceWorker.register('/sw.js');
         // console.log(registration);e
 
