@@ -85,7 +85,7 @@ const router = createBrowserRouter([
                 element: <Create/>
             },
             {
-                path: "request-discount-detail/:id" ,
+                path: "request_discount_detail/:id" ,
                 element: <Detail/>
             }
         ]

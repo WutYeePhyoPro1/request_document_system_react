@@ -12,6 +12,7 @@ import { randomId, useListState } from "@mantine/hooks";
 // import { cateCheck } from "../../store/discountSlice";
 import { Button } from "@mantine/core";
 import type { CheckValueItem } from "../../utils/requestDiscountUtil/detail";
+import StatusBadge from "../../components/ui/StatusBadge";
 
 const RequestDiscountDataDetailTable: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -107,7 +108,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
 
   const Checked = "Checked";
   const UnChecked = "UnChecked";
-
+console.log("HElloCheck" , Checked) ;
   const element = detailData?.discountProduct?.map(
     (item: any, index: number) => {
       const productId = item.product_id || item.id;
@@ -136,9 +137,10 @@ const RequestDiscountDataDetailTable: React.FC = () => {
             }}
           />
         ) : item.check ? (
-          Checked
+          <StatusBadge status={Checked} />
+          
         ) : (
-          UnChecked
+         <StatusBadge status={UnChecked} />
         ),
         item.product_category,
         item.product_code,

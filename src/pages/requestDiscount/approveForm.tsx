@@ -45,7 +45,7 @@ const ApproveForm: React.FC = () => {
     }
   }, [detailData?.accountFile]);
   const formId = detailData?.form?.id;
-  console.log("Detail Data>>", detailData);
+  console.log("Detail Data>>", detailData , formId);
   const icon = <IconFile size={18} stroke={1.5} />;
   const navigate = useNavigate();
   const handleSubmit = async (statusValue: string) => {
@@ -67,7 +67,18 @@ const ApproveForm: React.FC = () => {
       console.error("Form ID is missing");
       return;
     }
-    // ✅ Build arrays only for checked rows
+   if (statusValue === "bracc_btp" || statusValue === "cat_btp" || statusValue === "mer_btp") {
+  if (!formData.comment || formData.comment.trim() === "") {
+    Swal.fire({
+      icon: "warning",
+      title: "Please fill in a remark",
+      text: "You must fill a reason for sending back to the previous step.",
+      confirmButtonText: "OK",
+    });
+    return;
+  }
+}
+
     const checkedItems =
       statusValue === "cateCheck"
         ? detailData?.discountProduct
@@ -152,11 +163,18 @@ const ApproveForm: React.FC = () => {
           title: "Success",
           text: `Form has been ${statusValue} successfully!`,
         });
+        console.log("Submit Data" , submitData) ;
         // navigate(`/request-discount-detail/${formId}`);
         const token = localStorage.getItem("token");
         if (token && formId) {
           await dispatch(fetchDetailData({ token, id: formId.toString() }));
         }
+      //    if (token && formId) {
+      //   // Use a small timeout to ensure the backend has processed the request
+      //   setTimeout(async () => {
+      //     await dispatch(fetchDetailData({ token, id: formId.toString() }));
+      //   }, 500);
+      // }
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error: any) {
         Swal.fire({
@@ -291,7 +309,7 @@ const ApproveForm: React.FC = () => {
                 >
                   {loading ? "Submitting..." : "Check"}
                 </Button>
-                <Button color="red" disabled={loading}>
+                <Button color="red" disabled={loading} onClick={() => handleSubmit("Cancel")} >
                   Cancel
                 </Button>
               </div>
@@ -337,7 +355,7 @@ const ApproveForm: React.FC = () => {
                 >
                   {loading ? "Submitting..." : "Approved"}
                 </Button>
-                <Button color="red" disabled={loading}>
+                <Button  color="red" disabled={loading}>
                   Cancel
                 </Button>
               </div>

@@ -56,7 +56,7 @@ const paginateData = discountData?.slice(start , end);
       <Table.Td>{element.originators.name}</Table.Td>
       <Table.Td>{dateFormat(element.created_at)}</Table.Td>
       <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
-      <Link to={`/request-discount-detail/${element.id}`}>
+      <Link to={`/request_discount_detail/${element.id}`}>
       <Table.Td  >Detail</Table.Td>
       </Link>
     </Table.Tr>

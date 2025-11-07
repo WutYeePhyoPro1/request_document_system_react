@@ -125,7 +125,7 @@ const Create: React.FC = () => {
         text: "Discount request saved successfully!",
       });
 
-      navigate("/request-discount");
+      navigate("/request_discount");
     } catch (error: any) {
       if (error.response?.status === 422) {
         const errors = error.response.data.errors;
@@ -282,7 +282,7 @@ const Create: React.FC = () => {
         segments={[
           { path: "/dashboard", label: "Home" },
           { path: "/dashboard", label: "Dashboard" },
-          { path: "/request-discount", label: "Request Discount" },
+          { path: "/request_discount", label: "Request Discount" },
         ]}
       />
       <form onSubmit={form.onSubmit(onFinish)}>

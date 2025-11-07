@@ -17,11 +17,14 @@ import { deleteDiscountFile, fetchDetailData } from "../../store/discountSlice";
 import ApproveForm from "./approveForm";
 
 const Detail: React.FC = () => {
-  const {id} = useParams<{id:string}>() ;
+  const { id } = useParams<{ id: string }>();
   const dispatch = useDispatch<AppDispatch>();
-  const {detailData , loading } = useSelector((state:RootState)=> state.discount) ;
+  const { detailData, loading } = useSelector(
+    (state: RootState) => state.discount
+  );
   const [copied, setCopied] = useState<boolean>(false);
-  const [fileOpened, { open: openFileModal, close: closeFileModal }] = useDisclosure(false);
+  const [fileOpened, { open: openFileModal, close: closeFileModal }] =
+    useDisclosure(false);
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (token && id) {
@@ -29,7 +32,7 @@ const Detail: React.FC = () => {
     }
   }, [dispatch, id]);
   const formDocNo = detailData?.form?.form_doc_no || "";
-const formId = detailData?.form?.id || null ;
+  const formId = detailData?.form?.id || null;
 
   const onCopyClick = () => {
     handleCopy(
@@ -53,32 +56,32 @@ const formId = detailData?.form?.id || null ;
     requestDiscountImge:
       item.attach_product?.map((rdImage) => rdImage.file) || [],
   }));
- const handleDete = async(fileID:number) => {
-const token: string = localStorage.getItem("token") || "";
- Swal.fire({
-  title: "Are you sure?",
-  text: "This file will be permanently deleted!" ,
-  icon: "warning" ,
-  showCancelButton: true ,
-  confirmButtonColor: "#d33" ,
-  cancelButtonColor: "#3085d6",
-  confirmButtonText: "Yes , delete it !" ,
-  cancelButtonText: "Cancel",
- }).then(async(result) => {
-  if(result.isConfirmed){
-    try {
-       await dispatch(deleteDiscountFile({token , id:fileID}));
+  const handleDete = async (fileID: number) => {
+    const token: string = localStorage.getItem("token") || "";
+    Swal.fire({
+      title: "Are you sure?",
+      text: "This file will be permanently deleted!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#3085d6",
+      confirmButtonText: "Yes , delete it !",
+      cancelButtonText: "Cancel",
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await dispatch(deleteDiscountFile({ token, id: fileID }));
 
-        Swal.fire("Deleted!", "The file has been removed.", "success");
-      } catch (error: any) {
-        console.error("Error deleting file:", error);
-        Swal.fire("Error!", "Something went wrong. Try again.", "error");
+          Swal.fire("Deleted!", "The file has been removed.", "success");
+        } catch (error: any) {
+          console.error("Error deleting file:", error);
+          Swal.fire("Error!", "Something went wrong. Try again.", "error");
+        }
       }
-  }
- })
- }
+    });
+  };
+  console.log("Detail Data>>", detailData);
 
-   
   return (
     <div>
       {loading ? (
@@ -102,7 +105,7 @@ const token: string = localStorage.getItem("token") || "";
                 { path: "/dashboard", label: "Dashboard" },
                 { path: "/request-discount", label: "Request Discount" },
                 {
-                  path: `/request-discount-detail/${id}`,
+                  path: `/request_discount_detail/${id}`,
                   label: "Request Discount Detail",
                 },
               ]}
@@ -196,72 +199,262 @@ const token: string = localStorage.getItem("token") || "";
                       </div>
                     ))}
                     <div className="flex flex-col items-center space-y-3">
-                     
-                      <Modal size="45rem"  opened={fileOpened} onClose={closeFileModal} title="Attach Photo" centered >
-                       <div className="flex flex-wrap gap-4 items-center justify-center">
-                        {detailData?.files?.map((img, i) => (
-                        <div className="flex flex-col ">
-                        <img
-                            key={i}
-                            src={img.file_url}
-                            alt="Discount Attachment"
-                            className="w-20  h-20 object-cover rounded border"
-                          />
-                       
-                           <a
-                            href={img.file_url}
-                            className="text-blue-600 underline"
-                          >
-                            {img.name}
-                          </a>
-                          <Button   onClick={() => handleDete(img.id)} color="red" variant="filled" size="xs" >Delete</Button>
-                          
-                          
-                        </div>
-                      ))}
-                       </div>
-                      </Modal>
-                     
-                  { detailData?.files?.[0] && (
-                    <>
-                    <a href={detailData.files[0].file_url} className="text-blue-600 underline" target="_blank"> Operation Attach File</a>
-                    <img src={detailData.files[0].file_url} alt={detailData.files[0].name || "Discount Attachment"} className="w-40 h-40 object-cover rounded border" onClick={openFileModal} />
-                    
-                    </>
-                    
-                  ) }
+                      <Modal
+                        size="45rem"
+                        opened={fileOpened}
+                        onClose={closeFileModal}
+                        title="Attach Photo"
+                        centered
+                      >
+                        <div className="flex flex-wrap gap-4 items-center justify-center">
+                          {detailData?.files?.map((img, i) => (
+                            <div className="flex flex-col ">
+                              <img
+                                key={i}
+                                src={img.file_url}
+                                alt="Discount Attachment"
+                                className="w-20  h-20 object-cover rounded border"
+                              />
 
-                      <AddAttachFile generalFormId={id} />
+                              <a
+                                href={img.file_url}
+                                className="text-blue-600 underline"
+                              >
+                                {img.name}
+                              </a>
+                              {["Ongoing", "BM Approved"].includes(
+                                detailData?.form?.status
+                              ) && (
+                                <Button
+                                  onClick={() => handleDete(img.id)}
+                                  color="red"
+                                  variant="filled"
+                                  size="xs"
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </Modal>
+
+                      {detailData?.files?.[0] && (
+                        <>
+                          <a
+                            href={detailData.files[0].file_url}
+                            className="text-blue-600 underline"
+                            target="_blank"
+                          >
+                            {" "}
+                            Operation Attach File
+                          </a>
+                          <img
+                            src={detailData.files[0].file_url}
+                            alt={
+                              detailData.files[0].name || "Discount Attachment"
+                            }
+                            className="w-40 h-40 object-cover rounded border"
+                            onClick={openFileModal}
+                          />
+                        </>
+                      )}
+                      {["Ongoing", "BM Approved"].includes(
+                        detailData?.form?.status
+                      ) && <AddAttachFile generalFormId={id} />}
                     </div>
                   </div>
                 </div>
                 <div className="tableData">
-                  <RequestDiscountDataDetailTable  />
+                  <RequestDiscountDataDetailTable />
                 </div>
-                <hr className="mt-8 mb-6"/>
+                <hr className="mt-8 mb-6" />
                 <div className="approve">
-                  <ApproveForm/>
+                  <ApproveForm />
                 </div>
-                <div className="userData flex flex-justify gap-6 items-center">
-                  <div className="">
-                    <span>Prepared By</span>
-                    <h1>Miss.{detailData?.form?.originators?.name}</h1>
-                    <h1>({detailData?.form?.originators?.departments?.name})</h1>
-                    <h1>{dateFormat(detailData?.form?.created_at)}</h1>
+                <div className="userData grid grid-cols-6 items-start text-sm">
+                  {/* Prepared By */}
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-700">
+                      Prepared By
+                    </span>
+                    <span className="font-semibold text-lg">
+                      Miss. {detailData?.form?.originators?.name}
+                    </span>
+                    <span className="text-gray-600">
+                      ({detailData?.form?.originators?.departments?.name})
+                    </span>
+                    <span className="text-gray-500">
+                      {dateFormat(detailData?.form?.created_at)}
+                    </span>
                   </div>
-                  <div className="">
-                    <span>Checked By</span>
-                    <h1>{detailData?.approveData?.title}{detailData?.approveData?.name}</h1>
-                    <h1>({detailData?.approveData?.department})</h1>
-                    <h1>{dateFormat(detailData?.approveData?.created_at)}</h1>
-                    <span>{detailData?.approveData?.comment}</span>
+
+                  {/* Checked By */}
+                  <div>
+                    {detailData?.getApprover ? (
+                      [
+                        "BM Approved",
+                        "Approved",
+                        "Acknowledged",
+                        "Completed",
+                        "Cancel",
+                      ].includes(detailData?.form?.status) ? (
+                        <div>
+                          <div className="font-medium">Checked By</div>
+                          <div className="font-semibold">
+                            {detailData?.getApprover?.approval_users?.title}{" "}
+                            {detailData?.getApprover?.approval_users?.name}
+                          </div>
+                          <div className="text-gray-600">
+                            (
+                            {
+                              detailData?.getApprover?.approval_users
+                                ?.department?.name
+                            }
+                            )
+                          </div>
+                          <div className="text-gray-500">
+                            {dateFormat(detailData?.getApprover?.created_at)}
+                          </div>
+                          {detailData?.getApprover?.comment && (
+                            <div className="text-info text-break italic">
+                              “{detailData?.getApprover?.comment}”
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="opacity-40">Checked By</div>
+                      )
+                    ) : (
+                      <div className="opacity-40">
+                        <div>Checked By</div>
+                        <div>-------------------</div>
+                        <div>Operation Analysis</div>
+                        <div>{dateFormat(detailData?.form?.created_at)}</div>
+                      </div>
+                    )}
                   </div>
-                   <div className="">
-                    <span>Approve By Caegory Head</span>
-                    <h1>{detailData?.approveData?.title}{detailData?.approveData?.name}</h1>
-                    <h1>({detailData?.approveData?.department})</h1>
-                    <h1>{dateFormat(detailData?.approveData?.created_at)}</h1>
-                    <span>{detailData?.approveData?.comment}</span>
+
+                  {/* Approved By Category Head */}
+                  <div>
+                    {detailData?.getSupervisor ? (
+                      ["Approved", "Acknowledged", "Completed"].includes(
+                        detailData?.form?.status
+                      ) ? (
+                        <div>
+                          <div className="font-medium">
+                            Approved By Category Head
+                          </div>
+                          <div className="font-semibold">
+                            {detailData?.getSupervisor?.approval_users?.title}{" "}
+                            {detailData?.getSupervisor?.approval_users?.name}
+                          </div>
+                          <div className="text-gray-600">
+                            (
+                            {
+                              detailData?.getSupervisor?.approval_users
+                                ?.department?.name
+                            }
+                            )
+                          </div>
+                          <div className="text-gray-500">
+                            {dateFormat(detailData?.getSupervisor?.created_at)}
+                          </div>
+                          {detailData?.getSupervisor?.comment && (
+                            <div className="text-info text-break italic">
+                              “{detailData?.getSupervisor?.comment}”
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="opacity-40">
+                          Approved By Category Head
+                        </div>
+                      )
+                    ) : (
+                      <div className="opacity-40">
+                        <div>Approved By Category Head</div>
+                        <div>-------------------</div>
+                        <div>Operation Analysis</div>
+                        <div>{dateFormat(detailData?.form?.created_at)}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Acknowledge By */}
+                  <div>
+                    {detailData?.getApprover2 ? (
+                      ["Acknowledged", "Completed"].includes(
+                        detailData?.form?.status
+                      ) ? (
+                        <div>
+                          <div className="font-medium">Acknowledge By</div>
+                          <div className="font-semibold">
+                            {detailData?.getApprover2?.approval_users?.title}{" "}
+                            {detailData?.getApprover2?.approval_users?.name}
+                          </div>
+                          <div className="text-gray-600">
+                            (
+                            {
+                              detailData?.getApprover2?.approval_users
+                                ?.department?.name
+                            }
+                            )
+                          </div>
+                          <div className="text-gray-500">
+                            {dateFormat(detailData?.getApprover2?.created_at)}
+                          </div>
+                          {detailData?.getApprover2?.comment && (
+                            <div className="text-info text-break italic">
+                              “{detailData?.getApprover2?.comment}”
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="opacity-40">Acknowledge By</div>
+                      )
+                    ) : (
+                      <div className="opacity-40">Acknowledge By</div>
+                    )}
+                  </div>
+
+                  {/* Finished By */}
+                  <div>
+                    {detailData?.getAcknowledge ? (
+                      detailData?.form?.status === "Completed" ? (
+                        <div>
+                          <div className="font-medium">Finished By</div>
+                          <div className="font-semibold">
+                            {detailData?.getAcknowledge?.approval_users?.title}{" "}
+                            {detailData?.getAcknowledge?.approval_users?.name}
+                          </div>
+                          <div className="text-gray-600">
+                            (
+                            {
+                              detailData?.getAcknowledge?.approval_users
+                                ?.department?.name
+                            }
+                            )
+                          </div>
+                          <div className="text-gray-500">
+                            {dateFormat(detailData?.getAcknowledge?.created_at)}
+                          </div>
+                          {detailData?.getAcknowledge?.comment && (
+                            <div className="text-info text-break italic">
+                              “{detailData?.getAcknowledge?.comment}”
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="opacity-40">
+                          Finished By Finance &amp; Accounting
+                        </div>
+                      )
+                    ) : (
+                      <div className="opacity-40">
+                        Finished By Finance &amp; Accounting
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
