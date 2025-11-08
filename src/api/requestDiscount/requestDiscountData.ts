@@ -37,6 +37,17 @@ export const getStoreData = async (token: string | null, formData: FormData) => 
   });
 };
 
+export const getDiscountCheck = async(token:string , generalFormId:number , productCode:string) => {
+  try {
+    const response = await API.get(`/request_discount/discountProductCheck/${generalFormId}/${productCode}` , {
+      headers:{Authorization:`Bearer ${token}`} ,
+    });
+    return response ;
+  } catch (error) {
+    console.error("Error fetching check discount :" , error);
+    throw error ;
+  }
+}
 
 export const searchInvoiceData = async (
   token: string,

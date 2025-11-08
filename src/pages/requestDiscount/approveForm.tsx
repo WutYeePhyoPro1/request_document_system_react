@@ -220,11 +220,16 @@ const ApproveForm: React.FC = () => {
         title: "Upload Successful",
         text: "Files uploaded successfully!",
       });
+       setInvoiceFile([{ id: uuidv4(), file: null }]);
+      close() ;
       const token = localStorage.getItem("token");
       if (token && formId) {
         await dispatch(fetchDetailData({ token, id: formId.toString() }));
       }
+      
       window.scrollTo({ top: 0, behavior: "smooth" });
+      // closeFileModal();
+      
     } catch (err: any) {
       Swal.fire({
         icon: "error",

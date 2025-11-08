@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Checkbox, Pagination, Select, MultiSelect } from '@mantine/core';
+import { Table, Checkbox, Pagination, Select, MultiSelect, Loader } from '@mantine/core';
 import '@mantine/core/styles.css';
 import type { IndexData } from '../../utils/requestDiscountUtil';
 import NavPath from '../../components/NavPath';
@@ -20,13 +20,25 @@ export default function Demo() {
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage , setActivePage] = useState<number>(1);
   const [value , setValue] = useState<string | null>(null);
+  const [pageLoading , setPageLoading] = useState<boolean>(true) ;
    useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
     
+   const loadData = async() => {
+    
     if (token) {
-      dispatch(fetchRequestDiscountData({ token }));
+      setPageLoading(true); 
+      try {
+       await dispatch(fetchRequestDiscountData({ token }));
+      } catch (error) {
+        console.log("Error at get mainData>>" , error);
+      }finally{
+        setPageLoading(false) ;
+      }
     }
+   };
+   loadData() ;
   }, [dispatch]);
 
   // Add this useEffect to sync mainData with discountData
@@ -61,7 +73,19 @@ const paginateData = discountData?.slice(start , end);
       </Link>
     </Table.Tr>
   )) ?? [];
-
+const showLoading = loading || pageLoading || !discountData ;
+if (showLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Loader size="xl" color="blue" />
+          <div className="text-lg font-semibold text-gray-700 animate-pulse">
+            Loading Detail Data...
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
    <div className="">
     <div className="p-6 bg-white">

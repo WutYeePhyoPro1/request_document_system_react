@@ -2,18 +2,22 @@ import React, { useEffect, useState } from "react";
 import dashboardPhoto from "../../assets/images/reqBa.png";
 import NavPath from "../../components/NavPath";
 // import { deleteFile, getDetailData } from "../../api/requestDiscount/requestDiscountData";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { FiCopy } from "react-icons/fi";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { dateFormat, handleCopy } from "../../utils/requestDiscountUtil/helper";
 import { useDisclosure } from "@mantine/hooks";
-import { Modal, Button } from "@mantine/core";
+import { Modal, Button, Loader } from "@mantine/core";
 import AddAttachFile from "./addAttachFile";
 import Swal from "sweetalert2";
 import RequestDiscountDataDetailTable from "./requestDiscountDataDetailTable";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
-import { deleteDiscountFile, fetchDetailData } from "../../store/discountSlice";
+import {
+  deleteDiscountFile,
+  fetchDetailData,
+  refreshFiles,
+} from "../../store/discountSlice";
 import ApproveForm from "./approveForm";
 
 const Detail: React.FC = () => {
@@ -22,15 +26,38 @@ const Detail: React.FC = () => {
   const { detailData, loading } = useSelector(
     (state: RootState) => state.discount
   );
+  const [pageLoading, setPageLoading] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);
+  const token = localStorage.getItem("token");
+
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token && id) {
-      dispatch(fetchDetailData({ token, id }));
-    }
+    const loadDetail = async () => {
+      if (token && id) {
+        setPageLoading(true);
+        try {
+          dispatch(fetchDetailData({ token, id }));
+        } catch (error) {
+          console.log("error fetch detail data>>", error);
+        } finally {
+          setTimeout(() => setPageLoading(false) , 400);
+        }
+      }
+    };
+    loadDetail();
   }, [dispatch, id]);
+  // useEffect(() => {
+  //   if(fileOpened && token && id) {
+  //     dispatch(fetchDetailData({token , id})) ;
+  //   }
+  // } , [fileOpened , dispatch , id]) ;
+  useEffect(() => {
+    if (fileOpened && token && id) {
+      dispatch(refreshFiles({ token, id }));
+    }
+  }, [fileOpened, dispatch, id]);
+
   const formDocNo = detailData?.form?.form_doc_no || "";
   const formId = detailData?.form?.id || null;
 
@@ -80,20 +107,27 @@ const Detail: React.FC = () => {
       }
     });
   };
+  const navigate = useNavigate() ;
+  const handleBack = () => {
+    navigate(-1) ;
+  }
   console.log("Detail Data>>", detailData);
-
-  return (
-    <div>
-      {loading ? (
-        <div className="flex justify-center items-center min-h-screen">
-          <div className="text-xl font-bold text-black">
-            Loading
-            <span className="animate-pulse">.</span>
-            <span className="animate-pulse delay-200">.</span>
-            <span className="animate-pulse delay-400">.</span>
+  const showLoading = loading || pageLoading || !detailData?.form;
+  if (showLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Loader size="xl" color="blue" />
+          <div className="text-lg font-semibold text-gray-700 animate-pulse">
+            Loading Detail Data...
           </div>
         </div>
-      ) : (
+      </div>
+    );
+  }
+  return (
+    <div>
+      
         <div className="p-4 sm:p-6">
           <div
             className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
@@ -256,6 +290,7 @@ const Detail: React.FC = () => {
                             }
                             className="w-40 h-40 object-cover rounded border"
                             onClick={openFileModal}
+                            loading="lazy"
                           />
                         </>
                       )}
@@ -346,23 +381,28 @@ const Detail: React.FC = () => {
                             Approved By Category Head
                           </div>
                           <div className="font-semibold">
-                            {detailData?.getSupervisor?.approval_users?.title}{" "}
-                            {detailData?.getSupervisor?.approval_users?.name}
+                            {
+                              detailData?.getSupervisor[0]?.approval_users
+                                ?.title
+                            }{" "}
+                            {detailData?.getSupervisor[0]?.approval_users?.name}
                           </div>
                           <div className="text-gray-600">
                             (
                             {
-                              detailData?.getSupervisor?.approval_users
+                              detailData?.getSupervisor[0]?.approval_users
                                 ?.department?.name
                             }
                             )
                           </div>
                           <div className="text-gray-500">
-                            {dateFormat(detailData?.getSupervisor?.created_at)}
+                            {dateFormat(
+                              detailData?.getSupervisor[0]?.created_at
+                            )}
                           </div>
-                          {detailData?.getSupervisor?.comment && (
+                          {detailData?.getSupervisor[0]?.comment && (
                             <div className="text-info text-break italic">
-                              “{detailData?.getSupervisor?.comment}”
+                              “{detailData?.getSupervisor[0]?.comment}”
                             </div>
                           )}
                         </div>
@@ -456,12 +496,16 @@ const Detail: React.FC = () => {
                       </div>
                     )}
                   </div>
+                  
                 </div>
               </div>
             </div>
+             <div className="">
+        <Button onClick={handleBack} >Back</Button>
+      </div>
           </div>
         </div>
-      )}
+      
     </div>
   );
 };
