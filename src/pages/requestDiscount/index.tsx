@@ -12,6 +12,7 @@ import type { AppDispatch, RootState } from '../../store';
 import { fetchDetailData, fetchRequestDiscountData, setDetailData } from '../../store/discountSlice';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { fetchData } from '../../api/FetchApi';
+import { searchDiscountProduct } from '../../api/requestDiscount/requestDiscountData';
 
 
   
@@ -22,6 +23,7 @@ export default function Demo() {
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage , setActivePage] = useState<number>(1);
   const [value , setValue] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   // const [pageLoading , setPageLoading] = useState<boolean>(true) ;
   const { id } = useParams();
 
@@ -52,7 +54,7 @@ export default function Demo() {
       setDiscountData(mainData);
     }
   }, [mainData]); 
-
+// console.log("setDiscountData>>" , mainData)
   useEffect(() => {
   const token = localStorage.getItem("token");
   if (!token || !id) return;
@@ -61,11 +63,45 @@ export default function Demo() {
 
   dispatch(fetchDetailData({ token, id }));
 }, [dispatch, id]);
-  console.log("MainData>", mainData);
+  // console.log("MainData>", mainData);
 const pageSize:number = 10 ;
 const start = (activePage - 1 )* pageSize ;
 const end = start + pageSize;
-const paginateData = discountData?.slice(start , end);
+ const paginateData = discountData?.slice(start , end);
+// const paginateData = Array.isArray(discountData)
+//   ? discountData.slice(start, end)
+//   : [];
+console.log("paginatedData>>" , paginateData) ;
+
+
+
+const handleSearch = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  try {
+    const results = await searchDiscountProduct(token, searchTerm);
+    setDiscountData(results);
+    setActivePage(1);
+  } catch (error) {
+    console.error("Search failed:", error);
+  }
+};
+// const handleSearch = async () => {
+//   const token = localStorage.getItem("token");
+//   if (!token) return;
+
+//   try {
+//     const results = await searchDiscountProduct(token, searchTerm);
+//     console.log("Search results:", results); // ← check structure
+//     setDiscountData(Array.isArray(results) ? results : []); // ensure array
+//     setActivePage(1);
+//   } catch (error) {
+//     console.error("Search failed:", error);
+//   }
+// };
+
+
 
   const rows = paginateData?.map((element , index) => (
     <Table.Tr
@@ -80,8 +116,8 @@ const paginateData = discountData?.slice(start , end);
       <Table.Td>{start + index + 1}</Table.Td>
       <Table.Td><StatusBadge status={element.status} /></Table.Td>
       <Table.Td>{element.form_doc_no}</Table.Td>
-      <Table.Td>{element.from_branches.branch_name}</Table.Td>
-      <Table.Td>{element.originators.name}</Table.Td>
+      <Table.Td>{element.from_branches.branch_name}</Table.Td> 
+      <Table.Td>{element.originators.name}</Table.Td> 
       <Table.Td>{dateFormat(element.created_at)}</Table.Td>
       <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
       <Table.Td className="text-blue-600 font-medium underline">
@@ -132,7 +168,8 @@ if (showLoading) {
         
         <input id="formDocNo" type="text" placeholder='Enter product category or name or code' 
         className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
-        name=""  />
+        name="form_doc_no" value={searchTerm}
+    onChange={(e) => setSearchTerm(e.target.value)}  />
       </div>
       <div className="flex flex-col">
         <label htmlFor="formDocNo" className="mb-1 font-medium text-gray-700">
@@ -194,7 +231,7 @@ if (showLoading) {
                                     <div className="flex items-end">
                                 <button className="text-white px-4 py-2 rounded w-full cursor-pointer"  style={{
                                     backgroundColor: '#2ea2d1',
-                                }}
+                                }} onClick={handleSearch}
                                   >
                                     Search
                                 </button>

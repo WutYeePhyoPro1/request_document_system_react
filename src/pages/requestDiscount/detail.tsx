@@ -26,6 +26,7 @@ const Detail: React.FC = () => {
   const { detailData, loading } = useSelector(
     (state: RootState) => state.discount
   );
+  
   const [pageLoading, setPageLoading] = useState<boolean>(true);
   const [copied, setCopied] = useState<boolean>(false);
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =

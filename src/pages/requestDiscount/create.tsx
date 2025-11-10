@@ -32,6 +32,7 @@ import type {
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 const Create: React.FC = () => {
+  const [loading , setLoading] = useState<boolean>(false) ;
   const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
     { id: uuidv4(), file: null },
   ]);
@@ -64,6 +65,8 @@ const Create: React.FC = () => {
   });
   const onFinish = async (values: FormValues) => {
     try {
+      setLoading(true) ;
+      await new Promise((resolve) => setTimeout(resolve , 1000));
       const token = localStorage.getItem("token");
       if (!token) return;
 
@@ -144,6 +147,8 @@ const Create: React.FC = () => {
       } else {
         console.error("Error saving discount request:", error);
       }
+    }finally{
+      setLoading(false);
     }
   };
 
@@ -288,13 +293,13 @@ const Create: React.FC = () => {
       <form onSubmit={form.onSubmit(onFinish)}>
         <div className="flex flex-row gap-6">
           <div className="basis-1/3 border border-slate-400 rounded p-4 flex flex-col gap-6">
-            <TextInput
+            {/* <TextInput
               placeholder="Enter branch name"
               withAsterisk
               readOnly
               key={form.key("branch_name")}
               {...form.getInputProps("branch_name")}
-            />
+            /> */}
 
             <Select
               label="Request Sale Staff"
@@ -305,7 +310,7 @@ const Create: React.FC = () => {
               {...form.getInputProps("sale_staff")}
               searchable
             />
-            <TextInput
+            {/* <TextInput
               label="Sale Invoice No"
               placeholder="Enter sale invoice number"
               withAsterisk
@@ -313,7 +318,29 @@ const Create: React.FC = () => {
               {...form.getInputProps("sale_invoice")}
               onChange={handleChange}
               onBlur={(e) => handleInvoiceNo(e.currentTarget.value)}
-            />
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleInvoiceNo(e.currentTarget.value);
+                }
+              }}
+            /> */}
+            <TextInput
+  label="Sale Invoice No"
+  placeholder="Enter sale invoice number"
+  withAsterisk
+  key={form.key("sale_invoice")}
+  {...form.getInputProps("sale_invoice")}
+  onChange={handleChange}
+  onBlur={(e) => handleInvoiceNo(e.currentTarget.value)}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault(); // prevent form submission or reload
+      handleInvoiceNo(e.currentTarget.value);
+    }
+  }}
+/>
+
 
             <TextInput
               label="Customer Name"
@@ -395,7 +422,7 @@ const Create: React.FC = () => {
           <div className="w-full overflow-x-auto p-4 flex flex-col gap-6">
             <Table data={invoiceData} />
             <div className="flex flex-justify gap-6">
-              <Button type="submit">Save</Button>
+              <Button type="submit" loading={loading}>Save</Button>
               <Button>Cancel</Button>
             </div>
           </div>

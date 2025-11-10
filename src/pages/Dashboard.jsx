@@ -102,7 +102,7 @@ const Dashboard = () => {
               }`}
             >
               <span className="text-xl">{icon}</span>
-              <span className="font-semibold">{form.name}{count}</span>
+              <span className="font-semibold">{form.name}</span>
 
              
               {count > 0 && (

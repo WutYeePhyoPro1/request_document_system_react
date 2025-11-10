@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
-import { Checkbox, Input, Table, type TableData } from "@mantine/core";
+import { Checkbox, Input, Loader, Table, type TableData } from "@mantine/core";
 import Swal from "sweetalert2";
 import {
   setBmDiscount,
@@ -186,48 +186,47 @@ const RequestDiscountDataDetailTable: React.FC = () => {
   const Checked = "Checked";
   const UnChecked = "UnChecked";
 console.log("HElloCheck" , Checked) ;
- const element = detailData?.discountProduct?.map((item: any, index: number) => {
+const element = detailData?.discountProduct?.map((item: any, index: number) => {
   const productId = item.product_id || item.id;
   const checked = values[index]?.checked ?? false;
   const checkDiscountProduct = discountCheckResults[item.product_code];
-  console.log("checkDiscountProduct>>" , checkDiscountProduct) ;
   const isSupervisor = detailData?.supervisor === true;
   const status = detailData?.form?.status;
 
+  let checkCell: React.ReactNode;
+
+  if (isSupervisor && status === "BM Approved") {
+    if (isCheckLoading) {
+      checkCell = <span className="text-gray-400">Loading...</span>;
+    } else if (item.check === "checked") {
+      checkCell = <StatusBadge status="Checked" />;
+    } else if (checkDiscountProduct === false) {
+      checkCell = <StatusBadge status="UnChecked" />;
+    } else {
+      checkCell = (
+        <Checkbox
+          key={`check-${index}`}
+          checked={checked}
+          onChange={(e) => {
+            const isChecked = e.currentTarget.checked;
+            const value = formData.category_discount?.[index] ?? item.category_discount ?? 0;
+            handlers.setItemProp(index, "checked", isChecked);
+            dispatch(setCateCheck({ index, value, checkStatus: isChecked ? "checked" : null }));
+          }}
+        />
+      );
+    }
+  } else if (["Ongoing", "BM Approved", "Approved", "Acknowledged", "Completed"].includes(status)) {
+    checkCell = item.check === "checked" || checkDiscountProduct === true 
+      ? <StatusBadge status="Checked" /> 
+      : <StatusBadge status="UnChecked" />;
+  } else {
+    checkCell = null;
+  }
+
   return [
     index + 1,
-    isSupervisor && status === "BM Approved"
-      ? item.check === "checked" ? (
-          <StatusBadge status={Checked} />
-        ) : checkDiscountProduct === false ? (
-          <StatusBadge status={UnChecked} />
-        ) : (
-          <Checkbox
-            key={`check-${index}`}
-            checked={checked}
-            onChange={(e) => {
-              const isChecked = e.currentTarget.checked;
-              const value =
-                formData.category_discount?.[index] ?? item.category_discount;
-              const checkStatus = isChecked ? "checked" : null;
-              handlers.setItemProp(index, "checked", isChecked);
-              dispatch(
-                setCateCheck({
-                  index,
-                  value: value ?? 0, 
-                  checkStatus,
-                })
-              );
-            }}
-          />
-        )
-      : ["Ongoing", "BM Approved", "Approved", "Acknowledged", "Completed"].includes(status)
-      ? item.check === "checked" || checkDiscountProduct === true ? (
-          <StatusBadge status={Checked} />
-        ) : (
-          <StatusBadge status={UnChecked} />
-        )
-      : null,
+    checkCell,
     item.product_category,
     item.product_code,
     item.product_name,
@@ -236,59 +235,33 @@ console.log("HElloCheck" , Checked) ;
     item.discountamnt,
     item.netamount,
     item.request_discount,
-
     detailData?.approver ? (
       <Input
         className="border border-blue-300 rounded w-20"
         type="number"
-        value={
-          formData.bm_discount?.[index] ??
-          item.bm_discount ??
-          item.request_discount
-        }
-        onChange={(e) =>
-          handleBmDiscountChange(index, e, Number(item.request_discount))
-        }
+        value={formData.bm_discount?.[index] ?? item.bm_discount ?? item.request_discount}
+        onChange={(e) => handleBmDiscountChange(index, e, Number(item.request_discount))}
         name="bm_discount"
       />
     ) : (
       item.bm_discount ?? item.request_discount
     ),
-
     isSupervisor && status === "BM Approved" && item.check == null && checkDiscountProduct === true ? (
       <Input
         className="border border-blue-300 rounded w-20"
         type="number"
-        value={
-          formData.category_discount?.[index] ??
-          item.category_discount ??
-          item.bm_discount
-        }
-        onChange={(e) =>
-          handleCateCheck(
-            index,
-            e,
-            Number(item.bm_discount),
-            values[index]?.checked ? "checked" : "null"
-          )
-        }
+        value={formData.category_discount?.[index] ?? item.category_discount ?? item.bm_discount}
+        onChange={(e) => handleCateCheck(index, e, Number(item.bm_discount), checked ? "checked" : "null")}
         name="category_discount"
       />
     ) : (
       item.category_discount ?? item.request_discount
     ),
-
     item.remark,
-
-    // Hidden product_id - NO onChange needed
-    <input
-      key={`product-${index}`}
-      type="hidden"
-      value={productId}
-      name="product_id"
-    />,
+    <input key={`product-${index}`} type="hidden" value={productId} name="product_id" />,
   ];
 });
+
 
   // console.log(detailData?.supervisor === true && detailData?.form?.status === "BM Approved" && detailData?.checkNullCategroy == true)
   const tableData: TableData = {
@@ -331,6 +304,7 @@ console.log("HElloCheck" , Checked) ;
 //     </div>
 //   );
 // }
+
 
   return (
     <div className="mt-6 overflow-x-auto">

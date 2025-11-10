@@ -20,8 +20,8 @@ export default function StatusBadge({ status }) {
         return "bg-[#adebbb] text-[#28a745]";
       case "cancel":
         return "bg-[#fda19d] text-[#f91206]";
-        case "Acknowledeged" : 
-      return "bg-[#ffeaab] text-[#e6ac00]";
+        case "Acknowledged" : 
+      return "bg-[#ffeaab] text-[#28a745]";
       default:
         return "bg-gray-200 text-gray-600";
     }

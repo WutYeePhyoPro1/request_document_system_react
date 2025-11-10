@@ -9,7 +9,19 @@ const API = axios.create({
 });
 
 
-
+export const searchDiscountProduct = async (token: string, searchTerm: string) => {
+  try {
+    const response = await API.get("/request_discount/searchNotification", {
+      params: { search: searchTerm },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    console.log("Search>>" , response.data) ;
+    return response.data.data ?? []; 
+  } catch (error) {
+    console.log("Error at searchDiscountProduct", error);
+    throw error;
+  }
+};
 
 export const getCreateData = async(token:string): Promise<requestDiscountCreateResponse[] > => {
   try{
@@ -48,6 +60,7 @@ export const getDiscountCheck = async(token:string , generalFormId:number , prod
     throw error ;
   }
 }
+
 
 export const searchInvoiceData = async (
   token: string,
