@@ -3,13 +3,15 @@ import { Table, Checkbox, Pagination, Select, MultiSelect, Loader } from '@manti
 import '@mantine/core/styles.css';
 import type { IndexData } from '../../utils/requestDiscountUtil';
 import NavPath from '../../components/NavPath';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { dateFormat } from '../../utils/requestDiscountUtil/helper';
 import { DatePickerInput } from '@mantine/dates';
 import '@mantine/dates/styles.css';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '../../store';
-import { fetchRequestDiscountData } from '../../store/discountSlice';
+import { fetchDetailData, fetchRequestDiscountData, setDetailData } from '../../store/discountSlice';
+import StatusBadge from '../../components/ui/StatusBadge';
+import { fetchData } from '../../api/FetchApi';
 
 
   
@@ -20,7 +22,9 @@ export default function Demo() {
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage , setActivePage] = useState<number>(1);
   const [value , setValue] = useState<string | null>(null);
-  const [pageLoading , setPageLoading] = useState<boolean>(true) ;
+  // const [pageLoading , setPageLoading] = useState<boolean>(true) ;
+  const { id } = useParams();
+
    useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -28,13 +32,13 @@ export default function Demo() {
    const loadData = async() => {
     
     if (token) {
-      setPageLoading(true); 
+      // setPageLoading(true); 
       try {
        await dispatch(fetchRequestDiscountData({ token }));
       } catch (error) {
         console.log("Error at get mainData>>" , error);
       }finally{
-        setPageLoading(false) ;
+        // setPageLoading(false) ;
       }
     }
    };
@@ -49,6 +53,14 @@ export default function Demo() {
     }
   }, [mainData]); 
 
+  useEffect(() => {
+  const token = localStorage.getItem("token");
+  if (!token || !id) return;
+
+  dispatch(fetchDetailData(null));
+
+  dispatch(fetchDetailData({ token, id }));
+}, [dispatch, id]);
   console.log("MainData>", mainData);
 const pageSize:number = 10 ;
 const start = (activePage - 1 )* pageSize ;
@@ -58,22 +70,27 @@ const paginateData = discountData?.slice(start , end);
   const rows = paginateData?.map((element , index) => (
     <Table.Tr
       key={element.id}
-      bg={selectedRows.includes(element.id) ? 'var(--mantine-color-blue-light)' : undefined}
+      bg={selectedRows.includes(element.id) ? 'var(--mantine-color-blue-light)' : undefined} 
     >
      
-     <Table.Td>{start + index + 1}</Table.Td>
-     <Table.Td>{element.status}</Table.Td>
+    <Link
+      to={`/request_discount_detail/${element.id}`}
+      className="contents"   onClick={() => dispatch(setDetailData(null))}
+    >
+      <Table.Td>{start + index + 1}</Table.Td>
+      <Table.Td><StatusBadge status={element.status} /></Table.Td>
       <Table.Td>{element.form_doc_no}</Table.Td>
       <Table.Td>{element.from_branches.branch_name}</Table.Td>
       <Table.Td>{element.originators.name}</Table.Td>
       <Table.Td>{dateFormat(element.created_at)}</Table.Td>
       <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
-      <Link to={`/request_discount_detail/${element.id}`}>
-      <Table.Td  >Detail</Table.Td>
-      </Link>
+      <Table.Td className="text-blue-600 font-medium underline">
+        View
+      </Table.Td>
+    </Link>
     </Table.Tr>
   )) ?? [];
-const showLoading = loading || pageLoading || !discountData ;
+const showLoading = loading  || !discountData ;
 if (showLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">

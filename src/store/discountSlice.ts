@@ -114,18 +114,7 @@ export const refreshFiles = createAsyncThunk(
 
 const discountSlice = createSlice({
   name: "discount",
-  initialState: {
-    detailData: {
-      form: null,
-      files: null,
-      data: null,
-      discountProduct: null,
-      // Split nested data
-    },
-    mainData: null,
-    loading: false,
-    error: null,
-  },
+  initialState,
   reducers: {
     setDetailData: (state, action) => {
       state.detailData = action.payload;
@@ -153,7 +142,7 @@ const discountSlice = createSlice({
   extraReducers: (builder) => {
     builder
       .addCase(fetchDetailData.pending, (state) => {
-        state.loading = false;
+        state.loading = true;
         state.error = null;
       })
       .addCase(fetchDetailData.fulfilled, (state, action) => {

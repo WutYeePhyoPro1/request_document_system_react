@@ -33,25 +33,12 @@ const Detail: React.FC = () => {
   const token = localStorage.getItem("token");
 
   useEffect(() => {
-    const loadDetail = async () => {
-      if (token && id) {
-        setPageLoading(true);
-        try {
-          dispatch(fetchDetailData({ token, id }));
-        } catch (error) {
-          console.log("error fetch detail data>>", error);
-        } finally {
-          setTimeout(() => setPageLoading(false) , 400);
-        }
-      }
-    };
-    loadDetail();
+    const token = localStorage.getItem("token");
+    if (token && id) {
+      dispatch(fetchDetailData({ token, id }));
+    }
   }, [dispatch, id]);
-  // useEffect(() => {
-  //   if(fileOpened && token && id) {
-  //     dispatch(fetchDetailData({token , id})) ;
-  //   }
-  // } , [fileOpened , dispatch , id]) ;
+  
   useEffect(() => {
     if (fileOpened && token && id) {
       dispatch(refreshFiles({ token, id }));
@@ -110,12 +97,16 @@ const Detail: React.FC = () => {
   const navigate = useNavigate() ;
   const handleBack = () => {
     navigate(-1) ;
+   detailData(null) ;
   }
   console.log("Detail Data>>", detailData);
-  const showLoading = loading || pageLoading || !detailData?.form;
-  if (showLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
+  // const showLoading = loading || pageLoading || !detailData?.form;
+  
+  return (
+    <>
+    {
+      (loading || detailData == null) ? (
+        <div className="flex justify-center items-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
           <Loader size="xl" color="blue" />
           <div className="text-lg font-semibold text-gray-700 animate-pulse">
@@ -123,10 +114,8 @@ const Detail: React.FC = () => {
           </div>
         </div>
       </div>
-    );
-  }
-  return (
-    <div>
+      ) : (
+        <div>
       
         <div className="p-4 sm:p-6">
           <div
@@ -507,6 +496,9 @@ const Detail: React.FC = () => {
         </div>
       
     </div>
+      )
+    }
+    </>
   );
 };
 
