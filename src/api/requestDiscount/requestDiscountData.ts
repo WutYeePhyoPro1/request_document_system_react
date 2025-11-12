@@ -7,21 +7,55 @@ const API = axios.create({
   baseURL: "/api",
   withCredentials: true,
 });
+export const getRequestDiscountData = async(token:string): Promise<requestDiscountFetchData[] > => {
+    try{
+        const response = await API.get('/request_discount' , {
+            headers: {Authorization: `Bearer ${token}`} ,
+        });
+        // console.log("ApiData>>" , response.data , response.data.data.length);
+        return response.data ?? [];
+    } catch (error) {
+    console.error("Error fetching PI data:", error);
+    throw error;
+  }
+};
 
-
-export const searchDiscountProduct = async (token: string, searchTerm: string) => {
+// export const searchDiscountProduct = async (token: string, searchTerm: string) => {
+//   try {
+//     const response = await API.get("/request_discount/searchNotification", {
+//       params: { search: searchTerm },
+//       headers: { Authorization: `Bearer ${token}` },
+//     });
+//     console.log("Search>>" , response.data.data) ;
+//     return response.data.data ?? []; 
+//   } catch (error) {
+//     console.log("Error at searchDiscountProduct", error);
+//     throw error;
+//   }
+// };
+export const searchDiscountProduct = async (
+  token: string,
+  params: {
+    form_doc_no?: string;
+    product_category?: string;
+    from_date?: string | null;
+    to_date?: string | null;
+    status?: string[];
+  }
+) => {
   try {
     const response = await API.get("/request_discount/searchNotification", {
-      params: { search: searchTerm },
+      params,
       headers: { Authorization: `Bearer ${token}` },
     });
-    console.log("Search>>" , response.data) ;
-    return response.data.data ?? []; 
+    console.log("Search results >>", response.data);
+    return response.data ?? [];
   } catch (error) {
     console.log("Error at searchDiscountProduct", error);
     throw error;
   }
 };
+
 
 export const getCreateData = async(token:string): Promise<requestDiscountCreateResponse[] > => {
   try{
