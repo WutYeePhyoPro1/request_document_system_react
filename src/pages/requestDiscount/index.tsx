@@ -39,35 +39,40 @@ export default function Demo() {
   const [activePage, setActivePage] = useState<number>(1);
   const [value, setValue] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState({
-  form_doc_no: "",
-  product_category: "",
-  from_date: null as string | null,
-  to_date: null as string | null,
-  status: [] as string[],
-});
-console.group("SearchTerm" , searchTerm) ;
- const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const { name, value } = e.target;
-  setSearchTerm((prev) => ({ ...prev, [name]: value }));
-};
+    form_doc_no: "",
+    product_category: "",
+    from_date: null as string | null,
+    to_date: null as string | null,
+    status: [] as string[],
+  });
+  console.group("SearchTerm", searchTerm);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSearchTerm((prev) => ({ ...prev, [name]: value }));
+  };
 
-const handleDateChange = (name: "from_date" | "to_date", value: string | null) => {
-  setSearchTerm((prev) => ({ ...prev, [name]: value }));
-};
-// const handleStatusChange = (value: string[]) => {
-//   setSearchTerm((prev) => ({ ...prev, status: value }));
-// };
-const handleStatusChange = (value: string[]) => {
-  // If "All" is selected, make sure it’s the only one
-  if (value.includes("All")) {
-    setSearchTerm((prev) => ({ ...prev, status: ["All"] }));
-  } else {
-    setSearchTerm((prev) => ({ ...prev, status: value }));
-  }
-};
-
-const navigate = useNavigate() ;
-// console.log("Search Term>>" , searchTerm) ;
+  const handleDateChange = (
+    name: "from_date" | "to_date",
+    value: string | null
+  ) => {
+    setSearchTerm((prev) => ({ ...prev, [name]: value }));
+  };
+  // const handleStatusChange = (value: string[]) => {
+  //   setSearchTerm((prev) => ({ ...prev, status: value }));
+  // };
+  const handleStatusChange = (value: string[]) => {
+    // If "All" is selected, make sure it’s the only one
+    if (value.includes("All")) {
+      setSearchTerm((prev) => ({ ...prev, status: ["All"] }));
+    } else {
+      setSearchTerm((prev) => ({ ...prev, status: value }));
+    }
+  };
+const handleBranchChange = (value: string) => {
+  setSearchTerm((prev) => ({...prev , branch_id: value,})) ;
+}
+  const navigate = useNavigate();
+  // console.log("Search Term>>" , searchTerm) ;
   // const [pageLoading , setPageLoading] = useState<boolean>(true) ;
   const { id } = useParams();
 
@@ -81,16 +86,16 @@ const navigate = useNavigate() ;
       console.error("Error fetching discount data:", error);
     }
   };
-  
+
   useEffect(() => {
     fetchData();
   }, []);
   const pageSize: number = 10;
   const start = (activePage - 1) * pageSize;
   const end = start + pageSize;
- const paginateData = discountData?.data?.slice(start, end) ?? [];
+  const paginateData = discountData?.data?.slice(start, end) ?? [];
 
-  console.log("paginatedData>>", paginateData);
+  console.log("paginatedData>>", discountData);
 
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
@@ -104,20 +109,19 @@ const navigate = useNavigate() ;
       console.error("Search failed:", error);
     }
   };
-   const handleRestart = async () => {
-  setSearchTerm({
-    form_doc_no: "",
-    product_category: "",
-    from_date: null,
-    to_date: null,
-    status: [],
-  });
-  setActivePage(1);
-  setDiscountData([]);
-  await fetchData();
-  navigate("/request_discount");
-};
-
+  const handleRestart = async () => {
+    setSearchTerm({
+      form_doc_no: "",
+      product_category: "",
+      from_date: null,
+      to_date: null,
+      status: [],
+    });
+    setActivePage(1);
+    setDiscountData([]);
+    await fetchData();
+    navigate("/request_discount");
+  };
 
   const rows =
     paginateData?.map((element, index) => (
@@ -200,10 +204,9 @@ const navigate = useNavigate() ;
               type="text"
               placeholder="Enter product category or name or code"
               className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
-              name="product_category" 
-              value={searchTerm.product_category} 
+              name="product_category"
+              value={searchTerm.product_category}
               onChange={handleInputChange}
-              
             />
           </div>
           <div className="flex flex-col">
@@ -219,9 +222,9 @@ const navigate = useNavigate() ;
               type="text"
               placeholder="Enter Form Doc No"
               className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
-             name="form_doc_no"
-             value={searchTerm.form_doc_no}
-             onChange={handleInputChange}
+              name="form_doc_no"
+              value={searchTerm.form_doc_no}
+              onChange={handleInputChange}
             />
           </div>
           <div className="flex flex-col">
@@ -253,7 +256,7 @@ const navigate = useNavigate() ;
               className="border border-blue-500 focus:outline-none w-full rounded-md"
               name="to_date"
               value={searchTerm.to_date}
-             onChange={(value) => handleDateChange("to_date", value)}
+              onChange={(value) => handleDateChange("to_date", value)}
             />
           </div>
           <div className="flex flex-col">
@@ -261,26 +264,62 @@ const navigate = useNavigate() ;
               Status
             </label>
             <MultiSelect
-    id="status"
-    placeholder="Select Status"
-    data={["All", "Ongoing", "BM Approved", "Approved", "Acknowledged", "Completed"]}
-    className="border border-blue-500 focus:outline-none w-full rounded-md"
-    value={searchTerm.status}
-    onChange={handleStatusChange}
-  />
+              id="status"
+              placeholder="Select Status"
+              data={[
+                "All",
+                "Ongoing",
+                "BM Approved",
+                "Approved",
+                "Acknowledged",
+                "Completed",
+              ]}
+              className="border border-blue-500 focus:outline-none w-full rounded-md"
+              value={searchTerm.status}
+              onChange={handleStatusChange}
+            />
           </div>
           <div className="flex flex-col">
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
               Branch
             </label>
-            <Select
-              id="status"
-              searchable
-              data={["Ongoing", "BM Approved", "Approved", "Acknowledged" , "Completed"]}
-              placeholder="Select Status"
-              className="border border-blue-500 focus:outline-none w-full rounded-md"
-              
-            />
+            {discountData?.authenticatedUser?.emp_id == "000-000046" ||
+            discountData?.authenticatedUser?.emp_id == "000-000024" ||
+            discountData?.authenticatedUser?.emp_id == "000-000067" ? (
+              <Select
+                id="branch_id"
+                searchable
+                data={discountData?.branch?.map((item) => ({
+                  value: item.id,
+                  label: item.branch_name,
+                }))}
+                placeholder="Select Status"
+                className="border border-blue-500 focus:outline-none w-full rounded-md"
+              />
+            ) : (
+              //              <Select
+              //   id="status"
+              //   searchable
+              //   data={discountData?.authenticatedUser?.user_branches?.map((item) => ({
+              //     value: String(item.branch_id),
+              //     label: item.branches?.branch_name,
+              //   }))}
+              //   placeholder="Select Status"
+              //   className="border border-blue-500 focus:outline-none w-full rounded-md"
+              // />
+              <Select
+                id="branch_id"
+                name="branch_id"
+                searchable
+                  data={discountData?.authenticatedUser?.user_branches?.map((item) => ({
+                  value: String(item.branch_id),
+                  label: item.branches?.branch_name,
+                }))} 
+                onChange={handleBranchChange}
+                placeholder="Select Status"
+                className="border border-blue-500 focus:outline-none w-full rounded-md"
+              />
+            )}
           </div>
           <div className="flex items-end">
             <button
