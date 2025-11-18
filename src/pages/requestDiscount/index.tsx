@@ -68,9 +68,9 @@ export default function Demo() {
       setSearchTerm((prev) => ({ ...prev, status: value }));
     }
   };
-const handleBranchChange = (value: string) => {
-  setSearchTerm((prev) => ({...prev , branch_id: value,})) ;
-}
+  const handleBranchChange = (value: string) => {
+    setSearchTerm((prev) => ({ ...prev, branch_id: value }));
+  };
   const navigate = useNavigate();
   // console.log("Search Term>>" , searchTerm) ;
   // const [pageLoading , setPageLoading] = useState<boolean>(true) ;
@@ -90,12 +90,13 @@ const handleBranchChange = (value: string) => {
   useEffect(() => {
     fetchData();
   }, []);
+  console.log("Data Check>>", discountData);
   const pageSize: number = 10;
   const start = (activePage - 1) * pageSize;
   const end = start + pageSize;
   const paginateData = discountData?.data?.slice(start, end) ?? [];
 
-  console.log("paginatedData>>", discountData);
+  // console.log("paginatedData>>", discountData);
 
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
@@ -178,17 +179,20 @@ const handleBranchChange = (value: string) => {
         />
         <div className="flex justify-between mr-4">
           <h2 className="text-xl font-semibold">Request Discount Form</h2>
-          <Link
-            to="/request-discount-create"
-            className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
-            style={{
-              backgroundColor: "#2ea2d1",
-            }}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
-            onMouseLeave={(e) => (e.target.style.backgroundColor = "#2ea2d1")}
-          >
-            Add
-          </Link>
+          {(discountData?.authenticatedUser?.role_id == 1 ||
+            discountData?.authenticatedUser?.role_id == 10) && (
+            <Link
+              to="/request-discount-create"
+              className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
+              style={{
+                backgroundColor: "#2ea2d1",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#2ea2d1")}
+            >
+              Add
+            </Link>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 text-sm mt-4">
           <div className="flex flex-col">
@@ -311,10 +315,12 @@ const handleBranchChange = (value: string) => {
                 id="branch_id"
                 name="branch_id"
                 searchable
-                  data={discountData?.authenticatedUser?.user_branches?.map((item) => ({
-                  value: String(item.branch_id),
-                  label: item.branches?.branch_name,
-                }))} 
+                data={discountData?.authenticatedUser?.user_branches?.map(
+                  (item) => ({
+                    value: String(item.branch_id),
+                    label: item.branches?.branch_name,
+                  })
+                )}
                 onChange={handleBranchChange}
                 placeholder="Select Status"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
@@ -358,7 +364,21 @@ const handleBranchChange = (value: string) => {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {discountData?.data?.length > 0 ? rows : "There is no Data"}
+              {discountData?.data?.length > 0 ? (
+                rows
+              ) : (
+               
+                  <Table.Tr>
+          <Table.Td colSpan={7}>
+            <div className="flex flex-col items-center justify-center py-10">
+              <Loader size="xl" color="blue" />
+              <p className="mt-4 text-lg font-semibold text-gray-700 animate-pulse">
+                Loading Data.Please wait!...
+              </p>
+            </div>
+          </Table.Td>
+        </Table.Tr>
+              )}
             </Table.Tbody>
           </Table>
         </div>

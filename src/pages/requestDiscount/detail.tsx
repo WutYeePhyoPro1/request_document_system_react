@@ -100,7 +100,7 @@ const Detail: React.FC = () => {
     navigate(-1) ;
    detailData(null) ;
   }
-  console.log("Detail Data>>", detailData);
+  console.log("Detail Data>>", detailData?.getApprover2);
   // const showLoading = loading || pageLoading || !detailData?.form;
   
   return (
@@ -412,8 +412,8 @@ const Detail: React.FC = () => {
                   </div>
 
                   {/* Acknowledge By */}
-                  <div>
-                    {detailData?.getApprover2 ? (
+                  {/* <div> */}
+                    { detailData?.getApprover2 ? (
                       ["Acknowledged", "Completed"].includes(
                         detailData?.form?.status
                       ) ? (
@@ -444,9 +444,10 @@ const Detail: React.FC = () => {
                         <div className="opacity-40">Acknowledge By</div>
                       )
                     ) : (
-                      <div className="opacity-40">Acknowledge By</div>
+                      // <div className="opacity-40">Acknowledge By</div> 
+                      <></>
                     )}
-                  </div>
+                  {/* </div> */}
 
                   {/* Finished By */}
                   <div>

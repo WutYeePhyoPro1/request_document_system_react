@@ -162,6 +162,7 @@ const Create: React.FC = () => {
       "Selling Price",
       "Qty",
       "Disc",
+      "Disc Amt",
       "NetAmount",
     ],
     body: isLoading
@@ -179,7 +180,8 @@ const Create: React.FC = () => {
           item.barcode_name,
           item.selling_price,
           item.saleqty,
-          item.discountamnt,
+          item.discountpercentage,
+          item.discountamnt ,
           item.netamount,
         ]),
   };
