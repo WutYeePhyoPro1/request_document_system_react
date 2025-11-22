@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaBell } from 'react-icons/fa';
 import finalLogo from "../assets/images/finallogo.png";
 import { Link } from 'react-router-dom';
@@ -7,11 +7,48 @@ export default function Notification({ notifications }) {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const hasNotifications = notifications && notifications.length > 0;
 
+    useEffect(() => {
+        // Component mounted or notifications changed
+    }, [notifications]);
+
     const toggleDropdown = () => {
         setIsDropdownOpen(prev => !prev);
     };
 
-    const handleNotificationClick = () => {
+    const handleNotificationClick = (noti, e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        // Make sure we're using the correct form_id (sometimes it might be a string)
+        const formId = typeof noti.form_id === 'string' ? parseInt(noti.form_id, 10) : noti.form_id;
+        const specificFormId = typeof noti.specific_form_id === 'string' ? parseInt(noti.specific_form_id, 10) : noti.specific_form_id;
+        // Check for Asset Damage / Lost Form (form_id: 1)
+        const isBigDamage = formId === 1;
+        
+        // Determine the correct path based on form type
+        let targetPath;
+        if (isBigDamage) {
+            targetPath = `/big-damage-issue-detail/${specificFormId}`;
+            
+            // Store the notification data for the detail page
+            sessionStorage.setItem('lastNotification', JSON.stringify({
+                ...noti,
+                isFromNotification: true,
+                timestamp: new Date().toISOString(),
+                form_id: formId,
+                specific_form_id: specificFormId
+            }));
+            
+            // Force a full page navigation to ensure clean state
+            window.location.href = targetPath;
+        } else {
+            targetPath = `/cctv-details/${specificFormId}`;
+            window.location.href = targetPath;
+        }
+        
+        // Close the dropdown
         setIsDropdownOpen(false);
     };
 
@@ -36,9 +73,12 @@ export default function Notification({ notifications }) {
 
                             <Link
                                 key={index}
-                                to={`/cctv-details/${noti.specific_form_id}`}
+                                to="#" // Prevent default navigation
                                 className="flex p-3 border-b border-gray-200 hover:bg-gray-200 cursor-pointer"
-                                onClick={handleNotificationClick}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    handleNotificationClick(noti, e);
+                                }}
                             >
                                 <img
                                     src={finalLogo}

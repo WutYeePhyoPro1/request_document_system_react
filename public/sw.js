@@ -27,11 +27,36 @@ self.addEventListener('install', event => {
   });
   
   self.addEventListener('fetch', event => {
-    event.respondWith(
-      caches.match(event.request).then(response => {
-        return response || fetch(event.request);
-      })
-    );
+    try {
+      const requestUrl = new URL(event.request.url);
+
+      // Skip handling for API requests or dynamic media served via backend
+      if (
+        requestUrl.pathname.startsWith('/api/') ||
+        requestUrl.pathname.includes('/public-files/') ||
+        requestUrl.pathname.startsWith('/storage/')
+      ) {
+        return;
+      }
+
+      // Allow other origins to pass through untouched
+      if (requestUrl.origin !== self.location.origin) {
+        return;
+      }
+
+      // For same-origin static assets, use a simple cache-first strategy
+      event.respondWith(
+        caches.match(event.request).then(response => {
+          return response || fetch(event.request).catch(err => {
+            console.error('Service Worker: fetch failed for same-origin', err, event.request.url);
+            return new Response('Service unavailable', { status: 503, statusText: 'Service Worker fetch failed' });
+          });
+        })
+      );
+    } catch (e) {
+      // If URL parsing fails, fallback to network
+      event.respondWith(fetch(event.request));
+    }
   });
   
   caches.keys().then((cacheNames) => {

@@ -21,7 +21,6 @@ export default function Navbar({ toggleSidebar }) {
 
     const subscribeToPush = async () => {
         if (!('serviceWorker' in navigator)) {
-            console.error('Service Worker not supported');
             return;
         }
 
@@ -51,7 +50,7 @@ export default function Navbar({ toggleSidebar }) {
             body: JSON.stringify(subscription),
         });
 
-        console.log('Push subscription saved.');
+        void endpoint;
     };
 
 
@@ -60,23 +59,46 @@ export default function Navbar({ toggleSidebar }) {
             if (!user || !token) return;
             try {
                 const res = await fetch(`/api/notifications/${userRoleId}`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'include'
                 });
-                if (!res.ok) throw new Error("Unauthorized");
+                
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    if (res.status === 401) {
+                        // Handle unauthorized (e.g., token expired)
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('user');
+                        window.location.href = '/login';
+                        return;
+                    }
+                    throw new Error(errorData.message || 'Failed to fetch notifications');
+                }
+
                 const data = await res.json();
+                
+                if (!Array.isArray(data)) {
+                    return;
+                }
+
                 const parsed = data.map(n => ({
-                    form_id: n.data.form_id,
-                    specific_form_id: n.data.specific_form_id,
-                    form_doc_no: n.data.form_doc_no,
+                    form_id: n.data?.form_id,
+                    specific_form_id: n.data?.specific_form_id,
+                    form_doc_no: n.data?.form_doc_no,
                     created_at: n.created_at,
-                    form_name: n.form_name,
-                    status: n.status,
+                    form_name: n.form_name || 'Unknown Form',
+                    status: n.status || 'pending',
                 }));
 
                 setNotifications(parsed);
                 localStorage.setItem("notifications", JSON.stringify(parsed));
             } catch (err) {
-                console.error("Notification fetch error:", err);
+                // Don't throw to prevent uncaught promise rejection
             }
         };
 

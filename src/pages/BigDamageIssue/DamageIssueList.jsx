@@ -1,0 +1,375 @@
+import React from 'react';
+import { useNavigate } from "react-router-dom";
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+
+const StatusBadge = ({ status }) => {
+  let colorClasses = '';
+  switch (status) {
+    case 'Ongoing':
+      colorClasses = 'bg-orange-100 text-orange-700 border border-orange-300';
+      break;
+    case 'Checked':
+      colorClasses = 'bg-yellow-100 text-yellow-700 border border-yellow-300';
+      break;
+    case 'BM Approved':
+      colorClasses = 'bg-blue-100 text-blue-700 border border-blue-300';
+      break;
+    case 'OPApproved':
+      colorClasses = 'bg-purple-100 text-purple-700 border border-purple-300';
+      break;
+    case 'Approved':
+      colorClasses = 'bg-green-100 text-green-700 border border-green-300';
+      break;
+    case 'Completed':
+      colorClasses = 'bg-emerald-100 text-emerald-700 border border-emerald-300';
+      break;
+    case 'Cancel':
+      colorClasses = 'bg-gray-100 text-gray-700 border border-gray-300';
+      break;
+    default:
+      colorClasses = 'bg-gray-100 text-gray-700 border border-gray-300';
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${colorClasses}`}
+    >
+      {status}
+    </span>
+  );
+};
+
+const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
+  const totalPages = Math.max(1, Math.ceil((totalRows || 0) / (rowsPerPage || 1)));
+  const pages = [];
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, start + 4);
+  for (let i = start; i <= end; i++) pages.push(i);
+
+  return (
+    <div className="flex items-center space-x-2">
+      <button
+        className="p-2 text-gray-400 border border-gray-200 rounded-lg hover:bg-gray-50"
+        onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
+        disabled={currentPage <= 1}
+      >
+        &lt;
+      </button>
+      {pages.map(number => (
+        <button
+          key={number}
+          className={`px-4 py-2 text-sm font-semibold rounded-lg ${
+            number === currentPage
+              ? 'bg-blue-500 text-white shadow-md'
+              : 'text-gray-700 hover:bg-gray-100 border border-gray-200'
+          }`}
+          onClick={() => onPageChange?.(number)}
+        >
+          {number}
+        </button>
+      ))}
+      <button
+        className="p-2 text-gray-400 border border-gray-200 rounded-lg hover:bg-gray-50"
+        onClick={() => onPageChange?.(Math.min(totalPages, currentPage + 1))}
+        disabled={currentPage >= totalPages}
+      >
+        &gt;
+      </button>
+    </div>
+  );
+};
+
+function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {} }) {
+  const navigate = useNavigate();
+
+  // Helper function to navigate to detail with page preservation
+  const navigateToDetail = (detailId, bigDamageId, generalFormId) => {
+    // Store the current URL (with all query params) in sessionStorage for reliable retrieval
+    const currentUrl = window.location.pathname + window.location.search;
+    sessionStorage.setItem('bigDamageIssueReturnUrl', currentUrl);
+    
+    navigate(`/big-damage-issue-add/${detailId}`, { 
+      state: { 
+        bigDamageId, 
+        generalFormId, 
+        returnPage: currentPage, // Preserve current page
+        returnUrl: currentUrl // Preserve full URL with filters
+      } 
+    });
+  };
+
+  // Ensure data is an array
+  const issues = Array.isArray(data) ? data : [];
+  const hasRecords = issues.length > 0;
+  const isEmpty = !loading && !hasRecords;
+
+  const normalizeBranch = (branch) => {
+    if (!branch) {
+      return { id: null, name: null };
+    }
+
+    if (typeof branch === 'object') {
+      return {
+        id: branch.id ?? branch.branch_id ?? branch.branch_code ?? null,
+        name: branch.branch_name ?? branch.name ?? branch.branch_short_name ?? null,
+      };
+    }
+
+    return { id: branch, name: null };
+  };
+
+  const resolveBranchName = (gf, branchInfo) => {
+    if (branchInfo.name) return branchInfo.name;
+    if (gf?.to_branch_name) return gf.to_branch_name;
+    if (gf?.from_branch_name) return gf.from_branch_name;
+    if (branchInfo.id != null && branchMap[branchInfo.id]) return branchMap[branchInfo.id];
+    if (branchInfo.id != null) return String(branchInfo.id);
+    return '-';
+  };
+
+  const headers = [
+    'No',
+    '',
+    'Status',
+    'Document No',
+    'Sell / Not Sell',
+    'Branch',
+    'Requested By',
+    'Created Date',
+    'Modified',
+  ];
+
+  return (
+    <div className="mx-auto font-sans">
+      <div className="hidden md:block bg-white rounded-xl shadow-lg">
+        <div className="overflow-x-auto">
+          <div className="overflow-hidden rounded-t-xl border border-gray-200">
+            {loading ? (
+              <div className="p-4">
+                <Skeleton count={5} height={50} className="mb-2" />
+              </div>
+            ) : isEmpty ? (
+              <div className="p-8 text-center text-gray-500">
+                No data available
+              </div>
+            ) : (
+              <table className="min-w-full">
+                <thead className="bg-white border-b border-gray-200">
+                  <tr>
+                    {headers.map((header, index) => (
+                      <th
+                        key={index}
+                        scope="col"
+                        className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                          index === 0 ? 'w-12' : ''
+                        }`}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+
+                <tbody className="bg-white">
+                  {issues.map((row, idx) => {
+                    const gf = row.general_form || {};
+                    const detailId = row.id;
+                    const displayNo = (currentPage - 1) * perPage + idx + 1;
+                    const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
+                    const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
+                    const branchInfo = toBranchInfo.id != null || toBranchInfo.name
+                      ? toBranchInfo
+                      : fromBranchInfo;
+                    const branchName = resolveBranchName(gf, branchInfo);
+                    const isOtherIncomeSell = Boolean(row.acc_code) || (gf.status === 'Completed' && Boolean(row.acc_code));
+                    const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+                    return (
+                      
+                      <tr
+                        key={row.id}
+                        className="border-b border-gray-200 hover:bg-gray-100 transition duration-150 ease-in-out cursor-pointer"
+                        onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
+                      >
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 w-12">
+                          {displayNo}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap w-8">
+                          {!row.is_viewed && (
+                            <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500" title="Unviewed form" />
+                          )}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <StatusBadge status={gf.status || '-'} />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                          {gf.form_doc_no || '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm">
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[0.8rem] font-semibold ${
+                              sellStatus === 'Other Income Sell'
+                                ? 'bg-green-50 text-green-700 border-green-200'
+                                : 'bg-red-50 text-red-700 border-red-200'
+                            }`}
+                          >
+                            {sellStatus}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {branchName}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
+                        </td>
+                        
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="md:hidden space-y-4">
+        {loading ? (
+          [...Array(3)].map((_, index) => (
+            <div key={`mobile-skeleton-${index}`} className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+              <div className="flex items-start justify-between">
+                <Skeleton width={80} height={16} />
+                <Skeleton width={90} height={24} borderRadius={999} />
+              </div>
+              <div className="mt-3 space-y-2">
+                <Skeleton height={14} />
+                <Skeleton height={14} />
+                <Skeleton height={14} />
+              </div>
+            </div>
+          ))
+        ) : isEmpty ? (
+          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 text-center text-gray-500">
+            No data available
+          </div>
+        ) : (
+          issues.map((row, idx) => {
+            const gf = row.general_form || {};
+            const detailId = row.id;
+            const displayNo = (currentPage - 1) * perPage + idx + 1;
+            const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
+            const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
+            const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
+            const branchName = resolveBranchName(gf, branchInfo);
+            const isOtherIncomeSell = Boolean(row.acc_code) || (gf.status === 'Completed' && Boolean(row.acc_code));
+            const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+
+            return (
+              <div
+                key={`mobile-card-${row.id}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigateToDetail(detailId, row.id, gf.id || null);
+                  }
+                }}
+                className="bg-white rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {!row.is_viewed && (
+                      <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500 flex-shrink-0" title="Unviewed form" />
+                    )}
+                    <div>
+                      <span className="text-xs font-semibold text-gray-400">#{displayNo}</span>
+                      <p className="mt-1 text-base font-semibold text-gray-900">
+                        {gf.form_doc_no || 'Untitled'}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={gf.status || '-'} />
+                </div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sell Status</span>
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold ${
+                      sellStatus === 'Other Income Sell'
+                        ? 'bg-green-50 text-green-700 border-green-200'
+                        : 'bg-red-50 text-red-700 border-red-200'
+                    }`}
+                  >
+                    {sellStatus}
+                  </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Branch</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {branchName}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Requested By</span>
+                    <span className="text-sm text-gray-700">
+                      {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Created</span>
+                    <span className="text-sm text-gray-700">
+                      {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Modified</span>
+                    <span className="text-sm text-gray-700">
+                      {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <div className="mt-4 md:mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:border-t md:pt-4 border-gray-100">
+        <div className="text-sm text-gray-600 text-center md:text-left">
+          {(() => {
+            const pageStart = (currentPage - 1) * perPage + 1;
+            const start = totalRows === 0 ? 0 : pageStart;
+            const endRaw = (currentPage - 1) * perPage + (issues.length || 0);
+            const end = Math.min(totalRows || 0, endRaw);
+            return (
+              <span>
+                Showing <span className="font-semibold">{start}</span> - <span className="font-semibold">{end}</span> of <span className="font-semibold">{totalRows}</span> rows
+              </span>
+            );
+          })()}
+        </div>
+        <div className="flex justify-center md:justify-end">
+          <Pagination
+            totalRows={totalRows}
+            rowsPerPage={perPage}
+            currentPage={currentPage}
+            onPageChange={onPageChange}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default DamageIssueList;

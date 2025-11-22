@@ -29,9 +29,9 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     // dispatch redux login thunk
-    const resultAction = await dispatch(loginThunk({ employee_number, password }));
+    const resultAction = await dispatch(loginThunk({ employee_number, password, remember: true }));
     if (loginThunk.fulfilled.match(resultAction)) {
-      navigate('/dashboard');
+      navigate('/dashboard', { replace: true });
     } else {
       console.error(resultAction.payload || "Login failed");
     }

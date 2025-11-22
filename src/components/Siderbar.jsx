@@ -1,5 +1,3 @@
-
-
 import { useState } from "react";
 import { AiOutlineDashboard } from "react-icons/ai";
 import { FaBox, FaUsers, FaShieldAlt, FaBook, FaShoppingCart } from "react-icons/fa";
@@ -18,7 +16,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
         lg:relative lg:translate-x-0 flex flex-col`}
         >
-            {/* Search bar */}
+
             <div className="p-2 mt-6">
                 <div className="relative">
                     <FiSearch className="absolute left-3 top-2 text-gray-400" />
@@ -30,10 +28,8 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                 </div>
             </div>
 
-            {/* Scrollable nav section */}
             <nav className="flex-1 overflow-y-auto mt-2">
                 <ul className="space-y-1">
-                    {/* Dashboard */}
                     <li>
                         <Link to="/dashboard" className="flex items-center p-3 hover:bg-gray-100 rounded-md">
                             <AiOutlineDashboard className="text-blue-400" size={20} />
@@ -41,13 +37,18 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                         </Link>
                     </li>
 
-                    {/* Disabled menu items */}
+                    <li>
+                        <Link to="/big-damage-issue" className="flex items-center p-3 hover:bg-gray-100 rounded-md">
+                            <FaBook className="text-blue-400" size={20} />
+                            <span className="ml-3">Big Damage Issue</span>
+                        </Link>
+                    </li>
+
                     {[
                         { name: "Asset", icon: FaBox, disabled: true },
                         { name: "Office Use", icon: FaUsers, disabled: true },
                         { name: "Merchandise", icon: FaShoppingCart, disabled: true },
                         { name: "Security", icon: FaShieldAlt, disabled: true },
-                        { name: "Big Damage Issue", icon: FaBook, disabled: true },
                     ].map((item) => (
                         <li key={item.name}>
                             <button
@@ -73,7 +74,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                         </li>
                     ))}
 
-                    {/* User Guide */}
+
                     <li>
                         <button
                             onClick={() => { }}
@@ -91,8 +92,6 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
             </nav>
         </div>
     );
-
-
 
 };
 

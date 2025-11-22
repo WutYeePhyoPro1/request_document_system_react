@@ -9,22 +9,30 @@ import Layout from "../pages/layouts/Layout.jsx";
 import Search from "../pages/Search.jsx";
 import CctvRecord from "../pages/cctv/CctvRecord.jsx";
 import Dashboard from "../pages/Dashboard.jsx";
+import FilterCard from "../pages/BigDamageIssue/FilterCard.jsx";
 import CctvForm from "../pages/cctv/CctvForm.jsx";
 import Login from "../pages/auth/Login.jsx";
 import CctvIndex from "../pages/cctv/CctvIndex.jsx";
+import BigDamageIssue from "../pages/BigDamageIssue/Dashboard.jsx";
 import CctvDetails from "../pages/cctv/CctvDetails.jsx";
 import CctvEdit from "../pages/cctv/CctvEdit.jsx";
 import AutoLogin from "../context/AutoLogin.jsx";
 import Demo from "../pages/requestDiscount/index.tsx";
 import Create from "../pages/requestDiscount/create.tsx"
-import Detail from "../pages/requestDiscount/detail.js";
+import DamageAdd from "../pages/BigDamageIssue/DamageAdd.jsx";
+import DamageDetail from "../pages/BigDamageIssue/DamageDetail.jsx";
+import DamageView from "../pages/BigDamageIssue/DamageView.jsx";
 import ProtectedRoute from "../routes/ProtectedRoute.jsx";
-
-const user = JSON.parse(localStorage.getItem('user')); 
+import DamageIssueList from "../pages/BigDamageIssue/DamageIssueList.jsx";
+import Detail from "../pages/requestDiscount/detail.js";
+const LoginRoute = () => {
+    const token = localStorage.getItem('token');
+    return token ? <Navigate to="/dashboard" /> : <Login />;
+};
 const router = createBrowserRouter([
     {
         path: "/login",
-        element: user ? <Navigate to="/cctv-index" /> : <Login />,
+        element: <LoginRoute />,
     },
     {
         path: "/auto-login",
@@ -38,7 +46,7 @@ const router = createBrowserRouter([
         children: [
             {
                 index: true,
-                element: <Navigate to="/login" replace />
+                element: <Navigate to="/dashboard" replace />
             },
             {
                 path: "dashboard",
@@ -55,6 +63,30 @@ const router = createBrowserRouter([
             {
                 path: "search",
                 element: <Search />
+            },
+            {
+                path: "big-damage-issue",
+                element: <BigDamageIssue />
+            },
+            {
+                path: "big-damage-issue-add",
+                element: <DamageAdd />
+            },
+            {
+                path: "big-damage-issue-add/:id",
+                element: <DamageView />
+            },
+            {
+                path: "big-damage-issue-detail/:id",
+                element: <DamageDetail />
+            },
+            {
+                path: "big-damage-issue-filter",
+                element: <FilterCard />
+            },
+            {
+                path: "big-damage-issue-datalist",
+                element: <DamageIssueList />
             },
             {
                 path: "cctv-request",

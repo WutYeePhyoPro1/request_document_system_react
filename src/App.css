@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 
 * {
     font-family: Arial;
@@ -8,7 +12,6 @@
 .text-custom-blue {
     color: #2ea2d1;
 }
-
 
 .cardRounded {
     border-color: #4fc3f7 !important;

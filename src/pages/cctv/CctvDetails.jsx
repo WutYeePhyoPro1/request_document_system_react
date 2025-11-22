@@ -100,14 +100,35 @@ export default function CctvDetails() {
         const token = localStorage.getItem('token');
         if (!id || !token || hasFetchedInitial.current) return;
 
-        hasFetchedInitial.current = true;
-        setLoading(true);
+        const fetchRecordDetails = async () => {
+            hasFetchedInitial.current = true;
+            setLoading(true);
+            
+            try {
+                const recordData = await fetchData(`/api/cctv-records/${id}`, token, 'record details');
+                if (recordData) {
+                    setRecordDetails(recordData);
+                } else {
+                    console.error('No data received from API');
+                    // Handle case where no data is returned
+                }
+            } catch (error) {
+                console.error('Error fetching record details:', error);
+                if (error.message.includes('404')) {
+                    // Handle 404 - Record not found
+                    navigate('/cctv-request', { 
+                        state: { 
+                            error: 'Record not found or you do not have permission to view it.' 
+                        } 
+                    });
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
-            setRecordDetails(recordData);
-            setLoading(false);
-        });
-    }, [id]);
+        fetchRecordDetails();
+    }, [id, navigate]);
 
 
 
