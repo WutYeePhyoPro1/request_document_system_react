@@ -164,7 +164,7 @@ const ApproveForm: React.FC = () => {
           text: `Form has been ${statusValue} successfully!`,
         });
         console.log("Submit Data" , submitData) ;
-        // navigate(`/request-discount-detail/${formId}`);
+       
         const token = localStorage.getItem("token");
         if (token && formId) {
           await dispatch(fetchDetailData({ token, id: formId.toString() }));
