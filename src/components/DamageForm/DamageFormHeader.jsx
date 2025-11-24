@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { FileText, Download } from "lucide-react";
 import BigDamageIsuueLogo from '../../assets/images/big-dmg-issue-logo.png';
-import ConfirmationModal from '../common/ConfirmationModal';
+import ConfirmationModal from './ConfirmationModal';
 import { useEffect } from 'react';
 import { resolveBranchDisplay } from "../common/branchMappings";
+import './ButtonHoverEffects.css';
 
 const normalizeRole = (value) => {
   const raw = (value || '').toString().toLowerCase().trim();
@@ -230,7 +231,10 @@ export default function DamageFormHeader({
             return 'bg-yellow-100 text-yellow-700 border-yellow-300';
           case 'BM Approved':
           case 'OPApproved':
-            return 'bg-blue-100 text-blue-700 border-blue-300';
+            return 'op-approved-status-badge';
+          case 'Ac_Acknowledged':
+          case 'Acknowledged':
+            return 'acknowledge-status-badge';
           case 'Approved':
             return 'bg-green-100 text-green-700 border-green-300';
           case 'Completed':
@@ -295,7 +299,10 @@ export default function DamageFormHeader({
                     return 'bg-yellow-100 text-yellow-700 border-yellow-300';
                   case 'BM Approved':
                   case 'OPApproved':
-                    return 'bg-blue-100 text-blue-700 border-blue-300';
+                    return 'op-approved-status-badge';
+                  case 'Ac_Acknowledged':
+                  case 'Acknowledged':
+                    return 'acknowledge-status-badge';
                   case 'Approved':
                     return 'bg-green-100 text-green-700 border-green-300';
                   case 'Completed':

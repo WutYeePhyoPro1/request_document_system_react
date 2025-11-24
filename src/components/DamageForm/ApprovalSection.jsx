@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { User, CheckCircle, Clock, MapPin } from "lucide-react";
+import { User, CheckCircle, Clock } from "lucide-react";
 
 const DEFAULT_APPROVALS = [
   { label: "Prepared by", key: "prepared" },
@@ -162,9 +162,12 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
     approvalsToShow.push({ label: "Prepared by", key: "prepared", approval: preparedApproval });
     
     // Always show Checked by
-    const checkedApproval = safeApprovals.find(a => 
-      (resolveLabel(a) || "").toLowerCase().includes("checked")
-    );
+    // Prioritize user_type 'C' (actual checker) over 'CS' (prepared/creator)
+    // The 'C' type has the actual check comment, 'CS' is just the prepared step
+    const cApproval = safeApprovals.find(a => a?.user_type === 'C');
+    const csApproval = safeApprovals.find(a => a?.user_type === 'CS');
+    const checkedApproval = cApproval || safeApprovals.find(a => (resolveLabel(a) || "").toLowerCase().includes("checked"));
+    
     approvalsToShow.push({ label: "Checked by", key: "checked", approval: checkedApproval });
     
     // Always show BM Approved by
@@ -243,12 +246,41 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
     approvalsToShow.push({ label: "Issued by", key: "issued", approval: issuedApproval });
     
     return approvalsToShow.map(({ label, key, approval: matchingApproval }) => {
-
       const isCurrentStep = CURRENT_STEP_STATUS[key] === status;
       const isPreparedBy = label === 'Prepared by';
       let hasActed = isPreparedBy || 
                       matchingApproval?.acted || 
                       (matchingApproval?.status && matchingApproval.status !== "Pending");
+      
+      // For "Checked by", only mark as acted if form status is "Checked" or higher, OR if approval has actual_user_id
+      // This prevents "Checked by" from showing as filled when form status is "Ongoing"
+      if (label === 'Checked by') {
+        // Only show as acted if:
+        // 1. Form status is "Checked" or higher (not "Ongoing"), OR
+        // 2. The approval has actual_user_id (someone actually checked it), OR
+        // 3. The approval status is explicitly "Checked"
+        const isCheckedStatus = status === 'Checked' || 
+                                status === 'BM Approved' || 
+                                status === 'BMApproved' ||
+                                status === 'OPApproved' ||
+                                status === 'OP Approved' ||
+                                status === 'Ac_Acknowledged' ||
+                                status === 'Acknowledged' ||
+                                status === 'Completed' ||
+                                status === 'Issued' ||
+                                status === 'SupervisorIssued';
+        
+        if (status === 'Ongoing' || status === 'ongoing') {
+          // Form is still ongoing - only show as acted if approval has actual_user_id
+          hasActed = Boolean(matchingApproval?.actual_user_id);
+        } else if (isCheckedStatus || matchingApproval?.actual_user_id || matchingApproval?.status === 'Checked') {
+          // Form has been checked or approval explicitly shows checked
+          hasActed = true;
+        } else {
+          // Otherwise, don't show as acted
+          hasActed = false;
+        }
+      }
 
       // For "Operation Mgr Approved by", if status is OPApproved/Completed/Ac_Acknowledged, it should be marked as acted
       if (label === 'Operation Mgr Approved by') {
@@ -397,7 +429,22 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
               formData?.general_form?.acknowledged_by_user?.name
             )
           : null,
-        (hasActed) ? nameCache.current[label] : null
+        (hasActed) ? nameCache.current[label] : null,
+        // For "Prepared by", check formData sources if not found in approval
+        (label === 'Prepared by')
+          ? (
+              formData?.requester_name ||
+              formData?.originator_name ||
+              formData?.created_by_name ||
+              formData?.user_name ||
+              formData?.general_form?.requester_name ||
+              formData?.general_form?.originator_name ||
+              formData?.general_form?.created_by_name ||
+              formData?.general_form?.originators?.name ||
+              formData?.general_form?.user?.name ||
+              ''
+            )
+          : null
       ];
 
       if (hasActed) {
@@ -455,9 +502,17 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
         if (label === 'Acknowledged by' && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
           return 'Acknowledged';
         }
-        // For "Checked by", always return "Checked" when acted
-        if (label === 'Checked by' && hasActed) {
-          return 'Checked';
+        // For "Checked by", return "Checked" only when actually acted (has actual_user_id or status is Checked)
+        // If form is Ongoing, don't show as "Checked" even if approval exists
+        if (label === 'Checked by') {
+          if (hasActed && (matchingApproval?.actual_user_id || matchingApproval?.status === 'Checked' || status !== 'Ongoing')) {
+            return 'Checked';
+          }
+          // If form is Ongoing and no actual check has happened, show as Pending
+          if (status === 'Ongoing' || status === 'ongoing') {
+            return 'Pending';
+          }
+          return hasActed ? 'Checked' : 'Pending';
         }
         // For "BM Approved by", return "Approved" when acted
         if (label === 'BM Approved by' && hasActed) {
@@ -498,20 +553,59 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
                '';
       };
 
-      return {
+      // Resolve branch from approval data
+      const resolveBranch = () => {
+        return matchingApproval?.actual_user_branch ||
+               matchingApproval?.branch ||
+               matchingApproval?.raw?.actual_user_branch ||
+               matchingApproval?.raw?.branch ||
+               matchingApproval?.user?.from_branches?.branch_short_name ||
+               matchingApproval?.approval_users?.from_branches?.branch_short_name ||
+               matchingApproval?.assignedUser?.from_branches?.branch_short_name ||
+               '';
+      };
+      
+      // For "Prepared by", always try to get name from formData if not in approval
+      if (label === 'Prepared by' && !resolvedName.trim()) {
+        const preparedName = formData?.requester_name ||
+                            formData?.originator_name ||
+                            formData?.created_by_name ||
+                            formData?.user_name ||
+                            formData?.general_form?.requester_name ||
+                            formData?.general_form?.originator_name ||
+                            formData?.general_form?.created_by_name ||
+                            formData?.general_form?.originators?.name ||
+                            '';
+        if (preparedName.trim()) {
+          resolvedName = preparedName;
+        }
+      }
+      
+      // For "Checked by" in Ongoing forms, don't show name unless actually checked
+      let displayName = showDetails
+        ? (resolvedName.trim() || (isCurrentStep && !hasActed ? "In Progress" : ""))
+        : "";
+      
+      if (label === 'Checked by' && (status === 'Ongoing' || status === 'ongoing') && !hasActed) {
+        // Don't show name for unchecked "Checked by" in Ongoing forms
+        displayName = "";
+      }
+
+      const result = {
         label,
         role: showDetails ? (resolveRole(matchingApproval, label) || (isPreparedBy ? 'Creator' : null)) : null,
         status: resolvedStatus(),
         acted: hasActed,
         isCurrentStep: isPreparedBy ? false : isCurrentStep,
-        name: showDetails
-          ? (resolvedName.trim() || (isCurrentStep && !hasActed ? "In Progress" : ""))
-          : "",
+        name: displayName,
         title: showDetails ? resolveTitle() : "",
         department: showDetails ? resolveDepartment() : "",
         date: showDetails ? resolvedDate : "",
         comment: showDetails ? (matchingApproval?.comment || "") : "",
+        branch: showDetails ? resolveBranch() : "",
       };
+      
+      return result;
     });
   };
 
@@ -557,12 +651,6 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
                   <User className="text-blue-500 w-[3vw] h-[3vw] sm:w-4 sm:h-4" />
                   {approval.label}
                 </p>
-                {approval.acted && approval.branch && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-xs">
-                  <MapPin size={12} />
-                  {approval.branch}
-                </span>
-              )}
                 <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-sm border ${statusClass}`}>
                   {approval.acted ? (
                     <CheckCircle className="w-[2.6vw] h-[2.6vw] sm:w-3 sm:h-3" />
@@ -577,8 +665,8 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
                 {approval.acted ? (
                   <>
                     <p className="font-medium text-gray-900 text-sm">
-                      {approval.title && <span>{approval.title}</span>}
-                      {approval.name || 'N/A'}
+                      {approval.title && <span>{approval.title} </span>}
+                      {approval.name || (approval.label === 'Prepared by' ? '' : 'N/A')}
                     </p>
                     {(approval.department || approval.role) && (
                       <p className="text-xs text-gray-600 mt-0.5">
