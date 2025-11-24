@@ -1,0 +1,208 @@
+/* Button Hover Effects */
+
+/* Smooth transition for all buttons */
+button {
+  transition: all 0.3s ease;
+}
+
+/* Primary button hover effect */
+button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Green button hover (success) */
+.bg-green-600:hover:not(:disabled) {
+  background-color: rgb(22, 163, 74);
+}
+
+.bg-green-500:hover:not(:disabled) {
+  background-color: rgb(34, 197, 94);
+}
+
+/* Red button hover (danger/delete) */
+.bg-red-600:hover:not(:disabled) {
+  background-color: rgb(220, 38, 38);
+}
+
+.bg-red-500:hover:not(:disabled) {
+  background-color: rgb(239, 68, 68);
+}
+
+/* Blue button hover (info/primary) */
+.bg-blue-600:hover:not(:disabled) {
+  background-color: rgb(37, 99, 235);
+}
+
+.bg-blue-500:hover:not(:disabled) {
+  background-color: rgb(59, 130, 246);
+}
+
+/* Gray button hover (secondary) */
+.bg-gray-600:hover:not(:disabled) {
+  background-color: rgb(75, 85, 99);
+}
+
+.bg-gray-500:hover:not(:disabled) {
+  background-color: rgb(107, 114, 128);
+}
+
+/* Yellow button hover (warning) */
+.bg-yellow-600:hover:not(:disabled) {
+  background-color: rgb(202, 138, 4);
+}
+
+.bg-yellow-500:hover:not(:disabled) {
+  background-color: rgb(234, 179, 8);
+}
+
+/* Acknowledge button with custom OKLCH color */
+.acknowledge-btn-custom {
+  background-color: oklch(60% 0.078 188.216);
+  border-color: oklch(60% 0.078 188.216);
+}
+
+.acknowledge-btn-custom:hover:not(:disabled) {
+  background-color: oklch(55% 0.078 188.216);
+  border-color: oklch(55% 0.078 188.216);
+}
+
+/* OP Approved button with custom OKLCH color */
+.op-approved-btn-custom {
+  background-color: oklch(58.5% 0.233 277.117);
+  border-color: oklch(58.5% 0.233 277.117);
+}
+
+.op-approved-btn-custom:hover:not(:disabled) {
+  background-color: oklch(52% 0.233 277.117);
+  border-color: oklch(52% 0.233 277.117);
+}
+
+/* Acknowledge status badge - matches acknowledge button color */
+.acknowledge-status-badge {
+  background-color: oklch(60% 0.078 188.216);
+  color: white;
+  border-color: oklch(60% 0.078 188.216);
+}
+
+/* OP Approved status badge - matches OP Approved button color */
+.op-approved-status-badge {
+  background-color: oklch(58.5% 0.233 277.117);
+  color: white;
+  border-color: oklch(58.5% 0.233 277.117);
+}
+
+/* Disabled button state */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Icon buttons */
+button.rounded-full:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+/* Button with icon hover effect - Icon replaces text on hover */
+.btn-with-icon {
+  position: relative;
+  overflow: visible;
+}
+
+.btn-with-icon .btn-text {
+  display: inline-block;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  opacity: 1;
+  transform: translateX(0);
+  position: relative;
+  z-index: 1;
+}
+
+.btn-with-icon .btn-icon {
+  opacity: 0 !important;
+  transition: opacity 0.3s ease;
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.btn-with-icon:hover:not(:disabled) .btn-text {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.btn-with-icon:hover:not(:disabled) .btn-icon {
+  opacity: 1 !important;
+}
+
+/* Loading state */
+button.loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+button.loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid #3b82f6;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: button-loading-spinner 0.6s linear infinite;
+}
+
+@keyframes button-loading-spinner {
+  from {
+    transform: rotate(0turn);
+  }
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Ripple effect (optional enhancement) */
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+button.ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+button.ripple::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%);
+  transform-origin: 50% 50%;
+}
+
+button.ripple:focus:not(:active)::after {
+  animation: ripple 1s ease-out;
+}
+

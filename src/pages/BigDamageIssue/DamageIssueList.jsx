@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+import '../../components/DamageForm/ButtonHoverEffects.css';
 
 const StatusBadge = ({ status }) => {
   let colorClasses = '';
@@ -17,7 +18,11 @@ const StatusBadge = ({ status }) => {
       colorClasses = 'bg-blue-100 text-blue-700 border border-blue-300';
       break;
     case 'OPApproved':
-      colorClasses = 'bg-purple-100 text-purple-700 border border-purple-300';
+      colorClasses = 'op-approved-status-badge border';
+      break;
+    case 'Ac_Acknowledged':
+    case 'Acknowledged':
+      colorClasses = 'acknowledge-status-badge border';
       break;
     case 'Approved':
       colorClasses = 'bg-green-100 text-green-700 border border-green-300';

@@ -1,5 +1,5 @@
 // DamageFormLayout.jsx
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import DamageFormHeader from "./DamageFormHeader";
 import DamageItemTable from "./DamageItemTable";
@@ -359,6 +359,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   
   // Track if form has been initialized to prevent overwriting user input
   const formInitializedRef = useRef(false);
+  // Track if approvals have been fetched to prevent duplicate fetches
+  const approvalsFetchRef = useRef(false);
 
   useEffect(() => {
     setCurrentUser(getCurrentUser());
@@ -379,18 +381,65 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const raw = (value || '').toString().toLowerCase().trim();
     if (!raw) return '';
 
+
+    // IMPORTANT: Check for operation manager patterns FIRST (before BM)
+    // This ensures "assistant operation manager" is detected as op_manager, not bm
+    if (/assistant.*operation.*manager|assistant.*op.*manager|assistant\s*op\s*manager/i.test(value)) {
+      return 'op_manager';
+    }
+    if (/operation.*manager|op.*manager|operation_manager|op_manager|^op$|^a2$/i.test(raw)) {
+      return 'op_manager';
+    }
+
     if (/branch\s*lp|loss\s*prevention|checker|branch_checker|lp/i.test(value)) return 'branch_lp';
-    if (/bm|branch manager|abm/.test(raw)) return 'bm';
+    // Check for BM/ABM but exclude operation manager patterns
+    if (/bm|branch manager|abm/.test(raw) && !/operation|assistant.*op|op.*manager/.test(raw)) return 'bm';
     if (/account|ac_?acknowledged/.test(raw)) return 'account';
     if (/supervisor|cs/.test(raw)) return 'supervisor';
-    if (/operation_manager|assistant\s*op\s*manager|op_manager|operation manager|op\b/.test(raw)) return 'op_manager';
+    
     return raw;
   };
 
   const extractRoleValue = (user) => {
     if (!user || typeof user !== 'object') return '';
 
+
+    // First check user_type - A2 maps to operation manager
+    // Check in multiple locations: direct field, nested role object, etc.
+    const userTypeCandidates = [
+      user?.user_type,
+      user?.userType,
+      user?.role?.user_type,
+      user?.role?.userType,
+      user?.role_type?.user_type,
+      user?.roleType?.user_type,
+    ].filter(Boolean);
+    
+    for (const candidate of userTypeCandidates) {
+      const upperCandidate = candidate.toString().toUpperCase().trim();
+      if (upperCandidate === 'A2' || upperCandidate === 'OP') {
+        return 'op_manager';
+      }
+    }
+
+    // Check position/designation field FIRST - "assistant operation manager" should map to op_manager
+    // This must be checked before role_name to avoid false matches
+    const position = user?.position || user?.designation || '';
+    if (position) {
+      const positionLower = position.toString().toLowerCase().trim();
+      if (positionLower.includes('assistant') && positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+      if (positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+    }
+
     const roleKeys = [
+      'user_type', // Check user_type first (A2 = operation manager, OP = operation manager)
+      'userType',
+      'position', // Check position early - "assistant operation manager" is here
+      'designation',
       'role',
       'role_name',
       'roleName',
@@ -399,13 +448,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       'role_type',
       'roleType',
       'type',
-      'position',
-      'designation',
       'roles',
       'user_roles',
     ];
 
     const nestedKeys = [
+      'user_type', // Check user_type in nested objects too
+      'userType',
       'name',
       'role',
       'role_name',
@@ -417,6 +466,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     const extractFromValue = (value) => {
       if (typeof value === 'string') {
+        // If value is user_type (A2 or OP), normalize to op_manager
+        const upperValue = value.toUpperCase().trim();
+        if (upperValue === 'A2' || upperValue === 'OP') {
+          return 'op_manager';
+        }
         return value.trim();
       }
       if (Array.isArray(value)) {
@@ -429,6 +483,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         for (const key of nestedKeys) {
           const nested = value[key];
           if (typeof nested === 'string' && nested.trim()) {
+            // If key is user_type or userType, check if value is A2 or OP
+            if ((key === 'user_type' || key === 'userType') && (nested.toUpperCase().trim() === 'A2' || nested.toUpperCase().trim() === 'OP')) {
+              return 'op_manager';
+            }
             return nested.trim();
           }
         }
@@ -438,8 +496,36 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     for (const key of roleKeys) {
       const value = user[key];
+      if (value !== undefined && value !== null) {
+      }
       const extracted = extractFromValue(value);
       if (extracted) {
+        
+        // CRITICAL: If extracted value is user_type A2 or OP, return op_manager immediately
+        const extractedUpper = extracted.toString().toUpperCase().trim();
+        if (extractedUpper === 'A2' || extractedUpper === 'OP') {
+          return 'op_manager';
+        }
+        
+        // If extracted value is "assistant operation manager" or similar, normalize it
+        const extractedLower = extracted.toString().toLowerCase().trim();
+        if (extractedLower.includes('assistant') && extractedLower.includes('operation') && extractedLower.includes('manager')) {
+          return 'op_manager';
+        }
+        if (extractedLower.includes('operation') && extractedLower.includes('manager')) {
+          return 'op_manager';
+        }
+        
+        // If extracted value is "approver" and user_type is A2, return op_manager
+        // (Don't return 'bm' if user_type is A2)
+        if (extractedLower === 'approver' || extractedLower === 'bm' || extractedLower === 'branch manager') {
+          // Double-check user_type before returning 'bm'
+          const checkUserType = (user?.user_type || user?.userType || user?.role?.user_type || user?.role?.userType || '').toString().toUpperCase().trim();
+          if (checkUserType === 'A2' || checkUserType === 'OP') {
+            return 'op_manager';
+          }
+        }
+        
         return extracted;
       }
     }
@@ -485,6 +571,64 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   };
 
   const getUserRole = () => {
+    // COMPREHENSIVE user_type check from ALL possible sources
+    const getAllUserTypes = () => {
+      const sources = [];
+      
+      // Check currentUser (from localStorage)
+      if (currentUser) {
+        sources.push(
+          currentUser?.user_type,
+          currentUser?.userType,
+          currentUser?.role?.user_type,
+          currentUser?.role?.userType,
+          currentUser?.role_type?.user_type,
+          currentUser?.roleType?.user_type,
+        );
+      }
+      
+      // Check initialData
+      if (initialData) {
+        sources.push(
+          initialData?.current_user?.user_type,
+          initialData?.currentUser?.user_type,
+          initialData?.current_user?.userType,
+          initialData?.currentUser?.userType,
+          initialData?.current_user?.role?.user_type,
+          initialData?.currentUser?.role?.user_type,
+          initialData?.user?.user_type,
+          initialData?.user?.userType,
+          initialData?.user_type,
+          initialData?.userType,
+        );
+      }
+      
+      // Check localStorage directly
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (storedUser) {
+          sources.push(
+            storedUser?.user_type,
+            storedUser?.userType,
+            storedUser?.role?.user_type,
+            storedUser?.role?.userType,
+          );
+        }
+      } catch (e) {}
+      
+      return sources.filter(Boolean);
+    };
+    
+    const allUserTypes = getAllUserTypes();
+    
+    // Check if ANY source has A2 or OP
+    for (const userType of allUserTypes) {
+      const upperType = userType.toString().toUpperCase().trim();
+      if (upperType === 'A2' || upperType === 'OP') {
+        return 'op_manager';
+      }
+    }
+
     const backendSources = [
       initialData?.current_user,
       initialData?.currentUser,
@@ -496,7 +640,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     let backendRole = '';
     for (const source of backendSources) {
       backendRole = extractRoleValue(source);
-      if (backendRole) break;
+      if (backendRole) {
+        break;
+      }
     }
 
     if (!backendRole) {
@@ -507,62 +653,218 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         initialData?.user_role,
         initialData?.userRole,
         initialData?.current_role,
+        initialData?.user_type, // Also check user_type from initialData
       ].filter((item) => typeof item === 'string' && item.trim().length);
       backendRole = scalarCandidates.length ? scalarCandidates[0] : '';
+      if (backendRole) {
+      }
     }
 
-    const role = extractRoleValue(currentUser) || backendRole || getRole();
+    const extractedFromCurrentUser = extractRoleValue(currentUser);
+    if (extractedFromCurrentUser) {
+    }
+    
+    const role = extractedFromCurrentUser || backendRole || getRole();
+    
+    // BEFORE normalization, check if user_type is A2 or OP from ALL sources - if so, return op_manager immediately
+    const preNormalizeUserTypes = [
+      currentUser?.user_type,
+      currentUser?.userType,
+      currentUser?.role?.user_type,
+      currentUser?.role?.userType,
+      initialData?.current_user?.user_type,
+      initialData?.currentUser?.user_type,
+      initialData?.current_user?.role?.user_type,
+      initialData?.currentUser?.role?.user_type,
+      initialData?.user?.user_type,
+      initialData?.user?.userType,
+      initialData?.user_type,
+    ].filter(Boolean);
+    
+    
+    for (const userType of preNormalizeUserTypes) {
+      const upperUserType = userType.toString().toUpperCase().trim();
+      if (upperUserType === 'A2' || upperUserType === 'OP') {
+        return 'op_manager';
+      }
+    }
+    
     const normalized = normalizeRole(role);
+    
+    // If normalized is still 'bm' but user_type is A2 or position contains 'operation manager', force override
+    if (normalized === 'bm') {
+      const allPositionFields = [
+        currentUser?.position,
+        currentUser?.designation,
+        initialData?.current_user?.position,
+        initialData?.currentUser?.position,
+      ].filter(Boolean);
+      
+      for (const posField of allPositionFields) {
+        const posLower = posField.toString().toLowerCase().trim();
+        if (posLower.includes('assistant') && posLower.includes('operation') && posLower.includes('manager')) {
+          return 'op_manager';
+        }
+        if (posLower.includes('operation') && posLower.includes('manager')) {
+          return 'op_manager';
+        }
+      }
+    }
+
+    // FINAL check: if user_type is A2 or OP from ANY source, force op_manager
+    const finalUserTypes = [
+      currentUser?.user_type,
+      currentUser?.userType,
+      currentUser?.role?.user_type,
+      currentUser?.role?.userType,
+      initialData?.current_user?.user_type,
+      initialData?.currentUser?.user_type,
+      initialData?.current_user?.role?.user_type,
+      initialData?.currentUser?.role?.user_type,
+      initialData?.user?.user_type,
+      initialData?.user?.userType,
+      initialData?.user_type,
+    ].filter(Boolean);
+    
+    
+    for (const userType of finalUserTypes) {
+      const upperUserType = userType.toString().toUpperCase().trim();
+      if ((upperUserType === 'A2' || upperUserType === 'OP') && normalized !== 'op_manager') {
+        return 'op_manager';
+      }
+    }
+
+    // Check position field - "assistant operation manager" should map to op_manager
+    const position = currentUser?.position || currentUser?.designation || 
+                    initialData?.current_user?.position || 
+                    initialData?.currentUser?.position || '';
+    if (position) {
+      const positionLower = position.toString().toLowerCase().trim();
+      if (positionLower.includes('assistant') && positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+      if (positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+    }
 
     return normalized;
   };
   
-  const userRole = useMemo(() => getUserRole(), [currentUser]);
+  const userRole = useMemo(() => {
+    const role = getUserRole();
+    return role;
+  }, [currentUser]);
 
   // Check if user is operation manager based on approvals (matching Laravel Op_Manager logic)
+  // Laravel Op_Manager($data) checks:
+  // - ApprovalProcessUser where user_type='OP', general_form_id=$data->id, admin_id=getAuthUser()->id
+  // - AND status in ['BM Approved', 'Approved', 'HR Checked']
+  // - AND user exists
   const isOpManagerByApproval = useMemo(() => {
     const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
-    if (!currentUserId) return false;
+    if (!currentUserId) {
+      return false;
+    }
+    
+    // Get general_form_id from multiple sources
+    const generalFormId = formData?.general_form_id || formData?.generalFormId || formData?.id || initialData?.id || initialData?.generalFormId || initialData?.general_form_id;
+    if (!generalFormId) {
+      return false;
+    }
     
     const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
-    if (!approvals.length) return false;
     
     // Check if user has approval entry with user_type: 'OP' or 'A2'
+    // Match Laravel exactly: user_type='OP', admin_id=current_user_id, status in ['BM Approved', 'Approved', 'HR Checked']
+    // Also check 'A2' since some approvals might use 'A2' instead of 'OP'
+    // IMPORTANT: The approval entry might have status='Pending' when form is 'BM Approved'
+    // Laravel checks admin_id, not actual_user_id (actual_user_id is null until approval is done)
     const opApproval = approvals.find(approval => {
+      // Check admin_id (Laravel checks this) - this is set when approval entry is created
       const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      // actual_user_id might be null until approval is done
       const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
       const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      // Check all possible user ID fields
       const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
       
-      const userType = approval?.user_type || approval?.raw?.user_type || '';
-      const approvalStatus = approval?.status || approval?.raw?.status || '';
-      const label = (approval?.label || approval?.role || '').toString().toLowerCase();
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const approvalStatus = (approval?.status || approval?.raw?.status || '').toString().trim();
       
-      const userTypeMatches = (userType === 'OP' || userType === 'A2');
-      const labelMatches = label.includes('operation') || label.includes('op manager') || label.includes('op_manager');
+      // Laravel checks user_type='OP', but also check 'A2' for compatibility
+      const userTypeMatches = userType === 'OP' || userType === 'A2';
       
-      let userIdMatches = false;
-      if (allUserIds.length > 0) {
-        userIdMatches = allUserIds.some(id => 
-          String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
-        );
-      } else if (labelMatches && userTypeMatches) {
-        const currentStatus = (formData.status || '').trim();
-        userIdMatches = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(currentStatus);
+      // Check if admin_id matches current user (Laravel checks admin_id=getAuthUser()->id)
+      // admin_id is the key field - it's set when the approval entry is assigned to the user
+      // NOTE: The API response doesn't include admin_id, so we need to check differently
+      const userIdMatches = adminId && (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId));
+      
+      // Also check other user ID fields as fallback
+      const otherUserIdMatches = allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+      
+      const formStatus = (formData?.status || '').toString().trim();
+      const formStatusMatches = formStatus === 'BM Approved' || formStatus === 'BMApproved';
+      
+      // Get total amount for fallback check
+      const totalAmount = Number(
+        formData?.general_form?.total_amount
+        ?? formData?.total_amount
+        ?? formData?.general_form?.totalAmount
+        ?? formData?.totalAmount
+        ?? 0
+      );
+      const requiresOpManagerApproval = totalAmount > 500000;
+      
+      // Laravel checks status in ['BM Approved', 'Approved', 'HR Checked']
+      // But when form is 'BM Approved', the OP approval entry might still be 'Pending' until approval
+      // So if form status is 'BM Approved' and amount > 500000, allow it even if approval status is 'Pending'
+      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked'].includes(approvalStatus);
+      
+      // CRITICAL: Since API doesn't return admin_id in the response, we need a different approach
+      // Laravel's Op_Manager() checks admin_id, but since we don't have it in the API response,
+      // we need to check if there's an OP approval entry when form is 'BM Approved' with amount > 500000
+      // The backend will verify admin_id match when submitting the approval (like Laravel does)
+      
+      // If form is 'BM Approved', amount > 500000, and there's an OP approval entry,
+      // allow the operation manager to see the button (backend will verify admin_id on submit)
+      // This matches Laravel blade behavior - it shows the button if Op_Manager() returns true
+      // Since API doesn't return admin_id, we check if OP approval entry exists and let backend verify
+      const hasOPApprovalEntry = userTypeMatches;
+      
+      // Check if admin_id matches if it's available (might be in raw object or other sources)
+      // Note: API response doesn't include admin_id, so this will often be false, but check anyway
+      const adminIdMatches = adminId ? (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId)) : false;
+      
+      // Fallback: If form is 'BM Approved' and amount > 500000, and we have OP/A2 approval entry,
+      // allow it (backend will verify admin_id when approval is submitted)
+      // This handles the case where admin_id is not in API response
+      // Since Laravel blade works, the approval entry must exist with matching admin_id in database
+      // We'll show the button and let backend verify on submit
+      const fallbackMatch = formStatusMatches && requiresOpManagerApproval && hasOPApprovalEntry;
+      
+      // Match if: 
+      // 1. (user_type matches AND admin_id matches AND status matches Laravel's check), OR
+      // 2. (fallback: form is BM Approved, amount > 500000, and OP approval entry exists)
+      // The second case handles when API doesn't return admin_id - backend will verify on submit
+      const matches = (userTypeMatches && adminIdMatches && statusMatches) || fallbackMatch;
+      
+      if (userTypeMatches) {
+        // Found OP/A2 approval entry
       }
       
-      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked', 'Pending'].includes(approvalStatus);
-      const formStatus = (formData.status || '').trim();
-      const formStatusAllows = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(formStatus);
-      
-      return (userTypeMatches || labelMatches) && userIdMatches && (statusMatches || formStatusAllows);
+      return matches;
     });
     
-    return Boolean(opApproval);
-  }, [currentUser, formData.approvals, formData.status]);
+    const result = Boolean(opApproval && currentUser);
+    return result;
+  }, [currentUser, formData.approvals, formData.status, formData.general_form_id, formData.generalFormId, formData.id, initialData?.id, initialData?.generalFormId, initialData?.general_form_id]);
 
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
+  
 
   // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
   // Laravel Ac_Manager() checks: ApprovalProcessUser where user_type='AC', admin_id=current_user_id, status='OPApproved'
@@ -720,6 +1022,78 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     return false;
   };
+
+  // Fetch approvals separately if not included in initialData (for existing forms after reload)
+  useEffect(() => {
+    const fetchApprovals = async () => {
+      // Only fetch if we have a general_form_id and we haven't fetched yet
+      const generalFormId = initialData?.generalFormId || 
+                           initialData?.general_form_id || 
+                           initialData?.id ||
+                           initialData?.general_form?.id;
+      
+      if (!generalFormId || approvalsFetchRef.current || mode === 'add' || !formInitializedRef.current) return;
+      
+      // Check if we already have approvals with comments
+      const currentApprovals = formData.approvals || [];
+      const hasCApprovalWithComment = currentApprovals.some(a => 
+        a?.user_type === 'C' && a?.comment && a.comment.trim() !== ''
+      );
+      
+      // Check if we have OP approval entry (for operation manager detection)
+      const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+      const hasOPApproval = currentUserId && currentApprovals.some(a => {
+        const adminId = a?.admin_id || a?.raw?.admin_id;
+        const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+        return (userType === 'OP' || userType === 'A2') && 
+               adminId && 
+               (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId));
+      });
+      
+      // Fetch if we don't have a 'C' approval with comment OR if we don't have OP approval (for operation manager)
+      if (!hasCApprovalWithComment || !hasOPApproval) {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          
+          approvalsFetchRef.current = true; // Prevent duplicate fetches
+          
+          const response = await fetch(`/api/general-forms/${generalFormId}/approvals`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const apiApprovals = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+            
+            // Update approvals with API data if we got results
+            if (apiApprovals.length > 0) {
+              setFormData(prev => ({
+                ...prev,
+                approvals: apiApprovals, // Use API approvals (they have the latest data including comments)
+              }));
+            } else {
+            }
+          }
+        } catch (error) {
+          // Silently handle error - approvals will use defaults
+          approvalsFetchRef.current = false; // Reset on error so we can retry
+        }
+      }
+    };
+    
+    // Only fetch after form is initialized (wait a bit to ensure initialization is complete)
+    const timer = setTimeout(() => {
+      if (formInitializedRef.current) {
+        fetchApprovals();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [initialData?.generalFormId || initialData?.general_form_id || initialData?.id, mode]);
 
   useEffect(() => {
     // Only initialize form data once when initialData is first loaded
@@ -1001,14 +1375,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const handleCloseModal = () => setIsModalOpen(false);
 
   const handleAddItem = item => {
-    setFormData(prev => ({ ...prev, items: [...prev.items, item] }));
+    console.log('Adding item to form:', item);
+    setFormData(prev => {
+      const newItems = [...prev.items, item];
+      console.log('Total items after add:', newItems.length);
+      return { ...prev, items: newItems };
+    });
   };
 
-  const handleRemoveItem = id => {
+  const handleRemoveItem = useCallback(id => {
     setFormData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
-  };
+  }, []);
 
-  const handleItemsChange = (updatedItems) => {
+  const handleItemsChange = useCallback((updatedItems) => {
     // Remove duplicates by ID before updating
     const itemsById = new Map();
     updatedItems.forEach(item => {
@@ -1032,9 +1411,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         total: Number(item.total ?? item.amount ?? 0)
       }))
     }));
-  };
+  }, []);
 
-  const handleItemFieldChange = (index, field, value) => {
+  const handleItemFieldChange = useCallback((index, field, value) => {
     setFormData(prev => {
       if (!Array.isArray(prev.items) || !prev.items[index]) {
         return prev;
@@ -1070,7 +1449,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         items: nextItems
       };
     });
-  };
+  }, []);
 
   const handleSearchProduct = async (productCode, caseType = 'Other income sell') => {
     if (!productCode?.trim()) {
@@ -1152,23 +1531,32 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         id: Date.now() + Math.random(),
         category: category,
         category_id: info?.category_id || info?.maincatid || null,
+        product_code: info.product_code || code,
         code: info.product_code || code,
+        product_name: info.product_name || "",
         name: info.product_name || "",
         unit: info.unit || "",
         system_qty: Number(sysQty) || 0,
-        actual_qty: 0,
-        final_qty: 0,
+        request_qty: 1, // Initialize with 1 instead of 0
+        actual_qty: 1, // Initialize with 1 instead of 0
+        final_qty: 1, // Initialize with 1 instead of 0
         price,
-        amount: 0,
+        amount: price * 1, // Calculate initial amount
         remark: "",
         img: [],
       };
 
+      console.log('New item created:', newItem);
+
       // Add the new item to the form
-      setFormData(prev => ({
-        ...prev,
-        items: [...prev.items, newItem]
-      }));
+      setFormData(prev => {
+        const updatedItems = [...prev.items, newItem];
+        console.log('Items in form after adding:', updatedItems.length);
+        return {
+          ...prev,
+          items: updatedItems
+        };
+      });
 
     } catch (_error) {
       setNotFoundModal({ open: true, code });
@@ -1177,7 +1565,18 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     }
 };
 
-  const totalAmount = formData.items.reduce((acc, i) => acc + (i.amount || 0), 0);
+  // Calculate totalAmount from items, but also check general_form.total_amount as fallback
+  const totalAmount = formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => acc + (i.amount || 0), 0)
+    : Number(
+        formData?.general_form?.total_amount
+        ?? formData?.total_amount
+        ?? formData?.general_form?.totalAmount
+        ?? formData?.totalAmount
+        ?? initialData?.general_form?.total_amount
+        ?? initialData?.total_amount
+        ?? 0
+      );
   const apiActions = initialData?.actions || {};
   const statusText = (formData.status || '').trim();
   const normalize = s => (s || '').toString();
@@ -1218,11 +1617,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Blue for BM Approve action (matches BM Approved status)
         return 'bg-blue-600 hover:bg-blue-700 border-blue-700';
       case 'OPApproved':
-        // Violet for OP Approve action (matches OP Approved status)
-        return 'bg-violet-600 hover:bg-violet-700 border-violet-700';
+        // Custom OKLCH color for OP Approve action (matches OP Approved status)
+        return 'op-approved-btn-custom';
       case 'Ac_Acknowledged':
-        // Lime for Acknowledge action (matches Acknowledged status)
-        return 'bg-lime-500 hover:bg-lime-600 border-lime-600';
+        // Custom OKLCH color for Acknowledge action (matches Acknowledged status)
+        return 'acknowledge-btn-custom';
       case 'Completed':
       case 'Issue':
       case 'SupervisorIssued':
@@ -1255,8 +1654,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         act.approve = 'BMApprovedMem';
       } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
         act.approve = 'BMApproved';
-      } else if (role === 'op_manager' && (currentStatus === 'BM Approved' || currentStatus === 'Checked')) {
-        act.approve = 'OPApproved';
+      } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
+        // Operation Manager should only approve if amount > 500000
+        if (requiresOpManagerApproval) {
+          act.approve = 'OPApproved';
+        }
       } else if (role === 'account') {
         // Account can only acknowledge after proper approval stage:
         // - If amount > 500000: Must wait for OPApproved (Operation Manager approval)
@@ -1344,11 +1746,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       // Import API config to get base URL
       const config = await import('../../api/config');
-      const { API_BASE_URL, SANCTUM_URL } = config;
+      const { SANCTUM_URL } = config;
       
       // Construct the PDF URL - using the web route for print
       // The route is /users/{general_form_id}/print
-      const baseUrl = API_BASE_URL.replace('/api', '') || SANCTUM_URL || 'http://localhost:8000';
+      const baseUrl = SANCTUM_URL || 'http://localhost:8000';
       const pdfUrl = `${baseUrl}/users/${generalFormId}/print`;
       
       // Show loading toast
@@ -1498,8 +1900,45 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         return qty > 0;
       });
 
+      console.log('Form submission - Total items:', items.length);
+      console.log('Form submission - Valid items:', validItems.length);
+      console.log('Form submission - Items data:', items);
+      console.log('Form submission - Valid items data:', validItems);
+
+      // Frontend validation - check all required fields
+      const missingFields = [];
+      
+      if (!formData.branch || formData.branch.trim() === '') {
+        missingFields.push('Branch');
+      }
+      
+      if (!formData.datetime || formData.datetime.trim() === '') {
+        missingFields.push('Date/Time');
+      }
+      
+      if (!formData.requester_name || formData.requester_name.trim() === '') {
+        missingFields.push('Requester Name');
+      }
+      
       if (validItems.length === 0) {
-        toast.error('Please add at least one product with quantity greater than zero before submitting.');
+        missingFields.push('At least one product with quantity > 0');
+      }
+      
+      // Note: Reason/Remark/Comment can be null in create stage
+      
+      // Check if at least one file is attached
+      const hasFiles = formData.attachments && formData.attachments.length > 0;
+      if (!hasFiles) {
+        missingFields.push('At least one file attachment (required)');
+      }
+      
+      if (missingFields.length > 0) {
+        const errorMsg = `Please fill in the following required fields:\n\n${missingFields.map((field, i) => `${i + 1}. ${field}`).join('\n')}`;
+        toast.error(errorMsg, {
+          position: 'top-center',
+          autoClose: 8000,
+          style: { whiteSpace: 'pre-line' }
+        });
         setIsSubmitting(false);
         return;
       }
@@ -1512,12 +1951,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         const rawQty = item?.request_qty ?? item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
         const requestQty = safeNumber(rawQty);
         
+        // Ensure requestQty is at least 1 for valid items (since we filtered for qty > 0)
+        const finalRequestQty = requestQty > 0 ? requestQty : 1;
+        
         const systemQty = safeNumber(item?.system_qty);
         const priceValue = Number(item?.price);
         const price = Number.isFinite(priceValue) ? priceValue : 0;
-        const computedAmount = price * requestQty;
+        const computedAmount = price * finalRequestQty;
         const parsedAmount = Number(item?.amount);
-        const amount = Number.isFinite(parsedAmount) ? parsedAmount : computedAmount;
+        const amount = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : computedAmount;
         const remark = item?.remark ?? '';
         const productName = item?.product_name || item?.name || '';
         const unit = item?.unit || '';
@@ -1525,10 +1967,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Resolve actual and final quantities, checking multiple fields for old form compatibility
         const rawActual = item?.actual_qty ?? item?.request_qty ?? 0;
         const rawFinal = item?.final_qty ?? item?.product_type ?? item?.request_qty ?? 0;
-        const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : requestQty;
-        const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : requestQty;
+        const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : finalRequestQty;
+        const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : finalRequestQty;
         const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
-        const specificId = item?.specific_form_id ?? item?.id ?? '';
+        const specificId = item?.specific_form_id ?? item?.id ?? item?.specific_id ?? '';
         
         // Get product_category_id from multiple possible sources
         const categoryId = item?.product_category_id || 
@@ -1539,11 +1981,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           ? null
           : Number(categoryId);
 
+        console.log(`Item ${index} normalized:`, {
+          product_code: productCode,
+          request_qty: finalRequestQty,
+          actual_qty: resolvedActual,
+          final_qty: resolvedFinal,
+          price,
+          amount
+        });
+
         return {
           product_code: productCode,
           product_name: productName,
           unit,
-          request_qty: requestQty,
+          request_qty: finalRequestQty,
           actual_qty: resolvedActual,
           final_qty: resolvedFinal,
           price,
@@ -1557,34 +2008,18 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         };
       });
 
-      const productCodes = normalizedItems.map((item) => item.product_code);
-      const productNames = normalizedItems.map((item) => item.product_name ?? '');
-      const units = normalizedItems.map((item) => item.unit ?? '');
-      const systemQtys = normalizedItems.map((item) => item.system_qty ?? 0);
-      const requestQtys = normalizedItems.map((item) => item.request_qty ?? 0);
-      const actualQtys = normalizedItems.map((item) => item.actual_qty ?? 0);
-      const finalQtys = normalizedItems.map((item) => item.final_qty ?? 0);
-      const prices = normalizedItems.map((item) => item.price ?? 0);
-      const amounts = normalizedItems.map((item) => item.amount ?? 0);
-      const remarks = normalizedItems.map((item) => item.remark ?? '');
-      const productTypes = normalizedItems.map((item) => item.product_type ?? 'Damage');
-      const accountCodeLines = normalizedItems.map((item) => item.acc_code1 ?? item.acc_code ?? '');
-      const productCategoryIds = normalizedItems.map((item) => item.product_category_id ?? null);
-      const specificFormIds = normalizedItems.map((item, index) => {
-        const fallback = items[index]?.specific_form_id ?? items[index]?.id ?? '';
-        return item.specific_form_id ?? fallback;
-      });
+      // Arrays will be declared later before use
 
       // Import with debug logging
       const config = await import('../../api/config');
-      const { API_BASE_URL, apiFetch } = config;
+      const { apiFetch } = config;
       
       // Set the correct endpoint based on the mode
       const formIdNum = parseInt(formId, 10) || 1;
       const layoutIdNum = parseInt(layoutId, 10) || 1;
       const endpoint = isExistingForm
-        ? `${API_BASE_URL}/big-damage-issues/${generalFormId}`
-        : `${API_BASE_URL}/big-damage-issues/${formIdNum}/${layoutIdNum}`;
+        ? `/big-damage-issues/${generalFormId}`
+        : `/big-damage-issues/${formIdNum}/${layoutIdNum}`;
 
       const method = isExistingForm ? 'POST' : 'POST';
 
@@ -1608,7 +2043,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         if (excludedFormKeys.has(key)) return;
 
         if (value instanceof Date) {
-          formDataToSend.append(key, value.toISOString().split('T')[0]);
+          // Convert to Y-m-d H:i:s format for Laravel
+          const year = value.getFullYear();
+          const month = String(value.getMonth() + 1).padStart(2, '0');
+          const day = String(value.getDate()).padStart(2, '0');
+          const hours = String(value.getHours()).padStart(2, '0');
+          const minutes = String(value.getMinutes()).padStart(2, '0');
+          const seconds = String(value.getSeconds()).padStart(2, '0');
+          formDataToSend.append(key, `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`);
           return;
         }
 
@@ -1636,18 +2078,64 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
 
         if (value !== null && value !== undefined) {
-          formDataToSend.append(key, value);
+          // Special handling for datetime field - convert to Laravel format
+          if (key === 'datetime' && typeof value === 'string') {
+            // Handle various datetime formats
+            let datetimeValue = value;
+            
+            // Remove any ISO timezone suffixes (.000000Z, :00, etc.)
+            datetimeValue = datetimeValue.replace(/\.\d+Z.*$/, '');
+            datetimeValue = datetimeValue.replace(/Z.*$/, '');
+            
+            // Convert from 2025-11-24T04:02 to 2025-11-24 04:02:00
+            if (datetimeValue.includes('T')) {
+              datetimeValue = datetimeValue.replace('T', ' ');
+            }
+            
+            // Add seconds if not present
+            if (datetimeValue.length === 16) { // YYYY-MM-DD HH:MM format
+              datetimeValue += ':00';
+            }
+            
+            formDataToSend.append(key, datetimeValue);
+          } else {
+            formDataToSend.append(key, value);
+          }
         }
       });
 
+      // Get user_id from multiple sources
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
       const userId = formData.user_id
         ?? initialData?.user_id
         ?? initialData?.user?.id
         ?? initialData?.user?.user_id
+        ?? storedUser?.id
+        ?? storedUser?.admin_id
+        ?? storedUser?.user_id
         ?? null;
 
       if (userId) {
         formDataToSend.append('user_id', userId);
+      }
+      
+      // Add branch_id if not already present
+      const branchId = formData.branch_id 
+        ?? initialData?.branch_id
+        ?? storedUser?.from_branch_id
+        ?? storedUser?.branch_id
+        ?? null;
+        
+      if (branchId) {
+        formDataToSend.append('branch_id', branchId);
+      }
+      
+      // Add form_id and layout_id for new forms
+      if (!isExistingForm) {
+        const formIdNum = parseInt(formId, 10) || 1;
+        const layoutIdNum = parseInt(layoutId, 10) || 1;
+        formDataToSend.append('form_id', formIdNum);
+        formDataToSend.append('layout_id', layoutIdNum);
       }
 
       if (isExistingForm) {
@@ -1657,24 +2145,60 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Always include asset_type for both new and existing forms
       formDataToSend.append('asset_type', 'Damage');
       
-      // Add items array with debug logging
+      // Send items in nested format that Laravel expects: items[0][product_code], items[1][product_code], etc.
+      // Laravel Repository expects: $request['items'] as an array
+      console.log('Normalized items before FormData:', normalizedItems);
+      
       normalizedItems.forEach((item, index) => {
+        console.log(`Processing item ${index}:`, item);
         Object.entries(item).forEach(([key, value]) => {
-          if (value !== undefined && value !== null && value !== '') {
-            formDataToSend.append(`items[${index}][${key}]`, value);
+          // Special handling for numeric fields - include 0 values
+          const isNumericField = ['request_qty', 'actual_qty', 'final_qty', 'system_qty', 'price', 'amount', 'product_type'].includes(key);
+          
+          if (value !== undefined && value !== null) {
+            // For numeric fields, include 0 values
+            if (isNumericField || value !== '') {
+              formDataToSend.append(`items[${index}][${key}]`, value);
+              console.log(`  Added items[${index}][${key}] = ${value}`);
+            }
           }
         });
-
       });
 
+      // NOTE: Laravel backend needs BOTH formats for updates
+      // - Nested format items[0][key] for creating items
+      // - Array format field[] for updating items (edit_product method)
+      console.log('Sending arrays for Laravel edit_product compatibility');
+      
+      // These arrays are required by the edit_product method in Repository
       const appendArrayField = (key, values) => {
-        values.forEach((value) => {
-          if (value !== undefined && value !== null && value !== '') {
-            formDataToSend.append(`${key}[]`, value);
-          }
+        values.forEach((value, index) => {
+          const valueToSend = (value !== undefined && value !== null) ? value : '';
+          formDataToSend.append(`${key}[]`, valueToSend);
+          console.log(`  ${key}[${index}] = ${valueToSend}`);
         });
       };
-
+      
+      // Map arrays from normalized items
+      const productCodes = normalizedItems.map((item) => item.product_code);
+      const productNames = normalizedItems.map((item) => item.product_name ?? '');
+      const units = normalizedItems.map((item) => item.unit ?? '');
+      const systemQtys = normalizedItems.map((item) => item.system_qty ?? 0);
+      const requestQtys = normalizedItems.map((item) => item.request_qty ?? 0);
+      const actualQtys = normalizedItems.map((item) => item.actual_qty ?? 0);
+      const finalQtys = normalizedItems.map((item) => item.final_qty ?? 0);
+      const prices = normalizedItems.map((item) => item.price ?? 0);
+      const amounts = normalizedItems.map((item) => item.amount ?? 0);
+      const remarks = normalizedItems.map((item) => item.remark ?? '');
+      const productTypes = normalizedItems.map((item) => item.product_type ?? 'Damage');
+      const productCategoryIds = normalizedItems.map((item) => item.product_category_id ?? null);
+      const specificFormIds = normalizedItems.map((item, index) => {
+        const fallback = items[index]?.specific_form_id ?? items[index]?.id ?? '';
+        return item.specific_form_id ?? fallback;
+      });
+      const accountCodeLines = normalizedItems.map((item) => item.acc_code1 ?? '');
+      
+      // Append all arrays
       appendArrayField('product_code', productCodes);
       appendArrayField('product_name', productNames);
       appendArrayField('unit', units);
@@ -1687,18 +2211,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       appendArrayField('total', amounts);
       appendArrayField('remark', remarks);
       appendArrayField('product_type', productTypes);
-      // Append product_category_id array
-      productCategoryIds.forEach((value) => {
-        if (value !== undefined && value !== null && value !== '') {
-          formDataToSend.append('product_category_id[]', value);
-        }
-      });
-      // Account codes are now appended after ISS remark (see below)
-      specificFormIds.forEach((value) => {
-        if (value !== undefined && value !== null && value !== '') {
-          formDataToSend.append('specific_form_id[]', value);
-        }
-      });
+      appendArrayField('product_category_id', productCategoryIds);
+      appendArrayField('specific_form_id', specificFormIds);
+      appendArrayField('acc_code1', accountCodeLines);
 
       const commentValue = [formData.comment, formData.reason, formData.remark]
         .map((value) => (typeof value === 'string' ? value.trim() : ''))
@@ -1708,6 +2223,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('comment', commentValue);
       }
       
+      // Reason and g_remark can be empty in create stage - send empty string or null
+      // Don't force N/A as default
+      
       
       // Send the selected issue remark - always send it if it exists
       // The backend needs this to save the ISS remark type
@@ -1715,13 +2233,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('iss_remark', formData.iss_remark);
       }
       
-      // Always send account codes array, even if some are empty
-      // The backend expects acc_code1[] array to update account codes per item
-      accountCodeLines.forEach((value, index) => {
-        // Send even empty strings - backend needs the array to match product_code array
-        const codeToSend = value ?? '';
-        formDataToSend.append('acc_code1[]', codeToSend);
-      });
+      // Account codes are already included in items[i][acc_code1] above
+      // No need to send separate acc_code1[] array
       
       // When status is 'Completed', send approval fields for "Issued by" (ACK user_type)
       // The backend expects these fields to update the approval record
@@ -2065,7 +2578,25 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
 
       }
+      
+      // Ensure actual_user_branch is always sent (might be required by backend)
+      if (!formDataToSend.has('actual_user_branch')) {
+        const user = currentUser || getCurrentUser() || JSON.parse(localStorage.getItem('user') || '{}');
+        const userBranch = user?.branch_short_name || user?.branch_name || user?.branch || 'N/A';
+        formDataToSend.append('actual_user_branch', userBranch);
+      }
+      
       if (isExistingForm) formDataToSend.append('general_form_id', generalFormId);
+
+      // Log all FormData entries for debugging
+      console.log('=== FormData being sent to API ===');
+      console.log('Endpoint:', endpoint);
+      console.log('Method:', method);
+      console.log('FormData entries:');
+      for (const [key, value] of formDataToSend.entries()) {
+        console.log(`  ${key}:`, value);
+      }
+      console.log('=== End FormData ===');
 
       try {
         // Make the API call with detailed logging
@@ -2117,7 +2648,63 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           let finalApprovals;
           if (response.approvals && Array.isArray(response.approvals) && response.approvals.length > 0) {
             // Backend returned fresh approvals - use them (they have the latest data from database)
-            finalApprovals = response.approvals;
+            // Ensure it's a plain array (Laravel collections might not be properly converted)
+            finalApprovals = Array.isArray(response.approvals) ? [...response.approvals] : Object.values(response.approvals || {});
+            
+            // For "Checked" action, check if we sent a comment but backend response doesn't include 'C' approval with comment
+            // This can happen with new forms where the 'C' approval might not be in the response yet
+            if (action === 'Checked' || action === 'checked') {
+              const commentValue = [formData.comment, formData.reason, formData.remark]
+                .map((value) => (typeof value === 'string' ? value.trim() : ''))
+                .find((value) => value.length > 0) || '';
+              
+              const cApproval = finalApprovals.find(a => a.user_type === 'C');
+              const csApproval = finalApprovals.find(a => a.user_type === 'CS');
+              
+              // If we have a comment but no 'C' approval with comment, add/merge it
+              if (commentValue && (!cApproval || !cApproval.comment)) {
+                const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                const userName = storedUser?.name || formData.requester_name || '';
+                const userId = storedUser?.id || storedUser?.admin_id || formData.user_id || null;
+                const branchId = storedUser?.branch_id || storedUser?.from_branch_id || formData.branch_id || null;
+                
+                // Get branch name
+                const branchName = formData.branch_name || storedUser?.branch_name || storedUser?.from_branch_name || '';
+                
+                // Create or update 'C' approval with comment
+                if (cApproval) {
+                  // Update existing 'C' approval with comment
+                  const cIndex = finalApprovals.findIndex(a => a.user_type === 'C');
+                  finalApprovals[cIndex] = {
+                    ...cApproval,
+                    comment: commentValue,
+                    actual_user_id: cApproval.actual_user_id || userId,
+                    actual_user_name: cApproval.actual_user_name || userName,
+                    actual_user_full_name: cApproval.actual_user_full_name || userName,
+                    actual_user_branch: cApproval.actual_user_branch || branchName,
+                    acted: true,
+                    status: 'Checked',
+                  };
+                } else {
+                  // Add new 'C' approval with comment (backend might not have returned it yet)
+                  finalApprovals.push({
+                    user_type: 'C',
+                    label: 'Checked by',
+                    role: 'Branch LP',
+                    comment: commentValue,
+                    actual_user_id: userId,
+                    actual_user_name: userName,
+                    actual_user_full_name: userName,
+                    actual_user_branch: branchName,
+                    acted: true,
+                    status: 'Checked',
+                    date: new Date().toISOString(),
+                    acted_at: new Date().toISOString(),
+                    name: userName,
+                  });
+                }
+              }
+            }
           } else {
             // Fallback to enhanced local approvals if backend didn't return them
             const baseApprovals = formData.approvals || [];
@@ -2161,17 +2748,32 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                                Array.isArray(response?.general_form?.items) ? response.general_form.items :
                                null;
           
-          setFormData((prev) => ({
-            ...prev,
-            status: nextStatus,
-            approvals: finalApprovals, // Use backend approvals when available
-            iss_remark: responseIssRemark ?? formData.iss_remark ?? prev.iss_remark, // Use response value if available, otherwise keep current
-            items: responseItems ?? formData.items, // Use response items if available (they contain updated account codes)
-            response: {
-              ...response,
-              approvals: finalApprovals
-            },
-          }));
+          setFormData((prev) => {
+            // Preserve general_form_id from response if available
+            const responseGeneralFormId = response?.general_form_id 
+              ?? response?.generalFormId 
+              ?? response?.general_form?.id
+              ?? response?.id
+              ?? response?.data?.general_form_id
+              ?? response?.data?.generalFormId
+              ?? response?.data?.general_form?.id;
+            
+            const updated = {
+              ...prev,
+              status: nextStatus,
+              // Preserve general_form_id - critical for investigation modal
+              general_form_id: responseGeneralFormId ?? prev.general_form_id ?? prev.generalFormId,
+              generalFormId: responseGeneralFormId ?? prev.generalFormId ?? prev.general_form_id,
+              approvals: finalApprovals, // Use backend approvals when available
+              iss_remark: responseIssRemark ?? formData.iss_remark ?? prev.iss_remark, // Use response value if available, otherwise keep current
+              items: responseItems ?? formData.items, // Use response items if available (they contain updated account codes)
+              response: {
+                ...response,
+                approvals: finalApprovals
+              },
+            };
+            return updated;
+          });
 
         }
 
@@ -2220,16 +2822,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         let errorMessage = 'Failed to submit form. ';
         
         if (apiError.status === 404) {
-          errorMessage += 'The requested resource was not found. Please check if the API endpoint is correct.';
+          errorMessage = 'The requested resource was not found. Please check if the API endpoint is correct.';
         } else if (apiError.status === 401) {
-          errorMessage += 'Session expired. Please log in again.';
+          errorMessage = 'Session expired. Please log in again.';
           // Redirect to login
           window.location.href = '/login';
           return; // Stop further execution
+        } else if (apiError.status === 422) {
+          // Validation error - show the exact error message from server
+          errorMessage = apiError.message || 'Validation error. Please check your input.';
         } else if (apiError.data && apiError.data.message) {
-          errorMessage += apiError.data.message;
+          errorMessage = apiError.data.message;
+        } else if (apiError.message) {
+          errorMessage = apiError.message;
         } else {
-          errorMessage += apiError.message || 'Unknown error occurred';
+          errorMessage += 'Unknown error occurred';
         }
         
         setError(errorMessage);
@@ -2287,7 +2894,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       ?? 0
     );
     const requiresOpManagerApproval = totalAmount > 500000;
-
+    
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
     // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
     if ((isAccount || role === 'account') && requiresOpManagerApproval) {
@@ -2328,8 +2935,17 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       result = true;
     } else if (['branch_lp', 'checker', 'cs', 'loss prevention'].includes(role) && status === 'Ongoing') {
       result = true;
-    } else if ((isOpManager || role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
-      // Check if user is op_manager (by role OR by approval user_type) OR if they're BM/ABM
+    } else if ((isOpManager || role === 'op_manager') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked')) {
+      // Operation Manager should see approve button when:
+      // 1. Form status is "BM Approved" or "Checked"
+      // 2. AND amount > 500000 (Operation Manager approval is required)
+      // This allows OP Manager to approve forms that exceed 500000
+      if (requiresOpManagerApproval) {
+        result = true; // Show approve button for OP Manager when amount > 500000 and status is BM Approved/Checked
+      } else {
+      }
+    } else if ((role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
+      // BM/ABM can also see approve button at BM Approved status (for re-approval or other actions)
       result = true;
     } else if (isAccount || role === 'account') {
       // Account can only acknowledge after proper approval stage:
@@ -2424,7 +3040,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
 const resolveApproveAction = () => {
   const role = getUserRole();
-  const status = formData.status;
+  const status = (formData.status || '').toString().trim();
+  const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
   
   // Get total amount to check if Operation Manager approval is required
   const totalAmount = Number(
@@ -2435,8 +3052,9 @@ const resolveApproveAction = () => {
     ?? 0
   );
   const requiresOpManagerApproval = totalAmount > 500000;
-
-  if (role === 'branch_lp' && status === 'Ongoing') {
+  
+  // Resolve approve action
+  if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
     return 'BMApprovedMem';
   }
 
@@ -2504,19 +3122,39 @@ const resolveApproveAction = () => {
       }
     }
     
-    // For non-account users, use the action from backend
+    // For non-account users, validate the action from backend
     if (!isAccount && actionRole !== 'account') {
+      // If backend returns OPApproved for op_manager, validate it's appropriate
+      if ((isOpManager || actionRole === 'op_manager') && 
+          (actions.approve === 'OPApproved' || actions.approve === 'opapproved' || actions.approve === 'Proceed')) {
+        // Validate that status and amount are correct for OP Manager approval
+        const normalizedActionStatus = (status || '').toString().trim().replace(/\s+/g, ' ');
+        const isBMApprovedOrChecked = normalizedActionStatus === 'BM Approved' || 
+                                      normalizedActionStatus === 'BMApproved' ||
+                                      normalizedActionStatus === 'Checked';
+        if (isBMApprovedOrChecked && requiresOpManagerApproval) {
+          return 'OPApproved';
+        }
+      }
+      // For other actions or users, use backend action directly
       return actions.approve;
     }
   }
 
-  if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (status === 'Ongoing' || status === 'Checked')) {
+  if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (normalizedStatus === 'Ongoing' || normalizedStatus === 'Checked')) {
     return 'BMApproved';
   }
 
   // Check if user is op_manager (by role OR by approval user_type)
-  if (isOpManager && (status === 'BM Approved' || status === 'BMApproved' || status === 'Checked')) {
-    return 'OPApproved';
+  // Operation Manager should only approve if amount > 500000
+  const isOpManagerCheck = isOpManager || role === 'op_manager';
+  const statusMatches = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked';
+  
+  if (isOpManagerCheck && statusMatches) {
+    if (requiresOpManagerApproval) {
+      return 'OPApproved';
+    } else {
+    }
   }
 
   // Check if user is account (by role OR by approval user_type)
@@ -2687,6 +3325,7 @@ const resolveApproveAction = () => {
         onClose={handleCloseModal}
         formData={formData}
         userRole={userRole}
+        initialData={initialData}
         onSave={(savedData) => {
           // Update formData with saved investigation data
           if (savedData && savedData.investigation) {
@@ -2751,7 +3390,7 @@ const resolveApproveAction = () => {
       <DamageItemTable
         items={formData.items || []}
         mode={mode}
-        status={formData.status || 'Ongoing'}
+        status={(formData.status || formData.general_form?.status || initialData?.status || initialData?.general_form?.status || 'Ongoing').toString().trim()}
         onItemsChange={handleItemsChange}
         onItemChange={handleItemFieldChange}
         generalFormId={initialData?.generalFormId}
@@ -2766,6 +3405,10 @@ const resolveApproveAction = () => {
         issueRemarks={formData.issue_remarks || []}
         issRemark={formData.iss_remark ?? ''}
         systemQtyUpdated={Boolean(formData.systemQtyUpdated)}
+        approvals={formData.approvals || []}
+        totalAmount={totalAmount}
+        gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
+        currentUser={currentUser}
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
           setFormData((prev) => ({

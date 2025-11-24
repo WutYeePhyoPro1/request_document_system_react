@@ -44,6 +44,7 @@ const InvestigationFormModal = ({
   formData = {},
   userRole = '',
   onSave = null,
+  initialData = null, // Add initialData prop
 }) => {
   const status = (formData?.status || '').trim();
   const isReadOnly = ['BM Approved', 'BMApproved', 'OPApproved', 'Completed'].includes(status);
@@ -75,11 +76,24 @@ const InvestigationFormModal = ({
   // Laravel Op_Manager() checks: ApprovalProcessUser where user_type='OP', admin_id=current_user_id, status in ['BM Approved', 'Approved', 'HR Checked']
   // However, when form status is 'BM Approved', the approval entry might still be 'Pending' until user approves
   // Also, user_type might be 'A2' instead of 'OP' (A2 maps to Operation Manager)
-  // If admin_id is undefined, we check if the approval label/role indicates Operation Manager
+  // CRITICAL: API doesn't return admin_id in response, so we check if OP approval entry exists when form is 'BM Approved'
   const isOpManagerByApproval = useMemo(() => {
-    if (!currentUserId || !approvals.length) {
+    if (!approvals.length) {
       return false;
     }
+    
+    // Get general_form_id and amount for fallback check
+    const generalFormId = formData?.general_form_id || formData?.generalFormId || formData?.id || initialData?.id;
+    const totalAmount = Number(
+      formData?.general_form?.total_amount
+      ?? formData?.total_amount
+      ?? formData?.general_form?.totalAmount
+      ?? formData?.totalAmount
+      ?? 0
+    );
+    const requiresOpManagerApproval = totalAmount > 500000;
+    const formStatus = (status || '').toString().trim();
+    const formStatusMatches = formStatus === 'BM Approved' || formStatus === 'BMApproved';
     
     // Check if user has approval entry with user_type: 'OP' or 'A2'
     const opApproval = approvals.find(approval => {
@@ -91,42 +105,44 @@ const InvestigationFormModal = ({
       // Get all possible user IDs from the approval
       const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
       
-      const userType = approval?.user_type || approval?.raw?.user_type || '';
-      const approvalStatus = approval?.status || approval?.raw?.status || '';
-      const label = (approval?.label || approval?.role || '').toString().toLowerCase();
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const approvalStatus = (approval?.status || approval?.raw?.status || '').toString().trim();
       
       // Check if user_type matches (OP or A2 for Operation Manager)
-      const userTypeMatches = (userType === 'OP' || userType === 'A2');
+      const userTypeMatches = userType === 'OP' || userType === 'A2';
       
-      // Check if label/role indicates Operation Manager
-      const labelMatches = label.includes('operation') || label.includes('op manager') || label.includes('op_manager');
+      // Check if admin_id matches if available (API doesn't return it, so this might be null)
+      const adminIdMatches = adminId ? (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId)) : false;
       
-      // For user ID matching: if admin_id is undefined, check if any user ID matches OR if label matches
-      // This handles cases where the approval is assigned but admin_id isn't set yet
-      let userIdMatches = false;
-      if (allUserIds.length > 0) {
-        userIdMatches = allUserIds.some(id => 
-          String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
-        );
-      } else if (labelMatches && userTypeMatches) {
-        // If admin_id is undefined but label and user_type match, assume it's for current user
-        // when form status allows OP manager to act
-        userIdMatches = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(status);
-      }
+      // Also check other user ID fields as fallback
+      const otherUserIdMatches = allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
       
       // Status check: Laravel checks status in ['BM Approved', 'Approved', 'HR Checked']
       // But when form is at 'BM Approved', approval might be 'Pending' - so we also check form status
-      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked', 'Pending'].includes(approvalStatus);
-      const formStatusAllows = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(status);
+      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked'].includes(approvalStatus);
       
-      // Match if: (user_type matches OR label matches) AND (user ID matches OR label+user_type match with form status) AND (status matches OR form status allows)
-      const matches = (userTypeMatches || labelMatches) && userIdMatches && (statusMatches || formStatusAllows);
+      // Fallback: If form is 'BM Approved', amount > 500000, and we have OP/A2 approval entry,
+      // allow it even if we can't verify admin_id (API doesn't return it, backend will verify)
+      const hasOPApprovalEntry = userTypeMatches;
+      const fallbackMatch = formStatusMatches && requiresOpManagerApproval && hasOPApprovalEntry;
+      
+      // Match if: 
+      // 1. (user_type matches AND admin_id matches AND status matches Laravel's check), OR
+      // 2. (fallback: form is BM Approved, amount > 500000, and OP approval entry exists)
+      const matches = (userTypeMatches && adminIdMatches && statusMatches) || fallbackMatch;
+      
+      if (userTypeMatches) {
+        // Found OP/A2 approval entry
+      }
       
       return matches;
     });
     
-    return Boolean(opApproval);
-  }, [currentUserId, approvals, status]);
+    const result = Boolean(opApproval);
+    return result;
+  }, [currentUserId, approvals, status, formData]);
   
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = normalizedUserRole === 'op_manager' || isOpManagerByApproval;
@@ -160,6 +176,9 @@ const InvestigationFormModal = ({
   });
 
   useEffect(() => {
+    // Only run when modal opens or when investigation data actually changes
+    if (!isOpen) return;
+    
     const existing = formData?.investigation
       || formData?.investigate
       || formData?.general_form?.investigation
@@ -171,19 +190,27 @@ const InvestigationFormModal = ({
       return;
     }
 
-    setInvestigationId(existing.id || existing.investi_id || null);
-    setSelectedCategory((existing.bdi_reason && existing.bdi_reason[0]?.toUpperCase() + existing.bdi_reason.slice(1)) || 'Thief');
-    setBmReason(existing.bm_reason || '');
-    setCompanyPct(existing.bm_company ?? existing.companyPct ?? '');
-    setUserPct(existing.bm_user ?? existing.userPct ?? '');
-    setIncomePct(existing.bm_income ?? existing.incomePct ?? '');
-    setOpCompanyPct(existing.op_company ?? existing.opCompanyPct ?? '');
-    setOpUserPct(existing.op_user ?? existing.opUserPct ?? '');
-    setOpIncomePct(existing.op_income ?? existing.opIncomePct ?? '');
-    setAccCompanyPct(existing.acc_company ?? existing.accCompanyPct ?? '');
-    setAccUserPct(existing.acc_user ?? existing.accUserPct ?? '');
-    setAccIncomePct(existing.acc_income ?? existing.accIncomePct ?? '');
-  }, [formData, isOpen]);
+    const existingId = existing.id || existing.investi_id || null;
+    
+    // Only update if investigation ID changed (prevent infinite loop)
+    setInvestigationId(prevId => {
+      if (prevId !== existingId) {
+        setSelectedCategory((existing.bdi_reason && existing.bdi_reason[0]?.toUpperCase() + existing.bdi_reason.slice(1)) || 'Thief');
+        setBmReason(existing.bm_reason || '');
+        setCompanyPct(existing.bm_company ?? existing.companyPct ?? '');
+        setUserPct(existing.bm_user ?? existing.userPct ?? '');
+        setIncomePct(existing.bm_income ?? existing.incomePct ?? '');
+        setOpCompanyPct(existing.op_company ?? existing.opCompanyPct ?? '');
+        setOpUserPct(existing.op_user ?? existing.opUserPct ?? '');
+        setOpIncomePct(existing.op_income ?? existing.opIncomePct ?? '');
+        setAccCompanyPct(existing.acc_company ?? existing.accCompanyPct ?? '');
+        setAccUserPct(existing.acc_user ?? existing.accUserPct ?? '');
+        setAccIncomePct(existing.acc_income ?? existing.accIncomePct ?? '');
+        return existingId;
+      }
+      return prevId;
+    });
+  }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate, isOpen]);
 
   const resolveRole = () => {
     // Check if user is op_manager by role name OR by approval user_type
@@ -192,13 +219,50 @@ const InvestigationFormModal = ({
     return 1;
   };
 
-  const resolveGeneralFormId = () => (
-    formData?.general_form_id
-    ?? formData?.generalFormId
-    ?? formData?.general_form?.id
-    ?? formData?.general_form?.general_form_id
-    ?? formData?.id
-  );
+  const resolveGeneralFormId = () => {
+    // Check multiple sources for general_form_id, including response data after form submission
+    let generalFormId = 
+      formData?.general_form_id
+      ?? formData?.generalFormId
+      ?? formData?.general_form?.id
+      ?? formData?.general_form?.general_form_id
+      ?? formData?.id
+      ?? formData?.response?.general_form_id
+      ?? formData?.response?.generalFormId
+      ?? formData?.response?.general_form?.id
+      ?? formData?.response?.id
+      ?? formData?.response?.data?.general_form_id
+      ?? formData?.response?.data?.generalFormId
+      ?? formData?.response?.data?.general_form?.id;
+    
+    // If still not found, try initialData
+    if (!generalFormId && initialData) {
+      generalFormId = 
+        initialData?.general_form_id
+        ?? initialData?.generalFormId
+        ?? initialData?.general_form?.id
+        ?? initialData?.id;
+    }
+    
+    // If still not found, try to get from URL parameters
+    if (!generalFormId) {
+      // Try URL params as fallback
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlId = urlParams.get('id') || urlParams.get('general_form_id');
+      if (urlId) {
+        return urlId;
+      }
+      
+      // Try to get from route params (React Router)
+      const pathParts = window.location.pathname.split('/');
+      const potentialId = pathParts[pathParts.length - 1];
+      if (potentialId && !isNaN(potentialId)) {
+        return potentialId;
+      }
+    }
+    
+    return generalFormId;
+  };
   
   // Calculate these before buildRequestBody so they're available
   const role = resolveRole();
@@ -231,7 +295,8 @@ const InvestigationFormModal = ({
     );
 
     // Must have total_amount > 500000
-    if (totalAmount <= 500000) {
+    const requiresOpManagerApproval = totalAmount > 500000;
+    if (!requiresOpManagerApproval) {
       return false;
     }
 
@@ -248,8 +313,19 @@ const InvestigationFormModal = ({
     }
     
     // Status is 'BM Approved' - only visible to Op_Manager (checking both role and approval user_type)
-    if (isOpManager && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved')) {
-      return true;
+    // If form is 'BM Approved', amount > 500000, and there's an OP approval entry, show it
+    // This matches Laravel blade: Op_Manager($general_form) && $general_form->status == 'BM Approved'
+    if (currentStatus === 'BM Approved' || currentStatus === 'BMApproved') {
+      // Check if there's an OP approval entry (user will be operation manager if they have it)
+      const hasOPApproval = approvals.some(a => {
+        const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+        return userType === 'OP' || userType === 'A2';
+      });
+      
+      // Show if user is op_manager OR if there's an OP approval entry (they're the assigned OP manager)
+      if (isOpManager || hasOPApproval) {
+        return true;
+      }
     }
     
     // Status is 'Completed' - visible to everyone (BM can see but not edit)
@@ -258,15 +334,19 @@ const InvestigationFormModal = ({
     }
 
     // Fallback: check if approvals array has an operation role
-    if (approvals.length) {
-      return approvals.some((entry) => {
+    // BUT only if amount > 500000 (amount requirement must be met)
+    if (approvals.length && requiresOpManagerApproval) {
+      const hasOpRole = approvals.some((entry) => {
         const role = (entry?.role || entry?.label || '').toString().toLowerCase();
         return role.includes('operation');
       });
+      if (hasOpRole) {
+        return true;
+      }
     }
 
     return false;
-  }, [approvals, formData, status, normalizedUserRole]);
+  }, [approvals, formData, status, normalizedUserRole, isOpManager]);
 
   const showOperationManagerFields = useMemo(() => {
     return hasOperationManagerStage;
@@ -325,8 +405,23 @@ const InvestigationFormModal = ({
     return body;
   };
   
-  const shouldShowOperationSection = showOperationManagerFields
-    || Boolean(opCompanyPct || opUserPct || opIncomePct);
+  // Only show Operation Manager section if amount > 500000 (CRITICAL requirement)
+  // Even if there are existing OP percentage values, don't show if amount <= 500000
+  const totalAmountForDisplay = Number(
+    formData?.general_form?.total_amount
+    ?? formData?.total_amount
+    ?? formData?.general_form?.totalAmount
+    ?? formData?.totalAmount
+    ?? 0
+  );
+  const requiresOpManagerApproval = totalAmountForDisplay > 500000;
+  
+  // Show Operation Manager section only if:
+  // 1. hasOperationManagerStage is true (which already checks amount > 500000), OR
+  // 2. There are existing OP percentage values AND amount > 500000
+  const shouldShowOperationSection = requiresOpManagerApproval && (
+    showOperationManagerFields || Boolean(opCompanyPct || opUserPct || opIncomePct)
+  );
   const shouldShowAccountSection = normalizedUserRole === 'account'
     || canAccountEdit
     || Boolean(accCompanyPct || accUserPct || accIncomePct);
@@ -442,6 +537,7 @@ const InvestigationFormModal = ({
 
     const payload = buildPayload();
     const generalFormId = resolveGeneralFormId();
+    
     if (!generalFormId) {
       toast.error('Missing form identifier. Please refresh and try again.');
       setIsSubmitting(false);
@@ -450,33 +546,13 @@ const InvestigationFormModal = ({
 
     const body = buildRequestBody(payload);
     
-    // Debug: Log what's being sent for Operation Manager
-    if (canEditOperationFields) {
-      console.log('[InvestigationModal] Saving Operation Manager percentages:', {
-        role,
-        isOpManager,
-        status,
-        opCompanyPct: payload.opCompanyPct,
-        opUserPct: payload.opUserPct,
-        opIncomePct: payload.opIncomePct,
-        canEditOperationFields,
-      });
-    }
 
     setIsSubmitting(true);
     try {
-      const response = await apiRequest('/api/big-damage-issues/investigation', {
+      // apiRequest already parses JSON and throws on error, so we don't need to check response.ok
+      const responseData = await apiRequest('/api/big-damage-issues/investigation', {
         method: 'POST',
         body,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`Request failed with status ${response.status}: ${errorText}`);
-      }
-
-      const responseData = await response.json().catch(async () => {
-        return { success: true, message: 'Investigation updated successfully' };
       });
       
       // Extract investigation data from response

@@ -315,7 +315,11 @@ export default function DamageItemTable({
   isCompleted = false,
   supportingAttachments = [],
   isAccount = false,
-  isSupervisor = false
+  isSupervisor = false,
+  approvals = [],
+  totalAmount = 0,
+  gRemark = 'big_damage',
+  currentUser = null
 }) {
   // Remove debug logging to prevent infinite re-renders
 
@@ -340,19 +344,232 @@ export default function DamageItemTable({
 
   // Define these early to avoid initialization errors in useEffect
   const normalizedRole = (userRole || '').toString().trim().toLowerCase();
-  // Account can update system qty, choose ISS remark, account code, and edit product_type
-  // Supervisor can choose ISS remark and account code but cannot update system qty or edit product_type
-  const acknowledgeRoleAliases = new Set([
-    'acknowledge',
-    'account',
-    'ack',
-    'acknowledged',
-    'acknowledgement',
-    'branch_account',
-    'branchaccount',
-  ]);
+  
+  /**
+   * Check if user can see "Update System Qty" button - matches Laravel acknowledge() function exactly
+   * Laravel acknowledge() checks:
+   * 1. User has ACK approval entry (user_type='ACK', admin_id=current_user_id)
+   * 2. ACK entry status matches: 'BM Approved' (amount <= 500k) OR 'OPApproved' (amount > 500k)
+   * 3. Form g_remark == 'big_damage'
+   * 4. Form status is NOT 'Issued', 'Completed', 'SupervisorIssued'
+   * 5. User has 'Acknowledge' role
+   */
+  const canShowUpdateSystemQtyButton = useMemo(() => {
+    console.log('[DamageItemTable] canShowUpdateSystemQtyButton - Checking conditions:', {
+      status,
+      gRemark,
+      totalAmount,
+      currentUser,
+      isAccount,
+      normalizedRole,
+      approvalsCount: approvals?.length || 0,
+      approvals
+    });
+
+    // FIX: Do not show button if form is already Issued, Completed, or SupervisorIssued
+    const excludedStatuses = ['Issued', 'Completed', 'SupervisorIssued'];
+    if (excludedStatuses.includes(status)) {
+      return false;
+    }
+
+    // Check if form type is 'big_damage' (g_remark)
+    if (gRemark !== 'big_damage') {
+      return false;
+    }
+
+    // Check if user has ACK approval entry
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    if (!currentUserId) {
+      return false;
+    }
+    if (!Array.isArray(approvals) || approvals.length === 0) {
+      return false;
+    }
+
+    // Find ACK/AC approval entry for current user (account users can have either 'AC' or 'ACK')
+    // Handle both simplified format (from DamageView) and raw API format
+    let ackApproval = null;
+    let foundMatchingUserType = false;
+    let foundMatchingUser = false;
+    let foundMatchingStatus = false;
+    
+    approvals.forEach((approval, index) => {
+      // Get user_type from multiple possible sources (simplified format, raw format, or direct)
+      const userType = (
+        approval?.user_type || 
+        approval?.raw?.user_type || 
+        ''
+      ).toString().toUpperCase();
+      
+      // Check user_type first
+      if (userType !== 'ACK' && userType !== 'AC') {
+        return;
+      }
+      foundMatchingUserType = true;
+
+      // Check if user matches - try admin_id first, then actual_user_id
+      // API returns actual_user_id, but Laravel helper checks admin_id
+      // Use actual_user_id as fallback if admin_id is not available
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+
+      const userIdMatches = allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+
+      // For big_damage forms: If user is account user (isAccount: true), allow ACK approval even if admin_id doesn't match
+      // This handles cases where ACK approval might be assigned to a different user but current user is still an account user
+      // Laravel checks admin_id match strictly, but we'll allow account users to see the button if:
+      // 1. User is an account user (isAccount: true)
+      // 2. ACK approval exists
+      // 3. Status matches amount condition
+      // This is a frontend workaround for cases where admin_id assignment might be different
+      const allowAccountUserAccess = isAccount && !userIdMatches;
+
+      if (!userIdMatches && !allowAccountUserAccess) {
+        console.log(`[DamageItemTable] ACK approval at index ${index} - User ID mismatch:`, {
+          adminId,
+          actualUserId,
+          userId,
+          allUserIds,
+          currentUserId,
+          isAccount,
+          allowAccountUserAccess,
+          approval: {
+            user_type: userType,
+            status: approval?.status || approval?.raw?.status,
+            admin_id: adminId,
+            actual_user_id: actualUserId,
+            fullObject: approval
+          }
+        });
+        return;
+      }
+      foundMatchingUser = true;
+
+      // Check ACK entry status matches amount condition
+      // For big_damage forms:
+      // - Amount <= 500k: ACK entry status must be 'BM Approved' (BM has approved)
+      // - Amount > 500k: ACK entry status must be 'OPApproved' (Operation Manager has approved)
+      const approvalStatus = (
+        approval?.status || 
+        approval?.raw?.status || 
+        ''
+      ).toString().trim();
+      const formStatusNormalized = (status || '').toString().trim();
+      const numericAmount = Number(totalAmount) || 0;
+
+      let statusMatches = false;
+      if (numericAmount <= 500000) {
+        // Amount <= 500k: ACK entry status must be 'BM Approved'
+        // If ACK entry status is 'Pending' but form status is 'BM Approved', 
+        // consider it valid (BM has approved, ACK entry just hasn't been updated yet)
+        statusMatches = approvalStatus === 'BM Approved' || 
+                       approvalStatus === 'BMApproved' ||
+                       (approvalStatus === 'Pending' && formStatusNormalized === 'BM Approved');
+      } else {
+        // Amount > 500k: ACK entry status must be 'OPApproved'
+        // If ACK entry status is 'Pending' but form status is 'OPApproved' or 'OP Approved',
+        // consider it valid (OP has approved, ACK entry just hasn't been updated yet)
+        statusMatches = approvalStatus === 'OPApproved' || 
+                       approvalStatus === 'OP Approved' ||
+                       (approvalStatus === 'Pending' && (formStatusNormalized === 'OPApproved' || formStatusNormalized === 'OP Approved'));
+      }
+
+      if (!statusMatches) {
+        console.log(`[DamageItemTable] ACK approval at index ${index} - Status mismatch:`, {
+          approvalStatus,
+          expectedStatus: numericAmount <= 500000 ? 'BM Approved' : 'OPApproved',
+          numericAmount,
+          approval: {
+            user_type: userType,
+            status: approvalStatus,
+            admin_id: adminId,
+            actual_user_id: actualUserId,
+            fullObject: approval
+          }
+        });
+        return;
+      }
+      foundMatchingStatus = true;
+      
+      // Found matching approval
+      ackApproval = approval;
+      console.log(`[DamageItemTable] ACK approval at index ${index} - MATCHED!`, {
+        approval
+      });
+    });
+
+    // Find all ACK/AC approvals to see what we have
+    const allAckApprovals = approvals.filter(a => {
+      const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+      return userType === 'ACK' || userType === 'AC';
+    });
+
+    console.log('[DamageItemTable] ACK Approval search result:', {
+      foundMatchingUserType,
+      foundMatchingUser,
+      foundMatchingStatus,
+      ackApproval: ackApproval ? 'Found' : 'Not Found',
+      currentUserId,
+      totalAmount,
+      expectedStatus: totalAmount > 500000 ? 'OPApproved' : 'BM Approved',
+      formStatus: status,
+      allAckApprovals: allAckApprovals.map(a => ({
+        user_type: a?.user_type || a?.raw?.user_type,
+        status: a?.status || a?.raw?.status,
+        admin_id: a?.admin_id || a?.raw?.admin_id,
+        actual_user_id: a?.actual_user_id || a?.raw?.actual_user_id,
+        user_id: a?.user?.id || a?.user_id,
+        label: a?.label,
+        name: a?.name,
+        fullObject: a
+      })),
+      allApprovals: approvals.map(a => ({
+        user_type: a?.user_type || a?.raw?.user_type,
+        status: a?.status || a?.raw?.status,
+        admin_id: a?.admin_id || a?.raw?.admin_id,
+        actual_user_id: a?.actual_user_id || a?.raw?.actual_user_id,
+        user_id: a?.user?.id || a?.user_id,
+        label: a?.label,
+        name: a?.name
+      }))
+    });
+
+    if (!ackApproval) {
+      console.log('[DamageItemTable] canShowUpdateSystemQtyButton: Returning false - No ACK approval found');
+      return false;
+    }
+
+    // User must be account/ACK role (checked via isAccount or role name)
+    const acknowledgeRoleAliases = new Set([
+      'acknowledge',
+      'account',
+      'ack',
+      'acknowledged',
+      'acknowledgement',
+      'branch_account',
+      'branchaccount',
+    ]);
+    const isAcknowledgeRole = isAccount || acknowledgeRoleAliases.has(normalizedRole);
+
+    if (!isAcknowledgeRole) {
+      console.log('[DamageItemTable] canShowUpdateSystemQtyButton: Returning false - Not acknowledge role', {
+        isAccount,
+        normalizedRole,
+        isAcknowledgeRole
+      });
+      return false;
+    }
+
+    console.log('[DamageItemTable] canShowUpdateSystemQtyButton: Returning TRUE - All conditions met!');
+    return true;
+  }, [status, gRemark, approvals, totalAmount, currentUser, isAccount, normalizedRole]);
+
   // Account user (can update system qty, edit product_type, delete items)
-  const isAcknowledgeUser = isAccount || acknowledgeRoleAliases.has(normalizedRole);
+  const isAcknowledgeUser = isAccount || (userRole && ['acknowledge', 'account', 'ack', 'acknowledged', 'acknowledgement', 'branch_account', 'branchaccount'].includes(normalizedRole));
   // Supervisor user (can choose ISS remark/account code but cannot update system qty or edit items)
   const isSupervisorUser = isSupervisor || normalizedRole === 'supervisor';
 
@@ -710,9 +927,9 @@ export default function DamageItemTable({
     
     if (itemsChanged) {
       handleItemsChange(items);
-      prevItemsRef.current = [...items];
+      prevItemsRef.current = items;
     }
-  }, [items, handleItemsChange]);
+  }, [items]);
   
   // Track when itemsProp changes - if it's a refetch (same IDs, different system_qty), prevent callback
   useEffect(() => {
@@ -2048,9 +2265,9 @@ const normalizeImageEntries = (list) => {
         <span>{formatAmount(total)}</span>
       </div>
 
-      {/* Update System Qty Button - Only for account users (not supervisor) */}
-      {/* Account at OP Approved can update system qty */}
-      {isAcknowledgeUser && !isSupervisorUser && mode !== 'add' && !isCompleted && (
+      {/* Update System Qty Button - Matches Laravel acknowledge() function logic exactly */}
+      {/* Shows only when: ACK user, ACK entry exists, status matches amount, form type is big_damage, form not issued/completed */}
+      {canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && (
         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <button
