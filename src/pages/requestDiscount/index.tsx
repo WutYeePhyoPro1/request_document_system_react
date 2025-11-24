@@ -68,15 +68,9 @@ export default function Demo() {
       setSearchTerm((prev) => ({ ...prev, status: value }));
     }
   };
-<<<<<<< HEAD
   const handleBranchChange = (value: string) => {
     setSearchTerm((prev) => ({ ...prev, branch_id: value }));
   };
-=======
-const handleBranchChange = (value: string) => {
-  setSearchTerm((prev) => ({...prev , branch_id: value,})) ;
-}
->>>>>>> 2215171 (update)
   const navigate = useNavigate();
   // console.log("Search Term>>" , searchTerm) ;
   // const [pageLoading , setPageLoading] = useState<boolean>(true) ;
@@ -102,11 +96,7 @@ const handleBranchChange = (value: string) => {
   const end = start + pageSize;
   const paginateData = discountData?.data?.slice(start, end) ?? [];
 
-<<<<<<< HEAD
   // console.log("paginatedData>>", discountData);
-=======
-  console.log("paginatedData>>", discountData);
->>>>>>> 2215171 (update)
 
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
@@ -325,19 +315,12 @@ const handleBranchChange = (value: string) => {
                 id="branch_id"
                 name="branch_id"
                 searchable
-<<<<<<< HEAD
                 data={discountData?.authenticatedUser?.user_branches?.map(
                   (item) => ({
                     value: String(item.branch_id),
                     label: item.branches?.branch_name,
                   })
                 )}
-=======
-                  data={discountData?.authenticatedUser?.user_branches?.map((item) => ({
-                  value: String(item.branch_id),
-                  label: item.branches?.branch_name,
-                }))} 
->>>>>>> 2215171 (update)
                 onChange={handleBranchChange}
                 placeholder="Select Status"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
