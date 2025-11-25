@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest } from "../../utils/api";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
 
 const InvestigationCategoryButton = ({
   icon: Icon,
@@ -46,6 +47,7 @@ const InvestigationFormModal = ({
   onSave = null,
   initialData = null, // Add initialData prop
 }) => {
+  const { t } = useTranslation();
   const status = (formData?.status || '').trim();
   const isReadOnly = ['BM Approved', 'BMApproved', 'OPApproved', 'Completed'].includes(status);
   const normalizedUserRole = (userRole || '').toString().toLowerCase();
@@ -193,9 +195,27 @@ const InvestigationFormModal = ({
     const existingId = existing.id || existing.investi_id || null;
     
     // Only update if investigation ID changed (prevent infinite loop)
-    setInvestigationId(prevId => {
+        setInvestigationId(prevId => {
       if (prevId !== existingId) {
-        setSelectedCategory((existing.bdi_reason && existing.bdi_reason[0]?.toUpperCase() + existing.bdi_reason.slice(1)) || 'Thief');
+        // Normalize category name - handle abbreviations and typos from backend
+        let categoryName = existing.bdi_reason || '';
+        if (categoryName) {
+          // Map database abbreviations back to full category names
+          const categoryMap = {
+            'discipl': 'Discipline', // Database stores 'discipl' (7 chars) due to VARCHAR(8) limit
+            'discipline': 'Discipline',
+            'displine': 'Discipline', // Handle typo variant
+            'thief': 'Thief',
+            'delivery': 'Delivery',
+            'accident': 'Accident',
+            'natural': 'Natural Accident',
+            'safety': 'Safety',
+            'other': 'Other',
+          };
+          // Use mapped value if available, otherwise capitalize first letter
+          categoryName = categoryMap[categoryName.toLowerCase()] || (categoryName[0]?.toUpperCase() + categoryName.slice(1));
+        }
+        setSelectedCategory(categoryName || 'Thief');
         setBmReason(existing.bm_reason || '');
         setCompanyPct(existing.bm_company ?? existing.companyPct ?? '');
         setUserPct(existing.bm_user ?? existing.userPct ?? '');
@@ -219,6 +239,7 @@ const InvestigationFormModal = ({
     return 1;
   };
 
+//check multiple sources for general form id, including responde data after form submission
   const resolveGeneralFormId = () => {
     // Check multiple sources for general_form_id, including response data after form submission
     let generalFormId = 
@@ -391,7 +412,8 @@ const InvestigationFormModal = ({
       thief: 'thief',
       delivery: 'delivery',
       'natural accident': 'natural',
-      displine: 'discipline',
+      discipline: 'discipline', // Backend expects 'discipline' but DB column is VARCHAR(8) - backend should handle truncation
+      displine: 'discipline', // Support typo variant for backward compatibility
       accident: 'accident',
       safety: 'safety',
       other: 'other',
@@ -401,6 +423,12 @@ const InvestigationFormModal = ({
     if (flagKey) {
       body.append(flagKey, '1');
     }
+    
+    // Note: The backend code tries to store 'discipline' (10 chars) in a VARCHAR(8) column
+    // This is a backend bug that needs to be fixed. The backend should either:
+    // 1. Use an abbreviation like 'discipl' (7 chars) or 'disci' (5 chars)
+    // 2. Or increase the database column size to VARCHAR(10) or larger
+    // For now, we send 'discipline' as the backend expects it, and the backend should handle the truncation/error
 
     return body;
   };
@@ -433,7 +461,7 @@ const InvestigationFormModal = ({
     { id: "Thief", label: "Thief", icon: User },
     { id: "Delivery", label: "Delivery", icon: Truck },
     { id: "Natural Accident", label: "Natural Accident", icon: CloudLightning },
-    { id: "Displine", label: "Displine", icon: Shield },
+    { id: "Discipline", label: "Discipline", icon: Shield },
     { id: "Accident", label: "Accident", icon: AlertTriangle },
     { id: "Safety", label: "Safety", icon: Users },
     { id: "Other", label: "Other", icon: FileText },
@@ -450,16 +478,27 @@ const InvestigationFormModal = ({
   const buildSectionValidation = (entries, label) => {
     const normalized = entries.map(({ value }) => normalizePct(value));
 
+    // Map label to translation key
+    let sectionKey = 'bmOperation';
+    if (label === 'Operation Manager Review') {
+      sectionKey = 'operationManagerReview';
+    } else if (label === 'Accounts Review') {
+      sectionKey = 'accountsReview';
+    }
+    
+    // Get translated section label (use existing investigation keys)
+    const sectionLabel = t(`investigation.${sectionKey}`, { defaultValue: label });
+
     if (normalized.every((val) => val === null)) {
-      return { valid: false, message: `${label} percentages are required.` };
+      return { valid: false, message: t('investigation.percentagesRequiredForSection', { section: sectionLabel }) };
     }
 
     if (normalized.some((val) => val === null)) {
-      return { valid: false, message: `${label} percentages must include Company, User, and Income.` };
+      return { valid: false, message: t('investigation.percentagesMustIncludeForSection', { section: sectionLabel }) };
     }
 
     if (normalized.some((val) => Number.isNaN(val))) {
-      return { valid: false, message: `${label} percentages must be numeric values.` };
+      return { valid: false, message: t('investigation.percentagesMustBeNumericForSection', { section: sectionLabel }) };
     }
 
   //message percentages must total 100% currently total tofixed 2%.
@@ -467,7 +506,7 @@ const InvestigationFormModal = ({
     if (Math.abs(total - 100) > 0.01) {
       return {
         valid: false,
-        message: `${label} percentages must total 100%. Currently ${total.toFixed(2)}%.`,
+        message: t('investigation.percentagesMustTotalForSection', { section: sectionLabel, total: total.toFixed(2) }),
       };
     }
 
@@ -484,6 +523,13 @@ const InvestigationFormModal = ({
     if (isSubmitting) return;
 
     const errors = {};
+
+    // Validate BM Reason for role 1 (BM can edit base fields)
+    if (!baseFieldsDisabled && role === 1) {
+      if (!bmReason || bmReason.trim() === '') {
+        errors.bmReason = t('investigation.bmReasonRequired');
+      }
+    }
 
     if (!baseFieldsDisabled) {
       const result = buildSectionValidation(
@@ -529,7 +575,18 @@ const InvestigationFormModal = ({
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-      toast.error('Please ensure responsibility percentages total 100% in each section.');
+      // Show specific error message
+      if (errors.bmReason) {
+        toast.error(errors.bmReason);
+      } else if (errors.base) {
+        toast.error(errors.base);
+      } else if (errors.operation) {
+        toast.error(errors.operation);
+      } else if (errors.account) {
+        toast.error(errors.account);
+      } else {
+        toast.error(t('messages.pleaseFillRequired'));
+      }
       return;
     }
 
@@ -539,7 +596,7 @@ const InvestigationFormModal = ({
     const generalFormId = resolveGeneralFormId();
     
     if (!generalFormId) {
-      toast.error('Missing form identifier. Please refresh and try again.');
+      toast.error(t('messages.missingFormIdentifier'));
       setIsSubmitting(false);
       return;
     }
@@ -559,7 +616,7 @@ const InvestigationFormModal = ({
       // Laravel returns: { message: '...', data: investigation }
       const investigationData = responseData?.data || responseData?.investigation || responseData;
     
-      toast.success(responseData?.message || 'Investigation updated successfully');
+      toast.success(responseData?.message || t('investigation.updateSuccess'));
       
       // Call onSave callback if provided to refresh formData in parent
       if (onSave && typeof onSave === 'function') {
@@ -584,7 +641,17 @@ const InvestigationFormModal = ({
       
       onClose();
     } catch (error) {
-      toast.error(error.message || 'Failed to update investigation');
+      // Show specific error message from backend if available
+      const errorMessage = error.message || error.response?.data?.message || error.response?.data?.error || t('investigation.updateFailed');
+      toast.error(errorMessage);
+      
+      // If there's a field-specific error, set it in validation errors
+      if (error.response?.data?.field === 'bm_reason') {
+        setValidationErrors(prev => ({
+          ...prev,
+          bmReason: errorMessage
+        }));
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -623,7 +690,7 @@ const InvestigationFormModal = ({
 
             <div className="sticky top-0 bg-white z-20 p-4 border-b flex justify-between items-center rounded-t-2xl">
               <h2 className="text-xl font-semibold text-gray-800">
-                Investigation Form
+                {t('investigation.title')}
               </h2>
               <button
                 type="button"
@@ -638,7 +705,7 @@ const InvestigationFormModal = ({
               
               <div>
                 <h3 className="text-sm font-semibold mb-3 text-gray-600 uppercase tracking-wider">
-                  Investigation Categories
+                  {t('investigation.category')}
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {categories.map((category) => (
@@ -665,38 +732,53 @@ const InvestigationFormModal = ({
                   htmlFor="bmReason"
                   className="text-sm font-semibold mb-2 block text-gray-600 uppercase tracking-wider"
                 >
-                  BM Reason
+                  {t('investigation.bmReason')} {!baseFieldsDisabled && role === 1 && <span className="text-red-500">*</span>}
                 </label>
                 <textarea
                   id="bmReason"
                   rows="4"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                  placeholder="Enter detailed reason ..."
+                  className={`w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500 transition ${
+                    validationErrors.bmReason ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder={t('investigation.bmReasonPlaceholder')}
                   value={bmReason}
                   onChange={(e) => {
-                    if (!isReadOnly) setBmReason(e.target.value);
+                    if (!isReadOnly) {
+                      setBmReason(e.target.value);
+                      // Clear error when user starts typing
+                      if (validationErrors.bmReason) {
+                        setValidationErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.bmReason;
+                          return newErrors;
+                        });
+                      }
+                    }
                   }}
                   readOnly={isReadOnly}
                 />
+                {validationErrors.bmReason && (
+                  <p className="text-sm text-red-600 mt-2">{validationErrors.bmReason}</p>
+                )}
               </div>
 
               <hr className="border-t border-gray-200" />
 
               <div>
                 <h3 className="text-sm font-semibold mb-3 text-gray-600 uppercase tracking-wider">
-                  Responsibility Distribution
+                  {t('investigation.responsibilityDistribution')}
                 </h3>
 
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      BM / Operation
+                      {t('investigation.bmOperation')}
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       {[
-                        { id: "companyPct", label: "Company", value: companyPct, set: setCompanyPct },
-                        { id: "userPct", label: "User", value: userPct, set: setUserPct },
-                        { id: "incomePct", label: "Income", value: incomePct, set: setIncomePct },
+                        { id: "companyPct", label: t('investigation.company'), value: companyPct, set: setCompanyPct },
+                        { id: "userPct", label: t('investigation.user'), value: userPct, set: setUserPct },
+                        { id: "incomePct", label: t('investigation.income'), value: incomePct, set: setIncomePct },
                       ].map(({ id, label, value, set }) => (
                         <div key={id}>
                           <label
@@ -731,13 +813,13 @@ const InvestigationFormModal = ({
                   {shouldShowOperationSection && (
                     <div>
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                        Operation Manager Review
+                        {t('investigation.operationManagerReview')}
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {[
-                          { id: "opCompanyPct", label: "Company", value: opCompanyPct, set: setOpCompanyPct },
-                          { id: "opUserPct", label: "User", value: opUserPct, set: setOpUserPct },
-                          { id: "opIncomePct", label: "Income", value: opIncomePct, set: setOpIncomePct },
+                          { id: "opCompanyPct", label: t('investigation.company'), value: opCompanyPct, set: setOpCompanyPct },
+                          { id: "opUserPct", label: t('investigation.user'), value: opUserPct, set: setOpUserPct },
+                          { id: "opIncomePct", label: t('investigation.income'), value: opIncomePct, set: setOpIncomePct },
                         ].map(({ id, label, value, set }) => (
                           <div key={id}>
                             <label
@@ -773,13 +855,13 @@ const InvestigationFormModal = ({
                   {shouldShowAccountSection && (
                     <div>
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                        Accounts Review
+                        {t('investigation.accountsReview')}
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         {[
-                          { id: "accCompanyPct", label: "Company", value: accCompanyPct, set: setAccCompanyPct },
-                          { id: "accUserPct", label: "User", value: accUserPct, set: setAccUserPct },
-                          { id: "accIncomePct", label: "Income", value: accIncomePct, set: setAccIncomePct },
+                          { id: "accCompanyPct", label: t('investigation.company'), value: accCompanyPct, set: setAccCompanyPct },
+                          { id: "accUserPct", label: t('investigation.user'), value: accUserPct, set: setAccUserPct },
+                          { id: "accIncomePct", label: t('investigation.income'), value: accIncomePct, set: setAccIncomePct },
                         ].map(({ id, label, value, set }) => (
                           <div key={id}>
                             <label
@@ -824,7 +906,7 @@ const InvestigationFormModal = ({
                       onClick={onClose}
                       className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
-                      Close
+                      {t('common.close')}
                     </button>
                   </div>
                 </div>
@@ -838,15 +920,15 @@ const InvestigationFormModal = ({
                       onClick={onClose}
                       className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
-                      Cancel
+                      {t('common.cancel')}
                     </button>
                     <button
                       type="submit"
                       disabled={isSaveDisabled}
-                      className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300"
                     >
-                      <Save className="mr-2 h-4 w-4" />
-                      {isSubmitting ? "Saving..." : "Save Investigation"}
+                      <Save className="h-4 w-4 flex-shrink-0" />
+                      <span>{isSubmitting ? t('investigation.saving') : t('investigation.saveInvestigation')}</span>
                     </button>
                   </div>
                 </div>

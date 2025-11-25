@@ -856,7 +856,10 @@ export default function DamageView() {
           })
         });
 
-        if (response.ok) {
+        if (response.ok && viewResponse.ok) {
+          // Set flag to trigger list refresh when user returns to dashboard
+          sessionStorage.setItem('bigDamageFormViewed', 'true');
+          
           const result = await response.json();
           // Refresh notifications by fetching them again
           const user = JSON.parse(localStorage.getItem('user') || '{}');

@@ -14,6 +14,7 @@ export default function StatusBadge({ status }) {
       case "check":
         return "bg-[#fedec3] text-[#fb923c]";
       case "bm approved":
+        return "bg-blue-100 text-blue-700";
       case "approved":
         return "bg-[#ffeaab] text-[#e6ac00]";
       case "completed":

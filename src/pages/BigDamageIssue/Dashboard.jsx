@@ -33,6 +33,7 @@ const Dashboard = () => {
   const perPage = 15;
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterRef = useRef(null);
 
   const token = useMemo(() => localStorage.getItem("token"), []);
   const listAbortRef = useRef(null);
@@ -382,9 +383,12 @@ const Dashboard = () => {
   useEffect(() => {
     // Check sessionStorage for form update flag
     const formWasUpdated = sessionStorage.getItem('bigDamageFormUpdated');
-    if (formWasUpdated === 'true' && mutate) {
-      // Clear the flag
+    const formWasViewed = sessionStorage.getItem('bigDamageFormViewed');
+    
+    if ((formWasUpdated === 'true' || formWasViewed === 'true') && mutate) {
+      // Clear the flags
       sessionStorage.removeItem('bigDamageFormUpdated');
+      sessionStorage.removeItem('bigDamageFormViewed');
       // Force immediate refresh with cache bypass
       setTimeout(() => {
         mutate(undefined, { revalidate: true });
@@ -420,8 +424,8 @@ const Dashboard = () => {
   }, [mutate, token]); // Only run once on mount or when mutate/token changes
 
   return (
-    <div className="m-6">
-      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-6 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-14px' }}>
         <div className="flex flex-col md:flex-1 md:justify-between">
           <div className="flex items-center justify-between gap-3 md:justify-start">
             <div className="flex items-center space-x-2">
@@ -431,12 +435,21 @@ const Dashboard = () => {
                 className="h-7 w-7 md:h-8 md:w-8"
               />
               <span className="text-xl font-semibold text-gray-800 md:text-2xl md:font-normal">
-                Big Damage Issue Dashboard
+                Big Damage Issue
               </span>
             </div>
             <button
               type="button"
-              onClick={() => setIsFilterOpen(prev => !prev)}
+              onClick={() => {
+                const wasClosed = !isFilterOpen;
+                setIsFilterOpen(prev => !prev);
+                // Scroll to filter section when opened
+                if (wasClosed && filterRef.current) {
+                  setTimeout(() => {
+                    filterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }
+              }}
               aria-expanded={isFilterOpen}
               className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 md:hidden ${
                 hasActiveFilters
@@ -463,7 +476,8 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
-      <div className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2`}>
+      <div className="mx-6">
+      <div ref={filterRef} className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2 sticky top-0 z-30 bg-white md:bg-transparent shadow-lg md:shadow-none border-b border-gray-200 md:border-0 py-3 md:py-0 -mx-6 px-6`}>
         <FilterCard
           filters={filters}
           onFilter={(v) => {
@@ -489,6 +503,7 @@ const Dashboard = () => {
           }}
           externalBranchOptions={branchOptions}
         />
+      </div>
       </div>
       
       {/* Error message banner for 429 and other errors */}

@@ -12,6 +12,9 @@ import {
   Type,
   Package,
   Layers,
+  CreditCard,
+  Image as ImageIcon,
+  Upload,
 } from "lucide-react";
 
 Modal.setAppElement("#root");
@@ -136,13 +139,27 @@ export default function ProductDetailModal({
   product,
   loading = false,
   onDelete,
+  accountCodes = [],
+  getAccountCodeLabel = null,
+  mode = 'view',
+  isCompleted = false,
+  onRemarkChange = null,
+  handleImageUpload = null,
 }) {
   if (!product) return null;
+  
+  const canEdit = (mode === 'add' || mode === 'edit') && !isCompleted;
 
   const resolvedImages = Array.isArray(product.modalImages) && product.modalImages.length
     ? product.modalImages
     : resolveImageEntries(product);
   const images = resolvedImages.length ? resolvedImages : [];
+
+  // Get account code label
+  const accountCode = product.acc_code1 ?? product.acc_code ?? '';
+  const accountCodeLabel = accountCode && getAccountCodeLabel
+    ? getAccountCodeLabel(accountCode)
+    : accountCode || '-';
 
   const Field = ({ icon: Icon, label, value, valueColor }) => (
     <div className="flex gap-2">
@@ -215,12 +232,41 @@ export default function ProductDetailModal({
                 ))}
               </div>
 
-              {/* Remark */}
-              {product.remark && (
-                <div className="mt-4 w-full bg-gray-100 p-3 rounded-lg">
-                  <Field icon={Type} label="Remark" value={product.remark} />
+              {/* Account Code */}
+              {accountCode && (
+                <div className="mt-4 w-full bg-gray-50 border border-gray-200 p-3 rounded-lg">
+                  <Field icon={CreditCard} label="Account Code" value={accountCodeLabel} />
                 </div>
               )}
+
+              {/* Remark */}
+              <div className="mt-4 w-full bg-gray-100 p-3 rounded-lg">
+                {canEdit && onRemarkChange ? (
+                  <div className="flex gap-2">
+                    <Type size={18} className="text-gray-500 shrink-0 mt-1" />
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-400 text-xs uppercase mb-1">Remark</p>
+                      <textarea
+                        value={product.remark || ''}
+                        onChange={(e) => onRemarkChange(product.id, e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
+                        placeholder="Add remark..."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                ) : product.remark ? (
+                  <Field icon={Type} label="Remark" value={product.remark} />
+                ) : (
+                  <div className="flex gap-2">
+                    <Type size={18} className="text-gray-500 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-gray-400 text-xs uppercase">Remark</p>
+                      <p className="text-gray-500 text-sm">-</p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Qty Section */}
               <div className="bg-blue-100 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
@@ -256,27 +302,69 @@ export default function ProductDetailModal({
               </div>
 
               {/* Images */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                {images.length > 0
-                  ? images.map((img, i) => (
-                      <img
-                        key={`product-image-${i}`}
-                        src={img}
-                        alt={`product-${i}`}
-                        className="rounded-lg border border-gray-200 object-cover w-full h-28"
-                        onError={(e) => {
-                          e.currentTarget.src = testImage;
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-gray-500" />
+                    <p className="text-xs font-semibold text-gray-500 uppercase">Images</p>
+                  </div>
+                  {canEdit && handleImageUpload && (
+                    <label
+                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-md cursor-pointer transition-colors shadow-sm"
+                      htmlFor={`file-input-modal-${product.id}`}
+                    >
+                      <Upload size={14} />
+                      Add Image
+                      <input
+                        type="file"
+                        id={`file-input-modal-${product.id}`}
+                        onChange={(e) => {
+                          if (handleImageUpload) {
+                            handleImageUpload(product.id, e);
+                          }
+                          // Reset input
+                          e.target.value = '';
                         }}
+                        className="hidden"
+                        accept="image/*"
+                        multiple
                       />
-                    ))
-                  : [testImage].map((placeholder, index) => (
-                      <div
-                        key={`product-image-placeholder-${index}`}
-                        className="rounded-lg border border-dashed border-gray-300 bg-gray-100 flex items-center justify-center w-full h-28 text-gray-500 text-xs"
-                      >
-                        No image available
-                      </div>
-                    ))}
+                    </label>
+                  )}
+                </div>
+                {images.length > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {images.map((img, i) => {
+                      const imgSrc = typeof img === 'string' ? img : (img?.src || img?.previewUrl || img?.url || '');
+                      return (
+                        <div key={`product-image-${i}`} className="relative group">
+                          <img
+                            src={imgSrc || testImage}
+                            alt={`Product image ${i + 1}`}
+                            className="rounded-lg border border-gray-200 object-cover w-full h-32 cursor-pointer hover:opacity-80 transition-opacity"
+                            onError={(e) => {
+                              e.currentTarget.src = testImage;
+                            }}
+                            onClick={() => {
+                              // Open image in full screen or preview
+                              window.open(imgSrc || testImage, '_blank');
+                            }}
+                          />
+                          {images.length > 1 && (
+                            <div className="absolute top-1 right-1 bg-black/50 text-white text-xs px-1.5 py-0.5 rounded">
+                              {i + 1}/{images.length}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
+                    <p className="text-sm text-gray-400">No images uploaded</p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
