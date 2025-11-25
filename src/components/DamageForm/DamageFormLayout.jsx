@@ -1358,9 +1358,33 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const bootstrapBranch = async () => {
       try {
         if ((formData.branch || '').trim()) return;
-        const storedUser = JSON.parse(localStorage.getItem('user'));
+        let storedUser = JSON.parse(localStorage.getItem('user'));
         const token = localStorage.getItem('token');
-        const branchId = storedUser?.from_branch_id;
+        let branchId = storedUser?.from_branch_id;
+        
+        // If branch ID is missing, try to refresh user info from API
+        if (!branchId && token) {
+          try {
+            const meResponse = await fetch('/api/me', {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+              },
+            });
+            if (meResponse.ok) {
+              const meData = await meResponse.json();
+              if (meData?.user?.from_branch_id) {
+                // Update localStorage with refreshed user info
+                storedUser = { ...storedUser, ...meData.user };
+                localStorage.setItem('user', JSON.stringify(storedUser));
+                branchId = meData.user.from_branch_id;
+              }
+            }
+          } catch (e) {
+            // Silently fail, continue with fallback
+          }
+        }
+        
         if (!branchId) {
           const fallback = storedUser?.branch_name || storedUser?.from_branch_name;
           if (fallback) {
