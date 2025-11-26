@@ -65,7 +65,7 @@ const router = createBrowserRouter([
                 element: <Search />
             },
             {
-                path: "big-damage-issue",
+                path: "big_damage_issue",
                 element: <BigDamageIssue />
             },
             {

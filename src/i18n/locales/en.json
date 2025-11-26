@@ -164,6 +164,10 @@
       "backToPrevious": "Back to Previous",
       "performAction": "Perform Action"
     }
+  },
+  "list": {
+    "noDataAvailable": "No Data Available",
+    "noDataDescription": "There are no damage issue records to display at the moment."
   }
 }
 

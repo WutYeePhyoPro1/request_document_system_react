@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+import { ChatBubbleLeftRightIcon, DocumentTextIcon } from '@heroicons/react/24/solid';
 import '../../components/DamageForm/ButtonHoverEffects.css';
 
 const StatusBadge = ({ status }) => {
@@ -43,6 +43,96 @@ const StatusBadge = ({ status }) => {
     >
       {status}
     </span>
+  );
+};
+
+// Animated Empty State Component
+const EmptyState = () => {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-4 animate-fade-in">
+      <style>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-20px);
+          }
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+        @keyframes rotate {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.6s ease-out;
+        }
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+        .animate-pulse-slow {
+          animation: pulse 2s ease-in-out infinite;
+        }
+        .animate-rotate-slow {
+          animation: rotate 20s linear infinite;
+        }
+      `}</style>
+      
+      {/* Animated Document Icon */}
+      <div className="relative mb-6">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-32 h-32 bg-blue-100 rounded-full animate-pulse-slow"></div>
+        </div>
+        <div className="relative animate-float">
+          <DocumentTextIcon className="w-24 h-24 text-blue-400" />
+        </div>
+        {/* Floating particles */}
+        <div className="absolute top-0 left-0 w-full h-full">
+          <div className="absolute top-4 left-8 w-2 h-2 bg-blue-300 rounded-full animate-pulse-slow" style={{ animationDelay: '0s' }}></div>
+          <div className="absolute top-12 right-12 w-2 h-2 bg-blue-300 rounded-full animate-pulse-slow" style={{ animationDelay: '0.5s' }}></div>
+          <div className="absolute bottom-8 left-12 w-2 h-2 bg-blue-300 rounded-full animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute bottom-4 right-8 w-2 h-2 bg-blue-300 rounded-full animate-pulse-slow" style={{ animationDelay: '1.5s' }}></div>
+        </div>
+      </div>
+      
+      {/* Text Content */}
+      <div className="text-center space-y-2">
+        <h3 className="text-xl font-semibold text-gray-700">
+          No Data Available
+        </h3>
+        <p className="text-sm text-gray-500 max-w-md">
+          There are no damage issue records to display at the moment.
+        </p>
+      </div>
+      
+      {/* Decorative Elements */}
+      <div className="mt-8 flex space-x-2">
+        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse-slow" style={{ animationDelay: '0s' }}></div>
+        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse-slow" style={{ animationDelay: '0.3s' }}></div>
+        <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse-slow" style={{ animationDelay: '0.6s' }}></div>
+      </div>
+    </div>
   );
 };
 
@@ -156,9 +246,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 <Skeleton count={5} height={50} className="mb-2" />
               </div>
             ) : isEmpty ? (
-              <div className="p-8 text-center text-gray-500">
-                No data available
-              </div>
+              <EmptyState />
             ) : (
               <table className="min-w-full">
                 <thead className="bg-white border-b border-gray-200">
@@ -262,8 +350,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             </div>
           ))
         ) : isEmpty ? (
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 text-center text-gray-500">
-            No data available
+          <div className="bg-white rounded-xl shadow-md border border-gray-200">
+            <EmptyState />
           </div>
         ) : (
           issues.map((row, idx) => {

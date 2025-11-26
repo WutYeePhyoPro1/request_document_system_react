@@ -47,10 +47,10 @@
     "percentagesMustTotal": "ရာခိုင်နှုန်းများသည် ၁၀၀% စုစုပေါင်းဖြစ်ရမည်။ လက်ရှိ",
     "percentagesMustBeNumeric": "ရာခိုင်နှုန်းများသည် ဂဏန်းတန်ဖိုးများ ဖြစ်ရမည်။",
     "percentagesMustInclude": "ရာခိုင်နှုန်းများတွင် ကုမ္ပဏီ၊ အသုံးပြုသူနှင့် ဝင်ငွေပါဝင်ရမည်။",
-    "percentagesRequiredForSection": "{section} ရာခိုင်နှုန်းများ လိုအပ်ပါသည်။",
-    "percentagesMustIncludeForSection": "{section} ရာခိုင်နှုန်းများတွင် ကုမ္ပဏီ၊ အသုံးပြုသူနှင့် ဝင်ငွေပါဝင်ရမည်။",
-    "percentagesMustBeNumericForSection": "{section} ရာခိုင်နှုန်းများသည် ဂဏန်းတန်ဖိုးများ ဖြစ်ရမည်။",
-    "percentagesMustTotalForSection": "{section} ရာခိုင်နှုန်းများသည် ၁၀၀% စုစုပေါင်းဖြစ်ရမည်။ လက်ရှိ {total}%။"
+    "percentagesRequiredForSection": "ရာခိုင်နှုန်းများ လိုအပ်ပါသည်။",
+    "percentagesMustIncludeForSection": "ရာခိုင်နှုန်းများတွင် ကုမ္ပဏီ၊ အသုံးပြုသူနှင့် ဝင်ငွေပါဝင်ရမည်။",
+    "percentagesMustBeNumericForSection": " ရာခိုင်နှုန်းများသည် ဂဏန်းတန်ဖိုးများ ဖြစ်ရမည်။",
+    "percentagesMustTotalForSection": "ရာခိုင်နှုန်းများသည် ၁၀၀% စုစုပေါင်းဖြစ်ရမည်။ လက်ရှိ {total}%။"
   },
   "damageForm": {
     "addProduct": "ထုတ်ကုန်ထည့်ရန်",
@@ -164,6 +164,10 @@
       "backToPrevious": "ယခင်သို့ ပြန်ရန်",
       "performAction": "လုပ်ဆောင်ချက် လုပ်ဆောင်ရန်"
     }
+  },
+  "list": {
+    "noDataAvailable": "ဒေတာမရှိပါ",
+    "noDataDescription": "ပြသရန် ပျက်စီးမှုဆိုင်ရာ မှတ်တမ်းများ မရှိပါ။"
   }
 }
 

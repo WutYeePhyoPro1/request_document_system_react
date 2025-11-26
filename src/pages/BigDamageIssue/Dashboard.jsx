@@ -27,7 +27,7 @@ const Dashboard = () => {
     formDocNo: "",
     fromDate: "",
     toDate: "",
-    status: null,
+    status: null, // Will be an array for multi-select
     branch: null,
   });
   const perPage = 15;
@@ -49,7 +49,20 @@ const Dashboard = () => {
     // Add other filters
     if (filters.productName) params.set("search", filters.productName);
     if (filters.formDocNo) params.set("form_doc_no", filters.formDocNo);
-    if (filters.status?.value) params.set("status", filters.status.value);
+    // Handle status as array (multi-select) or single value
+    if (filters.status) {
+      if (Array.isArray(filters.status) && filters.status.length > 0) {
+        // Multi-select: send as array or comma-separated string
+        const statusValues = filters.status.map(s => s.value || s).filter(Boolean);
+        if (statusValues.length > 0) {
+          // Send as comma-separated string (common API pattern)
+          params.set("status", statusValues.join(','));
+        }
+      } else if (filters.status.value) {
+        // Single select (backward compatibility)
+        params.set("status", filters.status.value);
+      }
+    }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
     // Only send date filters if they have actual values (not empty strings)
     if (filters.fromDate && filters.fromDate.trim() !== "") params.set("start_date", filters.fromDate);
@@ -103,13 +116,13 @@ const Dashboard = () => {
     token ? [`/api/big-damage-issues?${query}&page=${currentPage}`] : null,
     ([url]) => fetcher(url),
     { 
-      revalidateOnFocus: !has429Error,  // Disable revalidation on focus if 429 error
+      revalidateOnFocus: false,  // Disable revalidation on focus to reduce requests
       revalidateOnReconnect: true,  // Revalidate when network reconnects
       revalidateOnMount: true,  // Always revalidate when component mounts
-      dedupingInterval: 10000,  // Add deduping to prevent duplicate requests
-      refreshInterval: has429Error ? 0 : 10000,  // Increase to 10 seconds, disable if 429 error
+      dedupingInterval: 15000,  // Increase deduping to 15 seconds to prevent duplicate requests
+      refreshInterval: has429Error ? 0 : 30000,  // Increase to 30 seconds to reduce request frequency
       keepPreviousData: true,  // Keep old data when refreshing
-      revalidateIfStale: !has429Error,  // Disable if 429 error
+      revalidateIfStale: false,  // Disable automatic revalidation of stale data
       onError: (error) => {
         if (error.status === 429) {
           setHas429Error(true);
@@ -348,7 +361,7 @@ const Dashboard = () => {
       filters.formDocNo ||
       filters.fromDate ||
       filters.toDate ||
-      (filters.status && filters.status.value) ||
+      (filters.status && (Array.isArray(filters.status) ? filters.status.length > 0 : filters.status.value)) ||
       (filters.branch && filters.branch.value)
     );
   }, [filters]);
@@ -364,20 +377,25 @@ const Dashboard = () => {
     setSearchParams(newSearchParams, { replace: true });
   };
 
-  // Refresh data when page becomes visible (user returns to tab)
+  // Refresh data when page becomes visible (user returns to tab) - with debounce
   useEffect(() => {
+    let timeoutId = null;
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && mutate) {
-        // Force revalidation without using cache
-        mutate(undefined, { revalidate: true });
+      if (document.visibilityState === 'visible' && mutate && !has429Error) {
+        // Debounce visibility refresh to prevent rapid requests
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          mutate(undefined, { revalidate: true });
+        }, 2000); // Wait 2 seconds after tab becomes visible
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [mutate]);
+  }, [mutate, has429Error]);
   
   // Check if we're returning from a form view and force refresh
   useEffect(() => {
@@ -396,32 +414,31 @@ const Dashboard = () => {
     }
   }, [mutate]);
   
-  // Refresh when navigating back to dashboard (location pathname changes)
+  // Refresh when navigating back to dashboard (location pathname changes) - debounced
   useEffect(() => {
-    if (mutate && location.pathname === '/big-damage-issue') {
-      // Refresh data when returning to dashboard - force fresh fetch
+    if (mutate && location.pathname === '/big-damage-issue' && !has429Error) {
+      // Debounce navigation refresh to prevent rapid requests
       const timeoutId = setTimeout(() => {
-        // Clear cache and force revalidation
         mutate(undefined, { 
           revalidate: true,
           populateCache: true,
           rollbackOnError: false
         });
-      }, 100);
+      }, 500); // Wait 500ms after navigation
       return () => clearTimeout(timeoutId);
     }
-  }, [location.pathname, mutate]);
+  }, [location.pathname, mutate, has429Error]);
   
   // Also refresh when component first mounts (user navigates to dashboard)
   useEffect(() => {
-    if (mutate && token) {
+    if (mutate && token && !has429Error) {
       // Force refresh on mount to get latest data
       const timeoutId = setTimeout(() => {
         mutate(undefined, { revalidate: true });
-      }, 300);
+      }, 500); // Wait 500ms on mount
       return () => clearTimeout(timeoutId);
     }
-  }, [mutate, token]); // Only run once on mount or when mutate/token changes
+  }, [mutate, token, has429Error]); // Only run once on mount or when mutate/token changes
 
   return (
     <div>

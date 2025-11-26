@@ -1324,7 +1324,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                 });
                 issFile = issFiles[0];
               }
-              
+
               if (issFile && issFile.reason) {
                 // reason field contains the remark ID
                 return String(issFile.reason);
@@ -1830,7 +1830,18 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Show loading toast
       const loadingToast = toast.loading(t('messages.pdfGenerating'));
       
+      console.log('[PDF Download] Starting PDF download', { pdfUrl, generalFormId });
+      
+      let timeoutId = null;
       try {
+        // Create an AbortController for timeout
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          console.error('[PDF Download] Request timeout after 60 seconds');
+          controller.abort();
+        }, 60000); // 60 second timeout
+        
+        console.log('[PDF Download] Fetching PDF...');
         // Fetch PDF with Bearer token authentication (API route)
         const response = await fetch(pdfUrl, {
           method: 'GET',
@@ -1839,23 +1850,27 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             'Accept': 'application/pdf',
           },
           credentials: 'include',
+          signal: controller.signal,
+        });
+        
+        if (timeoutId) clearTimeout(timeoutId);
+
+        console.log('[PDF Download] Response received', { 
+          status: response.status, 
+          statusText: response.statusText,
+          contentType: response.headers.get('content-type'),
+          ok: response.ok 
         });
 
-        // Check if response is HTML (likely a redirect to login page)
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('text/html')) {
-          // Likely redirected to login page
-          const htmlText = await response.text();
-          if (htmlText.includes('login') || htmlText.includes('Login')) {
-            throw new Error(t('messages.errors.pdfAuthFailed'));
-          }
-        }
-
+        // Check content type first
+        const contentType = response.headers.get('content-type') || '';
+        
         if (!response.ok) {
-          // Try to get error message from response
+          // Clone response to read error without consuming body
+          const clonedResponse = response.clone();
           let errorMessage = t('messages.errors.pdfInvalidResponse');
           try {
-            const errorData = await response.json();
+            const errorData = await clonedResponse.json();
             if (errorData.message || errorData.error) {
               errorMessage = errorData.message || errorData.error;
             } else if (response.status === 401) {
@@ -1878,20 +1893,48 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           throw new Error(errorMessage);
         }
 
-        // Get the PDF blob
-        const blob = await response.blob();
-        
-        // Verify it's actually a PDF (check blob type)
-        if (!blob.type.includes('pdf') && blob.size > 0) {
-          // Might be an error response or HTML
-          const text = await blob.text();
-          if (text.includes('login') || text.includes('Login')) {
+        // Check if response is HTML (likely a redirect to login page)
+        if (contentType && contentType.includes('text/html')) {
+          const clonedResponse = response.clone();
+          const htmlText = await clonedResponse.text();
+          if (htmlText.includes('login') || htmlText.includes('Login')) {
             throw new Error(t('messages.errors.pdfAuthFailed'));
           }
           throw new Error(t('messages.errors.pdfInvalidResponse'));
         }
         
+        // Get the PDF blob
+        console.log('[PDF Download] Converting response to blob...');
+        const blob = await response.blob();
+        
+        console.log('[PDF Download] Blob created', { 
+          type: blob.type, 
+          size: blob.size 
+        });
+        
+        // Verify it's actually a PDF (check blob type and size)
+        if (blob.size === 0) {
+          console.error('[PDF Download] Blob is empty');
+          throw new Error(t('messages.errors.pdfInvalidResponse'));
+        }
+        
+        if (!blob.type.includes('pdf') && blob.size > 0) {
+          // Might be an error response or HTML - read as text to check
+          const blobText = await blob.text();
+          if (blobText.includes('login') || blobText.includes('Login')) {
+            throw new Error(t('messages.errors.pdfAuthFailed'));
+          }
+          // Try to parse as JSON error
+          try {
+            const errorJson = JSON.parse(blobText);
+            throw new Error(errorJson.message || errorJson.error || t('messages.errors.pdfInvalidResponse'));
+          } catch (e) {
+            throw new Error(t('messages.errors.pdfInvalidResponse'));
+          }
+        }
+        
         // Create a blob URL and download
+        console.log('[PDF Download] Creating download link...');
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -1903,14 +1946,23 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Clean up the blob URL
         window.URL.revokeObjectURL(blobUrl);
         
+        console.log('[PDF Download] PDF download completed successfully');
         toast.dismiss(loadingToast);
         toast.success(t('messages.pdfGenerated'));
       } catch (fetchError) {
+        if (timeoutId) clearTimeout(timeoutId);
         toast.dismiss(loadingToast);
+        // Handle abort/timeout
+        if (fetchError.name === 'AbortError') {
+          throw new Error(t('messages.errors.timeout'));
+        }
         throw fetchError;
       }
     } catch (error) {
-      toast.error(error.message || t('messages.pdfGenerateFailed'));
+      // Ensure loading toast is dismissed
+      toast.dismiss(loadingToast);
+      const errorMessage = error.message || t('messages.pdfGenerateFailed');
+      toast.error(errorMessage);
       console.error('PDF download error:', error);
     }
   };

@@ -1637,7 +1637,7 @@ const normalizeImageEntries = (list) => {
       </div>
 
       {/* Action buttons and Add Product button with search bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+      <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
         {/* Left side: Search box */}
         <div className="relative w-full sm:w-55 order-2 sm:order-1">
           <Search
@@ -1684,18 +1684,35 @@ const normalizeImageEntries = (list) => {
             )
           )}
           
-          {/* Add Product button for Ongoing stage - hide in add mode */}
+          {/* Add Product button for Ongoing stage - hide in add mode - Desktop only */}
           {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
             <button
               onClick={onOpenAddProductModal}
-              className="add-product-btn-hover group inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md font-medium text-sm shadow-sm transition-all duration-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 relative"
+              className="hidden md:inline-flex add-product-btn-hover group items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md font-medium text-sm shadow-sm transition-all duration-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
             >
               <Plus size={18} className="transition-all duration-300 group-hover:scale-110 shrink-0" />
               <Package size={18} className="transition-all duration-300 group-hover:scale-110 shrink-0 opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto group-hover:ml-0 -ml-0" />
-              <span className="transition-all duration-300 whitespace-nowrap group-hover:opacity-0 group-hover:max-w-0 group-hover:overflow-hidden inline-block">Add Product</span>
+              <span className="transition-all duration-300 whitespace-nowrap group-hover:opacity-0 group-hover:max-w-0 group-hover:overflow-hidden">Add Product</span>
             </button>
           )}
         </div>
+        
+        {/* Add Product button for mobile - Fixed position at bottom right */}
+        {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
+          <button
+            onClick={onOpenAddProductModal}
+            className="md:hidden fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-2xl transition-all duration-300 hover:shadow-blue-500/50 hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2"
+          >
+            <div className="relative flex items-center justify-center w-full h-full">
+              {/* Main Plus icon */}
+              <Plus size={28} className="shrink-0 drop-shadow-lg" strokeWidth={2.5} />
+              {/* Package icon as floating badge */}
+              <div className="absolute -top-1 -right-1 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg border-2 border-blue-500">
+                <Package size={12} className="text-blue-600 shrink-0" strokeWidth={2.5} />
+              </div>
+            </div>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto border border-gray-200 rounded-t-xl hidden md:block">
