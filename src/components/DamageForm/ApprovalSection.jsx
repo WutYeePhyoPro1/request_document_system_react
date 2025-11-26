@@ -60,7 +60,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
     });
   }, [safeApprovals]);
 
-  const resolveName = (approval, label, formData) => {
+  let resolveName = (approval, label, formData) => {
     if (!approval) return '';
     const fallbackNames = [
       approval.actual_user_name,
@@ -355,7 +355,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
       const hasAssignedName = Boolean(resolvedNameRaw && resolvedNameRaw.trim());
       const showDetails = isPreparedBy || hasActed;
 
-      const resolvedName = hasActed
+      let resolvedName = hasActed
         ? resolvedNameRaw
         : isCurrentStep
           ? (currentUser?.name || '')
