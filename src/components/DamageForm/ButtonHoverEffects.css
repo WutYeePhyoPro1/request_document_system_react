@@ -97,6 +97,135 @@ button:active:not(:disabled) {
   border-color: oklch(58.5% 0.233 277.117);
 }
 
+/* Add Product button hover animation */
+.add-product-btn-hover {
+  position: relative;
+  overflow: hidden;
+  transform: translateY(0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 140px;
+  max-width: 140px;
+}
+
+.add-product-btn-hover::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.add-product-btn-hover:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.add-product-btn-hover:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+  background-color: rgb(37, 99, 235);
+}
+
+.add-product-btn-hover:active:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.add-product-btn-hover:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: rgb(59, 130, 246);
+  ring-offset: 2px;
+}
+
+/* Hide text and show only icons on hover */
+.add-product-btn-hover {
+  min-width: 140px;
+  max-width: 140px;
+}
+
+.add-product-btn-hover:hover span {
+  width: 0 !important;
+  opacity: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  transition: all 0.3s ease !important;
+}
+
+.add-product-btn-hover span {
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+/* Expandable Modal Animation */
+@keyframes modalExpand {
+  0% {
+    opacity: 0;
+    transform: scale(0.7) translateY(-20px);
+  }
+  50% {
+    transform: scale(1.02) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modalBackdrop {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.modal-expandable {
+  animation: modalExpand 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.modal-backdrop {
+  animation: modalBackdrop 0.3s ease-out forwards;
+}
+
+/* Image Preview Modal Animation */
+@keyframes imagePreviewFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes imagePreviewScale {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.image-preview-backdrop {
+  animation: imagePreviewFadeIn 0.3s ease-out forwards;
+}
+
+.image-preview-content {
+  animation: imagePreviewScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
 /* Disabled button state */
 button:disabled {
   opacity: 0.6;

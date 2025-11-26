@@ -38,7 +38,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                     </li>
 
                     <li>
-                        <Link to="/big-damage-issue" className="flex items-center p-3 hover:bg-gray-100 rounded-md">
+                        <Link to="/big_damage_issue" className="flex items-center p-3 hover:bg-gray-100 rounded-md">
                             <FaBook className="text-blue-400" size={20} />
                             <span className="ml-3">Big Damage Issue</span>
                         </Link>

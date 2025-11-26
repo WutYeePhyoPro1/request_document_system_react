@@ -8,12 +8,14 @@ import {
   Search,
   Plus,
   Minus,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Package
 } from "lucide-react";
 import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
 import ProductDetailModal from "./ProductDetailModal";
 import ErrorModal from "../common/ErrorModal";
+import "../DamageForm/ButtonHoverEffects.css";
 import img1 from "../../assets/images/marble texture.jpeg";
 import img2 from "../../assets/images/marble texture.jpeg";
 import img3 from "../../assets/images/marble texture.jpeg";
@@ -319,7 +321,8 @@ export default function DamageItemTable({
   approvals = [],
   totalAmount = 0,
   gRemark = 'big_damage',
-  currentUser = null
+  currentUser = null,
+  onOpenAddProductModal = () => {}
 }) {
   // Remove debug logging to prevent infinite re-renders
 
@@ -333,9 +336,9 @@ export default function DamageItemTable({
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [selectedPreviewImages, setSelectedPreviewImages] = useState([]);
   const [previewImages, setPreviewImages] = useState([]);
   const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewItemId, setPreviewItemId] = useState(null);
   const [errorModal, setErrorModal] = useState({
     isOpen: false,
     message: ''
@@ -470,12 +473,19 @@ export default function DamageItemTable({
                        approvalStatus === 'BMApproved' ||
                        (approvalStatus === 'Pending' && formStatusNormalized === 'BM Approved');
       } else {
-        // Amount > 500k: ACK entry status must be 'OPApproved'
-        // If ACK entry status is 'Pending' but form status is 'OPApproved' or 'OP Approved',
-        // consider it valid (OP has approved, ACK entry just hasn't been updated yet)
+        // Amount > 500k: ACK entry status must be 'OPApproved' or form status must indicate OP has approved
+        // If form status is 'Ac_Acknowledged' or 'Acknowledged', it means Operation Manager has acknowledged
+        // If ACK entry status is 'Pending' but form status is 'OPApproved', 'OP Approved', 'Ac_Acknowledged', or 'Acknowledged',
+        // consider it valid (OP has approved/acknowledged, ACK entry just hasn't been updated yet)
+        const formStatusIndicatesOPApproved = formStatusNormalized === 'OPApproved' || 
+                                             formStatusNormalized === 'OP Approved' ||
+                                             formStatusNormalized === 'Ac_Acknowledged' ||
+                                             formStatusNormalized === 'Acknowledged';
         statusMatches = approvalStatus === 'OPApproved' || 
                        approvalStatus === 'OP Approved' ||
-                       (approvalStatus === 'Pending' && (formStatusNormalized === 'OPApproved' || formStatusNormalized === 'OP Approved'));
+                       approvalStatus === 'Ac_Acknowledged' ||
+                       approvalStatus === 'Acknowledged' ||
+                       (approvalStatus === 'Pending' && formStatusIndicatesOPApproved);
       }
 
       if (!statusMatches) {
@@ -1321,7 +1331,7 @@ const normalizeImageEntries = (list) => {
 
   const removeImage = (id, imgIndex) => {
     setItems(prevItems => {
-      return prevItems.map(item => {
+      const updatedItems = prevItems.map(item => {
         if (item.id === id) {
           const sourceImages = item.img
             || item.images
@@ -1357,6 +1367,11 @@ const normalizeImageEntries = (list) => {
         }
         return item;
       });
+      
+      // Sync with parent component
+      handleItemsChange(updatedItems);
+      
+      return updatedItems;
     });
   };
 
@@ -1470,21 +1485,19 @@ const normalizeImageEntries = (list) => {
       return;
     }
 
+    // Store the item ID so we can delete images from this item
+    setPreviewItemId(product.id);
     openPreview(imagesForGallery, 0);
   };
 
-  const openProductModal = (product) => {
-    const imagesForModal = gatherImagesForModal(product);
-    setSelectedProduct({
-      ...product,
-      modalImages: imagesForModal,
-    });
+  const openProductModal = (item) => {
+    setSelectedProduct(item);
     setIsProductModalOpen(true);
   };
 
   const closeProductModal = () => {
-    setSelectedProduct(null);
     setIsProductModalOpen(false);
+    setSelectedProduct(null);
   };
 
   const openPreview = (imgs, start = 0) => {
@@ -1499,6 +1512,31 @@ const normalizeImageEntries = (list) => {
     setPreviewOpen(false);
     setPreviewImages([]);
     setPreviewIndex(0);
+    setPreviewItemId(null);
+  };
+
+  const handleDeleteCurrentImage = () => {
+    if (!previewItemId || previewImages.length === 0) return;
+    
+    const currentIndex = previewIndex;
+    
+    // Update preview state immediately by removing the current image
+    const newImages = [...previewImages];
+    newImages.splice(currentIndex, 1);
+    
+    if (newImages.length === 0) {
+      // No more images, close preview and remove image
+      removeImage(previewItemId, currentIndex);
+      closePreview();
+    } else {
+      // Update preview to show next image (or previous if at end)
+      const nextIndex = currentIndex >= newImages.length ? newImages.length - 1 : currentIndex;
+      setPreviewImages(newImages);
+      setPreviewIndex(nextIndex);
+      
+      // Remove the image using the removeImage function
+      removeImage(previewItemId, currentIndex);
+    }
   };
   const nextPreview = (e) => {
     e?.stopPropagation?.();
@@ -1549,7 +1587,8 @@ const normalizeImageEntries = (list) => {
     setIsUpdatingSystemQty(true);
 
     try {
-      const response = await apiRequest('/api/big-damage-issues/sys_update', {
+      // apiRequest already returns JSON and throws on error
+      const responseData = await apiRequest('/api/big-damage-issues/sys_update', {
         method: 'POST',
         body: JSON.stringify({
           general_form_id: generalFormId,
@@ -1558,12 +1597,6 @@ const normalizeImageEntries = (list) => {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update system quantities');
-      }
-
-      const responseData = await response.json();
-      
       // The API endpoint returns product codes, not items
       // So we need to refetch the items to get updated system_qty values
       // Add a small delay to ensure database transaction has committed
@@ -1576,6 +1609,7 @@ const normalizeImageEntries = (list) => {
       const { toast } = await import('react-toastify');
       toast.success('System quantities updated successfully');
     } catch (error) {
+      console.error('Error updating system quantities:', error);
       setErrorModal({
         isOpen: true,
         message: error.message || 'Failed to update system quantities. Please try again.'
@@ -1602,39 +1636,10 @@ const normalizeImageEntries = (list) => {
         </span>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-col sm:flex-row justify-start items-start sm:items-center gap-2 mb-3">
-        {/* Buttons */}
-        <div className="flex gap-2 flex-wrap">
-          {/* Delete button - Only for account, not for supervisor */}
-          {!isCompleted && !isSupervisorUser && selectedIds.length > 0 && (
-            <button
-              onClick={confirmMultipleDelete}
-              className="flex items-center gap-1 px-2 py-[1px] text-[0.65rem] sm:text-[0.75rem] bg-red-600 text-white rounded hover:bg-red-700 transition"
-            >
-              <Trash2 size={14} /> Delete ({selectedIds.length})
-            </button>
-          )}
-          {/* Account codes button should appear only in acknowledge and issue stages */}
-          {accountCodes.length > 0 && (
-            (status === 'Ac_Acknowledged' || 
-             status === 'Acknowledged' || 
-             status === 'Completed' || 
-             status === 'Issued' || 
-             status === 'SupervisorIssued') && (
-              <button
-                type="button"
-                onClick={() => setShowAccountCodes((prev) => !prev)}
-                className={`flex items-center gap-2 px-3 py-1 rounded text-[0.7rem] sm:text-[0.75rem] border transition ${showAccountCodes ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'}`}
-              >
-                <span className="font-semibold">{showAccountCodes ? 'Hide Account Codes' : 'Show Account Codes'}</span>
-              </button>
-            )
-          )}
-        </div>
-
-        {/* Search box */}
-        <div className="relative w-full sm:w-55">
+      {/* Action buttons and Add Product button with search bar */}
+      <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+        {/* Left side: Search box */}
+        <div className="relative w-full sm:w-55 order-2 sm:order-1">
           <Search
             size={14}
             className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
@@ -1650,6 +1655,64 @@ const normalizeImageEntries = (list) => {
             className="w-full pl-8 pr-3 py-1.5 text-[0.9rem] sm:text-[0.8rem] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-blue-400 transition"
           />
         </div>
+
+        {/* Right side: Action buttons and Add Product button */}
+        <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
+          {/* Delete button - Only for account, not for supervisor */}
+          {!isCompleted && !isSupervisorUser && selectedIds.length > 0 && (
+            <button
+              onClick={confirmMultipleDelete}
+              className="flex items-center gap-1 px-2 py-[1px] text-[0.65rem] sm:text-[0.75rem] bg-red-600 text-white rounded hover:bg-red-700 transition"
+            >
+              <Trash2 size={14} /> Delete ({selectedIds.length})
+            </button>
+          )}
+          
+          {/* Account codes button should appear only in acknowledge and issue stages */}
+          {accountCodes.length > 0 && (
+            (status === 'Ac_Acknowledged' || 
+             status === 'Acknowledged' || 
+             status === 'Issued' || 
+             status === 'SupervisorIssued') && (
+              <button
+                type="button"
+                onClick={() => setShowAccountCodes((prev) => !prev)}
+                className={`flex items-center gap-2 px-3 py-1 rounded text-[0.7rem] sm:text-[0.75rem] border transition ${showAccountCodes ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'}`}
+              >
+                <span className="font-semibold">{showAccountCodes ? 'Hide Account Codes' : 'Show Account Codes'}</span>
+              </button>
+            )
+          )}
+          
+          {/* Add Product button for Ongoing stage - hide in add mode - Desktop only */}
+          {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
+            <button
+              onClick={onOpenAddProductModal}
+              className="hidden md:inline-flex add-product-btn-hover group items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md font-medium text-sm shadow-sm transition-all duration-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              <Plus size={18} className="transition-all duration-300 group-hover:scale-110 shrink-0" />
+              <Package size={18} className="transition-all duration-300 group-hover:scale-110 shrink-0 opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto group-hover:ml-0 -ml-0" />
+              <span className="transition-all duration-300 whitespace-nowrap group-hover:opacity-0 group-hover:max-w-0 group-hover:overflow-hidden">Add Product</span>
+            </button>
+          )}
+        </div>
+        
+        {/* Add Product button for mobile - Fixed position at bottom right */}
+        {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
+          <button
+            onClick={onOpenAddProductModal}
+            className="md:hidden fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-2xl transition-all duration-300 hover:shadow-blue-500/50 hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2"
+          >
+            <div className="relative flex items-center justify-center w-full h-full">
+              {/* Main Plus icon */}
+              <Plus size={28} className="shrink-0 drop-shadow-lg" strokeWidth={2.5} />
+              {/* Package icon as floating badge */}
+              <div className="absolute -top-1 -right-1 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg border-2 border-blue-500">
+                <Package size={12} className="text-blue-600 shrink-0" strokeWidth={2.5} />
+              </div>
+            </div>
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto border border-gray-200 rounded-t-xl hidden md:block">
@@ -1896,7 +1959,8 @@ const normalizeImageEntries = (list) => {
                   {/* Remark */}
                   <td className="px-2 py-2">
                     <div className="w-full" onClick={e => e.stopPropagation()}>
-                      {mode === 'view' ? (
+                      {/* Make remark editable when: mode is not view, OR status is Ongoing (for newly added products) */}
+                      {(mode === 'view' && status !== 'Ongoing') ? (
                         <div className="min-w-[100px] p-1">
                           {item.remark || '-'}
                         </div>
@@ -1911,12 +1975,14 @@ const normalizeImageEntries = (list) => {
                           onClick={e => e.stopPropagation()}
                           className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                           placeholder="Add remark..."
+                          disabled={isCompleted && mode === 'view'}
                         />
                       )}
                     </div>
                   </td>
                   <td className="px-2 py-2">
-                    {(mode === 'add' || mode === 'edit') && (
+                    {/* Make img editable when: mode is add/edit, OR status is Ongoing (for newly added products) */}
+                    {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted)) ? (
                       <div className="flex items-center gap-1">
                         <label 
                           className="w-7 h-7 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white cursor-pointer transition-colors shadow-sm border-2 border-white"
@@ -1931,6 +1997,7 @@ const normalizeImageEntries = (list) => {
                             className="hidden"
                             accept="image/*"
                             multiple
+                            disabled={isCompleted && mode === 'view'}
                           />
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
@@ -1951,8 +2018,8 @@ const normalizeImageEntries = (list) => {
                           </svg>
                         </button>
                       </div>
-                    )}
-                    {mode === 'view' && (
+                    ) : (
+                      /* View mode - show only view images button */
                       <button
                         type="button"
                         className="w-9 h-9 flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
@@ -1961,6 +2028,7 @@ const normalizeImageEntries = (list) => {
                           openImageGallery(item);
                         }}
                         aria-label="View images"
+                        title="View images"
                       >
                         <ImageIcon className="h-4 w-4" />
                       </button>
@@ -2030,41 +2098,45 @@ const normalizeImageEntries = (list) => {
           paginatedItems.map((item) => (
             <div
               key={item.id}
-              className={`border border-gray-100 rounded-lg p-2 mb-2 bg-white shadow-none hover:shadow-sm transition-all ${
-                selectedIds.includes(item.id) ? "ring-1 ring-emerald-300" : ""
+              className={`border border-gray-200 rounded-lg p-2.5 mb-2 bg-white shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer ${
+                selectedIds.includes(item.id) ? "ring-1 ring-emerald-400 border-emerald-300" : ""
               }`}
+              onClick={() => openProductModal(item)}
             >
               <div className="flex gap-2 min-w-0">
                 <input
                   type="checkbox"
                   className="mt-1 accent-emerald-600 shrink-0"
                   checked={selectedIds.includes(item.id)}
-                  onChange={() => toggleSelect(item.id)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    toggleSelect(item.id);
+                  }}
                 />
 
-                <div className="flex-1 min-w-0" onClick={() => openProductModal(item)}>
-                  <div className="flex items-start justify-between min-w-0">
-                    <div className="min-w-0 flex-1 basis-0 pr-12 sm:pr-0">
-                      <div className="block text-[2.5vw] sm:text-xs text-gray-900 w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis py-0.5 leading-tight">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between min-w-0 gap-2">
+                    <div className="min-w-0 flex-1 basis-0">
+                      <div className="block text-sm font-semibold text-gray-900 w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis py-0.5 leading-tight">
                       {item.name}
                       </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[1.8vw] sm:text-xs text-gray-500 py-0.5">
-                        <span className="px-1 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-700">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                        <span className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-700 text-xs font-medium">
                           {item.code}
                         </span>
-                        <span className="px-1 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                        <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
                           {item.unit}
                         </span>
-                        <span className="px-1 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700">
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
                           Req: {item.actual_qty ?? item.request_qty ?? '0'}
                         </span>
-                        <span className="px-1 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700">
+                        <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
                           Final: {item.final_qty ?? item.actual_qty ?? '0'}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <div className="relative">
                         {Array.isArray(item.img) && item.img.length > 0 ? (
                           (() => {
@@ -2076,7 +2148,7 @@ const normalizeImageEntries = (list) => {
                                   src={src0}
                                   alt={item.name}
                                   loading="lazy"
-                                  className="w-9 h-9 sm:w-10 sm:h-10 object-cover rounded-lg cursor-zoom-in border border-gray-200"
+                                  className="w-11 h-11 object-cover rounded-lg cursor-zoom-in border border-gray-200"
                                   onError={(e) => {
                                     e.currentTarget.src = testImage;
                                     e.currentTarget.onError = null;
@@ -2084,7 +2156,7 @@ const normalizeImageEntries = (list) => {
                                   onClick={(e) => { e.stopPropagation(); openPreview(item.img, 0); }}
                                 />
                                 {item.img.length > 1 && (
-                                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
                                     +{item.img.length - 1}
                                   </div>
                                 )}
@@ -2092,128 +2164,26 @@ const normalizeImageEntries = (list) => {
                             );
                           })()
                         ) : (
-                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-[0.65rem] sm:text-[0.56rem] text-gray-400">
+                          <div className="w-11 h-11 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
                             No Image
                           </div>
                         )}
                       </div>
-                      
-                      {/* Plus button for adding images */}
-                      {/* (mode === 'add' || mode === 'edit') && ( */}
-                  {(mode === 'add' || mode === 'edit') && (
-                      <>
-                        {/* Blue add image button */}
-                        <div className="relative">
-                          <label 
-                            className="w-7 h-7 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white cursor-pointer transition-colors shadow-sm border-2 border-white"
-                            onClick={(e) => e.stopPropagation()}
-                            title="Add image"
-                            htmlFor={`file-input-${item.id}`}
-                          >
-                            <input
-                              type="file"
-                              id={`file-input-${item.id}`}
-                              ref={el => fileInputRefs.current[item.id] = el}
-                              onChange={(e) => handleImageUpload(item.id, e)}
-                              className="hidden"
-                              accept="image/*"
-                              multiple
-                            />
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                            </svg>
-                          </label>
-                        </div>
-
-                        {/* Green/yellow/red debug button - REMOVE THIS ENTIRE BLOCK */}
-                      </>
-                    )}
-
-                      {/* )} */}
-                      {/* Debug: Always show the button with different colors based on mode */}
-                      {/* <div className="relative ml-1">
-                        <div className="text-xs text-red-500">
-                          Mode: {mode}
-                        </div>
-                        <label 
-                          className={`w-8 h-8 ${mode === 'add' ? 'bg-green-500' : mode === 'edit' ? 'bg-yellow-500' : 'bg-red-500'} rounded-full flex items-center justify-center text-white cursor-pointer hover:opacity-90 transition-colors shadow-md border-2 border-white`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          title={`Add image (Mode: ${mode})`}
-                          htmlFor={`file-input-2-${item.id}`}
-                        >
-                          <input
-                            type="file"
-                            id={`file-input-2-${item.id}`}
-                            ref={el => {
-                              fileInputRefs.current[item.id] = el;
-                            }}
-                            onChange={(e) => {
-                              handleImageUpload(item.id, e);
-                            }}
-                            className="hidden"
-                            accept="image/*"
-                            multiple
-                          />
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                          </svg>
-                        </label>
-                      </div> */}
                     </div>
                   </div>
-
-                  <div className="mt-2 flex flex-col gap-1">
-                    <textarea
-                      value={item.remark || ''}
-                      onChange={(e) => handleRemarkChange(item.id, e.target.value)}
-                      className="w-full px-2 py-[1px] text-[0.8rem] font-light sm:text-xs border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-400 resize-y leading-snug"
-                      placeholder="Add remark..."
-                      rows={2}
-                      onInput={(e) => { e.target.style.height = 'auto'; e.target.style.height = `${e.target.scrollHeight}px`; }}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                    {/* Show account code in mobile view in all stages including Completed */}
-                    {showAccountCodes && (
-                      <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-                        <label className="block text-[0.7rem] text-gray-500 mb-1">Account Code</label>
-                        {isCompleted ? (
-                          <div className="rounded border border-gray-200 bg-gray-50 px-2 py-1 text-[0.75rem] font-medium text-gray-700">
-                            {getAccountCodeLabel(item.acc_code1 ?? item.acc_code ?? '')}
-                          </div>
-                        ) : (
-                          <select
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-[0.75rem] focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                            value={item.acc_code1 ?? item.acc_code ?? ''}
-                            onChange={(e) => {
-                              const matchId = item.id ?? item.specific_form_id;
-                              onItemAccountCodeChange(matchId, e.target.value);
-                            }}
-                          >
-                            <option value="">Choose Account Code</option>
-                            {accountCodes.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    )}
-                    <div className="ml-auto flex items-center gap-1">
-                      <span className="text-emerald-700 font-semibold text-[0.7rem] sm:text-sm">
-                        {Number(item.amount || 0).toLocaleString()}
-                      </span>
-                      <ChevronRight size={12} className="text-gray-400" />
-                    </div>
+                  
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-emerald-700 font-semibold text-sm">
+                      {Number(item.amount || 0).toLocaleString()}
+                    </span>
+                    <ChevronRight size={16} className="text-gray-400" />
                   </div>
                 </div>
               </div>
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-400 text-[0.85rem] sm:text-sm py-6">No items added yet.</p>
+          <p className="text-center text-gray-400 text-sm py-6">No items added yet.</p>
         )}
 
         {!isCompleted && selectedIds.length > 0 && (
@@ -2399,20 +2369,49 @@ const normalizeImageEntries = (list) => {
       <ProductDetailModal
         isOpen={isProductModalOpen}
         onClose={closeProductModal}
-        product={selectedProduct}
+        product={selectedProduct ? (() => {
+          // Get the current item from items array to ensure we have the latest data
+          const currentItem = items.find(item => item.id === selectedProduct.id) || selectedProduct;
+          return {
+            ...currentItem,
+            modalImages: extractImageArray(currentItem)
+          };
+        })() : null}
+        accountCodes={accountCodes}
+        getAccountCodeLabel={getAccountCodeLabel}
+        mode={mode}
+        isCompleted={isCompleted}
+        onRemarkChange={handleRemarkChange}
+        handleImageUpload={handleImageUpload}
       />
 
       {previewOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
           onClick={closePreview}
         >
-          <div className="relative max-w-[70vw] max-h-[75vh]" onClick={(e) => e.stopPropagation()}>
+          <div className="relative max-w-[70vw] max-h-[75vh] image-preview-content" onClick={(e) => e.stopPropagation()}>
             <img
               src={previewImages[previewIndex]}
               alt="Preview"
               className="max-w-[60vw] max-h-[60vh] object-contain rounded shadow"
             />
+            
+            {/* Delete button - only show when editable, positioned at top-left */}
+            {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted)) && previewItemId && (
+              <button
+                className="absolute top-2 left-2 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 z-10"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteCurrentImage();
+                }}
+                aria-label="Delete image"
+                title="Delete image"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            )}
+            
             {previewImages.length > 1 && (
               <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 text-white px-4 py-2 rounded-full shadow">
                 <button
@@ -2439,7 +2438,7 @@ const normalizeImageEntries = (list) => {
               </div>
             )}
             <button
-              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-700 shadow flex items-center justify-center text-sm"
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-700 shadow flex items-center justify-center text-sm hover:bg-gray-100 transition-colors"
               onClick={closePreview}
               aria-label="Close"
             >

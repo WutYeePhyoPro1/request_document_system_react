@@ -8,6 +8,7 @@ import finalLogo from "../assets/images/finallogo.png";
 import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
 import { NotificationContext } from "../context/NotificationContext"; // ✅
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Navbar({ toggleSidebar }) {
     const { user, logout } = useAuth();
@@ -123,6 +124,7 @@ export default function Navbar({ toggleSidebar }) {
             </span>
 
             <div className="flex items-center space-x-4">
+                <LanguageSwitcher />
                 <NotificationIcon notifications={notifications} />
                 <div className="relative" ref={dropdownRef}>
                     <button

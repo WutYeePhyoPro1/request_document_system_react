@@ -1,16 +1,20 @@
 import React from "react";
 import Modal from "react-modal";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from 'react-i18next';
 
 Modal.setAppElement("#root");
 
 export default function ConfirmationModal({
   show,
-  title = "Confirm",  
-  message = "Are you sure?",
+  title,  
+  message,
   onConfirm,
   onCancel,
 }) {
+  const { t } = useTranslation();
+  const defaultTitle = title || t('confirmation.title');
+  const defaultMessage = message || t('confirmation.areYouSure');
   return (
     <Modal
       isOpen={show}
@@ -35,23 +39,23 @@ export default function ConfirmationModal({
             className="relative bg-white rounded-xl p-6 w-96 shadow-2xl"
           >
             <h2 className="text-lg font-semibold mb-4 text-gray-800">
-              {title}
+              {defaultTitle}
             </h2>
 
-            <p className="mb-6 text-gray-600">{message}</p>
+            <p className="mb-6 text-gray-600">{defaultMessage}</p>
 
             <div className="flex justify-end gap-3">
               <button
                 onClick={onCancel}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 hover:bg-gray-300 transition"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={onConfirm}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 focus:ring-4 focus:ring-red-300 transition"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </motion.div>

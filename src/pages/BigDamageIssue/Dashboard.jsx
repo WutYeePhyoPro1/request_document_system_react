@@ -27,12 +27,13 @@ const Dashboard = () => {
     formDocNo: "",
     fromDate: "",
     toDate: "",
-    status: null,
+    status: null, // Will be an array for multi-select
     branch: null,
   });
   const perPage = 15;
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterRef = useRef(null);
 
   const token = useMemo(() => localStorage.getItem("token"), []);
   const listAbortRef = useRef(null);
@@ -48,7 +49,20 @@ const Dashboard = () => {
     // Add other filters
     if (filters.productName) params.set("search", filters.productName);
     if (filters.formDocNo) params.set("form_doc_no", filters.formDocNo);
-    if (filters.status?.value) params.set("status", filters.status.value);
+    // Handle status as array (multi-select) or single value
+    if (filters.status) {
+      if (Array.isArray(filters.status) && filters.status.length > 0) {
+        // Multi-select: send as array or comma-separated string
+        const statusValues = filters.status.map(s => s.value || s).filter(Boolean);
+        if (statusValues.length > 0) {
+          // Send as comma-separated string (common API pattern)
+          params.set("status", statusValues.join(','));
+        }
+      } else if (filters.status.value) {
+        // Single select (backward compatibility)
+        params.set("status", filters.status.value);
+      }
+    }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
     // Only send date filters if they have actual values (not empty strings)
     if (filters.fromDate && filters.fromDate.trim() !== "") params.set("start_date", filters.fromDate);
@@ -102,13 +116,13 @@ const Dashboard = () => {
     token ? [`/api/big-damage-issues?${query}&page=${currentPage}`] : null,
     ([url]) => fetcher(url),
     { 
-      revalidateOnFocus: !has429Error,  // Disable revalidation on focus if 429 error
+      revalidateOnFocus: false,  // Disable revalidation on focus to reduce requests
       revalidateOnReconnect: true,  // Revalidate when network reconnects
       revalidateOnMount: true,  // Always revalidate when component mounts
-      dedupingInterval: 10000,  // Add deduping to prevent duplicate requests
-      refreshInterval: has429Error ? 0 : 10000,  // Increase to 10 seconds, disable if 429 error
+      dedupingInterval: 15000,  // Increase deduping to 15 seconds to prevent duplicate requests
+      refreshInterval: has429Error ? 0 : 30000,  // Increase to 30 seconds to reduce request frequency
       keepPreviousData: true,  // Keep old data when refreshing
-      revalidateIfStale: !has429Error,  // Disable if 429 error
+      revalidateIfStale: false,  // Disable automatic revalidation of stale data
       onError: (error) => {
         if (error.status === 429) {
           setHas429Error(true);
@@ -347,7 +361,7 @@ const Dashboard = () => {
       filters.formDocNo ||
       filters.fromDate ||
       filters.toDate ||
-      (filters.status && filters.status.value) ||
+      (filters.status && (Array.isArray(filters.status) ? filters.status.length > 0 : filters.status.value)) ||
       (filters.branch && filters.branch.value)
     );
   }, [filters]);
@@ -363,28 +377,36 @@ const Dashboard = () => {
     setSearchParams(newSearchParams, { replace: true });
   };
 
-  // Refresh data when page becomes visible (user returns to tab)
+  // Refresh data when page becomes visible (user returns to tab) - with debounce
   useEffect(() => {
+    let timeoutId = null;
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && mutate) {
-        // Force revalidation without using cache
-        mutate(undefined, { revalidate: true });
+      if (document.visibilityState === 'visible' && mutate && !has429Error) {
+        // Debounce visibility refresh to prevent rapid requests
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          mutate(undefined, { revalidate: true });
+        }, 2000); // Wait 2 seconds after tab becomes visible
       }
     };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [mutate]);
+  }, [mutate, has429Error]);
   
   // Check if we're returning from a form view and force refresh
   useEffect(() => {
     // Check sessionStorage for form update flag
     const formWasUpdated = sessionStorage.getItem('bigDamageFormUpdated');
-    if (formWasUpdated === 'true' && mutate) {
-      // Clear the flag
+    const formWasViewed = sessionStorage.getItem('bigDamageFormViewed');
+    
+    if ((formWasUpdated === 'true' || formWasViewed === 'true') && mutate) {
+      // Clear the flags
       sessionStorage.removeItem('bigDamageFormUpdated');
+      sessionStorage.removeItem('bigDamageFormViewed');
       // Force immediate refresh with cache bypass
       setTimeout(() => {
         mutate(undefined, { revalidate: true });
@@ -392,36 +414,35 @@ const Dashboard = () => {
     }
   }, [mutate]);
   
-  // Refresh when navigating back to dashboard (location pathname changes)
+  // Refresh when navigating back to dashboard (location pathname changes) - debounced
   useEffect(() => {
-    if (mutate && location.pathname === '/big-damage-issue') {
-      // Refresh data when returning to dashboard - force fresh fetch
+    if (mutate && location.pathname === '/big-damage-issue' && !has429Error) {
+      // Debounce navigation refresh to prevent rapid requests
       const timeoutId = setTimeout(() => {
-        // Clear cache and force revalidation
         mutate(undefined, { 
           revalidate: true,
           populateCache: true,
           rollbackOnError: false
         });
-      }, 100);
+      }, 500); // Wait 500ms after navigation
       return () => clearTimeout(timeoutId);
     }
-  }, [location.pathname, mutate]);
+  }, [location.pathname, mutate, has429Error]);
   
   // Also refresh when component first mounts (user navigates to dashboard)
   useEffect(() => {
-    if (mutate && token) {
+    if (mutate && token && !has429Error) {
       // Force refresh on mount to get latest data
       const timeoutId = setTimeout(() => {
         mutate(undefined, { revalidate: true });
-      }, 300);
+      }, 500); // Wait 500ms on mount
       return () => clearTimeout(timeoutId);
     }
-  }, [mutate, token]); // Only run once on mount or when mutate/token changes
+  }, [mutate, token, has429Error]); // Only run once on mount or when mutate/token changes
 
   return (
-    <div className="m-6">
-      <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+    <div>
+      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-6 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-14px' }}>
         <div className="flex flex-col md:flex-1 md:justify-between">
           <div className="flex items-center justify-between gap-3 md:justify-start">
             <div className="flex items-center space-x-2">
@@ -431,12 +452,21 @@ const Dashboard = () => {
                 className="h-7 w-7 md:h-8 md:w-8"
               />
               <span className="text-xl font-semibold text-gray-800 md:text-2xl md:font-normal">
-                Big Damage Issue Dashboard
+                Big Damage Issue
               </span>
             </div>
             <button
               type="button"
-              onClick={() => setIsFilterOpen(prev => !prev)}
+              onClick={() => {
+                const wasClosed = !isFilterOpen;
+                setIsFilterOpen(prev => !prev);
+                // Scroll to filter section when opened
+                if (wasClosed && filterRef.current) {
+                  setTimeout(() => {
+                    filterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }
+              }}
               aria-expanded={isFilterOpen}
               className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 md:hidden ${
                 hasActiveFilters
@@ -463,7 +493,8 @@ const Dashboard = () => {
           </button>
         </div>
       </div>
-      <div className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2`}>
+      <div className="mx-6">
+      <div ref={filterRef} className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2 sticky top-0 z-30 bg-white md:bg-transparent shadow-lg md:shadow-none border-b border-gray-200 md:border-0 py-3 md:py-0 -mx-6 px-6`}>
         <FilterCard
           filters={filters}
           onFilter={(v) => {
@@ -489,6 +520,7 @@ const Dashboard = () => {
           }}
           externalBranchOptions={branchOptions}
         />
+      </div>
       </div>
       
       {/* Error message banner for 429 and other errors */}

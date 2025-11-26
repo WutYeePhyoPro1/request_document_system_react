@@ -17,8 +17,8 @@
 
     // Other Outputs
     "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
+    // "declaration": true,  // Not needed with noEmit: true
+    // "declarationMap": true,  // Not needed with noEmit: true
 
     // Stricter Typechecking Options
     "noUncheckedIndexedAccess": true,
@@ -47,6 +47,7 @@
     "checkJs": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "noEmit": true,    // ✅ Vite handles compilation, TypeScript only type-checks
     
   } ,
   "include": ["src"]
