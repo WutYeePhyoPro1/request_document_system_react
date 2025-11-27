@@ -335,6 +335,7 @@ button.ripple:focus:not(:active)::after {
   animation: ripple 1s ease-out;
 }
 
+<<<<<<< HEAD
 /* Filter Button Hover Animation */
 .filter-btn-hover {
   position: relative;
@@ -443,3 +444,5 @@ input[type="range"].slider::-moz-range-thumb:hover {
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
 }
 
+=======
+>>>>>>> 7cfd7d8 (current update)

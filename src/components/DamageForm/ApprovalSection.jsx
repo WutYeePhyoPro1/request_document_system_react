@@ -224,6 +224,19 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
           hasActed = Boolean(matchingApproval?.actual_user_id);
         } else if (isCheckedStatus || matchingApproval?.actual_user_id || matchingApproval?.status === 'Checked') {
           // Form has been checked or approval explicitly shows checked
+<<<<<<< HEAD
+=======
+          hasActed = true;
+        } else {
+          // Otherwise, don't show as acted
+          hasActed = false;
+        }
+      }
+
+      // For "Operation Mgr Approved by", if status is OPApproved/Completed/Ac_Acknowledged, it should be marked as acted
+      if (label === 'Operation Mgr Approved by') {
+        if (status === 'OPApproved' || status === 'OP Approved' || status === 'Completed' || status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+>>>>>>> 7cfd7d8 (current update)
           hasActed = true;
         } else {
           // Otherwise, don't show as acted
@@ -549,10 +562,46 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
               key={`${approval.label}-${index}`}
               className={`bg-white border rounded-md p-2 text-gray-700 flex flex-col gap-1 min-w-0 md:flex-1 ${approval.acted ? 'border-green-200' : 'border-gray-200'} md:shadow-sm ${getInnerShadowClass()} md:[box-shadow:none]`}
             >
-                <div className="flex items-center justify-between w-full">
-                  <p className="flex items-center gap-1 text-gray-500 text-xs uppercase tracking-wider">
-                    <User className="text-blue-500 w-4 h-4" />
-                    {approval.label}
+              <div className="flex items-center justify-between w-full">
+                <p className="font-semibold flex items-center gap-1 text-gray-800 text-sm">
+                  <User className="text-blue-500 w-[3vw] h-[3vw] sm:w-4 sm:h-4" />
+                  {approval.label}
+                </p>
+                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-sm border ${statusClass}`}>
+                  {approval.acted ? (
+                    <CheckCircle className="w-[2.6vw] h-[2.6vw] sm:w-3 sm:h-3" />
+                  ) : (
+                    <Clock className="w-[2.6vw] h-[2.6vw] sm:w-3 sm:h-3" />
+                  )}
+                </span>
+              </div>
+                
+              <div className="mt-1">
+                <p className="text-xs text-gray-500">{approval.acted ? 'Approved By:' : 'Pending Approval:'}</p>
+                {approval.acted ? (
+                  <>
+                    <p className="font-medium text-gray-900 text-sm">
+                      {approval.title && <span>{approval.title} </span>}
+                      {approval.name || (approval.label === 'Prepared by' ? '' : 'N/A')}
+                    </p>
+                    {(approval.department || approval.role) && (
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        ({approval.department || approval.role})
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="font-medium text-gray-900 text-sm">Pending</p>
+                )}
+              </div>
+
+              {approval.date && (
+                <div>
+                  <p className="text-xs text-gray-500">{approval.acted ? 'Date Approved:' : 'Pending since:'}</p>
+                  <p className="text-sm text-gray-800">
+                    {approval.acted
+                      ? approval.date ? new Date(approval.date).toLocaleString() : 'N/A'
+                      : 'Awaiting action'}
                   </p>
                   <span className={`hidden md:inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs border ${statusClass}`}>
                     {approval.acted ? (

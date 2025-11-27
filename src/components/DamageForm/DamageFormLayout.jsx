@@ -1631,9 +1631,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         img: [],
       };
 
+      console.log('New item created:', newItem);
+
       // Add the new item to the form
       setFormData(prev => {
         const updatedItems = [...prev.items, newItem];
+        console.log('Items in form after adding:', updatedItems.length);
         return {
           ...prev,
           items: updatedItems
@@ -2245,6 +2248,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           ? null
           : Number(categoryId);
 
+        console.log(`Item ${index} normalized:`, {
+          product_code: productCode,
+          request_qty: finalRequestQty,
+          actual_qty: resolvedActual,
+          final_qty: resolvedFinal,
+          price,
+          amount
+        });
+
         return {
           product_code: productCode,
           product_name: productName,
@@ -2403,6 +2415,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Send items in nested format that Laravel expects: items[0][product_code], items[1][product_code], etc.
       // Laravel Repository expects: $request['items'] as an array
       normalizedItems.forEach((item, index) => {
+        console.log(`Processing item ${index}:`, item);
         Object.entries(item).forEach(([key, value]) => {
           // Special handling for numeric fields - include 0 values
           const isNumericField = ['request_qty', 'actual_qty', 'final_qty', 'system_qty', 'price', 'amount', 'product_type'].includes(key);
@@ -2871,6 +2884,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       if (isExistingForm) formDataToSend.append('general_form_id', generalFormId);
 
+      // Log all FormData entries for debugging
+      console.log('=== FormData being sent to API ===');
+      console.log('Endpoint:', endpoint);
+      console.log('Method:', method);
+      console.log('FormData entries:');
+      for (const [key, value] of formDataToSend.entries()) {
+        console.log(`  ${key}:`, value);
+      }
+      console.log('=== End FormData ===');
+
       try {
         // Make the API call with detailed logging
         const response = await apiFetch(endpoint, {
@@ -3205,15 +3228,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     );
     const requiresOpManagerApproval = totalAmount > 500000;
     
-    console.log('[showApproveButton] Starting:', {
-      role,
-      status,
-      normalizedStatus,
-      totalAmount,
-      requiresOpManagerApproval,
-      isAccount
-    });
-    
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
     // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
     if ((isAccount || role === 'account') && requiresOpManagerApproval) {
@@ -3399,16 +3413,6 @@ const resolveApproveAction = () => {
     ?? 0
   );
   const requiresOpManagerApproval = totalAmount > 500000;
-  
-  console.log('[resolveApproveAction] Starting:', {
-    role,
-    status,
-    normalizedStatus,
-    totalAmount,
-    requiresOpManagerApproval,
-    isAccount,
-    actionsApprove: actions?.approve
-  });
   
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
