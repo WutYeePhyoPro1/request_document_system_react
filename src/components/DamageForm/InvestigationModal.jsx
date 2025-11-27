@@ -239,6 +239,7 @@ const InvestigationFormModal = ({
     return 1;
   };
 
+//check multiple sources for general form id, including responde data after form submission
   const resolveGeneralFormId = () => {
     // Check multiple sources for general_form_id, including response data after form submission
     let generalFormId = 
