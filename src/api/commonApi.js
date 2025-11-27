@@ -24,6 +24,14 @@ try {
     });
     return response.data.count ;
 } catch (error) {
+    // Re-throw error so caller can handle 429 and other errors
+    if (error?.response?.status === 429) {
+        // Rate limited - throw with status for handling
+        const rateLimitError = new Error('Too many requests');
+        rateLimitError.response = error.response;
+        throw rateLimitError;
+    }
     console.error("Error fetch get noti" , error) ;
+    throw error; // Re-throw to allow caller to handle
 }
 }

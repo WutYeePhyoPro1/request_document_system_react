@@ -364,22 +364,21 @@ export default function Demo() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {/* {discountData?.data?.length > 0 ? (
+              {discountData?.data?.length > 0 ? (
                 rows
               ) : (
                
                   <Table.Tr>
           <Table.Td colSpan={7}>
             <div className="flex flex-col items-center justify-center py-10">
-              {/* <Loader size="xl" color="blue" /> */}
+              <Loader size="xl" color="blue" />
               <p className="mt-4 text-lg font-semibold text-gray-700 animate-pulse">
-                There is no data.
+                Loading Data.Please wait!...
               </p>
             </div>
           </Table.Td>
         </Table.Tr>
-              )} */}
-              {rows}
+              )}
             </Table.Tbody>
           </Table>
         </div>

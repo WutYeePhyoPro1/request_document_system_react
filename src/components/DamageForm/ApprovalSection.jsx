@@ -224,6 +224,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
           hasActed = Boolean(matchingApproval?.actual_user_id);
         } else if (isCheckedStatus || matchingApproval?.actual_user_id || matchingApproval?.status === 'Checked') {
           // Form has been checked or approval explicitly shows checked
+
           hasActed = true;
         } else {
           // Otherwise, don't show as acted
@@ -231,15 +232,22 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
         }
       }
 
+
       // For "Operation Mgr Approved by", if status is OPApproved/Completed/Ac_Acknowledged, it should be marked as acted
       if (label === 'Operation Mgr Approved by') {
         if (status === 'OPApproved' || status === 'OP Approved' || status === 'Completed' || status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+
+      // For "Operation Mgr Approved by", if status is OPApproved/Completed/Ac_Acknowledged, it should be marked as acted
+      if (label === 'Operation Mgr Approved by') {
+        if (status === 'OPApproved' || status === 'OP Approved' || status === 'Completed' || status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+
           hasActed = true;
         } else {
           // Otherwise, don't show as acted
           hasActed = false;
         }
       }
+
 
       // Operation Mgr Approved by section removed
       

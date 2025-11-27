@@ -9,7 +9,9 @@ import {
   Plus,
   Minus,
   Image as ImageIcon,
-  Package
+  Package,
+  Filter,
+  X
 } from "lucide-react";
 import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
@@ -331,6 +333,40 @@ export default function DamageItemTable({
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  
+  // Filter state
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [filters, setFilters] = useState({
+    category: '',
+    unit: '',
+    minPrice: '',
+    maxPrice: '',
+    minAmount: '',
+    maxAmount: ''
+  });
+  
+  // Calculate min/max values for sliders
+  const priceRange = useMemo(() => {
+    if (items.length === 0) return { min: 0, max: 1000 };
+    const prices = items
+      .map(item => parseFloat(item.price || item.unit_price || 0))
+      .filter(p => !isNaN(p) && p > 0);
+    return {
+      min: prices.length > 0 ? Math.floor(Math.min(...prices)) : 0,
+      max: prices.length > 0 ? Math.ceil(Math.max(...prices)) : 1000
+    };
+  }, [items]);
+  
+  const amountRange = useMemo(() => {
+    if (items.length === 0) return { min: 0, max: 10000 };
+    const amounts = items
+      .map(item => parseFloat(item.amount || item.total || 0))
+      .filter(a => !isNaN(a) && a > 0);
+    return {
+      min: amounts.length > 0 ? Math.floor(Math.min(...amounts)) : 0,
+      max: amounts.length > 0 ? Math.ceil(Math.max(...amounts)) : 10000
+    };
+  }, [items]);
   const fileInputRefs = useRef({});
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -1407,16 +1443,106 @@ const normalizeImageEntries = (list) => {
     0
   );
 
+  // Apply search and filters
   const normalizedSearch = (searchTerm || '').trim().toLowerCase();
-  const filteredItems = normalizedSearch
-    ? items.filter(it =>
+  const filteredItems = useMemo(() => {
+    let result = items;
+    
+    // Apply search filter
+    if (normalizedSearch) {
+      result = result.filter(it =>
         (String(it.code || '').toLowerCase().includes(normalizedSearch)) ||
-        (String(it.name || '').toLowerCase().includes(normalizedSearch))
-      )
-    : items;
+        (String(it.name || '').toLowerCase().includes(normalizedSearch)) ||
+        (String(it.product_code || '').toLowerCase().includes(normalizedSearch))
+      );
+    }
+    
+    // Apply category filter
+    if (filters.category) {
+      result = result.filter(it => 
+        String(it.category || '').toLowerCase() === filters.category.toLowerCase()
+      );
+    }
+    
+    // Apply unit filter
+    if (filters.unit) {
+      result = result.filter(it => 
+        String(it.unit || '').toLowerCase() === filters.unit.toLowerCase()
+      );
+    }
+    
+    // Apply price range filter
+    const minPriceValue = filters.minPrice ? parseFloat(filters.minPrice) : null;
+    const maxPriceValue = filters.maxPrice ? parseFloat(filters.maxPrice) : null;
+    
+    if (minPriceValue !== null && !isNaN(minPriceValue)) {
+      result = result.filter(it => {
+        const price = parseFloat(it.price || it.unit_price || 0);
+        return price >= minPriceValue;
+      });
+    }
+    if (maxPriceValue !== null && !isNaN(maxPriceValue)) {
+      result = result.filter(it => {
+        const price = parseFloat(it.price || it.unit_price || 0);
+        return price <= maxPriceValue;
+      });
+    }
+    
+    // Apply amount range filter
+    const minAmountValue = filters.minAmount ? parseFloat(filters.minAmount) : null;
+    const maxAmountValue = filters.maxAmount ? parseFloat(filters.maxAmount) : null;
+    
+    if (minAmountValue !== null && !isNaN(minAmountValue)) {
+      result = result.filter(it => {
+        const amount = parseFloat(it.amount || it.total || 0);
+        return amount >= minAmountValue;
+      });
+    }
+    if (maxAmountValue !== null && !isNaN(maxAmountValue)) {
+      result = result.filter(it => {
+        const amount = parseFloat(it.amount || it.total || 0);
+        return amount <= maxAmountValue;
+      });
+    }
+    
+    return result;
+  }, [items, normalizedSearch, filters]);
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage) || 1;
   const startIdx = (currentPage - 1) * itemsPerPage;
   const paginatedItems = filteredItems.slice(startIdx, startIdx + itemsPerPage);
+  
+  // Get unique categories and units for filter dropdowns
+  const uniqueCategories = useMemo(() => {
+    const cats = new Set();
+    items.forEach(item => {
+      if (item.category) cats.add(item.category);
+    });
+    return Array.from(cats).sort();
+  }, [items]);
+  
+  const uniqueUnits = useMemo(() => {
+    const units = new Set();
+    items.forEach(item => {
+      if (item.unit) units.add(item.unit);
+    });
+    return Array.from(units).sort();
+  }, [items]);
+  
+  // Reset filters function
+  const handleResetFilters = () => {
+    setFilters({
+      category: '',
+      unit: '',
+      minPrice: '',
+      maxPrice: '',
+      minAmount: '',
+      maxAmount: ''
+    });
+    setCurrentPage(1);
+  };
+  
+  // Check if any filter is active
+  const hasActiveFilters = Object.values(filters).some(value => value !== '');
 
   const gatherImagesForModal = (item) => {
     if (!item) return [];
@@ -1630,22 +1756,39 @@ const normalizeImageEntries = (list) => {
 
       {/* Action buttons and Add Product button with search bar */}
       <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
-        {/* Left side: Search box */}
-        <div className="relative w-full sm:w-55 order-2 sm:order-1">
-          <Search
-            size={14}
-            className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <input
-            type="text"
-            placeholder="Search by product code..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1); 
-            }}
-            className="w-full pl-8 pr-3 py-1.5 text-[0.9rem] sm:text-[0.8rem] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-blue-400 transition"
-          />
+        {/* Left side: Search box and Filter button */}
+        <div className="relative flex items-center gap-2 w-full sm:w-auto order-2 sm:order-1">
+          <div className="relative w-full sm:w-55">
+            <Search
+              size={14}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <input
+              type="text"
+              placeholder="Search by product code..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); 
+              }}
+              className="w-full pl-8 pr-3 py-1.5 text-[0.9rem] sm:text-[0.8rem] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-blue-400 transition"
+            />
+          </div>
+          
+          {/* Filter Button with Hover Animation */}
+          <button
+            onClick={() => setIsFilterModalOpen(true)}
+            className="filter-btn-hover group relative flex items-center justify-center px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all duration-300 shadow-sm hover:shadow-md"
+            title="Filter products"
+          >
+            <Filter 
+              size={16} 
+              className="transition-all duration-300 group-hover:rotate-180 group-hover:scale-110" 
+            />
+            {hasActiveFilters && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
+            )}
+          </button>
         </div>
 
         {/* Right side: Action buttons and Add Product button */}
@@ -2438,6 +2581,186 @@ const normalizeImageEntries = (list) => {
             </button>
           </div>
         </div>
+      )}
+      
+      {/* Filter Modal with Animation */}
+      {isFilterModalOpen && (
+        <>
+          {/* Backdrop with blur effect */}
+          <div 
+            className="fixed inset-0 backdrop-blur-sm bg-white/10 z-50 transition-opacity duration-300 animate-fadeIn"
+            onClick={() => setIsFilterModalOpen(false)}
+          ></div>
+          
+          {/* Modal with slide-in animation */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div 
+              className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto transform transition-all duration-300 animate-slideInUp"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-xl flex items-center justify-between z-10">
+                <div className="flex items-center gap-3">
+                  <Filter size={24} className="text-gray-700" />
+                  <h2 className="text-xl font-bold text-gray-800">Filter Products</h2>
+                </div>
+                <button
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200 text-gray-600 hover:text-gray-800"
+                  aria-label="Close filter modal"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              {/* Modal Body */}
+              <div className="p-6 space-y-6">
+                {/* Category Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={filters.category}
+                    onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  >
+                    <option value="">All Categories</option>
+                    {uniqueCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Unit Filter */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Unit
+                  </label>
+                  <select
+                    value={filters.unit}
+                    onChange={(e) => setFilters(prev => ({ ...prev, unit: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                  >
+                    <option value="">All Units</option>
+                    {uniqueUnits.map(unit => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Price Range with Slider */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Price Range: {filters.minPrice || priceRange.min} - {filters.maxPrice || priceRange.max}
+                  </label>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min Price</label>
+                      <input
+                        type="range"
+                        min={priceRange.min}
+                        max={priceRange.max}
+                        value={filters.minPrice || priceRange.min}
+                        onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{priceRange.min}</span>
+                        <span className="font-semibold text-blue-600">{filters.minPrice || priceRange.min}</span>
+                        <span>{priceRange.max}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Max Price</label>
+                      <input
+                        type="range"
+                        min={priceRange.min}
+                        max={priceRange.max}
+                        value={filters.maxPrice || priceRange.max}
+                        onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{priceRange.min}</span>
+                        <span className="font-semibold text-blue-600">{filters.maxPrice || priceRange.max}</span>
+                        <span>{priceRange.max}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Amount Range with Slider */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Amount Range: {filters.minAmount || amountRange.min} - {filters.maxAmount || amountRange.max}
+                  </label>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Min Amount</label>
+                      <input
+                        type="range"
+                        min={amountRange.min}
+                        max={amountRange.max}
+                        value={filters.minAmount || amountRange.min}
+                        onChange={(e) => setFilters(prev => ({ ...prev, minAmount: e.target.value }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{amountRange.min}</span>
+                        <span className="font-semibold text-blue-600">{filters.minAmount || amountRange.min}</span>
+                        <span>{amountRange.max}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">Max Amount</label>
+                      <input
+                        type="range"
+                        min={amountRange.min}
+                        max={amountRange.max}
+                        value={filters.maxAmount || amountRange.max}
+                        onChange={(e) => setFilters(prev => ({ ...prev, maxAmount: e.target.value }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>{amountRange.min}</span>
+                        <span className="font-semibold text-blue-600">{filters.maxAmount || amountRange.max}</span>
+                        <span>{amountRange.max}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Modal Footer */}
+              <div className="sticky bottom-0 bg-gray-50 px-6 py-4 rounded-b-xl flex items-center justify-between gap-3 border-t border-gray-200">
+                <button
+                  onClick={handleResetFilters}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
+                >
+                  Reset Filters
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setIsFilterModalOpen(false)}
+                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setCurrentPage(1);
+                      setIsFilterModalOpen(false);
+                    }}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium shadow-md hover:shadow-lg"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

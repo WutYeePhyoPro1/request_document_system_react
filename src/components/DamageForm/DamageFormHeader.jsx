@@ -349,6 +349,9 @@ export default function DamageFormHeader({
                   case 'Checked':
                     return 'bg-yellow-100 text-yellow-700 border-yellow-300';
                   case 'BM Approved':
+                          return 'bg-blue-100 text-blue-700 border-blue-300';
+                    return 'bg-blue-100 text-blue-700 border-blue-300';
+
                   case 'OPApproved':
                     return 'op-approved-status-badge';
                   case 'Ac_Acknowledged':
