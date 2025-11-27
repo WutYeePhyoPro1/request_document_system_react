@@ -89,10 +89,13 @@ const Dashboard = () => {
           const icon = formIcons[form.name] || "";
           const isActive =
             form.name === "CCTV Request Form" ||
-<<<<<<< HEAD
+
             form.name === "Big Damage Issue Form" ||
-=======
->>>>>>> e313489 (upload to test)
+            form.name === "Request Discount Form";
+
+
+            form.name === "Big Damage Issue Form" ||
+
             form.name === "Request Discount Form";
 
           return (
