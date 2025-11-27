@@ -12,7 +12,7 @@ export const getRequestDiscountData = async(token:string): Promise<requestDiscou
         const response = await API.get('/request_discount' , {
             headers: {Authorization: `Bearer ${token}`} ,
         });
-        // console.log("ApiData>>" , response.data , response.data.data.length);
+        console.log("ApiData>>" , response.data , response.data.data.length);
         return response.data ?? [];
     } catch (error) {
     console.error("Error fetching PI data:", error);
