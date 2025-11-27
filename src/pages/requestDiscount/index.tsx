@@ -364,7 +364,7 @@ export default function Demo() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {discountData?.data?.length > 0 ? (
+              {/* {discountData?.data?.length > 0 ? (
                 rows
               ) : (
                
@@ -378,7 +378,8 @@ export default function Demo() {
             </div>
           </Table.Td>
         </Table.Tr>
-              )}
+              )} */}
+              {rows}
             </Table.Tbody>
           </Table>
         </div>
