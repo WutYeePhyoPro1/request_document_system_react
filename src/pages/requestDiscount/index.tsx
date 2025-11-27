@@ -144,8 +144,8 @@ export default function Demo() {
             <StatusBadge status={element.status} />
           </Table.Td>
           <Table.Td>{element.form_doc_no}</Table.Td>
-          <Table.Td>{element.from_branches.branch_name}</Table.Td>
-          <Table.Td>{element.originators.name}</Table.Td>
+          <Table.Td>{element.from_branches?.branch_name}</Table.Td>
+          <Table.Td>{element.originators?.name}</Table.Td>
           <Table.Td>{dateFormat(element.created_at)}</Table.Td>
           <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
           <Table.Td className="text-blue-600 font-medium underline">
