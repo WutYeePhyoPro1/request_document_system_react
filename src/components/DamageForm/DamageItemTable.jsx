@@ -321,8 +321,7 @@ export default function DamageItemTable({
   approvals = [],
   totalAmount = 0,
   gRemark = 'big_damage',
-  currentUser = null,
-  onOpenAddProductModal = () => {}
+  currentUser = null
 }) {
   // Remove debug logging to prevent infinite re-renders
 
@@ -473,19 +472,12 @@ export default function DamageItemTable({
                        approvalStatus === 'BMApproved' ||
                        (approvalStatus === 'Pending' && formStatusNormalized === 'BM Approved');
       } else {
-        // Amount > 500k: ACK entry status must be 'OPApproved' or form status must indicate OP has approved
-        // If form status is 'Ac_Acknowledged' or 'Acknowledged', it means Operation Manager has acknowledged
-        // If ACK entry status is 'Pending' but form status is 'OPApproved', 'OP Approved', 'Ac_Acknowledged', or 'Acknowledged',
-        // consider it valid (OP has approved/acknowledged, ACK entry just hasn't been updated yet)
-        const formStatusIndicatesOPApproved = formStatusNormalized === 'OPApproved' || 
-                                             formStatusNormalized === 'OP Approved' ||
-                                             formStatusNormalized === 'Ac_Acknowledged' ||
-                                             formStatusNormalized === 'Acknowledged';
+        // Amount > 500k: ACK entry status must be 'OPApproved'
+        // If ACK entry status is 'Pending' but form status is 'OPApproved' or 'OP Approved',
+        // consider it valid (OP has approved, ACK entry just hasn't been updated yet)
         statusMatches = approvalStatus === 'OPApproved' || 
                        approvalStatus === 'OP Approved' ||
-                       approvalStatus === 'Ac_Acknowledged' ||
-                       approvalStatus === 'Acknowledged' ||
-                       (approvalStatus === 'Pending' && formStatusIndicatesOPApproved);
+                       (approvalStatus === 'Pending' && (formStatusNormalized === 'OPApproved' || formStatusNormalized === 'OP Approved'));
       }
 
       if (!statusMatches) {

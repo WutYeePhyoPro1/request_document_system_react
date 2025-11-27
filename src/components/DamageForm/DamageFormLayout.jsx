@@ -1616,21 +1616,17 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         img: [],
       };
 
+      console.log('New item created:', newItem);
+
       // Add the new item to the form
       setFormData(prev => {
         const updatedItems = [...prev.items, newItem];
+        console.log('Items in form after adding:', updatedItems.length);
         return {
           ...prev,
           items: updatedItems
         };
       });
-
-      // Call success callback if provided (to close modal, etc.)
-      if (onSuccess) {
-        setTimeout(() => {
-          onSuccess();
-        }, 500);
-      }
 
     } catch (_error) {
       setNotFoundModal({ open: true, code });
@@ -1730,7 +1726,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         act.approve = 'BMApproved';
       } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
         // Operation Manager should only approve if amount > 500000
-        // After Operation Manager acknowledges, form goes directly to Completed (no supervisor step)
+        if (requiresOpManagerApproval) {
+          act.approve = 'OPApproved';
+        }
+      } else if (role === 'account') {
+        // Account can only acknowledge after proper approval stage:
+        // - If amount > 500000: Must wait for OPApproved (Operation Manager approval)
+        // - If amount <= 500000: Can acknowledge at BM Approved (no Operation Manager stage)
         if (requiresOpManagerApproval) {
           act.approve = 'Ac_Acknowledged'; // Changed from OPApproved to Ac_Acknowledged
         }
@@ -1821,11 +1823,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       // Import API config to get base URL
       const config = await import('../../api/config');
-      const { API_BASE_URL } = config;
+      const { SANCTUM_URL } = config;
       
-      // Construct the PDF URL - using the API route for print
-      // The route is /api/big-damage-issues/{general_form_id}/print
-      const pdfUrl = `${API_BASE_URL}/big-damage-issues/${generalFormId}/print`;
+      // Construct the PDF URL - using the web route for print
+      // The route is /users/{general_form_id}/print
+      const baseUrl = SANCTUM_URL || 'http://localhost:8000';
+      const pdfUrl = `${baseUrl}/users/${generalFormId}/print`;
       
       // Show loading toast
       const loadingToast = toast.loading(t('messages.pdfGenerating'));
@@ -2165,9 +2168,40 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       console.log('Form submission - Items data:', items);
       console.log('Form submission - Valid items data:', validItems);
 
-      // Critical validation - items are still required (blocking error)
+      // Frontend validation - check all required fields
+      const missingFields = [];
+      
+      if (!formData.branch || formData.branch.trim() === '') {
+        missingFields.push('Branch');
+      }
+      
+      if (!formData.datetime || formData.datetime.trim() === '') {
+        missingFields.push('Date/Time');
+      }
+      
+      if (!formData.requester_name || formData.requester_name.trim() === '') {
+        missingFields.push('Requester Name');
+      }
+      
       if (validItems.length === 0) {
-        toast.error(t('messages.addProductRequired'));
+        missingFields.push('At least one product with quantity > 0');
+      }
+      
+      // Note: Reason/Remark/Comment can be null in create stage
+      
+      // Check if at least one file is attached
+      const hasFiles = formData.attachments && formData.attachments.length > 0;
+      if (!hasFiles) {
+        missingFields.push('At least one file attachment (required)');
+      }
+      
+      if (missingFields.length > 0) {
+        const errorMsg = `Please fill in the following required fields:\n\n${missingFields.map((field, i) => `${i + 1}. ${field}`).join('\n')}`;
+        toast.error(errorMsg, {
+          position: 'top-center',
+          autoClose: 8000,
+          style: { whiteSpace: 'pre-line' }
+        });
         setIsSubmitting(false);
         return;
       }
@@ -2203,23 +2237,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : finalRequestQty;
         const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : finalRequestQty;
         const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
-        const rawSpecificId = item?.specific_form_id ?? item?.id ?? item?.specific_id ?? '';
-        
-        // Ensure specific_form_id is always an integer (database expects bigint)
-        // Convert to integer: if it's a number (including decimal), use Math.floor
-        // If it's a string that represents a number, parse and floor it
-        let specificId = '';
-        if (rawSpecificId !== '' && rawSpecificId !== null && rawSpecificId !== undefined) {
-          const parsed = typeof rawSpecificId === 'number' 
-            ? rawSpecificId 
-            : (typeof rawSpecificId === 'string' && rawSpecificId.trim() !== '' 
-                ? parseFloat(rawSpecificId) 
-                : null);
-          
-          if (parsed !== null && !isNaN(parsed)) {
-            specificId = Math.floor(parsed).toString();
-          }
-        }
+        const specificId = item?.specific_form_id ?? item?.id ?? item?.specific_id ?? '';
         
         // Get product_category_id from multiple possible sources
         const categoryId = item?.product_category_id || 
@@ -2229,6 +2247,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         const normalizedCategoryId = (categoryId === '' || categoryId === 'undefined' || categoryId === null || isNaN(categoryId))
           ? null
           : Number(categoryId);
+
+        console.log(`Item ${index} normalized:`, {
+          product_code: productCode,
+          request_qty: finalRequestQty,
+          actual_qty: resolvedActual,
+          final_qty: resolvedFinal,
+          price,
+          amount
+        });
 
         return {
           product_code: productCode,
@@ -2387,19 +2414,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       // Send items in nested format that Laravel expects: items[0][product_code], items[1][product_code], etc.
       // Laravel Repository expects: $request['items'] as an array
+      console.log('Normalized items before FormData:', normalizedItems);
+      
       normalizedItems.forEach((item, index) => {
+        console.log(`Processing item ${index}:`, item);
         Object.entries(item).forEach(([key, value]) => {
           // Special handling for numeric fields - include 0 values
           const isNumericField = ['request_qty', 'actual_qty', 'final_qty', 'system_qty', 'price', 'amount', 'product_type'].includes(key);
           
           if (value !== undefined && value !== null) {
             // For numeric fields, include 0 values
-            // Ensure specific_form_id is sent as integer string
-            if (key === 'specific_form_id' && value !== '') {
-              const intValue = Math.floor(Number(value));
-              formDataToSend.append(`items[${index}][${key}]`, intValue.toString());
-            } else if (isNumericField || value !== '') {
+            if (isNumericField || value !== '') {
               formDataToSend.append(`items[${index}][${key}]`, value);
+              console.log(`  Added items[${index}][${key}] = ${value}`);
             }
           }
         });
@@ -2408,18 +2435,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // NOTE: Laravel backend needs BOTH formats for updates
       // - Nested format items[0][key] for creating items
       // - Array format field[] for updating items (edit_product method)
+      console.log('Sending arrays for Laravel edit_product compatibility');
       
       // These arrays are required by the edit_product method in Repository
       const appendArrayField = (key, values) => {
         values.forEach((value, index) => {
           const valueToSend = (value !== undefined && value !== null) ? value : '';
-          // Ensure specific_form_id is sent as integer string
-          if (key === 'specific_form_id' && valueToSend !== '') {
-            const intValue = Math.floor(Number(valueToSend));
-            formDataToSend.append(`${key}[]`, intValue.toString());
-          } else {
-            formDataToSend.append(`${key}[]`, valueToSend);
-          }
+          formDataToSend.append(`${key}[]`, valueToSend);
+          console.log(`  ${key}[${index}] = ${valueToSend}`);
         });
       };
       
@@ -2856,6 +2879,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       if (isExistingForm) formDataToSend.append('general_form_id', generalFormId);
 
+      // Log all FormData entries for debugging
+      console.log('=== FormData being sent to API ===');
+      console.log('Endpoint:', endpoint);
+      console.log('Method:', method);
+      console.log('FormData entries:');
+      for (const [key, value] of formDataToSend.entries()) {
+        console.log(`  ${key}:`, value);
+      }
+      console.log('=== End FormData ===');
+
       try {
         // Make the API call with detailed logging
         const response = await apiFetch(endpoint, {
@@ -3080,38 +3113,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         let errorMessage = t('messages.errors.formSubmitFailed');
         
         if (apiError.status === 404) {
-          errorMessage = t('messages.errors.notFound');
+          errorMessage = 'The requested resource was not found. Please check if the API endpoint is correct.';
         } else if (apiError.status === 401) {
-          errorMessage = t('messages.errors.sessionExpired');
+          errorMessage = 'Session expired. Please log in again.';
           // Redirect to login
           window.location.href = '/login';
           return; // Stop further execution
-        } else if (apiError.status === 403) {
-          errorMessage = t('messages.errors.forbidden');
         } else if (apiError.status === 422) {
           // Validation error - show the exact error message from server
-          errorMessage = apiError.message || t('messages.errors.validationError');
-        } else if (apiError.status === 500) {
-          errorMessage = t('messages.errors.serverError');
-        } else if (apiError.status === 503) {
-          errorMessage = t('messages.errors.serverUnavailable');
-        } else if (apiError.name === 'TypeError' && apiError.message.includes('fetch')) {
-          errorMessage = t('messages.errors.networkError');
+          errorMessage = apiError.message || 'Validation error. Please check your input.';
         } else if (apiError.data && apiError.data.message) {
           errorMessage = apiError.data.message;
         } else if (apiError.message) {
-          // Check if it's a known error message, otherwise use the message as-is
-          if (apiError.message.includes('token') || apiError.message.includes('authentication')) {
-            errorMessage = t('messages.errors.authTokenNotFound');
-          } else if (apiError.message.includes('timeout')) {
-            errorMessage = t('messages.errors.timeout');
-          } else if (apiError.message.includes('network') || apiError.message.includes('Failed to fetch')) {
-            errorMessage = t('messages.errors.networkError');
-          } else {
-            errorMessage = apiError.message;
-          }
+          errorMessage = apiError.message;
         } else {
-          errorMessage = t('messages.errors.unknownError');
+          errorMessage += 'Unknown error occurred';
         }
         
         setError(errorMessage);
@@ -3189,15 +3205,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       ?? 0
     );
     const requiresOpManagerApproval = totalAmount > 500000;
-    
-    console.log('[showApproveButton] Starting:', {
-      role,
-      status,
-      normalizedStatus,
-      totalAmount,
-      requiresOpManagerApproval,
-      isAccount
-    });
     
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
     // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
@@ -3384,16 +3391,6 @@ const resolveApproveAction = () => {
     ?? 0
   );
   const requiresOpManagerApproval = totalAmount > 500000;
-  
-  console.log('[resolveApproveAction] Starting:', {
-    role,
-    status,
-    normalizedStatus,
-    totalAmount,
-    requiresOpManagerApproval,
-    isAccount,
-    actionsApprove: actions?.approve
-  });
   
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
@@ -3815,7 +3812,6 @@ const resolveApproveAction = () => {
         totalAmount={totalAmount}
         gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
         currentUser={currentUser}
-        onOpenAddProductModal={handleOpenAddProductModal}
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
           setFormData((prev) => ({

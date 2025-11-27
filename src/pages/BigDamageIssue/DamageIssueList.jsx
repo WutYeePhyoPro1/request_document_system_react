@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { ChatBubbleLeftRightIcon, DocumentTextIcon } from '@heroicons/react/24/solid';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 import '../../components/DamageForm/ButtonHoverEffects.css';
 
 const StatusBadge = ({ status }) => {

@@ -195,27 +195,9 @@ const InvestigationFormModal = ({
     const existingId = existing.id || existing.investi_id || null;
     
     // Only update if investigation ID changed (prevent infinite loop)
-        setInvestigationId(prevId => {
+    setInvestigationId(prevId => {
       if (prevId !== existingId) {
-        // Normalize category name - handle abbreviations and typos from backend
-        let categoryName = existing.bdi_reason || '';
-        if (categoryName) {
-          // Map database abbreviations back to full category names
-          const categoryMap = {
-            'discipl': 'Discipline', // Database stores 'discipl' (7 chars) due to VARCHAR(8) limit
-            'discipline': 'Discipline',
-            'displine': 'Discipline', // Handle typo variant
-            'thief': 'Thief',
-            'delivery': 'Delivery',
-            'accident': 'Accident',
-            'natural': 'Natural Accident',
-            'safety': 'Safety',
-            'other': 'Other',
-          };
-          // Use mapped value if available, otherwise capitalize first letter
-          categoryName = categoryMap[categoryName.toLowerCase()] || (categoryName[0]?.toUpperCase() + categoryName.slice(1));
-        }
-        setSelectedCategory(categoryName || 'Thief');
+        setSelectedCategory((existing.bdi_reason && existing.bdi_reason[0]?.toUpperCase() + existing.bdi_reason.slice(1)) || 'Thief');
         setBmReason(existing.bm_reason || '');
         setCompanyPct(existing.bm_company ?? existing.companyPct ?? '');
         setUserPct(existing.bm_user ?? existing.userPct ?? '');
@@ -239,7 +221,6 @@ const InvestigationFormModal = ({
     return 1;
   };
 
-//check multiple sources for general form id, including responde data after form submission
   const resolveGeneralFormId = () => {
     // Check multiple sources for general_form_id, including response data after form submission
     let generalFormId = 
