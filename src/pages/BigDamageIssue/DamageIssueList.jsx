@@ -2,12 +2,8 @@ import React from 'react';
 import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-<<<<<<< HEAD
 import { ChatBubbleLeftRightIcon, DocumentTextIcon } from '@heroicons/react/24/solid';
 import '../../components/DamageForm/ButtonHoverEffects.css';
-=======
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
->>>>>>> c2d7396 (big damage issue update)
 
 const StatusBadge = ({ status }) => {
   let colorClasses = '';
@@ -22,15 +18,11 @@ const StatusBadge = ({ status }) => {
       colorClasses = 'bg-blue-100 text-blue-700 border border-blue-300';
       break;
     case 'OPApproved':
-<<<<<<< HEAD
       colorClasses = 'op-approved-status-badge border';
       break;
     case 'Ac_Acknowledged':
     case 'Acknowledged':
       colorClasses = 'acknowledge-status-badge border';
-=======
-      colorClasses = 'bg-purple-100 text-purple-700 border border-purple-300';
->>>>>>> c2d7396 (big damage issue update)
       break;
     case 'Approved':
       colorClasses = 'bg-green-100 text-green-700 border border-green-300';
@@ -54,7 +46,6 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-<<<<<<< HEAD
 // Animated Empty State Component
 const EmptyState = () => {
   return (
@@ -145,8 +136,6 @@ const EmptyState = () => {
   );
 };
 
-=======
->>>>>>> c2d7396 (big damage issue update)
 const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   const totalPages = Math.max(1, Math.ceil((totalRows || 0) / (rowsPerPage || 1)));
   const pages = [];
@@ -257,13 +246,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 <Skeleton count={5} height={50} className="mb-2" />
               </div>
             ) : isEmpty ? (
-<<<<<<< HEAD
               <EmptyState />
-=======
-              <div className="p-8 text-center text-gray-500">
-                No data available
-              </div>
->>>>>>> c2d7396 (big damage issue update)
             ) : (
               <table className="min-w-full">
                 <thead className="bg-white border-b border-gray-200">
@@ -306,16 +289,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           {displayNo}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap w-8">
-<<<<<<< HEAD
                           {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
                            !['Completed', 'Issued', 'Ac_Acknowledged', 'Acknowledged', 'SupervisorIssued'].includes(gf.status) ? (
                             <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500" title="Unviewed form" />
                           ) : null}
-=======
-                          {!row.is_viewed && (
-                            <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500" title="Unviewed form" />
-                          )}
->>>>>>> c2d7396 (big damage issue update)
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <StatusBadge status={gf.status || '-'} />
@@ -373,13 +350,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             </div>
           ))
         ) : isEmpty ? (
-<<<<<<< HEAD
           <div className="bg-white rounded-xl shadow-md border border-gray-200">
             <EmptyState />
-=======
-          <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6 text-center text-gray-500">
-            No data available
->>>>>>> c2d7396 (big damage issue update)
           </div>
         ) : (
           issues.map((row, idx) => {
@@ -407,7 +379,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 }}
                 className="bg-white rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-<<<<<<< HEAD
                 <div className="flex items-start justify-between gap-2 min-w-0">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
@@ -417,27 +388,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     <div className="min-w-0 flex-1">
                       <span className="hidden md:inline text-xs font-semibold text-gray-400">#{displayNo}</span>
                       <p className="mt-1 text-base font-semibold text-gray-900 truncate">
-=======
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    {!row.is_viewed && (
-                      <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500 flex-shrink-0" title="Unviewed form" />
-                    )}
-                    <div>
-                      <span className="text-xs font-semibold text-gray-400">#{displayNo}</span>
-                      <p className="mt-1 text-base font-semibold text-gray-900">
->>>>>>> c2d7396 (big damage issue update)
                         {gf.form_doc_no || 'Untitled'}
                       </p>
                     </div>
                   </div>
-<<<<<<< HEAD
                   <div className="flex-shrink-0">
                     <StatusBadge status={gf.status || '-'} />
                   </div>
-=======
-                  <StatusBadge status={gf.status || '-'} />
->>>>>>> c2d7396 (big damage issue update)
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">

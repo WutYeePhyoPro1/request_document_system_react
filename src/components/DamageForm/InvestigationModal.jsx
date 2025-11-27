@@ -13,10 +13,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest } from "../../utils/api";
 import { toast } from "react-toastify";
-<<<<<<< HEAD
 import { useTranslation } from "react-i18next";
-=======
->>>>>>> c2d7396 (big damage issue update)
 
 const InvestigationCategoryButton = ({
   icon: Icon,
@@ -48,13 +45,9 @@ const InvestigationFormModal = ({
   formData = {},
   userRole = '',
   onSave = null,
-<<<<<<< HEAD
   initialData = null, // Add initialData prop
 }) => {
   const { t } = useTranslation();
-=======
-}) => {
->>>>>>> c2d7396 (big damage issue update)
   const status = (formData?.status || '').trim();
   const isReadOnly = ['BM Approved', 'BMApproved', 'OPApproved', 'Completed'].includes(status);
   const normalizedUserRole = (userRole || '').toString().toLowerCase();
@@ -85,7 +78,6 @@ const InvestigationFormModal = ({
   // Laravel Op_Manager() checks: ApprovalProcessUser where user_type='OP', admin_id=current_user_id, status in ['BM Approved', 'Approved', 'HR Checked']
   // However, when form status is 'BM Approved', the approval entry might still be 'Pending' until user approves
   // Also, user_type might be 'A2' instead of 'OP' (A2 maps to Operation Manager)
-<<<<<<< HEAD
   // CRITICAL: API doesn't return admin_id in response, so we check if OP approval entry exists when form is 'BM Approved'
   const isOpManagerByApproval = useMemo(() => {
     if (!approvals.length) {
@@ -105,14 +97,6 @@ const InvestigationFormModal = ({
     const formStatus = (status || '').toString().trim();
     const formStatusMatches = formStatus === 'BM Approved' || formStatus === 'BMApproved';
     
-=======
-  // If admin_id is undefined, we check if the approval label/role indicates Operation Manager
-  const isOpManagerByApproval = useMemo(() => {
-    if (!currentUserId || !approvals.length) {
-      return false;
-    }
-    
->>>>>>> c2d7396 (big damage issue update)
     // Check if user has approval entry with user_type: 'OP' or 'A2'
     const opApproval = approvals.find(approval => {
       // Try multiple fields for user ID
@@ -123,7 +107,6 @@ const InvestigationFormModal = ({
       // Get all possible user IDs from the approval
       const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
       
-<<<<<<< HEAD
       const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
       const approvalStatus = (approval?.status || approval?.raw?.status || '').toString().trim();
       
@@ -155,50 +138,13 @@ const InvestigationFormModal = ({
       if (userTypeMatches) {
         // Found OP/A2 approval entry
       }
-=======
-      const userType = approval?.user_type || approval?.raw?.user_type || '';
-      const approvalStatus = approval?.status || approval?.raw?.status || '';
-      const label = (approval?.label || approval?.role || '').toString().toLowerCase();
-      
-      // Check if user_type matches (OP or A2 for Operation Manager)
-      const userTypeMatches = (userType === 'OP' || userType === 'A2');
-      
-      // Check if label/role indicates Operation Manager
-      const labelMatches = label.includes('operation') || label.includes('op manager') || label.includes('op_manager');
-      
-      // For user ID matching: if admin_id is undefined, check if any user ID matches OR if label matches
-      // This handles cases where the approval is assigned but admin_id isn't set yet
-      let userIdMatches = false;
-      if (allUserIds.length > 0) {
-        userIdMatches = allUserIds.some(id => 
-          String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
-        );
-      } else if (labelMatches && userTypeMatches) {
-        // If admin_id is undefined but label and user_type match, assume it's for current user
-        // when form status allows OP manager to act
-        userIdMatches = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(status);
-      }
-      
-      // Status check: Laravel checks status in ['BM Approved', 'Approved', 'HR Checked']
-      // But when form is at 'BM Approved', approval might be 'Pending' - so we also check form status
-      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked', 'Pending'].includes(approvalStatus);
-      const formStatusAllows = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(status);
-      
-      // Match if: (user_type matches OR label matches) AND (user ID matches OR label+user_type match with form status) AND (status matches OR form status allows)
-      const matches = (userTypeMatches || labelMatches) && userIdMatches && (statusMatches || formStatusAllows);
->>>>>>> c2d7396 (big damage issue update)
       
       return matches;
     });
     
-<<<<<<< HEAD
     const result = Boolean(opApproval);
     return result;
   }, [currentUserId, approvals, status, formData]);
-=======
-    return Boolean(opApproval);
-  }, [currentUserId, approvals, status]);
->>>>>>> c2d7396 (big damage issue update)
   
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = normalizedUserRole === 'op_manager' || isOpManagerByApproval;
@@ -232,12 +178,9 @@ const InvestigationFormModal = ({
   });
 
   useEffect(() => {
-<<<<<<< HEAD
     // Only run when modal opens or when investigation data actually changes
     if (!isOpen) return;
     
-=======
->>>>>>> c2d7396 (big damage issue update)
     const existing = formData?.investigation
       || formData?.investigate
       || formData?.general_form?.investigation
@@ -249,7 +192,6 @@ const InvestigationFormModal = ({
       return;
     }
 
-<<<<<<< HEAD
     const existingId = existing.id || existing.investi_id || null;
     
     // Only update if investigation ID changed (prevent infinite loop)
@@ -289,21 +231,6 @@ const InvestigationFormModal = ({
       return prevId;
     });
   }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate, isOpen]);
-=======
-    setInvestigationId(existing.id || existing.investi_id || null);
-    setSelectedCategory((existing.bdi_reason && existing.bdi_reason[0]?.toUpperCase() + existing.bdi_reason.slice(1)) || 'Thief');
-    setBmReason(existing.bm_reason || '');
-    setCompanyPct(existing.bm_company ?? existing.companyPct ?? '');
-    setUserPct(existing.bm_user ?? existing.userPct ?? '');
-    setIncomePct(existing.bm_income ?? existing.incomePct ?? '');
-    setOpCompanyPct(existing.op_company ?? existing.opCompanyPct ?? '');
-    setOpUserPct(existing.op_user ?? existing.opUserPct ?? '');
-    setOpIncomePct(existing.op_income ?? existing.opIncomePct ?? '');
-    setAccCompanyPct(existing.acc_company ?? existing.accCompanyPct ?? '');
-    setAccUserPct(existing.acc_user ?? existing.accUserPct ?? '');
-    setAccIncomePct(existing.acc_income ?? existing.accIncomePct ?? '');
-  }, [formData, isOpen]);
->>>>>>> c2d7396 (big damage issue update)
 
   const resolveRole = () => {
     // Check if user is op_manager by role name OR by approval user_type
@@ -312,7 +239,6 @@ const InvestigationFormModal = ({
     return 1;
   };
 
-<<<<<<< HEAD
 //check multiple sources for general form id, including responde data after form submission
   const resolveGeneralFormId = () => {
     // Check multiple sources for general_form_id, including response data after form submission
@@ -358,15 +284,6 @@ const InvestigationFormModal = ({
     
     return generalFormId;
   };
-=======
-  const resolveGeneralFormId = () => (
-    formData?.general_form_id
-    ?? formData?.generalFormId
-    ?? formData?.general_form?.id
-    ?? formData?.general_form?.general_form_id
-    ?? formData?.id
-  );
->>>>>>> c2d7396 (big damage issue update)
   
   // Calculate these before buildRequestBody so they're available
   const role = resolveRole();
@@ -399,12 +316,8 @@ const InvestigationFormModal = ({
     );
 
     // Must have total_amount > 500000
-<<<<<<< HEAD
     const requiresOpManagerApproval = totalAmount > 500000;
     if (!requiresOpManagerApproval) {
-=======
-    if (totalAmount <= 500000) {
->>>>>>> c2d7396 (big damage issue update)
       return false;
     }
 
@@ -421,7 +334,6 @@ const InvestigationFormModal = ({
     }
     
     // Status is 'BM Approved' - only visible to Op_Manager (checking both role and approval user_type)
-<<<<<<< HEAD
     // If form is 'BM Approved', amount > 500000, and there's an OP approval entry, show it
     // This matches Laravel blade: Op_Manager($general_form) && $general_form->status == 'BM Approved'
     if (currentStatus === 'BM Approved' || currentStatus === 'BMApproved') {
@@ -435,10 +347,6 @@ const InvestigationFormModal = ({
       if (isOpManager || hasOPApproval) {
         return true;
       }
-=======
-    if (isOpManager && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved')) {
-      return true;
->>>>>>> c2d7396 (big damage issue update)
     }
     
     // Status is 'Completed' - visible to everyone (BM can see but not edit)
@@ -447,7 +355,6 @@ const InvestigationFormModal = ({
     }
 
     // Fallback: check if approvals array has an operation role
-<<<<<<< HEAD
     // BUT only if amount > 500000 (amount requirement must be met)
     if (approvals.length && requiresOpManagerApproval) {
       const hasOpRole = approvals.some((entry) => {
@@ -461,17 +368,6 @@ const InvestigationFormModal = ({
 
     return false;
   }, [approvals, formData, status, normalizedUserRole, isOpManager]);
-=======
-    if (approvals.length) {
-      return approvals.some((entry) => {
-        const role = (entry?.role || entry?.label || '').toString().toLowerCase();
-        return role.includes('operation');
-      });
-    }
-
-    return false;
-  }, [approvals, formData, status, normalizedUserRole]);
->>>>>>> c2d7396 (big damage issue update)
 
   const showOperationManagerFields = useMemo(() => {
     return hasOperationManagerStage;
@@ -516,12 +412,8 @@ const InvestigationFormModal = ({
       thief: 'thief',
       delivery: 'delivery',
       'natural accident': 'natural',
-<<<<<<< HEAD
       discipline: 'discipline', // Backend expects 'discipline' but DB column is VARCHAR(8) - backend should handle truncation
       displine: 'discipline', // Support typo variant for backward compatibility
-=======
-      displine: 'discipline',
->>>>>>> c2d7396 (big damage issue update)
       accident: 'accident',
       safety: 'safety',
       other: 'other',
@@ -531,20 +423,16 @@ const InvestigationFormModal = ({
     if (flagKey) {
       body.append(flagKey, '1');
     }
-<<<<<<< HEAD
     
     // Note: The backend code tries to store 'discipline' (10 chars) in a VARCHAR(8) column
     // This is a backend bug that needs to be fixed. The backend should either:
     // 1. Use an abbreviation like 'discipl' (7 chars) or 'disci' (5 chars)
     // 2. Or increase the database column size to VARCHAR(10) or larger
     // For now, we send 'discipline' as the backend expects it, and the backend should handle the truncation/error
-=======
->>>>>>> c2d7396 (big damage issue update)
 
     return body;
   };
   
-<<<<<<< HEAD
   // Only show Operation Manager section if amount > 500000 (CRITICAL requirement)
   // Even if there are existing OP percentage values, don't show if amount <= 500000
   const totalAmountForDisplay = Number(
@@ -562,10 +450,6 @@ const InvestigationFormModal = ({
   const shouldShowOperationSection = requiresOpManagerApproval && (
     showOperationManagerFields || Boolean(opCompanyPct || opUserPct || opIncomePct)
   );
-=======
-  const shouldShowOperationSection = showOperationManagerFields
-    || Boolean(opCompanyPct || opUserPct || opIncomePct);
->>>>>>> c2d7396 (big damage issue update)
   const shouldShowAccountSection = normalizedUserRole === 'account'
     || canAccountEdit
     || Boolean(accCompanyPct || accUserPct || accIncomePct);
@@ -577,11 +461,7 @@ const InvestigationFormModal = ({
     { id: "Thief", label: "Thief", icon: User },
     { id: "Delivery", label: "Delivery", icon: Truck },
     { id: "Natural Accident", label: "Natural Accident", icon: CloudLightning },
-<<<<<<< HEAD
     { id: "Discipline", label: "Discipline", icon: Shield },
-=======
-    { id: "Displine", label: "Displine", icon: Shield },
->>>>>>> c2d7396 (big damage issue update)
     { id: "Accident", label: "Accident", icon: AlertTriangle },
     { id: "Safety", label: "Safety", icon: Users },
     { id: "Other", label: "Other", icon: FileText },
@@ -598,7 +478,6 @@ const InvestigationFormModal = ({
   const buildSectionValidation = (entries, label) => {
     const normalized = entries.map(({ value }) => normalizePct(value));
 
-<<<<<<< HEAD
     // Map label to translation key
     let sectionKey = 'bmOperation';
     if (label === 'Operation Manager Review') {
@@ -620,18 +499,6 @@ const InvestigationFormModal = ({
 
     if (normalized.some((val) => Number.isNaN(val))) {
       return { valid: false, message: t('investigation.percentagesMustBeNumericForSection', { section: sectionLabel }) };
-=======
-    if (normalized.every((val) => val === null)) {
-      return { valid: false, message: `${label} percentages are required.` };
-    }
-
-    if (normalized.some((val) => val === null)) {
-      return { valid: false, message: `${label} percentages must include Company, User, and Income.` };
-    }
-
-    if (normalized.some((val) => Number.isNaN(val))) {
-      return { valid: false, message: `${label} percentages must be numeric values.` };
->>>>>>> c2d7396 (big damage issue update)
     }
 
   //message percentages must total 100% currently total tofixed 2%.
@@ -639,11 +506,7 @@ const InvestigationFormModal = ({
     if (Math.abs(total - 100) > 0.01) {
       return {
         valid: false,
-<<<<<<< HEAD
         message: t('investigation.percentagesMustTotalForSection', { section: sectionLabel, total: total.toFixed(2) }),
-=======
-        message: `${label} percentages must total 100%. Currently ${total.toFixed(2)}%.`,
->>>>>>> c2d7396 (big damage issue update)
       };
     }
 
@@ -661,7 +524,6 @@ const InvestigationFormModal = ({
 
     const errors = {};
 
-<<<<<<< HEAD
     // Validate BM Reason for role 1 (BM can edit base fields)
     if (!baseFieldsDisabled && role === 1) {
       if (!bmReason || bmReason.trim() === '') {
@@ -669,8 +531,6 @@ const InvestigationFormModal = ({
       }
     }
 
-=======
->>>>>>> c2d7396 (big damage issue update)
     if (!baseFieldsDisabled) {
       const result = buildSectionValidation(
         [
@@ -715,7 +575,6 @@ const InvestigationFormModal = ({
 
     if (Object.keys(errors).length > 0) {
       setValidationErrors(errors);
-<<<<<<< HEAD
       // Show specific error message
       if (errors.bmReason) {
         toast.error(errors.bmReason);
@@ -728,9 +587,6 @@ const InvestigationFormModal = ({
       } else {
         toast.error(t('messages.pleaseFillRequired'));
       }
-=======
-      toast.error('Please ensure responsibility percentages total 100% in each section.');
->>>>>>> c2d7396 (big damage issue update)
       return;
     }
 
@@ -738,21 +594,15 @@ const InvestigationFormModal = ({
 
     const payload = buildPayload();
     const generalFormId = resolveGeneralFormId();
-<<<<<<< HEAD
     
     if (!generalFormId) {
       toast.error(t('messages.missingFormIdentifier'));
-=======
-    if (!generalFormId) {
-      toast.error('Missing form identifier. Please refresh and try again.');
->>>>>>> c2d7396 (big damage issue update)
       setIsSubmitting(false);
       return;
     }
 
     const body = buildRequestBody(payload);
     
-<<<<<<< HEAD
 
     setIsSubmitting(true);
     try {
@@ -761,46 +611,12 @@ const InvestigationFormModal = ({
         method: 'POST',
         body,
       });
-=======
-    // Debug: Log what's being sent for Operation Manager
-    if (canEditOperationFields) {
-      console.log('[InvestigationModal] Saving Operation Manager percentages:', {
-        role,
-        isOpManager,
-        status,
-        opCompanyPct: payload.opCompanyPct,
-        opUserPct: payload.opUserPct,
-        opIncomePct: payload.opIncomePct,
-        canEditOperationFields,
-      });
-    }
-
-    setIsSubmitting(true);
-    try {
-      const response = await apiRequest('/api/big-damage-issues/investigation', {
-        method: 'POST',
-        body,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`Request failed with status ${response.status}: ${errorText}`);
-      }
-
-      const responseData = await response.json().catch(async () => {
-        return { success: true, message: 'Investigation updated successfully' };
-      });
->>>>>>> c2d7396 (big damage issue update)
       
       // Extract investigation data from response
       // Laravel returns: { message: '...', data: investigation }
       const investigationData = responseData?.data || responseData?.investigation || responseData;
     
-<<<<<<< HEAD
       toast.success(responseData?.message || t('investigation.updateSuccess'));
-=======
-      toast.success(responseData?.message || 'Investigation updated successfully');
->>>>>>> c2d7396 (big damage issue update)
       
       // Call onSave callback if provided to refresh formData in parent
       if (onSave && typeof onSave === 'function') {
@@ -825,7 +641,6 @@ const InvestigationFormModal = ({
       
       onClose();
     } catch (error) {
-<<<<<<< HEAD
       // Show specific error message from backend if available
       const errorMessage = error.message || error.response?.data?.message || error.response?.data?.error || t('investigation.updateFailed');
       toast.error(errorMessage);
@@ -837,9 +652,6 @@ const InvestigationFormModal = ({
           bmReason: errorMessage
         }));
       }
-=======
-      toast.error(error.message || 'Failed to update investigation');
->>>>>>> c2d7396 (big damage issue update)
     } finally {
       setIsSubmitting(false);
     }
@@ -878,11 +690,7 @@ const InvestigationFormModal = ({
 
             <div className="sticky top-0 bg-white z-20 p-4 border-b flex justify-between items-center rounded-t-2xl">
               <h2 className="text-xl font-semibold text-gray-800">
-<<<<<<< HEAD
                 {t('investigation.title')}
-=======
-                Investigation Form
->>>>>>> c2d7396 (big damage issue update)
               </h2>
               <button
                 type="button"
@@ -897,11 +705,7 @@ const InvestigationFormModal = ({
               
               <div>
                 <h3 className="text-sm font-semibold mb-3 text-gray-600 uppercase tracking-wider">
-<<<<<<< HEAD
                   {t('investigation.category')}
-=======
-                  Investigation Categories
->>>>>>> c2d7396 (big damage issue update)
                 </h3>
                 <div className="grid grid-cols-2 gap-3">
                   {categories.map((category) => (
@@ -928,16 +732,11 @@ const InvestigationFormModal = ({
                   htmlFor="bmReason"
                   className="text-sm font-semibold mb-2 block text-gray-600 uppercase tracking-wider"
                 >
-<<<<<<< HEAD
                   {t('investigation.bmReason')} {!baseFieldsDisabled && role === 1 && <span className="text-red-500">*</span>}
-=======
-                  BM Reason
->>>>>>> c2d7396 (big damage issue update)
                 </label>
                 <textarea
                   id="bmReason"
                   rows="4"
-<<<<<<< HEAD
                   className={`w-full p-3 border rounded-lg focus:ring-blue-500 focus:border-blue-500 transition ${
                     validationErrors.bmReason ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300'
                   }`}
@@ -961,33 +760,18 @@ const InvestigationFormModal = ({
                 {validationErrors.bmReason && (
                   <p className="text-sm text-red-600 mt-2">{validationErrors.bmReason}</p>
                 )}
-=======
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition"
-                  placeholder="Enter detailed reason ..."
-                  value={bmReason}
-                  onChange={(e) => {
-                    if (!isReadOnly) setBmReason(e.target.value);
-                  }}
-                  readOnly={isReadOnly}
-                />
->>>>>>> c2d7396 (big damage issue update)
               </div>
 
               <hr className="border-t border-gray-200" />
 
               <div>
                 <h3 className="text-sm font-semibold mb-3 text-gray-600 uppercase tracking-wider">
-<<<<<<< HEAD
                   {t('investigation.responsibilityDistribution')}
-=======
-                  Responsibility Distribution
->>>>>>> c2d7396 (big damage issue update)
                 </h3>
 
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-<<<<<<< HEAD
                       {t('investigation.bmOperation')}
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -995,15 +779,6 @@ const InvestigationFormModal = ({
                         { id: "companyPct", label: t('investigation.company'), value: companyPct, set: setCompanyPct },
                         { id: "userPct", label: t('investigation.user'), value: userPct, set: setUserPct },
                         { id: "incomePct", label: t('investigation.income'), value: incomePct, set: setIncomePct },
-=======
-                      BM / Operation
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      {[
-                        { id: "companyPct", label: "Company", value: companyPct, set: setCompanyPct },
-                        { id: "userPct", label: "User", value: userPct, set: setUserPct },
-                        { id: "incomePct", label: "Income", value: incomePct, set: setIncomePct },
->>>>>>> c2d7396 (big damage issue update)
                       ].map(({ id, label, value, set }) => (
                         <div key={id}>
                           <label
@@ -1038,7 +813,6 @@ const InvestigationFormModal = ({
                   {shouldShowOperationSection && (
                     <div>
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-<<<<<<< HEAD
                         {t('investigation.operationManagerReview')}
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1046,15 +820,6 @@ const InvestigationFormModal = ({
                           { id: "opCompanyPct", label: t('investigation.company'), value: opCompanyPct, set: setOpCompanyPct },
                           { id: "opUserPct", label: t('investigation.user'), value: opUserPct, set: setOpUserPct },
                           { id: "opIncomePct", label: t('investigation.income'), value: opIncomePct, set: setOpIncomePct },
-=======
-                        Operation Manager Review
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {[
-                          { id: "opCompanyPct", label: "Company", value: opCompanyPct, set: setOpCompanyPct },
-                          { id: "opUserPct", label: "User", value: opUserPct, set: setOpUserPct },
-                          { id: "opIncomePct", label: "Income", value: opIncomePct, set: setOpIncomePct },
->>>>>>> c2d7396 (big damage issue update)
                         ].map(({ id, label, value, set }) => (
                           <div key={id}>
                             <label
@@ -1090,7 +855,6 @@ const InvestigationFormModal = ({
                   {shouldShowAccountSection && (
                     <div>
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-<<<<<<< HEAD
                         {t('investigation.accountsReview')}
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -1098,15 +862,6 @@ const InvestigationFormModal = ({
                           { id: "accCompanyPct", label: t('investigation.company'), value: accCompanyPct, set: setAccCompanyPct },
                           { id: "accUserPct", label: t('investigation.user'), value: accUserPct, set: setAccUserPct },
                           { id: "accIncomePct", label: t('investigation.income'), value: accIncomePct, set: setAccIncomePct },
-=======
-                        Accounts Review
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {[
-                          { id: "accCompanyPct", label: "Company", value: accCompanyPct, set: setAccCompanyPct },
-                          { id: "accUserPct", label: "User", value: accUserPct, set: setAccUserPct },
-                          { id: "accIncomePct", label: "Income", value: accIncomePct, set: setAccIncomePct },
->>>>>>> c2d7396 (big damage issue update)
                         ].map(({ id, label, value, set }) => (
                           <div key={id}>
                             <label
@@ -1151,11 +906,7 @@ const InvestigationFormModal = ({
                       onClick={onClose}
                       className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
-<<<<<<< HEAD
                       {t('common.close')}
-=======
-                      Close
->>>>>>> c2d7396 (big damage issue update)
                     </button>
                   </div>
                 </div>
@@ -1169,26 +920,15 @@ const InvestigationFormModal = ({
                       onClick={onClose}
                       className="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
                     >
-<<<<<<< HEAD
                       {t('common.cancel')}
-=======
-                      Cancel
->>>>>>> c2d7396 (big damage issue update)
                     </button>
                     <button
                       type="submit"
                       disabled={isSaveDisabled}
-<<<<<<< HEAD
                       className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300"
                     >
                       <Save className="h-4 w-4 flex-shrink-0" />
                       <span>{isSubmitting ? t('investigation.saving') : t('investigation.saveInvestigation')}</span>
-=======
-                      className="inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-blue-300"
-                    >
-                      <Save className="mr-2 h-4 w-4" />
-                      {isSubmitting ? "Saving..." : "Save Investigation"}
->>>>>>> c2d7396 (big damage issue update)
                     </button>
                   </div>
                 </div>

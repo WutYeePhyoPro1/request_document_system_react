@@ -1,37 +1,22 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Upload, FileText, X, Paperclip, ExternalLink } from "lucide-react";
-<<<<<<< HEAD
 import './ButtonHoverEffects.css';
-=======
->>>>>>> c2d7396 (big damage issue update)
 
 const ImagePreviewModal = ({ imageUrl, onClose }) => {
   if (!imageUrl) return null;
 
   return (
     <div
-<<<<<<< HEAD
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm image-preview-backdrop"
       onClick={onClose}
     >
       <div
         className="relative p-4 bg-transparent max-w-[95vw] max-h-[95vh] overflow-auto image-preview-content"
-=======
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90"
-      onClick={onClose}
-    >
-      <div
-        className="relative p-4 bg-transparent max-w-[95vw] max-h-[95vh] overflow-auto"
->>>>>>> c2d7396 (big damage issue update)
         onClick={e => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-<<<<<<< HEAD
           className="absolute top-4 right-4 p-2 rounded-full bg-white text-gray-700 hover:bg-gray-200 z-10 shadow-lg transition-transform hover:scale-110"
-=======
-          className="absolute top-4 right-4 p-2 rounded-full bg-white text-gray-700 hover:bg-gray-200 z-10 shadow-lg"
->>>>>>> c2d7396 (big damage issue update)
           aria-label="Close preview"
         >
           <X size={24} />
@@ -204,7 +189,6 @@ export default function SupportingInfo({
         <FileText size={16} />
         Supporting Info <span className="font-normal text-xs text-gray-700">(For the whole document)</span>
       </h4>
-<<<<<<< HEAD
       
       {/* Remark and Attach Files on one line */}
       {(shouldShowRemark || shouldShowAttachments) && (
@@ -261,56 +245,6 @@ export default function SupportingInfo({
               </div>
             </div>
           )}
-=======
-      {shouldShowRemark && (
-        <>
-          <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
-            Remarks {isRequired && <span className="text-red-500">*</span>}
-          </label>
-          {readOnly ? (
-            <div className="w-full border border-transparent rounded-md px-2 py-2 text-sm bg-transparent text-gray-800 min-h-[3rem] whitespace-pre-wrap">
-              {(reason ?? '').trim() ? reason : <span className="text-gray-400">No remark provided.</span>}
-            </div>
-          ) : (
-            <textarea
-              placeholder="Enter detailed reason..."
-              value={reason || ''}
-              onChange={e => {
-                e.stopPropagation();
-                onReasonChange(e.target.value);
-              }}
-              rows={4}
-              className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm min-h-[7rem] bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 resize-y"
-              required={isRequired}
-              onKeyDown={e => e.stopPropagation()}
-            ></textarea>
-          )}
-        </>
-      )}
-
-      {shouldShowAttachments && (
-        <div>
-          <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
-            Attach Files (Multiple allowed)
-          </label>
-          <input
-            type="file"
-            ref={fileInputRef}
-            multiple
-            onChange={handleFileChange}
-            className="hidden"
-            accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
-          />
-          <div
-            onClick={handleUploadClick}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            className="border border-dashed bg-white border-gray-300 rounded-md p-3 flex flex-col items-center justify-center text-gray-500 text-sm hover:bg-gray-100 cursor-pointer"
-          >
-            <Upload size={18} />
-            <span>Click to Upload or Drag and Drop Multiple Files</span>
-          </div>
->>>>>>> c2d7396 (big damage issue update)
         </div>
       )}
 
