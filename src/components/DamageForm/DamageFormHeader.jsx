@@ -196,8 +196,8 @@ export default function DamageFormHeader({
       const allowedRoles = ['op_manager', 'account'];
       if (allowedRoles.includes(userRole)) {
         const allowedStatuses = userRole === 'op_manager' 
-          ? ['BM Approved', 'BMApproved', 'OPApproved', 'Ac_Acknowledged', 'Acknowledged', 'Completed']
-          : ['OPApproved', 'BM Approved', 'BMApproved', 'Ac_Acknowledged', 'Acknowledged', 'Completed'];
+          ? ['BM Approved', 'BMApproved', 'OPApproved', 'Completed']
+          : ['OPApproved', 'BM Approved', 'BMApproved', 'Completed'];
           
         const canView = allowedStatuses.includes(status);
         return canView;
@@ -236,12 +236,8 @@ export default function DamageFormHeader({
           case 'Checked':
             return 'bg-yellow-100 text-yellow-700 border-yellow-300';
           case 'BM Approved':
-            return 'bg-blue-100 text-blue-700 border-blue-300';
           case 'OPApproved':
-            return 'op-approved-status-badge';
-          case 'Ac_Acknowledged':
-          case 'Acknowledged':
-            return 'acknowledge-status-badge';
+            return 'bg-blue-100 text-blue-700 border-blue-300';
           case 'Approved':
             return 'bg-green-100 text-green-700 border-green-300';
           case 'Completed':
@@ -263,64 +259,19 @@ export default function DamageFormHeader({
           <span className="text-gray-400 text-sm hidden sm:inline-block">
             Dashboard / Big Damage Issue Form
           </span>
+          {formData.status === 'Completed' && onDownloadPdf && (
+            <button 
+              onClick={onDownloadPdf}
+              className="btn-with-icon btn-download inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border overflow-hidden"
+              style={{ fontSize: '0.75rem', minWidth: '120px' }}
+            >
+              <span className="btn-text">Download Pdf</span>
+              <Download className="btn-icon w-4 h-4 absolute" />
+            </button>
+          )}
         </div>
-        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-start justify-between mt-2 relative overflow-hidden">
-          {(() => {
-            const status = formData.status;
-            if (!status) return null;
-
-            // Determine shadow colors based on status
-            let gradientFrom, gradientVia, blurColor;
-            
-            switch (status) {
-              case 'Ongoing':
-                gradientFrom = 'from-orange-300/60';
-                gradientVia = 'via-orange-200/40';
-                blurColor = 'bg-orange-300/50';
-                break;
-              case 'Checked':
-                gradientFrom = 'from-yellow-300/60';
-                gradientVia = 'via-yellow-200/40';
-                blurColor = 'bg-yellow-300/50';
-                break;
-              case 'BM Approved':
-                gradientFrom = 'from-blue-300/60';
-                gradientVia = 'via-blue-200/40';
-                blurColor = 'bg-blue-300/50';
-                break;
-              case 'Completed':
-                gradientFrom = 'from-green-300/60';
-                gradientVia = 'via-green-200/40';
-                blurColor = 'bg-green-300/50';
-                break;
-              case 'OPApproved':
-                // OP Approved badge color (blue/purple) - using indigo for shadow
-                gradientFrom = 'from-indigo-300/60';
-                gradientVia = 'via-indigo-200/40';
-                blurColor = 'bg-indigo-300/50';
-                break;
-              case 'Ac_Acknowledged':
-              case 'Acknowledged':
-                // Acknowledge badge color (#aff1d7 - light mint green, text #20be7f)
-                // Using custom colors that match the badge better
-                return (
-                  <>
-                    <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-[#aff1d7]/60 via-[#aff1d7]/40 to-transparent pointer-events-none blur-sm"></div>
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-24 bg-[#aff1d7]/50 blur-2xl pointer-events-none" style={{ transform: 'translateX(-50%) translateY(-10px)' }}></div>
-                  </>
-                );
-              default:
-                return null;
-            }
-
-            return (
-              <>
-                <div className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b ${gradientFrom} ${gradientVia} to-transparent pointer-events-none blur-sm`}></div>
-                <div className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-24 ${blurColor} blur-2xl pointer-events-none`} style={{ transform: 'translateX(-50%) translateY(-10px)' }}></div>
-              </>
-            );
-          })()}
-          <div className="min-w-0 relative z-10">
+        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-start justify-between mt-2">
+          <div className="min-w-0">
        <div className="flex items-center gap-2 mb-1">
           <img
                 src={BigDamageIsuueLogo}
@@ -350,12 +301,8 @@ export default function DamageFormHeader({
                   case 'Checked':
                     return 'bg-yellow-100 text-yellow-700 border-yellow-300';
                   case 'BM Approved':
-                    return 'bg-blue-100 text-blue-700 border-blue-300';
                   case 'OPApproved':
-                    return 'op-approved-status-badge';
-                  case 'Ac_Acknowledged':
-                  case 'Acknowledged':
-                    return 'acknowledge-status-badge';
+                    return 'bg-blue-100 text-blue-700 border-blue-300';
                   case 'Approved':
                     return 'bg-green-100 text-green-700 border-green-300';
                   case 'Completed':
@@ -395,26 +342,6 @@ export default function DamageFormHeader({
           )}
         </div>
       </div>
-
-      {/* Desktop Download PDF Button - Circular, positioned absolutely bottom-right - Only show when form is completed/issued/acknowledged */}
-      {onDownloadPdf && (status === 'Completed' || status === 'Issued' || status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' || status === 'SupervisorIssued') && (
-        <button
-          onClick={onDownloadPdf}
-          className="hidden md:flex fixed bottom-12 right-6 z-50 items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-all duration-300 hover:shadow-xl"
-        >
-          <Download className="w-6 h-6" />
-        </button>
-      )}
-
-      {/* Mobile Download PDF Button - Circular, positioned above investigation button - Only show when form is completed/issued/acknowledged */}
-      {onDownloadPdf && (status === 'Completed' || status === 'Issued' || status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' || status === 'SupervisorIssued') && (
-        <button
-          onClick={onDownloadPdf}
-          className="md:hidden fixed bottom-24 right-6 z-50 flex items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-all duration-300 hover:shadow-xl"
-        >
-          <Download className="w-6 h-6" />
-        </button>
-      )}
 
       {showInvestigationButton() && (
         <div className="md:hidden fixed bottom-6 right-6 z-50">

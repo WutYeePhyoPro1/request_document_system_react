@@ -10,6 +10,10 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                            focus:outline-none focus:ring-2 focus:ring-blue-500`;
 
   const statusOptions = [
+<<<<<<< HEAD
+=======
+    { value: '', label: 'All' },
+>>>>>>> c2d7396 (big damage issue update)
     { value: 'Ongoing', label: 'Ongoing' },
     { value: 'Checked', label: 'Checked' },
     { value: 'BM Approved', label: 'BM Approved' },
@@ -68,8 +72,11 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
   const handleSelectChange = (selected, action) => {
     const { name } = action;
+<<<<<<< HEAD
     // For multi-select (status), selected is an array or null
     // For single select (branch), selected is an object or null
+=======
+>>>>>>> c2d7396 (big damage issue update)
     onFilter({ ...filters, [name]: selected });
   };
 
@@ -77,6 +84,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     onClear?.();
   };
 
+<<<<<<< HEAD
   const isAnyFilterApplied = Object.entries(filters).some(([key, val]) => {
     if (key === 'status') {
       // For status (multi-select), check if it's an array with items
@@ -115,11 +123,26 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       '&:hover': {
         borderColor: state.isFocused ? '#3B82F6' : '#9CA3AF',
       },
+=======
+  const isAnyFilterApplied = Object.values(filters).some(val => val);
+
+  // Shared react-select style to match input height
+  const customSelectStyles = {
+    control: (base) => ({
+      ...base,
+      minHeight: '36px',
+      height: '36px',
+      fontSize: '0.8rem',
+      borderRadius: '0.375rem',
+>>>>>>> c2d7396 (big damage issue update)
     }),
     singleValue: (base) => ({
       ...base,
       lineHeight: '36px',
+<<<<<<< HEAD
       color: '#374151',
+=======
+>>>>>>> c2d7396 (big damage issue update)
     }),
     indicatorsContainer: (base) => ({
       ...base,
@@ -128,6 +151,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     placeholder: (base) => ({
       ...base,
       fontSize: '0.8rem',
+<<<<<<< HEAD
       color: '#9CA3AF',
     }),
     multiValue: (base, state) => {
@@ -198,6 +222,9 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       ...base,
       padding: '4px 8px',
       gap: '4px',
+=======
+      color: '#9ca3af', // gray-400
+>>>>>>> c2d7396 (big damage issue update)
     }),
   };
 
@@ -274,8 +301,12 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           </label>
           <Select
             name="status"
+<<<<<<< HEAD
             isMulti
             value={filters.status || null}
+=======
+            value={filters.status}
+>>>>>>> c2d7396 (big damage issue update)
             onChange={handleSelectChange}
             options={statusOptions}
             placeholder="Select Status"

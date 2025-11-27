@@ -12,9 +12,12 @@ import {
   Type,
   Package,
   Layers,
+<<<<<<< HEAD
   CreditCard,
   Image as ImageIcon,
   Upload,
+=======
+>>>>>>> c2d7396 (big damage issue update)
 } from "lucide-react";
 
 Modal.setAppElement("#root");
@@ -139,6 +142,7 @@ export default function ProductDetailModal({
   product,
   loading = false,
   onDelete,
+<<<<<<< HEAD
   accountCodes = [],
   getAccountCodeLabel = null,
   mode = 'view',
@@ -149,18 +153,25 @@ export default function ProductDetailModal({
   if (!product) return null;
   
   const canEdit = (mode === 'add' || mode === 'edit') && !isCompleted;
+=======
+}) {
+  if (!product) return null;
+>>>>>>> c2d7396 (big damage issue update)
 
   const resolvedImages = Array.isArray(product.modalImages) && product.modalImages.length
     ? product.modalImages
     : resolveImageEntries(product);
   const images = resolvedImages.length ? resolvedImages : [];
 
+<<<<<<< HEAD
   // Get account code label
   const accountCode = product.acc_code1 ?? product.acc_code ?? '';
   const accountCodeLabel = accountCode && getAccountCodeLabel
     ? getAccountCodeLabel(accountCode)
     : accountCode || '-';
 
+=======
+>>>>>>> c2d7396 (big damage issue update)
   const Field = ({ icon: Icon, label, value, valueColor }) => (
     <div className="flex gap-2">
       <Icon size={18} className="text-gray-500 shrink-0" />
@@ -232,6 +243,7 @@ export default function ProductDetailModal({
                 ))}
               </div>
 
+<<<<<<< HEAD
               {/* Account Code */}
               {accountCode && (
                 <div className="mt-4 w-full bg-gray-50 border border-gray-200 p-3 rounded-lg">
@@ -268,6 +280,15 @@ export default function ProductDetailModal({
                 )}
               </div>
 
+=======
+              {/* Remark */}
+              {product.remark && (
+                <div className="mt-4 w-full bg-gray-100 p-3 rounded-lg">
+                  <Field icon={Type} label="Remark" value={product.remark} />
+                </div>
+              )}
+
+>>>>>>> c2d7396 (big damage issue update)
               {/* Qty Section */}
               <div className="bg-blue-100 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
                 <div className="flex flex-col items-center gap-1">
@@ -302,6 +323,7 @@ export default function ProductDetailModal({
               </div>
 
               {/* Images */}
+<<<<<<< HEAD
               <div className="mt-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -365,6 +387,29 @@ export default function ProductDetailModal({
                     <p className="text-sm text-gray-400">No images uploaded</p>
                   </div>
                 )}
+=======
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                {images.length > 0
+                  ? images.map((img, i) => (
+                      <img
+                        key={`product-image-${i}`}
+                        src={img}
+                        alt={`product-${i}`}
+                        className="rounded-lg border border-gray-200 object-cover w-full h-28"
+                        onError={(e) => {
+                          e.currentTarget.src = testImage;
+                        }}
+                      />
+                    ))
+                  : [testImage].map((placeholder, index) => (
+                      <div
+                        key={`product-image-placeholder-${index}`}
+                        className="rounded-lg border border-dashed border-gray-300 bg-gray-100 flex items-center justify-center w-full h-28 text-gray-500 text-xs"
+                      >
+                        No image available
+                      </div>
+                    ))}
+>>>>>>> c2d7396 (big damage issue update)
               </div>
             </div>
           </motion.div>

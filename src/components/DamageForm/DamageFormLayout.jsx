@@ -1,14 +1,22 @@
 // DamageFormLayout.jsx
+<<<<<<< HEAD
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
+=======
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+>>>>>>> c2d7396 (big damage issue update)
 import DamageFormHeader from "./DamageFormHeader";
 import DamageItemTable from "./DamageItemTable";
 import SupportingInfo from "./SupportingInfo";
 import InvestigationFormModal from "./InvestigationModal";
 import ApprovalSection from "./ApprovalSection";
 import DamageAddProduct from "./DamageAddProduct";
+<<<<<<< HEAD
 import ActionConfirmationModal from "./ActionConfirmationModal";
+=======
+>>>>>>> c2d7396 (big damage issue update)
 import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -150,7 +158,10 @@ const resolveInitialAttachments = (source = {}, fallback = []) => {
 };
 
 export default function DamageFormLayout({ mode = "add", initialData = null }) {
+<<<<<<< HEAD
   const { t } = useTranslation();
+=======
+>>>>>>> c2d7396 (big damage issue update)
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -362,10 +373,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   
   // Track if form has been initialized to prevent overwriting user input
   const formInitializedRef = useRef(false);
+<<<<<<< HEAD
   // Track if approvals have been fetched to prevent duplicate fetches
   const approvalsFetchRef = useRef(false);
   // Track if branch has been bootstrapped to prevent infinite loop
   const branchBootstrappedRef = useRef(false);
+=======
+>>>>>>> c2d7396 (big damage issue update)
 
   useEffect(() => {
     setCurrentUser(getCurrentUser());
@@ -386,6 +400,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const raw = (value || '').toString().toLowerCase().trim();
     if (!raw) return '';
 
+<<<<<<< HEAD
 
     // IMPORTANT: Check for operation manager patterns FIRST (before BM)
     // This ensures "assistant operation manager" is detected as op_manager, not bm
@@ -402,12 +417,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if (/account|ac_?acknowledged/.test(raw)) return 'account';
     if (/supervisor|cs/.test(raw)) return 'supervisor';
     
+=======
+    if (/branch\s*lp|loss\s*prevention|checker|branch_checker|lp/i.test(value)) return 'branch_lp';
+    if (/bm|branch manager|abm/.test(raw)) return 'bm';
+    if (/account|ac_?acknowledged/.test(raw)) return 'account';
+    if (/supervisor|cs/.test(raw)) return 'supervisor';
+    if (/operation_manager|assistant\s*op\s*manager|op_manager|operation manager|op\b/.test(raw)) return 'op_manager';
+>>>>>>> c2d7396 (big damage issue update)
     return raw;
   };
 
   const extractRoleValue = (user) => {
     if (!user || typeof user !== 'object') return '';
 
+<<<<<<< HEAD
 
     // First check user_type - A2 maps to operation manager
     // Check in multiple locations: direct field, nested role object, etc.
@@ -445,6 +468,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       'userType',
       'position', // Check position early - "assistant operation manager" is here
       'designation',
+=======
+    const roleKeys = [
+>>>>>>> c2d7396 (big damage issue update)
       'role',
       'role_name',
       'roleName',
@@ -453,13 +479,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       'role_type',
       'roleType',
       'type',
+<<<<<<< HEAD
+=======
+      'position',
+      'designation',
+>>>>>>> c2d7396 (big damage issue update)
       'roles',
       'user_roles',
     ];
 
     const nestedKeys = [
+<<<<<<< HEAD
       'user_type', // Check user_type in nested objects too
       'userType',
+=======
+>>>>>>> c2d7396 (big damage issue update)
       'name',
       'role',
       'role_name',
@@ -471,11 +505,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     const extractFromValue = (value) => {
       if (typeof value === 'string') {
+<<<<<<< HEAD
         // If value is user_type (A2 or OP), normalize to op_manager
         const upperValue = value.toUpperCase().trim();
         if (upperValue === 'A2' || upperValue === 'OP') {
           return 'op_manager';
         }
+=======
+>>>>>>> c2d7396 (big damage issue update)
         return value.trim();
       }
       if (Array.isArray(value)) {
@@ -488,10 +525,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         for (const key of nestedKeys) {
           const nested = value[key];
           if (typeof nested === 'string' && nested.trim()) {
+<<<<<<< HEAD
             // If key is user_type or userType, check if value is A2 or OP
             if ((key === 'user_type' || key === 'userType') && (nested.toUpperCase().trim() === 'A2' || nested.toUpperCase().trim() === 'OP')) {
               return 'op_manager';
             }
+=======
+>>>>>>> c2d7396 (big damage issue update)
             return nested.trim();
           }
         }
@@ -501,6 +541,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     for (const key of roleKeys) {
       const value = user[key];
+<<<<<<< HEAD
       if (value !== undefined && value !== null) {
       }
       const extracted = extractFromValue(value);
@@ -531,6 +572,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           }
         }
         
+=======
+      const extracted = extractFromValue(value);
+      if (extracted) {
+>>>>>>> c2d7396 (big damage issue update)
         return extracted;
       }
     }
@@ -576,6 +621,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   };
 
   const getUserRole = () => {
+<<<<<<< HEAD
     // COMPREHENSIVE user_type check from ALL possible sources
     const getAllUserTypes = () => {
       const sources = [];
@@ -634,6 +680,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
     }
 
+=======
+>>>>>>> c2d7396 (big damage issue update)
     const backendSources = [
       initialData?.current_user,
       initialData?.currentUser,
@@ -645,9 +693,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     let backendRole = '';
     for (const source of backendSources) {
       backendRole = extractRoleValue(source);
+<<<<<<< HEAD
       if (backendRole) {
         break;
       }
+=======
+      if (backendRole) break;
+>>>>>>> c2d7396 (big damage issue update)
     }
 
     if (!backendRole) {
@@ -658,6 +710,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         initialData?.user_role,
         initialData?.userRole,
         initialData?.current_role,
+<<<<<<< HEAD
         initialData?.user_type, // Also check user_type from initialData
       ].filter((item) => typeof item === 'string' && item.trim().length);
       backendRole = scalarCandidates.length ? scalarCandidates[0] : '';
@@ -752,10 +805,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         return 'op_manager';
       }
     }
+=======
+      ].filter((item) => typeof item === 'string' && item.trim().length);
+      backendRole = scalarCandidates.length ? scalarCandidates[0] : '';
+    }
+
+    const role = extractRoleValue(currentUser) || backendRole || getRole();
+    const normalized = normalizeRole(role);
+>>>>>>> c2d7396 (big damage issue update)
 
     return normalized;
   };
   
+<<<<<<< HEAD
   const userRole = useMemo(() => {
     const role = getUserRole();
     return role;
@@ -870,6 +932,54 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
   
+=======
+  const userRole = useMemo(() => getUserRole(), [currentUser]);
+
+  // Check if user is operation manager based on approvals (matching Laravel Op_Manager logic)
+  const isOpManagerByApproval = useMemo(() => {
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    if (!currentUserId) return false;
+    
+    const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+    if (!approvals.length) return false;
+    
+    // Check if user has approval entry with user_type: 'OP' or 'A2'
+    const opApproval = approvals.find(approval => {
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      const userType = approval?.user_type || approval?.raw?.user_type || '';
+      const approvalStatus = approval?.status || approval?.raw?.status || '';
+      const label = (approval?.label || approval?.role || '').toString().toLowerCase();
+      
+      const userTypeMatches = (userType === 'OP' || userType === 'A2');
+      const labelMatches = label.includes('operation') || label.includes('op manager') || label.includes('op_manager');
+      
+      let userIdMatches = false;
+      if (allUserIds.length > 0) {
+        userIdMatches = allUserIds.some(id => 
+          String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+        );
+      } else if (labelMatches && userTypeMatches) {
+        const currentStatus = (formData.status || '').trim();
+        userIdMatches = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(currentStatus);
+      }
+      
+      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked', 'Pending'].includes(approvalStatus);
+      const formStatus = (formData.status || '').trim();
+      const formStatusAllows = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Completed'].includes(formStatus);
+      
+      return (userTypeMatches || labelMatches) && userIdMatches && (statusMatches || formStatusAllows);
+    });
+    
+    return Boolean(opApproval);
+  }, [currentUser, formData.approvals, formData.status]);
+
+  // User is op_manager if role name matches OR if they have OP approval entry
+  const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
+>>>>>>> c2d7396 (big damage issue update)
 
   // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
   // Laravel Ac_Manager() checks: ApprovalProcessUser where user_type='AC', admin_id=current_user_id, status='OPApproved'
@@ -952,6 +1062,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'BMApproved':
         return 'BM Approved';
       case 'Proceed':
+<<<<<<< HEAD
         return 'Completed';
       case 'OPApproved':
         return 'Completed';
@@ -959,12 +1070,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Operation Manager acknowledges - form status should be Ac_Acknowledged
         // Account users will then see it and can issue it (which changes to Completed)
         return 'Ac_Acknowledged';
+=======
+        return 'OPApproved';
+      case 'OPApproved':
+        return 'OPApproved'; 
+>>>>>>> c2d7396 (big damage issue update)
       case 'BMApprovedMem':
         return 'Checked';
       case 'Completed':
         return 'Completed';
       case 'SupervisorIssued':
+<<<<<<< HEAD
         return 'Completed'; // Supervisor step removed - map to Completed
+=======
+        return 'SupervisorIssued';
+>>>>>>> c2d7396 (big damage issue update)
       default:
         return action;
     }
@@ -987,6 +1107,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // eslint-disable-next-line no-console
   }
   
+<<<<<<< HEAD
   // Check if investigation form is filled (required for BM approval at Checked status)
   const isInvestigationFilled = useMemo(() => {
     const investigation = formData?.investigation || 
@@ -1013,6 +1134,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return hasBmReason && hasValidPercentages;
   }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate]);
   
+=======
+>>>>>>> c2d7396 (big damage issue update)
   const showInvestigationButton = () => {
     const statusRaw =
       formData.status ??
@@ -1041,11 +1164,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       return true;
     }
 
+<<<<<<< HEAD
     // Account users can view investigation at Ac_Acknowledged, OPApproved, or BM Approved stages
     if (userRole === 'account' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
       return true;
     }
 
+=======
+>>>>>>> c2d7396 (big damage issue update)
     // For other roles, check if there's investigation data
     const hasInvestigation = Boolean(
       formData.investigation ||
@@ -1063,6 +1189,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return false;
   };
 
+<<<<<<< HEAD
   // Fetch approvals separately if not included in initialData (for existing forms after reload)
   useEffect(() => {
     const fetchApprovals = async () => {
@@ -1135,6 +1262,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return () => clearTimeout(timer);
   }, [initialData?.generalFormId || initialData?.general_form_id || initialData?.id, mode]);
 
+=======
+>>>>>>> c2d7396 (big damage issue update)
   useEffect(() => {
     // Only initialize form data once when initialData is first loaded
     // This prevents overwriting user input when initialData changes due to SWR revalidation
@@ -1287,7 +1416,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             acc_code: accCode,
           };
         });
+<<<<<<< HEAD
       
+=======
+        
+>>>>>>> c2d7396 (big damage issue update)
         
         return {
           ...prev,
@@ -1326,7 +1459,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                 });
                 issFile = issFiles[0];
               }
+<<<<<<< HEAD
 
+=======
+              
+>>>>>>> c2d7396 (big damage issue update)
               if (issFile && issFile.reason) {
                 // reason field contains the remark ID
                 return String(issFile.reason);
@@ -1358,6 +1495,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   useEffect(() => {
     const bootstrapBranch = async () => {
+<<<<<<< HEAD
       // Prevent multiple runs - only bootstrap once per mode change
       if (branchBootstrappedRef.current || (formData.branch || '').trim()) {
         return;
@@ -1393,6 +1531,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           }
         }
         
+=======
+      try {
+        if ((formData.branch || '').trim()) return;
+        const storedUser = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        const branchId = storedUser?.from_branch_id;
+>>>>>>> c2d7396 (big damage issue update)
         if (!branchId) {
           const fallback = storedUser?.branch_name || storedUser?.from_branch_name;
           if (fallback) {
@@ -1435,6 +1580,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
     };
     bootstrapBranch();
+<<<<<<< HEAD
     
     // Reset bootstrap flag when mode changes
     return () => {
@@ -1473,6 +1619,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   }, []);
 
   const handleItemsChange = useCallback((updatedItems) => {
+=======
+  }, [mode, formData.branch]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [dupModal, setDupModal] = useState({ open: false, code: '' });
+  const [notFoundModal, setNotFoundModal] = useState({ open: false, code: '' });
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+
+  const handleAddItem = item => {
+    setFormData(prev => ({ ...prev, items: [...prev.items, item] }));
+  };
+
+  const handleRemoveItem = id => {
+    setFormData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+  };
+
+  const handleItemsChange = (updatedItems) => {
+>>>>>>> c2d7396 (big damage issue update)
     // Remove duplicates by ID before updating
     const itemsById = new Map();
     updatedItems.forEach(item => {
@@ -1496,9 +1662,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         total: Number(item.total ?? item.amount ?? 0)
       }))
     }));
+<<<<<<< HEAD
   }, []);
 
   const handleItemFieldChange = useCallback((index, field, value) => {
+=======
+  };
+
+  const handleItemFieldChange = (index, field, value) => {
+>>>>>>> c2d7396 (big damage issue update)
     setFormData(prev => {
       if (!Array.isArray(prev.items) || !prev.items[index]) {
         return prev;
@@ -1534,9 +1706,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         items: nextItems
       };
     });
+<<<<<<< HEAD
   }, []);
 
   const handleSearchProduct = async (productCode, caseType = 'Other income sell', onSuccess) => {
+=======
+  };
+
+  const handleSearchProduct = async (productCode, caseType = 'Other income sell') => {
+>>>>>>> c2d7396 (big damage issue update)
     if (!productCode?.trim()) {
       return;
     }
@@ -1613,6 +1791,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                        '';
 
       const newItem = {
+<<<<<<< HEAD
         id: Math.floor(Date.now() + Math.random() * 1000), // Ensure integer ID
         category: category,
         category_id: info?.category_id || info?.maincatid || null,
@@ -1627,11 +1806,25 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         final_qty: 1, // Initialize with 1 instead of 0
         price,
         amount: price * 1, // Calculate initial amount
+=======
+        id: Date.now() + Math.random(),
+        category: category,
+        category_id: info?.category_id || info?.maincatid || null,
+        code: info.product_code || code,
+        name: info.product_name || "",
+        unit: info.unit || "",
+        system_qty: Number(sysQty) || 0,
+        actual_qty: 0,
+        final_qty: 0,
+        price,
+        amount: 0,
+>>>>>>> c2d7396 (big damage issue update)
         remark: "",
         img: [],
       };
 
       // Add the new item to the form
+<<<<<<< HEAD
       setFormData(prev => {
         const updatedItems = [...prev.items, newItem];
         return {
@@ -1646,6 +1839,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           onSuccess();
         }, 500);
       }
+=======
+      setFormData(prev => ({
+        ...prev,
+        items: [...prev.items, newItem]
+      }));
+>>>>>>> c2d7396 (big damage issue update)
 
     } catch (_error) {
       setNotFoundModal({ open: true, code });
@@ -1654,6 +1853,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     }
 };
 
+<<<<<<< HEAD
   // Calculate totalAmount from items, but also check general_form.total_amount as fallback
   const totalAmount = formData.items.length > 0 
     ? formData.items.reduce((acc, i) => acc + (i.amount || 0), 0)
@@ -1666,6 +1866,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ?? initialData?.total_amount
         ?? 0
       );
+=======
+  const totalAmount = formData.items.reduce((acc, i) => acc + (i.amount || 0), 0);
+>>>>>>> c2d7396 (big damage issue update)
   const apiActions = initialData?.actions || {};
   const statusText = (formData.status || '').trim();
   const normalize = s => (s || '').toString();
@@ -1680,7 +1883,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'BMApproved':
         return 'Approve';
       case 'OPApproved':
+<<<<<<< HEAD
         return 'Acknowledge';
+=======
+        return 'Approve';
+>>>>>>> c2d7396 (big damage issue update)
       case 'Ac_Acknowledged':
         return 'Acknowledge';
       case 'SupervisorIssued':
@@ -1706,11 +1913,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Blue for BM Approve action (matches BM Approved status)
         return 'bg-blue-600 hover:bg-blue-700 border-blue-700';
       case 'OPApproved':
+<<<<<<< HEAD
         // Custom OKLCH color for OP Approve action (matches OP Approved status)
         return 'op-approved-btn-custom';
       case 'Ac_Acknowledged':
         // Custom OKLCH color for Acknowledge action (matches Acknowledged status)
         return 'acknowledge-btn-custom';
+=======
+        // Violet for OP Approve action (matches OP Approved status)
+        return 'bg-violet-600 hover:bg-violet-700 border-violet-700';
+      case 'Ac_Acknowledged':
+        // Lime for Acknowledge action (matches Acknowledged status)
+        return 'bg-lime-500 hover:bg-lime-600 border-lime-600';
+>>>>>>> c2d7396 (big damage issue update)
       case 'Completed':
       case 'Issue':
       case 'SupervisorIssued':
@@ -1743,6 +1958,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         act.approve = 'BMApprovedMem';
       } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
         act.approve = 'BMApproved';
+<<<<<<< HEAD
       } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
         // Operation Manager should only approve if amount > 500000
         // After Operation Manager acknowledges, form goes directly to Completed (no supervisor step)
@@ -1766,6 +1982,27 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
       // Removed supervisor step - after Ac_Acknowledged, form goes directly to Completed
       // Supervisor step is no longer needed for big damage issue forms
+=======
+      } else if (role === 'op_manager' && (currentStatus === 'BM Approved' || currentStatus === 'Checked')) {
+        act.approve = 'OPApproved';
+      } else if (role === 'account') {
+        // Account can only acknowledge after proper approval stage:
+        // - If amount > 500000: Must wait for OPApproved (Operation Manager approval)
+        // - If amount <= 500000: Can acknowledge at BM Approved (no Operation Manager stage)
+        if (requiresOpManagerApproval) {
+          // Amount exceeds 500000 - must wait for Operation Manager approval
+          if (currentStatus === 'OPApproved' || currentStatus === 'OP Approved') {
+            act.approve = 'Ac_Acknowledged';
+          }
+        } else {
+          // Amount <= 500000 - can acknowledge at BM Approved
+          if (currentStatus === 'BM Approved' || currentStatus === 'BMApproved') {
+            act.approve = 'Ac_Acknowledged';
+          }
+        }
+      } else if (role === 'supervisor' && (currentStatus === 'Ac_Acknowledged' || currentStatus === 'Approved')) {
+        act.approve = 'Completed';
+>>>>>>> c2d7396 (big damage issue update)
       } else if (currentStatus === 'Ongoing' || currentStatus === '') {
         act.approve = 'BMApproved';
       }
@@ -1823,19 +2060,28 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId;
       
       if (!generalFormId) {
+<<<<<<< HEAD
         toast.error(t('messages.pdfFormIdNotFound'));
+=======
+        toast.error('Unable to generate PDF: Form ID not found');
+>>>>>>> c2d7396 (big damage issue update)
         return;
       }
 
       // Get the token for authentication
       const token = localStorage.getItem('token');
       if (!token) {
+<<<<<<< HEAD
         toast.error(t('messages.authRequired'));
+=======
+        toast.error('Authentication required. Please log in again.');
+>>>>>>> c2d7396 (big damage issue update)
         return;
       }
 
       // Import API config to get base URL
       const config = await import('../../api/config');
+<<<<<<< HEAD
       const { API_BASE_URL } = config;
       
       // Construct the PDF URL - using the API route for print
@@ -1858,6 +2104,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         
         console.log('[PDF Download] Fetching PDF...');
         // Fetch PDF with Bearer token authentication (API route)
+=======
+      const { API_BASE_URL, SANCTUM_URL } = config;
+      
+      // Construct the PDF URL - using the web route for print
+      // The route is /users/{general_form_id}/print
+      const baseUrl = API_BASE_URL.replace('/api', '') || SANCTUM_URL || 'http://localhost:8000';
+      const pdfUrl = `${baseUrl}/users/${generalFormId}/print`;
+      
+      // Show loading toast
+      const loadingToast = toast.loading('Generating PDF...');
+      
+      try {
+        // Fetch PDF with authentication
+>>>>>>> c2d7396 (big damage issue update)
         const response = await fetch(pdfUrl, {
           method: 'GET',
           headers: {
@@ -1865,6 +2125,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             'Accept': 'application/pdf',
           },
           credentials: 'include',
+<<<<<<< HEAD
           signal: controller.signal,
         });
         
@@ -1950,6 +2211,18 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         
         // Create a blob URL and download
         console.log('[PDF Download] Creating download link...');
+=======
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to generate PDF: ${response.status} ${response.statusText}`);
+        }
+
+        // Get the PDF blob
+        const blob = await response.blob();
+        
+        // Create a blob URL and download
+>>>>>>> c2d7396 (big damage issue update)
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -1961,6 +2234,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Clean up the blob URL
         window.URL.revokeObjectURL(blobUrl);
         
+<<<<<<< HEAD
         console.log('[PDF Download] PDF download completed successfully');
         toast.dismiss(loadingToast);
         toast.success(t('messages.pdfGenerated'));
@@ -2079,6 +2353,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   };
 
   //Handle form submission (actual submission logic)
+=======
+        toast.dismiss(loadingToast);
+        toast.success('PDF downloaded successfully');
+      } catch (fetchError) {
+        toast.dismiss(loadingToast);
+        
+        // If fetch fails, try opening in new window (might work with session cookies)
+        const newWindow = window.open(pdfUrl, '_blank');
+        
+        if (!newWindow) {
+          throw new Error('Failed to open PDF. Please check your popup blocker settings.');
+        }
+      }
+    } catch (error) {
+      toast.error(error.message || 'Failed to download PDF. Please try again.');
+    }
+  };
+
+  //Handle form submission
+>>>>>>> c2d7396 (big damage issue update)
   const handleSubmit = async (action) => {
    
     try {
@@ -2088,7 +2382,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       const token = localStorage.getItem('token');
       if (!token) {
+<<<<<<< HEAD
         throw new Error(t('messages.errors.authTokenNotFound'));
+=======
+        throw new Error('Authentication token not found. Please log in again.');
+>>>>>>> c2d7396 (big damage issue update)
       }
 
       const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId || null;
@@ -2100,14 +2398,22 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       const items = Array.isArray(formData.items) ? formData.items : [];
       if (!items.length) {
+<<<<<<< HEAD
         toast.error(t('messages.addProductRequired'));
+=======
+        toast.error('Please add at least one product before submitting.');
+>>>>>>> c2d7396 (big damage issue update)
         setIsSubmitting(false);
         return;
       }
 
       const hasValidProduct = items.some((item) => (item?.code || item?.product_code || '').toString().trim());
       if (!hasValidProduct) {
+<<<<<<< HEAD
         toast.error(t('messages.productCodeRequired'));
+=======
+        toast.error('Please provide a product code for each item.');
+>>>>>>> c2d7396 (big damage issue update)
         setIsSubmitting(false);
         return;
       }
@@ -2175,6 +2481,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         return qty > 0;
       });
 
+<<<<<<< HEAD
       console.log('Form submission - Total items:', items.length);
       console.log('Form submission - Valid items:', validItems.length);
       console.log('Form submission - Items data:', items);
@@ -2190,6 +2497,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Note: Reason/Remark/Comment can be null in create stage
       // Note: File attachments are optional in submit step
       // Note: Empty fields are already shown in confirmation modal, no need to show again here
+=======
+      if (validItems.length === 0) {
+        toast.error('Please add at least one product with quantity greater than zero before submitting.');
+        setIsSubmitting(false);
+        return;
+      }
+>>>>>>> c2d7396 (big damage issue update)
 
       const normalizedItems = validItems.map((item, index) => {
         const productCode = (item?.product_code || item?.code || '').toString().trim();
@@ -2199,6 +2513,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         const rawQty = item?.request_qty ?? item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
         const requestQty = safeNumber(rawQty);
         
+<<<<<<< HEAD
         // Ensure requestQty is at least 1 for valid items (since we filtered for qty > 0)
         const finalRequestQty = requestQty > 0 ? requestQty : 1;
         
@@ -2208,6 +2523,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         const computedAmount = price * finalRequestQty;
         const parsedAmount = Number(item?.amount);
         const amount = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : computedAmount;
+=======
+        const systemQty = safeNumber(item?.system_qty);
+        const priceValue = Number(item?.price);
+        const price = Number.isFinite(priceValue) ? priceValue : 0;
+        const computedAmount = price * requestQty;
+        const parsedAmount = Number(item?.amount);
+        const amount = Number.isFinite(parsedAmount) ? parsedAmount : computedAmount;
+>>>>>>> c2d7396 (big damage issue update)
         const remark = item?.remark ?? '';
         const productName = item?.product_name || item?.name || '';
         const unit = item?.unit || '';
@@ -2215,6 +2538,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Resolve actual and final quantities, checking multiple fields for old form compatibility
         const rawActual = item?.actual_qty ?? item?.request_qty ?? 0;
         const rawFinal = item?.final_qty ?? item?.product_type ?? item?.request_qty ?? 0;
+<<<<<<< HEAD
         const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : finalRequestQty;
         const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : finalRequestQty;
         const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
@@ -2235,6 +2559,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             specificId = Math.floor(parsed).toString();
           }
         }
+=======
+        const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : requestQty;
+        const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : requestQty;
+        const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
+        const specificId = item?.specific_form_id ?? item?.id ?? '';
+>>>>>>> c2d7396 (big damage issue update)
         
         // Get product_category_id from multiple possible sources
         const categoryId = item?.product_category_id || 
@@ -2249,7 +2579,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           product_code: productCode,
           product_name: productName,
           unit,
+<<<<<<< HEAD
           request_qty: finalRequestQty,
+=======
+          request_qty: requestQty,
+>>>>>>> c2d7396 (big damage issue update)
           actual_qty: resolvedActual,
           final_qty: resolvedFinal,
           price,
@@ -2263,18 +2597,47 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         };
       });
 
+<<<<<<< HEAD
       // Arrays will be declared later before use
 
       // Import with debug logging
       const config = await import('../../api/config');
       const { apiFetch } = config;
+=======
+      const productCodes = normalizedItems.map((item) => item.product_code);
+      const productNames = normalizedItems.map((item) => item.product_name ?? '');
+      const units = normalizedItems.map((item) => item.unit ?? '');
+      const systemQtys = normalizedItems.map((item) => item.system_qty ?? 0);
+      const requestQtys = normalizedItems.map((item) => item.request_qty ?? 0);
+      const actualQtys = normalizedItems.map((item) => item.actual_qty ?? 0);
+      const finalQtys = normalizedItems.map((item) => item.final_qty ?? 0);
+      const prices = normalizedItems.map((item) => item.price ?? 0);
+      const amounts = normalizedItems.map((item) => item.amount ?? 0);
+      const remarks = normalizedItems.map((item) => item.remark ?? '');
+      const productTypes = normalizedItems.map((item) => item.product_type ?? 'Damage');
+      const accountCodeLines = normalizedItems.map((item) => item.acc_code1 ?? item.acc_code ?? '');
+      const productCategoryIds = normalizedItems.map((item) => item.product_category_id ?? null);
+      const specificFormIds = normalizedItems.map((item, index) => {
+        const fallback = items[index]?.specific_form_id ?? items[index]?.id ?? '';
+        return item.specific_form_id ?? fallback;
+      });
+
+      // Import with debug logging
+      const config = await import('../../api/config');
+      const { API_BASE_URL, apiFetch } = config;
+>>>>>>> c2d7396 (big damage issue update)
       
       // Set the correct endpoint based on the mode
       const formIdNum = parseInt(formId, 10) || 1;
       const layoutIdNum = parseInt(layoutId, 10) || 1;
       const endpoint = isExistingForm
+<<<<<<< HEAD
         ? `/big-damage-issues/${generalFormId}`
         : `/big-damage-issues/${formIdNum}/${layoutIdNum}`;
+=======
+        ? `${API_BASE_URL}/big-damage-issues/${generalFormId}`
+        : `${API_BASE_URL}/big-damage-issues/${formIdNum}/${layoutIdNum}`;
+>>>>>>> c2d7396 (big damage issue update)
 
       const method = isExistingForm ? 'POST' : 'POST';
 
@@ -2298,6 +2661,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         if (excludedFormKeys.has(key)) return;
 
         if (value instanceof Date) {
+<<<<<<< HEAD
           // Convert to Y-m-d H:i:s format for Laravel
           const year = value.getFullYear();
           const month = String(value.getMonth() + 1).padStart(2, '0');
@@ -2306,6 +2670,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           const minutes = String(value.getMinutes()).padStart(2, '0');
           const seconds = String(value.getSeconds()).padStart(2, '0');
           formDataToSend.append(key, `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`);
+=======
+          formDataToSend.append(key, value.toISOString().split('T')[0]);
+>>>>>>> c2d7396 (big damage issue update)
           return;
         }
 
@@ -2333,6 +2700,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
 
         if (value !== null && value !== undefined) {
+<<<<<<< HEAD
           // Special handling for datetime field - convert to Laravel format
           if (key === 'datetime' && typeof value === 'string') {
             // Handle various datetime formats
@@ -2361,18 +2729,28 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       // Get user_id from multiple sources
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+=======
+          formDataToSend.append(key, value);
+        }
+      });
+
+>>>>>>> c2d7396 (big damage issue update)
       const userId = formData.user_id
         ?? initialData?.user_id
         ?? initialData?.user?.id
         ?? initialData?.user?.user_id
+<<<<<<< HEAD
         ?? storedUser?.id
         ?? storedUser?.admin_id
         ?? storedUser?.user_id
+=======
+>>>>>>> c2d7396 (big damage issue update)
         ?? null;
 
       if (userId) {
         formDataToSend.append('user_id', userId);
       }
+<<<<<<< HEAD
       
       // Add branch_id if not already present
       const branchId = formData.branch_id 
@@ -2392,6 +2770,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('form_id', formIdNum);
         formDataToSend.append('layout_id', layoutIdNum);
       }
+=======
+>>>>>>> c2d7396 (big damage issue update)
 
       if (isExistingForm) {
         formDataToSend.append('_method', 'PATCH');
@@ -2400,6 +2780,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Always include asset_type for both new and existing forms
       formDataToSend.append('asset_type', 'Damage');
       
+<<<<<<< HEAD
       // Send items in nested format that Laravel expects: items[0][product_code], items[1][product_code], etc.
       // Laravel Repository expects: $request['items'] as an array
       normalizedItems.forEach((item, index) => {
@@ -2458,6 +2839,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const accountCodeLines = normalizedItems.map((item) => item.acc_code1 ?? '');
       
       // Append all arrays
+=======
+      // Add items array with debug logging
+      normalizedItems.forEach((item, index) => {
+        Object.entries(item).forEach(([key, value]) => {
+          if (value !== undefined && value !== null && value !== '') {
+            formDataToSend.append(`items[${index}][${key}]`, value);
+          }
+        });
+
+      });
+
+      const appendArrayField = (key, values) => {
+        values.forEach((value) => {
+          if (value !== undefined && value !== null && value !== '') {
+            formDataToSend.append(`${key}[]`, value);
+          }
+        });
+      };
+
+>>>>>>> c2d7396 (big damage issue update)
       appendArrayField('product_code', productCodes);
       appendArrayField('product_name', productNames);
       appendArrayField('unit', units);
@@ -2470,9 +2871,24 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       appendArrayField('total', amounts);
       appendArrayField('remark', remarks);
       appendArrayField('product_type', productTypes);
+<<<<<<< HEAD
       appendArrayField('product_category_id', productCategoryIds);
       appendArrayField('specific_form_id', specificFormIds);
       appendArrayField('acc_code1', accountCodeLines);
+=======
+      // Append product_category_id array
+      productCategoryIds.forEach((value) => {
+        if (value !== undefined && value !== null && value !== '') {
+          formDataToSend.append('product_category_id[]', value);
+        }
+      });
+      // Account codes are now appended after ISS remark (see below)
+      specificFormIds.forEach((value) => {
+        if (value !== undefined && value !== null && value !== '') {
+          formDataToSend.append('specific_form_id[]', value);
+        }
+      });
+>>>>>>> c2d7396 (big damage issue update)
 
       const commentValue = [formData.comment, formData.reason, formData.remark]
         .map((value) => (typeof value === 'string' ? value.trim() : ''))
@@ -2482,9 +2898,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('comment', commentValue);
       }
       
+<<<<<<< HEAD
       // Reason and g_remark can be empty in create stage - send empty string or null
       // Don't force N/A as default
       
+=======
+>>>>>>> c2d7396 (big damage issue update)
       
       // Send the selected issue remark - always send it if it exists
       // The backend needs this to save the ISS remark type
@@ -2492,8 +2911,18 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('iss_remark', formData.iss_remark);
       }
       
+<<<<<<< HEAD
       // Account codes are already included in items[i][acc_code1] above
       // No need to send separate acc_code1[] array
+=======
+      // Always send account codes array, even if some are empty
+      // The backend expects acc_code1[] array to update account codes per item
+      accountCodeLines.forEach((value, index) => {
+        // Send even empty strings - backend needs the array to match product_code array
+        const codeToSend = value ?? '';
+        formDataToSend.append('acc_code1[]', codeToSend);
+      });
+>>>>>>> c2d7396 (big damage issue update)
       
       // When status is 'Completed', send approval fields for "Issued by" (ACK user_type)
       // The backend expects these fields to update the approval record
@@ -2649,6 +3078,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
 
         if (['ac_acknowledged'].includes(actionKey)) {
+<<<<<<< HEAD
           // Operation Manager acknowledgment - update OP approval
           const currentUserRole = getUserRole();
           const isOperationManager = currentUserRole === 'op_manager';
@@ -2717,6 +3147,52 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
               name: userName || userInfo?.name || '',
             });
           }
+=======
+          // Laravel: getUserType('AC', $general_form_id)->update() when status is Ac_Acknowledged
+          // So we need to match user_type: 'AC' and update it
+          updateOrInsert({
+            match: (approval) => {
+              const label = (approval?.label || '').toLowerCase();
+              const userType = (approval?.user_type || '').toLowerCase();
+              // Match user_type: 'AC' (Account) or label that indicates account acknowledgment
+              return userType === 'ac' || label.includes('account') || label.includes('acknowledge');
+            },
+            label: 'Acknowledged by',
+            role: 'Branch Account',
+            user_type: 'AC',
+            status: 'Ac_Acknowledged',
+          });
+        }
+
+        if (['completed'].includes(actionKey)) {
+          
+          // Clear the "Checked by" name if it incorrectly has the supervisor's name
+          updateOrInsert({
+            match: (approval) => {
+              const label = (approval?.label || '').toLowerCase();
+              return label.includes('checked by');
+            },
+            label: 'Checked by',
+            role: 'Checker',
+            user_type: 'C',
+            status: 'Pending',
+            name: '', // Clear the name
+            acted: false,
+          });
+          
+          updateOrInsert({
+            match: (approval) => {
+              const label = (approval?.label || '').toLowerCase();
+              return label.includes('issued by');
+            },
+            label: 'Issued by',
+            role: 'Supervisor',
+            user_type: 'ACK',
+            status: 'Completed',
+            // Ensure the name is set from current user
+            name: userName || userInfo?.name || '',
+          });
+>>>>>>> c2d7396 (big damage issue update)
         }
 
         return workingList;
@@ -2861,6 +3337,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
 
       }
+<<<<<<< HEAD
       
       // Ensure actual_user_branch is always sent (might be required by backend)
       if (!formDataToSend.has('actual_user_branch')) {
@@ -2869,6 +3346,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('actual_user_branch', userBranch);
       }
       
+=======
+>>>>>>> c2d7396 (big damage issue update)
       if (isExistingForm) formDataToSend.append('general_form_id', generalFormId);
 
       try {
@@ -2904,7 +3383,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         });
 
         if (!response) {
+<<<<<<< HEAD
           throw new Error(t('messages.errors.noResponse'));
+=======
+          throw new Error('No response received from server');
+>>>>>>> c2d7396 (big damage issue update)
         }
 
         // Handle successful response
@@ -2921,6 +3404,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           let finalApprovals;
           if (response.approvals && Array.isArray(response.approvals) && response.approvals.length > 0) {
             // Backend returned fresh approvals - use them (they have the latest data from database)
+<<<<<<< HEAD
             // Ensure it's a plain array (Laravel collections might not be properly converted)
             finalApprovals = Array.isArray(response.approvals) ? [...response.approvals] : Object.values(response.approvals || {});
             
@@ -2978,6 +3462,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                 }
               }
             }
+=======
+            finalApprovals = response.approvals;
+>>>>>>> c2d7396 (big damage issue update)
           } else {
             // Fallback to enhanced local approvals if backend didn't return them
             const baseApprovals = formData.approvals || [];
@@ -3021,6 +3508,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                                Array.isArray(response?.general_form?.items) ? response.general_form.items :
                                null;
           
+<<<<<<< HEAD
           setFormData((prev) => {
             // Preserve general_form_id from response if available
             const responseGeneralFormId = response?.general_form_id 
@@ -3054,6 +3542,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         
         // Show success toast
         toast.success(t('messages.formSubmitted'), {
+=======
+          setFormData((prev) => ({
+            ...prev,
+            status: nextStatus,
+            approvals: finalApprovals, // Use backend approvals when available
+            iss_remark: responseIssRemark ?? formData.iss_remark ?? prev.iss_remark, // Use response value if available, otherwise keep current
+            items: responseItems ?? formData.items, // Use response items if available (they contain updated account codes)
+            response: {
+              ...response,
+              approvals: finalApprovals
+            },
+          }));
+
+        }
+
+        setSuccessMessage('Form submitted successfully!');
+        
+        // Show success toast
+        toast.success('Form submitted successfully!', {
+>>>>>>> c2d7396 (big damage issue update)
           position: 'top-right',
           autoClose: 5000,
           hideProgressBar: false,
@@ -3092,6 +3600,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
         return response;
       } catch (apiError) {
+<<<<<<< HEAD
         let errorMessage = t('messages.errors.formSubmitFailed');
         
         if (apiError.status === 404) {
@@ -3127,6 +3636,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           }
         } else {
           errorMessage = t('messages.errors.unknownError');
+=======
+        let errorMessage = 'Failed to submit form. ';
+        
+        if (apiError.status === 404) {
+          errorMessage += 'The requested resource was not found. Please check if the API endpoint is correct.';
+        } else if (apiError.status === 401) {
+          errorMessage += 'Session expired. Please log in again.';
+          // Redirect to login
+          window.location.href = '/login';
+          return; // Stop further execution
+        } else if (apiError.data && apiError.data.message) {
+          errorMessage += apiError.data.message;
+        } else {
+          errorMessage += apiError.message || 'Unknown error occurred';
+>>>>>>> c2d7396 (big damage issue update)
         }
         
         setError(errorMessage);
@@ -3145,6 +3669,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         throw apiError; // Re-throw to be caught by the outer catch
       }
     } catch (error) {
+<<<<<<< HEAD
       let errorMessage = t('messages.errors.unknownError');
       
       // Handle specific error types
@@ -3163,6 +3688,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
       }
       
+=======
+      const errorMessage = `An unexpected error occurred: ${error.message || 'Please try again later.'}`;
+>>>>>>> c2d7396 (big damage issue update)
       setError(errorMessage);
       setSuccessMessage('');
       
@@ -3185,10 +3713,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // Determine which buttons to show based on user role and form status
   const showApproveButton = () => {
+<<<<<<< HEAD
     if (!formData.status) {
       console.log('[showApproveButton] No status - returning false');
       return false;
     }
+=======
+    if (!formData.status) return false;
+>>>>>>> c2d7396 (big damage issue update)
 
     const role = userRole?.toLowerCase?.() || '';
     // Normalize status by trimming and removing extra spaces
@@ -3204,6 +3736,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       ?? 0
     );
     const requiresOpManagerApproval = totalAmount > 500000;
+<<<<<<< HEAD
     
     console.log('[showApproveButton] Starting:', {
       role,
@@ -3214,6 +3747,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       isAccount
     });
     
+=======
+
+>>>>>>> c2d7396 (big damage issue update)
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
     // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
     if ((isAccount || role === 'account') && requiresOpManagerApproval) {
@@ -3232,11 +3768,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                            opManagerApproval?.acted;
       const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || !hasActualUser;
       
+<<<<<<< HEAD
       // Check if status indicates Operation Manager has approved/acknowledged
+=======
+      // Check if status is OPApproved
+>>>>>>> c2d7396 (big damage issue update)
       const isOPApproved = normalizedStatus === 'OPApproved' || 
                           normalizedStatus === 'OP Approved' ||
                           normalizedStatus.toLowerCase() === 'opapproved' ||
                           normalizedStatus.toLowerCase() === 'op approved';
+<<<<<<< HEAD
       const isAcknowledged = normalizedStatus === 'Ac_Acknowledged' || 
                             normalizedStatus === 'Acknowledged';
       const opManagerHasApprovedOrAcknowledged = isOPApproved || isAcknowledged;
@@ -3258,6 +3799,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         return false; // Status doesn't indicate OP approval/acknowledgment
       }
       
+=======
+      
+      // CRITICAL: If Operation Manager approval is pending OR status is not OPApproved, hide button
+      // This ensures account users can NEVER approve before Operation Manager
+      if (isOpApprovalPending || !isOPApproved) {
+        return false; // Force return false - do not proceed to other checks
+      }
+      
+>>>>>>> c2d7396 (big damage issue update)
       // If we reach here, Operation Manager has approved and status is OPApproved
       // Continue to normal flow below
     }
@@ -3268,6 +3818,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       result = true;
     } else if (['branch_lp', 'checker', 'cs', 'loss prevention'].includes(role) && status === 'Ongoing') {
       result = true;
+<<<<<<< HEAD
     } else if ((isOpManager || role === 'op_manager') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked')) {
       // Operation Manager should see approve button when:
       // 1. Form status is "BM Approved" or "Checked"
@@ -3279,6 +3830,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
     } else if ((role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
       // BM/ABM can also see approve button at BM Approved status (for re-approval or other actions)
+=======
+    } else if ((isOpManager || role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
+      // Check if user is op_manager (by role OR by approval user_type) OR if they're BM/ABM
+>>>>>>> c2d7396 (big damage issue update)
       result = true;
     } else if (isAccount || role === 'account') {
       // Account can only acknowledge after proper approval stage:
@@ -3303,6 +3858,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                           normalizedStatus.toLowerCase() === 'opapproved' ||
                           normalizedStatus.toLowerCase() === 'op approved';
       
+<<<<<<< HEAD
       // Check if status indicates Ac_Acknowledged (Operation Manager has acknowledged)
       const isAcknowledged = normalizedStatus === 'Ac_Acknowledged' || 
                             normalizedStatus === 'Acknowledged';
@@ -3317,6 +3873,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // Check if Operation Manager approval exists and is still pending
         opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
         isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
+=======
+      if (requiresOpManagerApproval) {
+        // Amount exceeds 500000 - must wait for Operation Manager approval
+        // Check if Operation Manager approval exists and is still pending
+        const opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
+        const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
+>>>>>>> c2d7396 (big damage issue update)
                                    (!opManagerApproval?.actual_user_id && 
                                     !opManagerApproval?.raw?.actual_user_id &&
                                     !opManagerApproval?.actual_user_name &&
@@ -3325,9 +3888,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         
         // Operation Manager has approved if:
         // 1. Status is OPApproved/OP Approved, OR
+<<<<<<< HEAD
         // 2. Status is Ac_Acknowledged/Acknowledged (OP has acknowledged), OR
         // 3. There's an OP approval entry with actual_user_id or actual_user_name (has been acted upon)
         opManagerHasApproved = isOPApproved || isAcknowledged ||
+=======
+        // 2. There's an OP approval entry with actual_user_id or actual_user_name (has been acted upon)
+        const opManagerHasApproved = isOPApproved ||
+>>>>>>> c2d7396 (big damage issue update)
           (opManagerApproval && !isOpApprovalPending && (
             opManagerApproval.actual_user_id || 
             opManagerApproval.raw?.actual_user_id ||
@@ -3337,11 +3905,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
           ));
         
+<<<<<<< HEAD
         // Only show button if Operation Manager has actually approved/acknowledged
         // If status is Ac_Acknowledged, allow button to show
         if (isAcknowledged) {
           result = true; // Status indicates acknowledgment - show button
         } else if (isBMApproved || isOpApprovalPending) {
+=======
+        // Only show button if Operation Manager has actually approved
+        // Do NOT show button if:
+        // 1. Status is BM Approved when amount > 500000, OR
+        // 2. Operation Manager approval exists but is still pending
+        if (isBMApproved || isOpApprovalPending) {
+>>>>>>> c2d7396 (big damage issue update)
           result = false; // Explicitly false - must wait for OP approval
         } else {
           result = opManagerHasApproved;
@@ -3352,6 +3928,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
       
       // Debug logging for account button visibility
+<<<<<<< HEAD
       console.log('[showApproveButton] Account user final result:', {
         result,
         isBMApproved,
@@ -3365,6 +3942,17 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     }
     // Supervisor should NOT see approve button - they have a separate Issue button
     console.log('[showApproveButton] Final result:', result);
+=======
+      const opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
+      const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
+                                 (!opManagerApproval?.actual_user_id && 
+                                  !opManagerApproval?.raw?.actual_user_id &&
+                                  !opManagerApproval?.actual_user_name &&
+                                  !opManagerApproval?.raw?.actual_user_name &&
+                                  !opManagerApproval?.acted);
+    }
+    // Supervisor should NOT see approve button - they have a separate Issue button
+>>>>>>> c2d7396 (big damage issue update)
     return result;
   };
 
@@ -3387,8 +3975,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
 const resolveApproveAction = () => {
   const role = getUserRole();
+<<<<<<< HEAD
   const status = (formData.status || '').toString().trim();
   const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
+=======
+  const status = formData.status;
+>>>>>>> c2d7396 (big damage issue update)
   
   // Get total amount to check if Operation Manager approval is required
   const totalAmount = Number(
@@ -3399,6 +3991,7 @@ const resolveApproveAction = () => {
     ?? 0
   );
   const requiresOpManagerApproval = totalAmount > 500000;
+<<<<<<< HEAD
   
   console.log('[resolveApproveAction] Starting:', {
     role,
@@ -3412,6 +4005,10 @@ const resolveApproveAction = () => {
   
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
+=======
+
+  if (role === 'branch_lp' && status === 'Ongoing') {
+>>>>>>> c2d7396 (big damage issue update)
     return 'BMApprovedMem';
   }
 
@@ -3422,17 +4019,26 @@ const resolveApproveAction = () => {
     const normalizedActionStatus = actionStatus.replace(/\s+/g, ' ');
     
     // Validate that the action from backend is appropriate for current user/status
+<<<<<<< HEAD
     // For account users, only allow Completed (shows as "Issue") after proper approval stage
     if (isAccount || actionRole === 'account') {
       if (requiresOpManagerApproval) {
         // Amount > 500000 - must check if Operation Manager has acknowledged
         // Check approvals array to see if Operation Manager has acknowledged
+=======
+    // For account users with amount > 500000, only allow Ac_Acknowledged at OPApproved
+    if (isAccount || actionRole === 'account') {
+      if (requiresOpManagerApproval) {
+        // Amount > 500000 - must check if Operation Manager has actually approved
+        // Check approvals array to see if Operation Manager has approved
+>>>>>>> c2d7396 (big damage issue update)
         const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
         const opManagerApproval = approvals.find(approval => {
           const userType = (approval?.user_type || approval?.raw?.user_type || '').toLowerCase();
           return userType === 'op' || userType === 'a2';
         });
         
+<<<<<<< HEAD
         // Check if status indicates Ac_Acknowledged (Operation Manager has acknowledged)
         const isAcknowledged = normalizedActionStatus === 'Ac_Acknowledged' || 
                             normalizedActionStatus === 'Acknowledged' ||
@@ -3447,6 +4053,14 @@ const resolveApproveAction = () => {
         }
         
         // If status is not Ac_Acknowledged, check approval entry
+=======
+        // Check if status indicates OP Approved
+        const isOPApproved = normalizedActionStatus === 'OPApproved' || 
+                            normalizedActionStatus === 'OP Approved' ||
+                            normalizedActionStatus.toLowerCase() === 'opapproved' ||
+                            normalizedActionStatus.toLowerCase() === 'op approved';
+        
+>>>>>>> c2d7396 (big damage issue update)
         // Check if Operation Manager approval exists and is still pending
         const opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
         const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
@@ -3456,6 +4070,7 @@ const resolveApproveAction = () => {
                                     !opManagerApproval?.raw?.actual_user_name &&
                                     !opManagerApproval?.acted);
         
+<<<<<<< HEAD
         // Check if Operation Manager has actually acknowledged via approval entry
         const opManagerHasAcknowledged = opManagerApproval && !isOpApprovalPending && (
           opManagerApproval.actual_user_id || 
@@ -3482,16 +4097,44 @@ const resolveApproveAction = () => {
         return null;
       } else {
         // Amount <= 500000 - allow Completed (Issue) at BM Approved
+=======
+        // Check if Operation Manager has actually approved
+        const opManagerHasApproved = isOPApproved ||
+          (opManagerApproval && !isOpApprovalPending && (
+            opManagerApproval.actual_user_id || 
+            opManagerApproval.raw?.actual_user_id ||
+            opManagerApproval.actual_user_name ||
+            opManagerApproval.raw?.actual_user_name ||
+            opManagerApproval.acted ||
+            (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
+          ));
+        
+        // Only allow Ac_Acknowledged if Operation Manager has actually approved
+        // Do NOT allow if Operation Manager approval is still pending
+        if (!isOpApprovalPending && opManagerHasApproved && 
+            (actions.approve === 'Ac_Acknowledged' || actions.approve === 'ac_acknowledged')) {
+          return actions.approve;
+        }
+        // Don't use backend action if Operation Manager hasn't approved or is still pending
+        return null;
+      } else {
+        // Amount <= 500000 - allow Ac_Acknowledged at BM Approved
+>>>>>>> c2d7396 (big damage issue update)
         const isBMApproved = normalizedActionStatus.toLowerCase() === 'bm approved' || 
                             normalizedActionStatus === 'BMApproved' ||
                             normalizedActionStatus.toLowerCase() === 'bmapproved';
         if (isBMApproved && 
+<<<<<<< HEAD
             (actions.approve === 'Completed' || actions.approve === 'completed')) {
+=======
+            (actions.approve === 'Ac_Acknowledged' || actions.approve === 'ac_acknowledged')) {
+>>>>>>> c2d7396 (big damage issue update)
           return actions.approve;
         }
       }
     }
     
+<<<<<<< HEAD
     // For non-account users, validate the action from backend
     if (!isAccount && actionRole !== 'account') {
       // If backend returns OPApproved for op_manager, validate it's appropriate
@@ -3507,15 +4150,24 @@ const resolveApproveAction = () => {
         }
       }
       // For other actions or users, use backend action directly
+=======
+    // For non-account users, use the action from backend
+    if (!isAccount && actionRole !== 'account') {
+>>>>>>> c2d7396 (big damage issue update)
       return actions.approve;
     }
   }
 
+<<<<<<< HEAD
   if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (normalizedStatus === 'Ongoing' || normalizedStatus === 'Checked')) {
+=======
+  if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (status === 'Ongoing' || status === 'Checked')) {
+>>>>>>> c2d7396 (big damage issue update)
     return 'BMApproved';
   }
 
   // Check if user is op_manager (by role OR by approval user_type)
+<<<<<<< HEAD
   // Operation Manager should only approve if amount > 500000
   const isOpManagerCheck = isOpManager || role === 'op_manager';
   const statusMatches = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked';
@@ -3525,6 +4177,10 @@ const resolveApproveAction = () => {
       return 'OPApproved';
     } else {
     }
+=======
+  if (isOpManager && (status === 'BM Approved' || status === 'BMApproved' || status === 'Checked')) {
+    return 'OPApproved';
+>>>>>>> c2d7396 (big damage issue update)
   }
 
   // Check if user is account (by role OR by approval user_type)
@@ -3571,6 +4227,7 @@ const resolveApproveAction = () => {
           (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
         ));
       
+<<<<<<< HEAD
       // Only return action if Operation Manager has acknowledged
       // Do NOT return action if Operation Manager approval is still pending
       // Check if status indicates Operation Manager has acknowledged
@@ -3599,14 +4256,33 @@ const resolveApproveAction = () => {
       // Amount <= 500000 - can issue at BM Approved
       if (isBMApproved) {
         return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
+=======
+      // Only return action if Operation Manager has actually approved
+      // Do NOT return action if Operation Manager approval is still pending
+      if (!isOpApprovalPending && opManagerHasApproved) {
+        return 'Ac_Acknowledged';
+      }
+      // Return null if Operation Manager hasn't approved or is still pending
+      return null;
+    } else {
+      // Amount <= 500000 - can acknowledge at BM Approved
+      if (isBMApproved) {
+        return 'Ac_Acknowledged';
+>>>>>>> c2d7396 (big damage issue update)
       }
     }
     // Return null for account if conditions don't match
     return null;
   }
 
+<<<<<<< HEAD
   // Supervisor step removed - Operation Manager now acknowledges and form goes directly to Completed
   // Removed supervisor logic
+=======
+  if (role === 'supervisor' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'Approved' || (status === 'BM Approved' && formData.systemQtyUpdated))) {
+    return 'Completed';
+  }
+>>>>>>> c2d7396 (big damage issue update)
 
   if (status === 'Ongoing' || status === '') {
     return 'BMApproved';
@@ -3711,7 +4387,10 @@ const resolveApproveAction = () => {
         onClose={handleCloseModal}
         formData={formData}
         userRole={userRole}
+<<<<<<< HEAD
         initialData={initialData}
+=======
+>>>>>>> c2d7396 (big damage issue update)
         onSave={(savedData) => {
           // Update formData with saved investigation data
           if (savedData && savedData.investigation) {
@@ -3737,6 +4416,7 @@ const resolveApproveAction = () => {
         />
       )}
 
+<<<<<<< HEAD
       {/* Add Product Modal for Ongoing stage */}
       {isAddProductModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -3772,6 +4452,8 @@ const resolveApproveAction = () => {
         </div>
       )}
 
+=======
+>>>>>>> c2d7396 (big damage issue update)
       {dupModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDupModal({ open: false, code: '' })} />
@@ -3811,7 +4493,11 @@ const resolveApproveAction = () => {
       <DamageItemTable
         items={formData.items || []}
         mode={mode}
+<<<<<<< HEAD
         status={(formData.status || formData.general_form?.status || initialData?.status || initialData?.general_form?.status || 'Ongoing').toString().trim()}
+=======
+        status={formData.status || 'Ongoing'}
+>>>>>>> c2d7396 (big damage issue update)
         onItemsChange={handleItemsChange}
         onItemChange={handleItemFieldChange}
         generalFormId={initialData?.generalFormId}
@@ -3826,11 +4512,14 @@ const resolveApproveAction = () => {
         issueRemarks={formData.issue_remarks || []}
         issRemark={formData.iss_remark ?? ''}
         systemQtyUpdated={Boolean(formData.systemQtyUpdated)}
+<<<<<<< HEAD
         approvals={formData.approvals || []}
         totalAmount={totalAmount}
         gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
         currentUser={currentUser}
         onOpenAddProductModal={handleOpenAddProductModal}
+=======
+>>>>>>> c2d7396 (big damage issue update)
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
           setFormData((prev) => ({
@@ -4148,9 +4837,15 @@ const resolveApproveAction = () => {
               <XCircle className="btn-icon w-4 h-4 absolute" />
             </button>
             <button 
+<<<<<<< HEAD
               onClick={() => handleSubmitClick('Submit')}
               className="btn-with-icon inline-flex items-center justify-center gap-1 px-6 py-2.5 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700"
               style={{ minWidth: '110px' }}
+=======
+              onClick={() => handleSubmit('Submit')}
+              className="btn-with-icon inline-flex items-center justify-center gap-1 px-5 py-2 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700"
+              style={{ minWidth: '90px' }}
+>>>>>>> c2d7396 (big damage issue update)
             >
               <span className="btn-text">Submit</span>
               <Send className="btn-icon w-4 h-4 absolute" />
@@ -4160,7 +4855,11 @@ const resolveApproveAction = () => {
           <div className="flex flex-wrap items-center justify-end gap-2">
             {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
+<<<<<<< HEAD
                 onClick={() => handleSubmitClick('Edit')}
+=======
+                onClick={() => handleSubmit('Edit')}
+>>>>>>> c2d7396 (big damage issue update)
                 className="btn-with-icon btn-edit inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
                 style={{ fontSize: '0.75rem', minWidth: '80px' }}
               >
@@ -4172,7 +4871,11 @@ const resolveApproveAction = () => {
             {/* Reject Button - Visible based on role and status */}
             {showRejectButton() && (
               <button 
+<<<<<<< HEAD
                 onClick={() => handleSubmitClick('Rejected')}
+=======
+                onClick={() => handleSubmit('Rejected')}
+>>>>>>> c2d7396 (big damage issue update)
                 className="btn-with-icon btn-reject inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
                 style={{ fontSize: '0.75rem', minWidth: '90px' }}
               >
@@ -4184,6 +4887,7 @@ const resolveApproveAction = () => {
             {/* Approve Button - Visible based on role and status */}
         
             {showApproveButton() && (() => {
+<<<<<<< HEAD
               console.log('[DamageFormLayout] showApproveButton returned true, resolving action...');
               const action = resolveApproveAction();
               console.log('[DamageFormLayout] Button render check:', {
@@ -4206,6 +4910,19 @@ const resolveApproveAction = () => {
                   onClick={() => handleSubmitClick(action)}
                   className={`btn-with-icon inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md font-medium text-white transition-all duration-300 border ${buttonClass}`}
                   style={{ fontSize: '0.75rem', minWidth: '120px' }}
+=======
+              const action = resolveApproveAction();
+              // Don't render button if action is null or undefined
+              if (!action) {
+                return null;
+              }
+              const buttonClass = getButtonColorClass(action);
+              return (
+                <button 
+                  onClick={() => handleSubmit(action)}
+                  className={`btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border ${buttonClass}`}
+                  style={{ fontSize: '0.75rem', minWidth: '100px' }}
+>>>>>>> c2d7396 (big damage issue update)
                 >
                   <span className="btn-text">
                     {prettyApprove(action) || 'Proceed'}
@@ -4215,13 +4932,34 @@ const resolveApproveAction = () => {
               );
             })()}
             
+<<<<<<< HEAD
             {/* Supervisor step removed - Operation Manager now acknowledges and form goes directly to Completed */}
             {/* Removed supervisor Issue button */}
+=======
+            {/* Issue Button - For supervisor when status is Acknowledged or Approved */}
+            {userRole === 'supervisor' && (formData.status === 'Ac_Acknowledged' || formData.status === 'Acknowledged' || formData.status === 'Approved') && (
+              <button 
+                onClick={() => {
+                  // Supervisor issues should change status to Completed
+                  handleSubmit('Completed');
+                }}
+                className={`btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border ${getButtonColorClass('Issue')}`}
+                style={{ fontSize: '0.75rem', minWidth: '100px' }}
+              >
+                <span className="btn-text">Issue</span>
+                <Check className="btn-icon w-4 h-4 absolute" />
+              </button>
+            )}
+>>>>>>> c2d7396 (big damage issue update)
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
             {actions.backToPrevious && (
               <button 
+<<<<<<< HEAD
                 onClick={() => handleSubmitClick('BackToPrevious')}
+=======
+                onClick={() => handleSubmit('BackToPrevious')}
+>>>>>>> c2d7396 (big damage issue update)
                 className="group inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200" 
                 style={{ fontSize: '0.75rem' }}
               >
@@ -4233,6 +4971,7 @@ const resolveApproveAction = () => {
         )}
       </div>
       {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} />}
+<<<<<<< HEAD
 
       {/* Action Confirmation Modal */}
       <ActionConfirmationModal
@@ -4242,6 +4981,8 @@ const resolveApproveAction = () => {
         onConfirm={handleConfirmSubmit}
         onCancel={handleCancelSubmit}
       />
+=======
+>>>>>>> c2d7396 (big damage issue update)
     </div>
   );
 }

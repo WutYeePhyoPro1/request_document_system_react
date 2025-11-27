@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from "react";
-import { User, CheckCircle, Clock } from "lucide-react";
+import { User, CheckCircle, Clock, MapPin } from "lucide-react";
 
 const DEFAULT_APPROVALS = [
   { label: "Prepared by", key: "prepared" },
   { label: "Checked by", key: "checked" },
   { label: "Approved by", key: "approved" },
+  { label: "Operation Mgr Approved by", key: "operation" },
   { label: "Issued by", key: "issued" },
 ];
 
@@ -18,6 +19,7 @@ const USER_TYPE_MAP = {
   C: "Checked by",
   CS: "Checked by",
   A1: "Approved by",
+  A2: "Operation Mgr Approved by",
   AC: "Acknowledged by",
   ACK: "Issued by",
 };
@@ -100,7 +102,18 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
         '';
       return issuedByName;
     }
-    // Operation Mgr Approved by section removed
+    if (label === 'Operation Mgr Approved by') {
+      // Check multiple sources for Operation Manager name
+      const opManagerName = 
+        formData?.op_manager_name ||
+        formData?.op_manager_user?.name ||
+        formData?.general_form?.op_manager_name ||
+        formData?.general_form?.op_manager_user?.name ||
+        formData?.operation_manager_name ||
+        formData?.general_form?.operation_manager_name ||
+        '';
+      return opManagerName;
+    }
     if (label === 'Acknowledged by') {
       // Check multiple sources for account acknowledgment name
       const accountName = 
@@ -149,12 +162,9 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
     approvalsToShow.push({ label: "Prepared by", key: "prepared", approval: preparedApproval });
     
     // Always show Checked by
-    // Prioritize user_type 'C' (actual checker) over 'CS' (prepared/creator)
-    // The 'C' type has the actual check comment, 'CS' is just the prepared step
-    const cApproval = safeApprovals.find(a => a?.user_type === 'C');
-    const csApproval = safeApprovals.find(a => a?.user_type === 'CS');
-    const checkedApproval = cApproval || safeApprovals.find(a => (resolveLabel(a) || "").toLowerCase().includes("checked"));
-    
+    const checkedApproval = safeApprovals.find(a => 
+      (resolveLabel(a) || "").toLowerCase().includes("checked")
+    );
     approvalsToShow.push({ label: "Checked by", key: "checked", approval: checkedApproval });
     
     // Always show BM Approved by
@@ -165,7 +175,45 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
     );
     approvalsToShow.push({ label: "BM Approved by", key: "approved", approval: bmApproval });
     
-    // Operation Manager approval section removed
+    // Show Operation Manager approval if:
+    // 1. It exists in safeApprovals (user_type: 'OP' or 'A2' or label includes 'operation'), OR
+    // 2. Status is OPApproved, Completed, or Ac_Acknowledged (even if approval not found yet)
+    // Also check if total_amount > 500000 (Operation Manager approval is required for high amounts)
+    const totalAmount = Number(
+      formData?.general_form?.total_amount
+      ?? formData?.total_amount
+      ?? formData?.general_form?.totalAmount
+      ?? formData?.totalAmount
+      ?? 0
+    );
+    const requiresOpManagerApproval = totalAmount > 500000;
+    
+    // Find Operation Manager approval - check by user_type first (more reliable)
+    const opManagerApproval = safeApprovals.find(a => {
+      const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
+      if (userType === "op" || userType === "a2") {
+        return true;
+      }
+      const label = (resolveLabel(a) || "").toLowerCase();
+      return label.includes("operation");
+    });
+    
+    const shouldShowOpManager = opManagerApproval || 
+      (requiresOpManagerApproval && (
+        status === 'OPApproved' || 
+        status === 'OP Approved' ||
+        status === 'Completed' ||
+        status === 'Ac_Acknowledged' ||
+        status === 'Acknowledged'
+      )) ||
+      safeApprovals.some(a => {
+        const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
+        return userType === "op" || userType === "a2";
+      });
+    
+    if (shouldShowOpManager) {
+      approvalsToShow.push({ label: "Operation Mgr Approved by", key: "operation", approval: opManagerApproval });
+    }
     
     // Always show Account Acknowledged by if:
     // 1. It exists in safeApprovals (user_type: 'AC' or label includes 'acknowledge'), OR
@@ -200,38 +248,30 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
       let hasActed = isPreparedBy || 
                       matchingApproval?.acted || 
                       (matchingApproval?.status && matchingApproval.status !== "Pending");
-      
-      // For "Checked by", only mark as acted if form status is "Checked" or higher, OR if approval has actual_user_id
-      // This prevents "Checked by" from showing as filled when form status is "Ongoing"
-      if (label === 'Checked by') {
-        // Only show as acted if:
-        // 1. Form status is "Checked" or higher (not "Ongoing"), OR
-        // 2. The approval has actual_user_id (someone actually checked it), OR
-        // 3. The approval status is explicitly "Checked"
-        const isCheckedStatus = status === 'Checked' || 
-                                status === 'BM Approved' || 
-                                status === 'BMApproved' ||
-                                status === 'OPApproved' ||
-                                status === 'OP Approved' ||
-                                status === 'Ac_Acknowledged' ||
-                                status === 'Acknowledged' ||
-                                status === 'Completed' ||
-                                status === 'Issued' ||
-                                status === 'SupervisorIssued';
-        
-        if (status === 'Ongoing' || status === 'ongoing') {
-          // Form is still ongoing - only show as acted if approval has actual_user_id
-          hasActed = Boolean(matchingApproval?.actual_user_id);
-        } else if (isCheckedStatus || matchingApproval?.actual_user_id || matchingApproval?.status === 'Checked') {
-          // Form has been checked or approval explicitly shows checked
+
+      // For "Operation Mgr Approved by", if status is OPApproved/Completed/Ac_Acknowledged, it should be marked as acted
+      if (label === 'Operation Mgr Approved by') {
+        if (status === 'OPApproved' || status === 'OP Approved' || status === 'Completed' || status === 'Ac_Acknowledged' || status === 'Acknowledged') {
           hasActed = true;
-        } else {
-          // Otherwise, don't show as acted
+          // If no matching approval but status indicates OP approval happened, try to get name from formData
+          if (!matchingApproval || !matchingApproval.actual_user_name) {
+            // Try to find the name from formData or other sources
+            const opManagerName = resolveName(matchingApproval, label, formData);
+            if (opManagerName) {
+              // Create a virtual approval object for display
+              matchingApproval = matchingApproval || {};
+              matchingApproval.actual_user_name = opManagerName;
+              matchingApproval.name = opManagerName;
+            }
+          }
+        } else if (matchingApproval && matchingApproval.actual_user_id) {
+          hasActed = true;
+        } else if (matchingApproval && (matchingApproval.acted || matchingApproval.status !== 'Pending')) {
+          hasActed = true;
+        } else if (!matchingApproval) {
           hasActed = false;
         }
       }
-
-      // Operation Mgr Approved by section removed
       
       // For "Issued by", if status is Completed/Issued/SupervisorIssued, it should be marked as acted
       if (label === 'Issued by') {
@@ -308,7 +348,35 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
               matchingApproval?.raw?.user?.name ||
               matchingApproval?.user?.name ||
               matchingApproval?.actual_user_full_name ||
-              matchingApproval?.raw?.actual_user_full_name
+              matchingApproval?.raw?.actual_user_full_name ||
+              // For completed forms, also check approvals array directly
+              (status === 'Completed' || status === 'OPApproved' || status === 'OP Approved' || status === 'Ac_Acknowledged' || status === 'Acknowledged' ? (
+                // First check formData fields
+                formData?.op_manager_name || 
+                formData?.general_form?.op_manager_name || 
+                formData?.op_manager_user?.name || 
+                formData?.general_form?.op_manager_user?.name ||
+                formData?.operation_manager_name ||
+                formData?.general_form?.operation_manager_name ||
+                // Then check approvals array for OP Manager approval
+                (() => {
+                  const allApprovals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+                  const opApproval = allApprovals.find(a => {
+                    const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
+                    return userType === "op" || userType === "a2";
+                  });
+                  return opApproval?.actual_user_name ||
+                         opApproval?.raw?.actual_user_name ||
+                         opApproval?.name ||
+                         opApproval?.acknowledges?.name ||
+                         opApproval?.raw?.acknowledges?.name ||
+                         opApproval?.raw?.approval_users?.name ||
+                         opApproval?.approval_users?.name ||
+                         opApproval?.user?.name ||
+                         opApproval?.raw?.user?.name ||
+                         null;
+                })()
+              ) : null)
             )
           : null,
         // For "Issued by" when status is Completed, check approval first, then formData
@@ -328,22 +396,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
               formData?.general_form?.acknowledged_by_user?.name
             )
           : null,
-        (hasActed) ? nameCache.current[label] : null,
-        // For "Prepared by", check formData sources if not found in approval
-        (label === 'Prepared by')
-          ? (
-              formData?.requester_name ||
-              formData?.originator_name ||
-              formData?.created_by_name ||
-              formData?.user_name ||
-              formData?.general_form?.requester_name ||
-              formData?.general_form?.originator_name ||
-              formData?.general_form?.created_by_name ||
-              formData?.general_form?.originators?.name ||
-              formData?.general_form?.user?.name ||
-              ''
-            )
-          : null
+        (hasActed) ? nameCache.current[label] : null
       ];
 
       if (hasActed) {
@@ -355,7 +408,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
       const hasAssignedName = Boolean(resolvedNameRaw && resolvedNameRaw.trim());
       const showDetails = isPreparedBy || hasActed;
 
-      let resolvedName = hasActed
+      const resolvedName = hasActed
         ? resolvedNameRaw
         : isCurrentStep
           ? (currentUser?.name || '')
@@ -401,23 +454,18 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
         if (label === 'Acknowledged by' && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
           return 'Acknowledged';
         }
-        // For "Checked by", return "Checked" only when actually acted (has actual_user_id or status is Checked)
-        // If form is Ongoing, don't show as "Checked" even if approval exists
-        if (label === 'Checked by') {
-          if (hasActed && (matchingApproval?.actual_user_id || matchingApproval?.status === 'Checked' || status !== 'Ongoing')) {
-            return 'Checked';
-          }
-          // If form is Ongoing and no actual check has happened, show as Pending
-          if (status === 'Ongoing' || status === 'ongoing') {
-            return 'Pending';
-          }
-          return hasActed ? 'Checked' : 'Pending';
+        // For "Checked by", always return "Checked" when acted
+        if (label === 'Checked by' && hasActed) {
+          return 'Checked';
         }
         // For "BM Approved by", return "Approved" when acted
         if (label === 'BM Approved by' && hasActed) {
           return 'Approved';
         }
-        // Operation Mgr Approved by section removed
+        // For "Operation Mgr Approved by", return "Approved" when acted
+        if (label === 'Operation Mgr Approved by' && hasActed) {
+          return 'Approved';
+        }
         // Use the status from approval if it's valid and not "Pending"
         if (matchingApproval?.status && matchingApproval.status !== 'Pending') {
           return matchingApproval.status;
@@ -449,59 +497,20 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
                '';
       };
 
-      // Resolve branch from approval data
-      const resolveBranch = () => {
-        return matchingApproval?.actual_user_branch ||
-               matchingApproval?.branch ||
-               matchingApproval?.raw?.actual_user_branch ||
-               matchingApproval?.raw?.branch ||
-               matchingApproval?.user?.from_branches?.branch_short_name ||
-               matchingApproval?.approval_users?.from_branches?.branch_short_name ||
-               matchingApproval?.assignedUser?.from_branches?.branch_short_name ||
-               '';
-      };
-      
-      // For "Prepared by", always try to get name from formData if not in approval
-      if (label === 'Prepared by' && !resolvedName.trim()) {
-        const preparedName = formData?.requester_name ||
-                            formData?.originator_name ||
-                            formData?.created_by_name ||
-                            formData?.user_name ||
-                            formData?.general_form?.requester_name ||
-                            formData?.general_form?.originator_name ||
-                            formData?.general_form?.created_by_name ||
-                            formData?.general_form?.originators?.name ||
-                            '';
-        if (preparedName.trim()) {
-          resolvedName = preparedName;
-        }
-      }
-      
-      // For "Checked by" in Ongoing forms, don't show name unless actually checked
-      let displayName = showDetails
-        ? (resolvedName.trim() || (isCurrentStep && !hasActed ? "In Progress" : ""))
-        : "";
-      
-      if (label === 'Checked by' && (status === 'Ongoing' || status === 'ongoing') && !hasActed) {
-        // Don't show name for unchecked "Checked by" in Ongoing forms
-        displayName = "";
-      }
-
-      const result = {
+      return {
         label,
         role: showDetails ? (resolveRole(matchingApproval, label) || (isPreparedBy ? 'Creator' : null)) : null,
         status: resolvedStatus(),
         acted: hasActed,
         isCurrentStep: isPreparedBy ? false : isCurrentStep,
-        name: displayName,
+        name: showDetails
+          ? (resolvedName.trim() || (isCurrentStep && !hasActed ? "In Progress" : ""))
+          : "",
         title: showDetails ? resolveTitle() : "",
         department: showDetails ? resolveDepartment() : "",
         date: showDetails ? resolvedDate : "",
         comment: showDetails ? (matchingApproval?.comment || "") : "",
-        branch: showDetails ? resolveBranch() : "",
       };
-      
-      return result;
     });
   };
 
@@ -513,9 +522,18 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
         <h4 className="text-sm font-semibold text-blue-600 flex items-center gap-2">
           <CheckCircle size={16} /> Approval Section
         </h4>
+        <button
+          type="button"
+          onClick={() => {
+            // Debug button removed
+          }}
+          className="text-xs font-medium text-blue-600 border border-blue-200 rounded px-2 py-1 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+        >
+          Log payload
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 md:flex md:flex-nowrap gap-2 text-sm w-full">
+      <div className="flex flex-nowrap gap-2 text-sm w-full">
         {displayApprovals.map((approval, index) => {
           const isBmStage = (approval.label || '').toLowerCase().includes('bm approved');
           const statusClass = approval.acted
@@ -528,72 +546,65 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
             ? 'bg-blue-50 text-blue-600 border-blue-200'
             : 'bg-yellow-100 text-yellow-700 border-yellow-300';
 
-          // Determine inner shadow color class for mobile
-          const getInnerShadowClass = () => {
-            if (approval.acted) {
-              return isBmStage 
-                ? '[box-shadow:inset_0_0_30px_rgba(59,130,246,0.25)]' // Blue inner shadow for BM Approved
-                : '[box-shadow:inset_0_0_30px_rgba(34,197,94,0.25)]'; // Green inner shadow for acted
-            }
-            if (approval.isCurrentStep) {
-              return '[box-shadow:inset_0_0_30px_rgba(59,130,246,0.25)]'; // Blue inner shadow for current step
-            }
-            if ((approval.label || '').toLowerCase().includes('prepared')) {
-              return '[box-shadow:inset_0_0_30px_rgba(59,130,246,0.2)]'; // Light blue inner shadow for prepared
-            }
-            return '[box-shadow:inset_0_0_30px_rgba(234,179,8,0.25)]'; // Yellow inner shadow for pending
-          };
-
           return (
             <div
               key={`${approval.label}-${index}`}
-              className={`bg-white border rounded-md p-2 text-gray-700 flex flex-col gap-1 min-w-0 md:flex-1 ${approval.acted ? 'border-green-200' : 'border-gray-200'} md:shadow-sm ${getInnerShadowClass()} md:[box-shadow:none]`}
+              className={`bg-white border rounded-md p-2 text-gray-700 flex flex-col gap-1 flex-1 ${approval.acted ? 'border-green-200 shadow-sm' : 'border-gray-200 shadow-sm'}`}
             >
-                <div className="flex items-center justify-between w-full">
-                  <p className="flex items-center gap-1 text-gray-500 text-xs uppercase tracking-wider">
-                    <User className="text-blue-500 w-4 h-4" />
-                    {approval.label}
-                  </p>
-                  <span className={`hidden md:inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs border ${statusClass}`}>
-                    {approval.acted ? (
-                      <CheckCircle className="w-3 h-3" />
-                    ) : (
-                      <Clock className="w-3 h-3" />
-                    )}
-                  </span>
-                </div>
-                  
-                <div className="mt-1">
+              <div className="flex items-center justify-between w-full">
+                <p className="font-semibold flex items-center gap-1 text-gray-800 text-sm">
+                  <User className="text-blue-500 w-[3vw] h-[3vw] sm:w-4 sm:h-4" />
+                  {approval.label}
+                </p>
+                {approval.acted && approval.branch && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-xs">
+                  <MapPin size={12} />
+                  {approval.branch}
+                </span>
+              )}
+                <span className={`inline-flex items-center justify-center px-1.5 py-0.5 rounded text-sm border ${statusClass}`}>
                   {approval.acted ? (
-                    <>
-                      <p className="font-medium text-gray-900 text-xs">
-                        {approval.title && <span>{approval.title} </span>}
-                        {approval.name || (approval.label === 'Prepared by' ? '' : 'N/A')}
-                      </p>
-                      {(approval.department || approval.role) && (
-                        <p className="text-xs text-gray-600 mt-0.5">
-                          ({approval.department || approval.role})
-                        </p>
-                      )}
-                    </>
+                    <CheckCircle className="w-[2.6vw] h-[2.6vw] sm:w-3 sm:h-3" />
                   ) : (
-                    <p className="font-medium text-gray-900 text-xs">Pending</p>
+                    <Clock className="w-[2.6vw] h-[2.6vw] sm:w-3 sm:h-3" />
                   )}
-                </div>
-
-                {approval.date && (
-                  <div>
-                    <p className="text-xs text-gray-800">
-                      {approval.acted
-                        ? approval.date ? new Date(approval.date).toLocaleString() : 'N/A'
-                        : 'Awaiting action'}
+                </span>
+              </div>
+                
+              <div className="mt-1">
+                <p className="text-xs text-gray-500">{approval.acted ? 'Approved By:' : 'Pending Approval:'}</p>
+                {approval.acted ? (
+                  <>
+                    <p className="font-medium text-gray-900 text-sm">
+                      {approval.title && <span>{approval.title}</span>}
+                      {approval.name || 'N/A'}
                     </p>
-                  </div>
+                    {(approval.department || approval.role) && (
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        ({approval.department || approval.role})
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="font-medium text-gray-900 text-sm">Pending</p>
                 )}
+              </div>
+
+              {approval.date && (
+                <div>
+                  <p className="text-xs text-gray-500">{approval.acted ? 'Date Approved:' : 'Pending since:'}</p>
+                  <p className="text-sm text-gray-800">
+                    {approval.acted
+                      ? approval.date ? new Date(approval.date).toLocaleString() : 'N/A'
+                      : 'Awaiting action'}
+                  </p>
+                </div>
+              )}
 
               {approval.comment && (
                 <div>
-                  <p className="text-xs text-gray-700 leading-snug">{approval.comment}</p>
+                  <p className="text-sm text-gray-500 font-medium">Remark:</p>
+                  <p className="text-sm text-gray-700 leading-snug">{approval.comment}</p>
                 </div>
               )}
             </div>

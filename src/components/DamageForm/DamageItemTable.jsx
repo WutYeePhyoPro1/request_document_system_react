@@ -973,9 +973,9 @@ export default function DamageItemTable({
     
     if (itemsChanged) {
       handleItemsChange(items);
-      prevItemsRef.current = items;
+      prevItemsRef.current = [...items];
     }
-  }, [items]);
+  }, [items, handleItemsChange]);
   
   // Track when itemsProp changes - if it's a refetch (same IDs, different system_qty), prevent callback
   useEffect(() => {
