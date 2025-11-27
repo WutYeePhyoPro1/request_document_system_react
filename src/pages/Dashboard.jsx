@@ -1,95 +1,71 @@
 
-import { useContext, useMemo, useEffect, useState } from "react";
+import {  useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import dashboardPhoto from "../assets/images/reqBa.png";
 import NavPath from "../components/NavPath";
-import { NotificationContext } from "../context/NotificationContext"; // ✅
-import BigDamageIsuueLogo from "../assets/images/big-dmg-issue-logo.png";
 import { countFormNoti, getFormsList } from "../api/commonApi";
-
 const Dashboard = () => {
-    const { notifications, loading } = useContext(NotificationContext); // ✅
-    const [allForm, setAllForm] = useState([]);
-    const [formCounts, setFormCounts] = useState({});
-    const [loadingForms, setLoadingForms] = useState(false);
+    const [allForm , setAllForm ] = useState([]) ;
+    const [formCounts , setFormCounts] = useState({}) ;
+    const [loading , setLoading] = useState(false) ;
+     useEffect(() => {
+    const fetchAllForms = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        console.error("No token found");
+        setLoading(false);
+        return;
+      }
 
-    useEffect(() => {
-        const fetchAllForms = async () => {
-            const token = localStorage.getItem("token");
-            if (!token) {
-                console.error("No token found");
-                setLoadingForms(false);
-                return;
-            }
+      try {
+        const getAllForms = await getFormsList(token);
+        const formsData = getAllForms.data.forms || [];
+        setAllForm(formsData);
 
-            try {
-                const getAllForms = await getFormsList(token);
-                const formsData = getAllForms.data.forms || [];
-                setAllForm(formsData);
+        const counts = {};
+        await Promise.all(
+          formsData.map(async (form) => {
+            const count = await countFormNoti(token, form.id);
+            counts[form.id] = count;
+          })
+        );
 
-                // Batch count requests with delay to prevent rate limiting
-                // Process 3 forms at a time with 200ms delay between batches
-                const counts = {};
-                const batchSize = 3;
-                const delayBetweenBatches = 200; // milliseconds
-                
-                for (let i = 0; i < formsData.length; i += batchSize) {
-                    const batch = formsData.slice(i, i + batchSize);
-                    
-                    // Process batch in parallel
-                    await Promise.all(
-                        batch.map(async (form) => {
-                            try {
-                                const count = await countFormNoti(token, form.id);
-                                counts[form.id] = count || 0;
-                            } catch (error) {
-                                // Handle 429 errors gracefully - set count to 0 and continue
-                                if (error?.response?.status === 429) {
-                                    console.warn(`Rate limited for form ${form.id}, skipping count`);
-                                    counts[form.id] = 0;
-                                } else {
-                                    console.error(`Error fetching count for form ${form.id}:`, error);
-                                    counts[form.id] = 0;
-                                }
-                            }
-                        })
-                    );
-                    
-                    // Add delay between batches (except for the last batch)
-                    if (i + batchSize < formsData.length) {
-                        await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
-                    }
-                }
-
-                setFormCounts(counts);
-            } catch (error) {
-                console.error("Error fetching forms or counts:", error);
-            } finally {
-                setLoadingForms(false);
-            }
-        };
-
-        fetchAllForms();
-    }, []);
-
-    const formIcons = {
-        "Asset Transfer Form": "📂",
-        "Office Use Form": "💼",
-        "Asset Damage / Lost Form": "📋",
-        "Purchase Request Form": "🛒",
-        "Big Damage Issue Form": "📝",
-        "Master Data Product Change Form": "📊",
-        "Request Discount Form": "💯",
-        "New Vendor Create Form": "🆕",
-        "Monthly Rotate Form": "📆",
-        "Supplier Agreement Form": "📜",
-        "Member Issue Form": "🆔",
-        "CCTV Request Form": "📹",
-        "Stock Adjust Form": "⚙️",
-        "Coupon Voucher": "📑",
+        setFormCounts(counts);
+      } catch (error) {
+        console.error("Error fetching forms or counts:", error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    if (loading || loadingForms) {
+    fetchAllForms();
+  }, []);
+    console.log("Forms>>" , allForm) ;
+    const formIcons = {
+
+        "Asset Transfer Form": "📂",
+    "Office Use Form": "💼",
+    "Asset Damage / Lost Form": "📋",
+    "Purchase Request Form": "🛒",
+    "Big Damage Issue Form": "📝",
+    "Master Data Product Change Form": "📊",
+    "Request Discount Form": "💯",
+    "New Vendor Create Form": "🆕",
+    "Monthly Rotate Form": "📆",
+    "Supplier Agreement Form": "📜",
+    "Member Issue Form": "🆔",
+    "CCTV Request Form": "📹",
+    "Stock Adjust Form": "⚙️",
+    "Coupon Voucher": "📑",
+    }
+  const requests = allForm.map((form) => ({
+    title:form?.name || '' ,
+    icon : formIcons[form?.name] || "" ,
+    route: form.route || '' ,
+    count : 0 , 
+  }))
+  console.log("Request Data>>" , requests) ;
+    if (loading) {
         return <div className="p-6 text-gray-600">Loading dashboard...</div>;
     }
 
@@ -113,7 +89,10 @@ const Dashboard = () => {
           const icon = formIcons[form.name] || "";
           const isActive =
             form.name === "CCTV Request Form" ||
+<<<<<<< HEAD
             form.name === "Big Damage Issue Form" ||
+=======
+>>>>>>> e313489 (upload to test)
             form.name === "Request Discount Form";
 
           return (
