@@ -22,13 +22,39 @@ const Dashboard = () => {
         const formsData = getAllForms.data.forms || [];
         setAllForm(formsData);
 
+        // Batch count requests with delay to prevent rate limiting
+        // Process 3 forms at a time with 200ms delay between batches
         const counts = {};
-        await Promise.all(
-          formsData.map(async (form) => {
-            const count = await countFormNoti(token, form.id);
-            counts[form.id] = count;
-          })
-        );
+        const batchSize = 3;
+        const delayBetweenBatches = 200; // milliseconds
+        
+        for (let i = 0; i < formsData.length; i += batchSize) {
+          const batch = formsData.slice(i, i + batchSize);
+          
+          // Process batch in parallel
+          await Promise.all(
+            batch.map(async (form) => {
+              try {
+                const count = await countFormNoti(token, form.id);
+                counts[form.id] = count || 0;
+              } catch (error) {
+                // Handle 429 errors gracefully - set count to 0 and continue
+                if (error?.response?.status === 429) {
+                  console.warn(`Rate limited for form ${form.id}, skipping count`);
+                  counts[form.id] = 0;
+                } else {
+                  console.error(`Error fetching count for form ${form.id}:`, error);
+                  counts[form.id] = 0;
+                }
+              }
+            })
+          );
+          
+          // Add delay between batches (except for the last batch)
+          if (i + batchSize < formsData.length) {
+            await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+          }
+        }
 
         setFormCounts(counts);
       } catch (error) {

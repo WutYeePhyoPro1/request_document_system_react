@@ -355,7 +355,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
       const hasAssignedName = Boolean(resolvedNameRaw && resolvedNameRaw.trim());
       const showDetails = isPreparedBy || hasActed;
 
-      const resolvedName = hasActed
+      let resolvedName = hasActed
         ? resolvedNameRaw
         : isCurrentStep
           ? (currentUser?.name || '')

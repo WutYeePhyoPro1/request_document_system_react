@@ -364,6 +364,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const formInitializedRef = useRef(false);
   // Track if approvals have been fetched to prevent duplicate fetches
   const approvalsFetchRef = useRef(false);
+  // Track if branch has been bootstrapped to prevent infinite loop
+  const branchBootstrappedRef = useRef(false);
 
   useEffect(() => {
     setCurrentUser(getCurrentUser());
@@ -1356,8 +1358,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   useEffect(() => {
     const bootstrapBranch = async () => {
+      // Prevent multiple runs - only bootstrap once per mode change
+      if (branchBootstrappedRef.current || (formData.branch || '').trim()) {
+        return;
+      }
+      
+      branchBootstrappedRef.current = true; // Mark as bootstrapped
+      
       try {
-        if ((formData.branch || '').trim()) return;
         let storedUser = JSON.parse(localStorage.getItem('user'));
         const token = localStorage.getItem('token');
         let branchId = storedUser?.from_branch_id;
@@ -1427,7 +1435,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
     };
     bootstrapBranch();
-  }, [mode, formData.branch]);
+    
+    // Reset bootstrap flag when mode changes
+    return () => {
+      if (mode === 'add') {
+        branchBootstrappedRef.current = false;
+      }
+    };
+  }, [mode]); // Removed formData.branch from dependencies to prevent infinite loop
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [dupModal, setDupModal] = useState({ open: false, code: '' });

@@ -105,7 +105,8 @@ export default function Navbar({ toggleSidebar }) {
 
         fetchNotifications();
         subscribeToPush();
-        const interval = setInterval(fetchNotifications, 10000);
+        // Increased interval from 10s to 30s to reduce API requests and prevent rate limiting
+        const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, [userRoleId, token, setNotifications]);
 
