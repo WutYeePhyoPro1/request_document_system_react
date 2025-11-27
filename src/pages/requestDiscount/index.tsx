@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
-  Checkbox,
   Pagination,
   Select,
   MultiSelect,
@@ -32,7 +31,8 @@ export default function Demo() {
     to_date: null as string | null,
     status: [] as string[],
   });
-  console.group("SearchTerm", searchTerm);
+  const [loading, setLoading] = useState(true);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
@@ -60,13 +60,19 @@ export default function Demo() {
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem("token");
     if (!token) return;
+    setLoading(true)
     try {
       const data = await getRequestDiscountData(token);
       setDiscountData(data);
+      setLoading(false) ;
     } catch (error) {
       console.error("Error fetching discount data:", error);
+    }finally{
+      setLoading(false) ;
     }
   };
+  
+
 
   useEffect(() => {
     fetchData();
@@ -75,8 +81,11 @@ export default function Demo() {
   const pageSize: number = 10;
   const start = (activePage - 1) * pageSize;
   const end = start + pageSize;
-  const paginateData = discountData?.data?.slice(start, end) ?? [];
-
+  // const paginateData = discountData?.data?.slice(start, end) ?? [];
+  const paginateData = useMemo(() => {
+    const start = (activePage - 1) * pageSize ;
+    return discountData?.data?.slice(start , start + pageSize) ?? [] ;
+  } , [discountData , activePage]) ;
 
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
@@ -104,9 +113,9 @@ export default function Demo() {
     navigate("/request_discount");
   };
 
-  const rows =
-    paginateData?.map((element, index) => (
-      <Table.Tr
+  const rows = useMemo(() => {
+    return paginateData?.map((element , index) => (
+       <Table.Tr
         key={element.id}
         bg={
           selectedRows.includes(element.id)
@@ -133,8 +142,9 @@ export default function Demo() {
           </Table.Td>
         </Link>
       </Table.Tr>
-    )) ?? [];
-  const showLoading =  !discountData;
+    ))
+  } , [paginateData , selectedRows])
+  const showLoading = loading ||  !discountData;
   if (showLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -281,16 +291,6 @@ export default function Demo() {
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
               />
             ) : (
-              //              <Select
-              //   id="status"
-              //   searchable
-              //   data={discountData?.authenticatedUser?.user_branches?.map((item) => ({
-              //     value: String(item.branch_id),
-              //     label: item.branches?.branch_name,
-              //   }))}
-              //   placeholder="Select Status"
-              //   className="border border-blue-500 focus:outline-none w-full rounded-md"
-              // />
               <Select
                 id="branch_id"
                 name="branch_id"
