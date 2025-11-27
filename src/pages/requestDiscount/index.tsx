@@ -7,22 +7,12 @@ import {
   MultiSelect,
   Loader,
 } from "@mantine/core";
-import "@mantine/core/styles.css";
 import type { IndexData } from "../../utils/requestDiscountUtil";
 import NavPath from "../../components/NavPath";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { dateFormat } from "../../utils/requestDiscountUtil/helper";
 import { DatePickerInput } from "@mantine/dates";
-import "@mantine/dates/styles.css";
-import { useDispatch, useSelector } from "react-redux";
-import type { AppDispatch, RootState } from "../../store";
-import {
-  fetchDetailData,
-  fetchRequestDiscountData,
-  setDetailData,
-} from "../../store/discountSlice";
 import StatusBadge from "../../components/ui/StatusBadge";
-import { fetchData } from "../../api/FetchApi";
 
 import {
   getRequestDiscountData,
@@ -30,10 +20,7 @@ import {
 } from "../../api/requestDiscount/requestDiscountData";
 
 export default function Demo() {
-  const dispatch = useDispatch<AppDispatch>();
-  const { mainData, loading } = useSelector(
-    (state: RootState) => state.discount
-  );
+  
   const [discountData, setDiscountData] = useState<IndexData[]>([]);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage, setActivePage] = useState<number>(1);
@@ -57,11 +44,7 @@ export default function Demo() {
   ) => {
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
   };
-  // const handleStatusChange = (value: string[]) => {
-  //   setSearchTerm((prev) => ({ ...prev, status: value }));
-  // };
   const handleStatusChange = (value: string[]) => {
-    // If "All" is selected, make sure it’s the only one
     if (value.includes("All")) {
       setSearchTerm((prev) => ({ ...prev, status: ["All"] }));
     } else {
@@ -72,15 +55,13 @@ export default function Demo() {
     setSearchTerm((prev) => ({ ...prev, branch_id: value }));
   };
   const navigate = useNavigate();
-  // console.log("Search Term>>" , searchTerm) ;
-  // const [pageLoading , setPageLoading] = useState<boolean>(true) ;
-  const { id } = useParams();
+  
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const data: IndexData[] = await getRequestDiscountData(token);
+      const data = await getRequestDiscountData(token);
       setDiscountData(data);
     } catch (error) {
       console.error("Error fetching discount data:", error);
@@ -96,7 +77,6 @@ export default function Demo() {
   const end = start + pageSize;
   const paginateData = discountData?.data?.slice(start, end) ?? [];
 
-  // console.log("paginatedData>>", discountData);
 
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
@@ -137,7 +117,7 @@ export default function Demo() {
         <Link
           to={`/request_discount_detail/${element.id}`}
           className="contents"
-          onClick={() => dispatch(setDetailData(null))}
+         
         >
           <Table.Td>{start + index + 1}</Table.Td>
           <Table.Td>
@@ -154,7 +134,7 @@ export default function Demo() {
         </Link>
       </Table.Tr>
     )) ?? [];
-  const showLoading = loading || !discountData;
+  const showLoading =  !discountData;
   if (showLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">

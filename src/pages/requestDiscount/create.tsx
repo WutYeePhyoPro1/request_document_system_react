@@ -225,6 +225,7 @@ const Create: React.FC = () => {
       value: `${staff.employeename}(${staff.employeecode})`,
       label: staff.employeename.trim(),
     })) ?? [];
+    console.log("CreateData>>" , createData) ;
 
   const handleInvoiceNo = async (invoice_number: string) => {
     const token = localStorage.getItem("token");
