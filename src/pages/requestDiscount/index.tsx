@@ -353,7 +353,7 @@ export default function Demo() {
             <div className="flex flex-col items-center justify-center py-10">
               {/* <Loader size="xl" color="blue" /> */}
               <p className="mt-4 text-lg font-semibold text-gray-700 animate-pulse">
-                Loading Data.Please wait!...
+                There has no data
               </p>
             </div>
           </Table.Td>
