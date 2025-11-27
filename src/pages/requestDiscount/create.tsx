@@ -105,6 +105,14 @@ const Create: React.FC = () => {
         formData.append("netamount[]", "");
         formData.append("request_discount[]", "");
       }
+       if (!values.sale_staff || values.sale_staff.trim() === "") {
+    Swal.fire({
+      icon: "warning",
+      title: "Warning",
+      text: "Sale staff is required!",
+    });
+    return;
+  }
       if (values.discount_type && values.discount_type.length > 0) {
         values.discount_type.forEach((type, i) =>
           formData.append(`discount_type[${i}]`, type)
