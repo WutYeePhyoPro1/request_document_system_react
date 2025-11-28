@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
 import { Checkbox, Input, Loader, Table, type TableData } from "@mantine/core";
@@ -115,30 +115,69 @@ const RequestDiscountDataDetailTable: React.FC = () => {
   }
 }, [detailData?.discountProduct]);
 
-  useEffect(() => {
+
+//   useEffect(() => {
+//   const fetchCheckResults = async () => {
+//     const token = localStorage.getItem("token");
+//     if (!token || !detailData?.discountProduct || !detailData?.form?.id) return;
+
+//     const results: Record<string, boolean> = {};
+//     for (const item of detailData.discountProduct) {
+//       try {
+//         const response = await getDiscountCheck(
+//           token,
+//           detailData.form.id,
+//           item.product_code
+//         );
+//         results[item.product_code] = response.data?.checkDiscount ?? false;
+//       } catch (err) {
+//         results[item.product_code] = false;
+//       }
+//     }
+//     setDiscountCheckResult(results);
+//     setIsCheckLoading(false);
+//   };
+
+//   fetchCheckResults();
+// }, [detailData?.discountProduct, detailData?.form?.id]);
+useEffect(() => {
   const fetchCheckResults = async () => {
     const token = localStorage.getItem("token");
     if (!token || !detailData?.discountProduct || !detailData?.form?.id) return;
 
-    const results: Record<string, boolean> = {};
-    for (const item of detailData.discountProduct) {
-      try {
-        const response = await getDiscountCheck(
-          token,
-          detailData.form.id,
-          item.product_code
-        );
-        results[item.product_code] = response.data?.checkDiscount ?? false;
-      } catch (err) {
-        results[item.product_code] = false;
-      }
+    try {
+      setIsCheckLoading(true);
+
+      // run all API calls in parallel
+      const requests = detailData.discountProduct.map((item) =>
+        getDiscountCheck(token, detailData.form.id, item.product_code)
+          .then((response) => ({
+            code: item.product_code,
+            value: response.data?.checkDiscount ?? false,
+          }))
+          .catch(() => ({
+            code: item.product_code,
+            value: false,
+          }))
+      );
+
+      const resultsArray = await Promise.all(requests);
+
+      // convert array to object
+      const results: Record<string, boolean> = {};
+      resultsArray.forEach((r) => {
+        results[r.code] = r.value;
+      });
+
+      setDiscountCheckResult(results);
+    } finally {
+      setIsCheckLoading(false);
     }
-    setDiscountCheckResult(results);
-    setIsCheckLoading(false);
   };
 
   fetchCheckResults();
 }, [detailData?.discountProduct, detailData?.form?.id]);
+
 
   const handleBmDiscountChange = (
     index: number,
