@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+import { ChatBubbleLeftRightIcon,DocumentIcon } from '@heroicons/react/24/solid';
 import '../../components/DamageForm/ButtonHoverEffects.css';
 
 const StatusBadge = ({ status }) => {
@@ -105,7 +105,7 @@ const EmptyState = () => {
           <div className="w-32 h-32 bg-blue-100 rounded-full animate-pulse-slow"></div>
         </div>
         <div className="relative animate-float">
-          <DocumentTextIcon className="w-24 h-24 text-blue-400" />
+          <DocumentIcon className="w-24 h-24 text-blue-400" />
         </div>
         {/* Floating particles */}
         <div className="absolute top-0 left-0 w-full h-full">
