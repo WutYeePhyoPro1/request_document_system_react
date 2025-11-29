@@ -86,7 +86,7 @@ export default function Demo() {
     const start = (activePage - 1) * pageSize ;
     return discountData?.data?.slice(start , start + pageSize) ?? [] ;
   } , [discountData , activePage]) ;
-
+//Hello test git conflig
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
