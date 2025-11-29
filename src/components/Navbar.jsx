@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AiOutlineMenu } from "react-icons/ai";
 import finalLogo from "../assets/images/finallogo.png";
+import { useTranslation } from 'react-i18next';
 
 import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
@@ -11,6 +12,7 @@ import { NotificationContext } from "../context/NotificationContext"; // ✅
 import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Navbar({ toggleSidebar }) {
+    const { t } = useTranslation();
     const { user, logout } = useAuth();
     const { notifications, setNotifications } = useContext(NotificationContext); // ✅
     const token = localStorage.getItem("token");
@@ -51,7 +53,7 @@ export default function Navbar({ toggleSidebar }) {
             body: JSON.stringify(subscription),
         });
 
-        // void endpoint;
+        void endpoint;
     };
 
 
@@ -105,8 +107,7 @@ export default function Navbar({ toggleSidebar }) {
 
         fetchNotifications();
         subscribeToPush();
-        // Increased interval from 10s to 30s to reduce API requests and prevent rate limiting
-        const interval = setInterval(fetchNotifications, 30000);
+        const interval = setInterval(fetchNotifications, 10000);
         return () => clearInterval(interval);
     }, [userRoleId, token, setNotifications]);
 
@@ -121,7 +122,7 @@ export default function Navbar({ toggleSidebar }) {
                 <img src={finalLogo} alt="homepage" className="h-8 sm:h-10 md:h-12 object-contain" />
             </Link>
             <span className="hidden lg:block text-xl sm:text-lg md:text-xl lg:text-2xl font-bold text-custom-blue sm:pl-4">
-                REQUEST DOCUMENT SYSTEM
+                {t('navbar.requestDocumentSystem')}
             </span>
 
             <div className="flex items-center space-x-4">
@@ -145,7 +146,7 @@ export default function Navbar({ toggleSidebar }) {
                                 d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                         </svg>
-                        <span className="hidden lg:inline font-semibold">{user?.name || "User"}</span>
+                        <span className="hidden lg:inline font-semibold">{user?.name || t('navbar.user')}</span>
                         <svg
                             className="w-4 h-4"
                             fill="currentColor"
@@ -176,17 +177,17 @@ export default function Navbar({ toggleSidebar }) {
                             <ul className="text-sm text-gray-700">
                                 <li>
                                     <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
-                                        🔒 Change Password
+                                        🔒 {t('navbar.changePassword')}
                                     </span>
                                 </li>
                                 <li>
                                     <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
-                                        🏢 Head Office
+                                        🏢 {t('navbar.headOffice')}
                                     </span>
                                 </li>
                                 <li>
                                     <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
-                                        🖥️ System Development
+                                        🖥️ {t('navbar.systemDevelopment')}
                                     </span>
                                 </li>
                                 <li>
@@ -194,7 +195,7 @@ export default function Navbar({ toggleSidebar }) {
                                         onClick={handleLogout}
                                         className="w-full text-left px-4 py-2 hover:bg-gray-100"
                                     >
-                                        🚪 Sign Out
+                                        🚪 {t('navbar.signOut')}
                                     </button>
                                 </li>
                             </ul>

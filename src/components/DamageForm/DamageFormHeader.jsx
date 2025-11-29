@@ -4,6 +4,7 @@ import BigDamageIsuueLogo from '../../assets/images/big-dmg-issue-logo.png';
 import ConfirmationModal from './ConfirmationModal';
 import { useEffect } from 'react';
 import { resolveBranchDisplay } from "../common/branchMappings";
+import { useTranslation } from 'react-i18next';
 import './ButtonHoverEffects.css';
 
 const normalizeRole = (value) => {
@@ -89,6 +90,7 @@ export default function DamageFormHeader({
   statusOverride = null,
   onDownloadPdf = null
 }) {
+  const { t } = useTranslation();
   // Set the branch from user's session on component mount
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -328,7 +330,7 @@ export default function DamageFormHeader({
               />
               <div className="flex flex-col">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Big Damage Issue Form
+                  {t('damageFormHeader.bigDamageIssueForm')}
                   {docNumber && (
                     <span className="text-gray-500 text-[0.8rem] sm:text-sm md:ml-2 md:inline-block">
                       ({docNumber})
@@ -338,7 +340,7 @@ export default function DamageFormHeader({
               </div>
             </div>
 
-            <p className="text-sm text-gray-500 mt-0.5">Other Income Sell</p>
+            <p className="text-sm text-gray-500 mt-0.5">{t('damageFormHeader.otherIncomeSell')}</p>
           </div>
           <div className="flex flex-col items-end gap-3 ml-3 relative z-10">
             {formData.status && (

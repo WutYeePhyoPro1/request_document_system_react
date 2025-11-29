@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from "react";
 import { Upload, FileText, X, Paperclip, ExternalLink } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import './ButtonHoverEffects.css';
 
 const ImagePreviewModal = ({ imageUrl, onClose }) => {
@@ -110,6 +111,7 @@ export default function SupportingInfo({
   readOnly = false,
   status = '',
 }) {
+  const { t } = useTranslation();
   const fileInputRef = useRef(null);
   const [localPreviewImageUrl, setLocalPreviewImageUrl] = useState(null);
 
@@ -187,7 +189,7 @@ export default function SupportingInfo({
     <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
       <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2 mb-4">
         <FileText size={16} />
-        Supporting Info <span className="font-normal text-xs text-gray-700">(For the whole document)</span>
+        {t('supportingInfo.title')} <span className="font-normal text-xs text-gray-700">{t('supportingInfo.forWholeDocument')}</span>
       </h4>
       
       {/* Remark and Attach Files on one line */}
@@ -197,15 +199,15 @@ export default function SupportingInfo({
           {shouldShowRemark && (
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
-                Remarks {isRequired && <span className="text-red-500">*</span>}
+                {t('supportingInfo.remarks')} {isRequired && <span className="text-red-500">*</span>}
               </label>
               {readOnly ? (
                 <div className="w-full border border-transparent rounded-md px-2 py-2 text-sm bg-transparent text-gray-800 min-h-[3rem] whitespace-pre-wrap">
-                  {(reason ?? '').trim() ? reason : <span className="text-gray-400">No remark provided.</span>}
+                  {(reason ?? '').trim() ? reason : <span className="text-gray-400">{t('supportingInfo.noRemarkProvided')}</span>}
                 </div>
               ) : (
                 <textarea
-                  placeholder="Enter detailed reason..."
+                  placeholder={t('supportingInfo.enterDetailedReason')}
                   value={reason || ''}
                   onChange={e => {
                     e.stopPropagation();
