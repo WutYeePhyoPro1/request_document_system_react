@@ -3827,6 +3827,7 @@ const resolveApproveAction = () => {
         totalAmount={totalAmount}
         gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
         currentUser={currentUser}
+        onOpenAddProductModal={handleOpenAddProductModal}
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
           setFormData((prev) => ({

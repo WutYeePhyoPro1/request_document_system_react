@@ -323,7 +323,8 @@ export default function DamageItemTable({
   approvals = [],
   totalAmount = 0,
   gRemark = 'big_damage',
-  currentUser = null
+  currentUser = null,
+  onOpenAddProductModal = () => {}
 }) {
   // Remove debug logging to prevent infinite re-renders
 
@@ -1737,7 +1738,7 @@ const normalizeImageEntries = (list) => {
     }
   };
   return (
-    <div className={`mx-auto font-sans p-3 sm:p-4 max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
+    <div className={`mx-auto font-sans max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
       <ErrorModal 
         isOpen={errorModal.isOpen}
         message={errorModal.message}
