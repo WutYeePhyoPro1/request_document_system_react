@@ -636,8 +636,7 @@ export default function DamageItemTable({
       status === 'Completed' ||
       status === 'Issued' ||
       status === 'SupervisorIssued'
-    );
-    
+    );c
     const shouldShow = isCompleted || hasCodes || accountShouldSeeCodes || supervisorShouldSeeCodes;
     return shouldShow;
   });
