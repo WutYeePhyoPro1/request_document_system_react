@@ -1,9 +1,16 @@
 import React from "react";
 
-export default function StatusBadge({ status }) {
+export default function StatusBadge({ status, count }) {
   const normalized = status?.toLowerCase();
 
   const getBadgeClass = () => {
+    // If count is provided, use count-based styling
+    if (count !== undefined && count !== null) {
+      if (count > 0) return "bg-red-500 text-white";
+     
+    }
+    
+    // Otherwise use status-based styling
     switch (normalized) {
       case "ongoing":
         return "bg-[#fbb193] text-[#e1341e]";
@@ -21,19 +28,21 @@ export default function StatusBadge({ status }) {
         return "bg-[#adebbb] text-[#28a745]";
       case "cancel":
         return "bg-[#fda19d] text-[#f91206]";
-        case "Acknowledged" : 
-      return "bg-[#ffeaab] text-[#28a745]";
+      case "acknowledged": 
+        return "bg-[#ffeaab] text-[#28a745]";
       default:
         return "bg-gray-200 text-gray-600";
     }
   };
+
+  const displayText = count !== undefined && count !== null ? `Total Count:${count} items` : status;
 
   return (
     <div className="flex flex-col mb-2">
       <span
         className={`rounded-full px-3 py-1 text-xs font-semibold w-fit ${getBadgeClass()}`}
       >
-        {status}
+        {displayText}
       </span>
     </div>
   );

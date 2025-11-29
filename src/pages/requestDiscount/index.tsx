@@ -9,7 +9,7 @@ import {
 import type { IndexData } from "../../utils/requestDiscountUtil";
 import NavPath from "../../components/NavPath";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { dateFormat } from "../../utils/requestDiscountUtil/helper";
+import { dateFormat, dateTimeFormat } from "../../utils/requestDiscountUtil/helper";
 import { DatePickerInput } from "@mantine/dates";
 import StatusBadge from "../../components/ui/StatusBadge";
 
@@ -136,7 +136,7 @@ export default function Demo() {
           <Table.Td>{element.from_branches?.branch_name}</Table.Td>
           <Table.Td>{element.originators?.name}</Table.Td>
           <Table.Td>{dateFormat(element.created_at)}</Table.Td>
-          <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
+          <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
           <Table.Td className="text-blue-600 font-medium underline">
             View
           </Table.Td>

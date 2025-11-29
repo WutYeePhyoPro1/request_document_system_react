@@ -55,7 +55,9 @@ const AddAttachFile: React.FC<{ generalFormId: number }> = ({ generalFormId }) =
         try {
         const response = await reUploadFile(token, formData);
         close();
+        
         setInvoiceFile([{ id: uuidv4(), file: null }]);
+         window.scrollTo({ top: 0, behavior: "smooth" });
 
         console.log("Upload success:", response.data);
         } catch (err) {

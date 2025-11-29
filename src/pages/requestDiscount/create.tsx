@@ -31,6 +31,7 @@ import type {
 } from "../../utils/requestDiscountUtil/create";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
+import StatusBadge from "../../components/ui/StatusBadge";
 const Create: React.FC = () => {
   const [loading , setLoading] = useState<boolean>(false) ;
   const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
@@ -105,14 +106,21 @@ const Create: React.FC = () => {
         formData.append("netamount[]", "");
         formData.append("request_discount[]", "");
       }
-       if (!values.sale_staff || values.sale_staff.trim() === "") {
-    Swal.fire({
-      icon: "warning",
-      title: "Warning",
-      text: "Sale staff is required!",
-    });
-    return;
-  }
+      if (!values.sale_staff?.trim() || !values.discount_type?.length || !invoiceFile[0]?.file || !values.remark?.trim()) {
+  const missingFields = [];
+  
+  if (!values.sale_staff?.trim()) missingFields.push("Sale Staff");
+  if (!values.discount_type?.length) missingFields.push("Discount Type");
+  if (!invoiceFile[0]?.file) missingFields.push("Upload File");
+  if (!values.remark?.trim()) missingFields.push("Remark");
+  
+  Swal.fire({
+    icon: "warning",
+    title: "Warning",
+    text: `${missingFields.join(", ")} are required!`,
+  });
+  return;
+}
       if (values.discount_type && values.discount_type.length > 0) {
         values.discount_type.forEach((type, i) =>
           formData.append(`discount_type[${i}]`, type)
@@ -207,6 +215,7 @@ const Create: React.FC = () => {
       prev.map((f) => (f.id === id ? { ...f, file } : f))
     );
   };
+  // console.log("InvoiceFile>>" , invoiceFile[0].file) ;
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -294,14 +303,18 @@ const Create: React.FC = () => {
         src={cctvPhoto}
         className="w-full h-auto object-contain rounded-lg shadow-md mb-6"
       />
-      <NavPath
+     <div className="flex flex-justify  gap-6">
+       <NavPath
         segments={[
           { path: "/dashboard", label: "Home" },
           { path: "/dashboard", label: "Dashboard" },
           { path: "/request_discount", label: "Request Discount" },
         ]}
       />
+      {detailInvoice?.length > 0 && (<StatusBadge count={detailInvoice.length} />)}
+     </div>
       <form onSubmit={form.onSubmit(onFinish)}>
+        
         <div className="flex flex-row gap-6">
           <div className="basis-1/3 border border-slate-400 rounded p-4 flex flex-col gap-6">
             {/* <TextInput
@@ -337,13 +350,14 @@ const Create: React.FC = () => {
               }}
             /> */}
             <TextInput
+            autoFocus
   label="Sale Invoice No"
   placeholder="Enter sale invoice number"
   withAsterisk
   key={form.key("sale_invoice")}
   {...form.getInputProps("sale_invoice")}
   onChange={handleChange}
-  onBlur={(e) => handleInvoiceNo(e.currentTarget.value)}
+  // onBlur={(e) => handleInvoiceNo(e.currentTarget.value)}
   onKeyDown={(e) => {
     if (e.key === "Enter") {
       e.preventDefault(); // prevent form submission or reload
@@ -434,7 +448,7 @@ const Create: React.FC = () => {
             <Table data={invoiceData} />
             <div className="flex flex-justify gap-6">
               <Button type="submit" loading={loading}>Save</Button>
-              <Button>Cancel</Button>
+              <Button onClick={() => navigate("/request_discount")} >Cancel</Button>
             </div>
           </div>
         </div>

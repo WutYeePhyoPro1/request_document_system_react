@@ -17,6 +17,30 @@ return date.toLocaleDateString("en-GB" , {
     day:'2-digit',
 });
 }
+export function dateTimeFormat(dateString:string | undefined | null , withTime:boolean = false):string {
+if(!dateString) return "" ;
+const date = new Date(dateString) ;
+if(withTime) {
+    return date.toLocaleDateString("en-GB" , {
+        year: 'numeric' ,
+        month:'2-digit',
+        day:'2-digit',
+        hour:'2-digit',
+        minute:'2-digit',
+        second: '2-digit' ,
+        hour12:false,
+    });
+}
+return date.toLocaleDateString("en-GB" , {
+    year: 'numeric',
+    month: '2-digit',
+    day:'2-digit',
+    hour: '2-digit' ,
+    minute: '2-digit' ,
+    second:'2-digit',
+});
+}
+
 
 export const getFormDocNo = (detailData:any):string => {
     return detailData?.form?.form_doc_no ?? "" ;
