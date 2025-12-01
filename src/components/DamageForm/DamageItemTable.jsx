@@ -1745,7 +1745,7 @@ const normalizeImageEntries = (list) => {
     }
   };
   return (
-    <div className={`mx-auto font-sans max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
+    <div className={`mx-auto font-sans p-3 sm:p-4 max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
       <ErrorModal 
         isOpen={errorModal.isOpen}
         message={errorModal.message}
@@ -1761,7 +1761,6 @@ const normalizeImageEntries = (list) => {
             </span>
         </span>
       </div>
-
       {/* Action buttons and Add Product button with search bar */}
       <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
         {/* Left side: Search box and Filter button */}
@@ -2127,25 +2126,54 @@ const normalizeImageEntries = (list) => {
                     {/* Make img editable when: mode is add/edit, OR status is Ongoing (for newly added products) */}
                     {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted)) ? (
                       <div className="flex items-center gap-1">
-                        <label 
-                          className="w-7 h-7 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white cursor-pointer transition-colors shadow-sm border-2 border-white"
-                          title="Add image"
-                          htmlFor={`file-input-desktop-${item.id}`}
-                        >
-                          <input
-                            type="file"
-                            id={`file-input-desktop-${item.id}`}
-                            ref={el => fileInputRefs.current[item.id] = el}
-                            onChange={(e) => handleImageUpload(item.id, e)}
-                            className="hidden"
-                            accept="image/*"
-                            multiple
-                            disabled={isCompleted && mode === 'view'}
-                          />
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                          </svg>
-                        </label>
+                        {Array.isArray(item.img) && item.img.length > 0 ? (
+                          <div className="relative">
+                            {(() => {
+                              const entry = item.img[0];
+                              const src0 = typeof entry === 'string' ? entry : (entry?.src || '');
+                              return (
+                                <>
+                                  <img
+                                    src={src0}
+                                    alt={item.name}
+                                    loading="lazy"
+                                    className="w-11 h-11 object-cover rounded-lg cursor-zoom-in border border-gray-200"
+                                    onError={(e) => {
+                                      e.currentTarget.src = testImage;
+                                      e.currentTarget.onError = null;
+                                    }}
+                                    onClick={(e) => { e.stopPropagation(); openPreview(item.img, 0); }}
+                                  />
+                                  {item.img.length >= 2 && (
+                                    <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-semibold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center shadow-md">
+                                      {item.img.length}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <label 
+                            className="w-7 h-7 bg-blue-500 hover:bg-blue-600 rounded-full flex items-center justify-center text-white cursor-pointer transition-colors shadow-sm border-2 border-white"
+                            title="Add image"
+                            htmlFor={`file-input-desktop-${item.id}`}
+                          >
+                            <input
+                              type="file"
+                              id={`file-input-desktop-${item.id}`}
+                              ref={el => fileInputRefs.current[item.id] = el}
+                              onChange={(e) => handleImageUpload(item.id, e)}
+                              className="hidden"
+                              accept="image/*"
+                              multiple
+                              disabled={isCompleted && mode === 'view'}
+                            />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                            </svg>
+                          </label>
+                        )}
                         <button
                           type="button"
                           className="w-7 h-7 flex items-center justify-center bg-gray-500 text-white hover:bg-gray-600 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-1"
@@ -2162,19 +2190,50 @@ const normalizeImageEntries = (list) => {
                         </button>
                       </div>
                     ) : (
-                      /* View mode - show only view images button */
-                      <button
-                        type="button"
-                        className="w-9 h-9 flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openImageGallery(item);
-                        }}
-                        aria-label="View images"
-                        title="View images"
-                      >
-                        <ImageIcon className="h-4 w-4" />
-                      </button>
+                      /* View mode - show image thumbnail with badge or view button */
+                      <div className="flex items-center gap-1">
+                        {Array.isArray(item.img) && item.img.length > 0 ? (
+                          <div className="relative">
+                            {(() => {
+                              const entry = item.img[0];
+                              const src0 = typeof entry === 'string' ? entry : (entry?.src || '');
+                              return (
+                                <>
+                                  <img
+                                    src={src0}
+                                    alt={item.name}
+                                    loading="lazy"
+                                    className="w-11 h-11 object-cover rounded-lg cursor-zoom-in border border-gray-200"
+                                    onError={(e) => {
+                                      e.currentTarget.src = testImage;
+                                      e.currentTarget.onError = null;
+                                    }}
+                                    onClick={(e) => { e.stopPropagation(); openPreview(item.img, 0); }}
+                                  />
+                                  {item.img.length >= 2 && (
+                                    <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-semibold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center shadow-md">
+                                      {item.img.length}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="w-9 h-9 flex items-center justify-center bg-blue-500 text-white hover:bg-blue-600 rounded-full shadow focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openImageGallery(item);
+                            }}
+                            aria-label="View images"
+                            title="View images"
+                          >
+                            <ImageIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </td>
                   {/* Show account code column in all stages including Completed */}
@@ -2298,9 +2357,9 @@ const normalizeImageEntries = (list) => {
                                   }}
                                   onClick={(e) => { e.stopPropagation(); openPreview(item.img, 0); }}
                                 />
-                                {item.img.length > 1 && (
-                                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs w-4 h-4 rounded-full flex items-center justify-center">
-                                    +{item.img.length - 1}
+                                {item.img.length >= 2 && (
+                                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-semibold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center shadow-md">
+                                    {item.img.length}
                                   </div>
                                 )}
                               </>

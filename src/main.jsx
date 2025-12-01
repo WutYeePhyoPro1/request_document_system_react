@@ -6,7 +6,7 @@ import router from './router';
 
 
 // Initialize i18n
-// import './i18n/config';
+import './i18n/config';
 import AppProvider from "./context/AppProvider";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

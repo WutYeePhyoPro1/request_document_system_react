@@ -33,6 +33,13 @@ i18n
       escapeValue: false, // React already escapes values
     },
     
+    // Return empty string instead of key when translation is missing
+    returnEmptyString: false,
+    returnNull: false,
+    // Show key only if translation is missing (for debugging)
+    // Set to false to use defaultValue instead
+    returnObjects: false,
+    
     // Detection options
     detection: {
       // Order of detection methods

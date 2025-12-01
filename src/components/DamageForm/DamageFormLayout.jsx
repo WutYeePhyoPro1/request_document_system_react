@@ -2731,12 +2731,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }, 0);
       formDataToSend.append('total_amount', totalAmount);
       
+      // Send supporting info attachments (files uploaded in SupportingInfo component)
       if (formData.attachments && Array.isArray(formData.attachments)) {
-        formData.attachments.forEach((attachment) => {
-          if (attachment?.fileObject instanceof File) {
+        const filesToSend = formData.attachments.filter(attachment => attachment?.fileObject instanceof File);
+        if (filesToSend.length > 0) {
+          console.log(`[Form Submission] Sending ${filesToSend.length} attachment(s) with key 'file1[]'`);
+          filesToSend.forEach((attachment) => {
             formDataToSend.append('file1[]', attachment.fileObject);
-          }
-        });
+          });
+        }
       }
 
       const itemIds = [];
@@ -3021,15 +3024,78 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                                Array.isArray(response?.general_form?.items) ? response.general_form.items :
                                null;
           
+          // Resolve attachments from response - these are the files that were uploaded and saved by the backend
+          const responseAttachments = resolveInitialAttachments(response, []);
+          console.log('[Form Submission] Attachments in response:', responseAttachments.length, responseAttachments);
+          
+          // Preserve general_form_id from response if available
+          const responseGeneralFormId = response?.general_form_id 
+            ?? response?.generalFormId 
+            ?? response?.general_form?.id
+            ?? response?.id
+            ?? response?.data?.general_form_id
+            ?? response?.data?.generalFormId
+            ?? response?.data?.general_form?.id;
+          
+          console.log('[Form Submission] General Form ID:', responseGeneralFormId);
+          console.log('[Form Submission] Response structure:', {
+            hasAttachments: !!response?.attachments,
+            hasOperationFiles: !!response?.operation_files,
+            hasGeneralFormFiles: !!response?.general_form?.files,
+            hasGeneralFormFiles2: !!response?.general_form_files,
+          });
+          
+          // If no attachments in response but we have a general_form_id, fetch them from the backend
+          // This is needed because files are stored separately and may not be in the submission response
+          let finalAttachments = responseAttachments;
+          if (responseAttachments.length === 0 && responseGeneralFormId) {
+            console.log('[Form Submission] No attachments in response, fetching from get-image endpoint...');
+            try {
+              const token = localStorage.getItem("token");
+              if (token) {
+                const filesResponse = await apiFetch('/api/big-damage-issues/get-image', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    type: 'all', // 'all' for operation/owner uploads
+                    id: responseGeneralFormId
+                  })
+                });
+                
+                console.log('[Form Submission] Files response from get-image:', filesResponse);
+                const operationFilesData = filesResponse?.img || [];
+                if (Array.isArray(operationFilesData) && operationFilesData.length > 0) {
+                  console.log(`[Form Submission] Found ${operationFilesData.length} file(s) from get-image endpoint`);
+                  finalAttachments = operationFilesData.map(file => ({
+                    id: file.id || `doc_${file.file}`,
+                    name: file.name || file.file,
+                    file: file.file,
+                    downloadUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
+                    previewUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
+                    size: file.size || null,
+                    acc_type: file.acc_type || null,
+                    isRemote: true, // Mark as remote file
+                  }));
+                } else {
+                  console.log('[Form Submission] No files found in get-image response');
+                }
+              }
+            } catch (error) {
+              // Log error for debugging
+              console.error('[Form Submission] Failed to fetch operation files after submission:', error);
+            }
+          }
+          
+          console.log('[Form Submission] Final attachments to save:', finalAttachments.length, finalAttachments);
+          
           setFormData((prev) => {
-            // Preserve general_form_id from response if available
-            const responseGeneralFormId = response?.general_form_id 
-              ?? response?.generalFormId 
-              ?? response?.general_form?.id
-              ?? response?.id
-              ?? response?.data?.general_form_id
-              ?? response?.data?.generalFormId
-              ?? response?.data?.general_form?.id;
+            // Merge attachments: use fetched attachments if available, otherwise keep existing
+            const mergedAttachments = finalAttachments.length > 0 
+              ? finalAttachments 
+              : prev.attachments;
             
             const updated = {
               ...prev,
@@ -3040,6 +3106,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
               approvals: finalApprovals, // Use backend approvals when available
               iss_remark: responseIssRemark ?? formData.iss_remark ?? prev.iss_remark, // Use response value if available, otherwise keep current
               items: responseItems ?? formData.items, // Use response items if available (they contain updated account codes)
+              // Update attachments - use fetched files from backend
+              attachments: mergedAttachments,
               response: {
                 ...response,
                 approvals: finalApprovals

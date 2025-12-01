@@ -330,7 +330,7 @@ export default function DamageFormHeader({
               />
               <div className="flex flex-col">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  {t('damageFormHeader.bigDamageIssueForm')}
+                  {t('damageFormHeader.bigDamageIssueForm', { defaultValue: 'Big Damage Form' })}
                   {docNumber && (
                     <span className="text-gray-500 text-[0.8rem] sm:text-sm md:ml-2 md:inline-block">
                       ({docNumber})
@@ -340,7 +340,7 @@ export default function DamageFormHeader({
               </div>
             </div>
 
-            <p className="text-sm text-gray-500 mt-0.5">{t('damageFormHeader.otherIncomeSell')}</p>
+            <p className="text-sm text-gray-500 mt-0.5">{t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}</p>
           </div>
           <div className="flex flex-col items-end gap-3 ml-3 relative z-10">
             {formData.status && (
