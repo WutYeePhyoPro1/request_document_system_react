@@ -452,7 +452,7 @@ const Dashboard = () => {
                 className="h-7 w-7 md:h-8 md:w-8"
               />
               <span className="text-xl font-semibold text-gray-800 md:text-2xl md:font-normal">
-                Big Damage Issue
+                Big Damage Issue 
               </span>
             </div>
             <button
@@ -488,7 +488,7 @@ const Dashboard = () => {
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm font-medium"
             >
               <PlusCircleIcon className="h-5 w-5 inline-block mr-1" />
-              Add new
+              Add new 
             </Link>
           </button>
         </div>

@@ -168,6 +168,38 @@
   "list": {
     "noDataAvailable": "ဒေတာမရှိပါ",
     "noDataDescription": "ပြသရန် ပျက်စီးမှုဆိုင်ရာ မှတ်တမ်းများ မရှိပါ။"
+  },
+  "navbar": {
+    "requestDocumentSystem": "တောင်းဆိုမှု စာရွက်စာတမ်း စနစ်",
+    "user": "အသုံးပြုသူ",
+    "changePassword": "စကားဝှက် ပြောင်းရန်",
+    "headOffice": "ရုံးချုပ်",
+    "systemDevelopment": "စနစ် ဖွံ့ဖြိုးတိုးတက်ရေး",
+    "signOut": "ထွက်ရန်"
+  },
+  "sidebar": {
+    "search": "ရှာဖွေရန်",
+    "dashboard": "ဒက်ရှ်ဘုတ်",
+    "bigDamageIssue": "ကြီးမားသော ပျက်စီးမှု ပြဿနာ",
+    "asset": "ပိုင်ဆိုင်မှု",
+    "officeUse": "ရုံးသုံး",
+    "merchandise": "ကုန်ပစ္စည်း",
+    "security": "လုံခြုံရေး",
+    "userGuide": "အသုံးပြုသူ လမ်းညွှန်"
+  },
+  "damageFormHeader": {
+    "bigDamageIssueForm": "ကြီးမားသော ပျက်စီးမှု ပြဿနာ ဖောင်",
+    "otherIncomeSell": "အခြား ဝင်ငွေ ရောင်းချမှု"
+  },
+  "supportingInfo": {
+    "title": "အထောက်အပံ့ အချက်အလက်",
+    "forWholeDocument": "(စာရွက်စာတမ်း တစ်ခုလုံးအတွက်)",
+    "remarks": "မှတ်ချက်",
+    "noRemarkProvided": "မှတ်ချက် မပေးထားပါ။",
+    "enterDetailedReason": "အသေးစိတ် အကြပြချက် ထည့်သွင်းပါ...",
+    "attachFiles": "ဖိုင်များ ချိတ်ဆက်ရန်",
+    "uploadFiles": "ဖိုင်များ တင်ရန်",
+    "noFilesAttached": "ဖိုင်များ ချိတ်ဆက်ထားခြင်း မရှိပါ။"
   }
 }
 

@@ -168,6 +168,38 @@
   "list": {
     "noDataAvailable": "No Data Available",
     "noDataDescription": "There are no damage issue records to display at the moment."
+  },
+  "navbar": {
+    "requestDocumentSystem": "REQUEST DOCUMENT SYSTEM",
+    "user": "User",
+    "changePassword": "Change Password",
+    "headOffice": "Head Office",
+    "systemDevelopment": "System Development",
+    "signOut": "Sign Out"
+  },
+  "sidebar": {
+    "search": "Search",
+    "dashboard": "Dashboard",
+    "bigDamageIssue": "Big Damage Issue",
+    "asset": "Asset",
+    "officeUse": "Office Use",
+    "merchandise": "Merchandise",
+    "security": "Security",
+    "userGuide": "User Guide"
+  },
+  "damageFormHeader": {
+    "bigDamageIssueForm": "Big Damage Issue Form",
+    "otherIncomeSell": "Other Income Sell"
+  },
+  "supportingInfo": {
+    "title": "Supporting Info",
+    "forWholeDocument": "(For the whole document)",
+    "remarks": "Remarks",
+    "noRemarkProvided": "No remark provided.",
+    "enterDetailedReason": "Enter detailed reason...",
+    "attachFiles": "Attach Files",
+    "uploadFiles": "Upload Files",
+    "noFilesAttached": "No files attached."
   }
 }
 

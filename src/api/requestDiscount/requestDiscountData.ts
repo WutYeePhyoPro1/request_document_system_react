@@ -7,6 +7,7 @@ const API = axios.create({
   baseURL: "/api",
   withCredentials: true,
 });
+
 export const getRequestDiscountData = async(token:string): Promise<requestDiscountFetchData[] > => {
     try{
         const response = await API.get('/request_discount' , {

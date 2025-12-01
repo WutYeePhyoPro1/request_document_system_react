@@ -224,7 +224,7 @@ useEffect(() => {
 
   const Checked = "Checked";
   const UnChecked = "UnChecked";
-console.log("HElloCheck" , detailData) ;
+// console.log("HElloCheck" , Checked) ;
 const element = detailData?.discountProduct?.map((item: any, index: number) => {
   const productId = item.product_id || item.id;
   const checked = values[index]?.checked ?? false;

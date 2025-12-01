@@ -323,7 +323,8 @@ export default function DamageItemTable({
   approvals = [],
   totalAmount = 0,
   gRemark = 'big_damage',
-  currentUser = null
+  currentUser = null,
+  onOpenAddProductModal = () => {}
 }) {
   // Remove debug logging to prevent infinite re-renders
 
@@ -508,12 +509,19 @@ export default function DamageItemTable({
                        approvalStatus === 'BMApproved' ||
                        (approvalStatus === 'Pending' && formStatusNormalized === 'BM Approved');
       } else {
-        // Amount > 500k: ACK entry status must be 'OPApproved'
-        // If ACK entry status is 'Pending' but form status is 'OPApproved' or 'OP Approved',
-        // consider it valid (OP has approved, ACK entry just hasn't been updated yet)
+        // Amount > 500k: ACK entry status must be 'OPApproved' or form status must indicate OP has approved
+        // If form status is 'Ac_Acknowledged' or 'Acknowledged', it means Operation Manager has acknowledged
+        // If ACK entry status is 'Pending' but form status is 'OPApproved', 'OP Approved', 'Ac_Acknowledged', or 'Acknowledged',
+        // consider it valid (OP has approved/acknowledged, ACK entry just hasn't been updated yet)
+        const formStatusIndicatesOPApproved = formStatusNormalized === 'OPApproved' || 
+                                             formStatusNormalized === 'OP Approved' ||
+                                             formStatusNormalized === 'Ac_Acknowledged' ||
+                                             formStatusNormalized === 'Acknowledged';
         statusMatches = approvalStatus === 'OPApproved' || 
                        approvalStatus === 'OP Approved' ||
-                       (approvalStatus === 'Pending' && (formStatusNormalized === 'OPApproved' || formStatusNormalized === 'OP Approved'));
+                       approvalStatus === 'Ac_Acknowledged' ||
+                       approvalStatus === 'Acknowledged' ||
+                       (approvalStatus === 'Pending' && formStatusIndicatesOPApproved);
       }
 
       if (!statusMatches) {
@@ -1737,7 +1745,7 @@ const normalizeImageEntries = (list) => {
     }
   };
   return (
-    <div className={`mx-auto font-sans p-3 sm:p-4 max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
+    <div className={`mx-auto font-sans max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
       <ErrorModal 
         isOpen={errorModal.isOpen}
         message={errorModal.message}
