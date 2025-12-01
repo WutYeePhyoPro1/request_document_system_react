@@ -14,6 +14,7 @@ import {
   type TableData,
   Table,
   Loader,
+  Pagination,
 } from "@mantine/core";
 import "@mantine/core/styles.css";
 import { IconFile, IconX } from "@tabler/icons-react";
@@ -42,6 +43,7 @@ const Create: React.FC = () => {
   );
   const [detailInvoice, setDetailInvoice] = useState<searchInvoiceNumber[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [activePage , setActivePage] = useState<number>(1) ;
   const navigate = useNavigate();
   // console.log("DetailInvoice>" , detailInvoice);
   const form = useForm<FormValues>({
@@ -167,7 +169,10 @@ const Create: React.FC = () => {
       setLoading(false);
     }
   };
-
+const pageSize:number = 10 ;
+const start = (activePage - 1) * pageSize ;
+const end = start + pageSize ;
+const paginateData = detailInvoice.slice(start , end) ;
   const fileIcon = <IconFile size={18} stroke={1.5} />;
   const invoiceData: TableData = {
     head: [
@@ -189,8 +194,8 @@ const Create: React.FC = () => {
             </td>,
           ],
         ]
-      : detailInvoice.map((item, index) => [
-          String(index + 1),
+      : paginateData.map((item, index) => [
+          String(start + index + 1),
           item.main_category,
           item.barcode,
           item.barcode_name,
@@ -445,7 +450,20 @@ const Create: React.FC = () => {
             />
           </div>
           <div className="w-full overflow-x-auto p-4 flex flex-col gap-6">
-            <Table data={invoiceData} />
+            <Table data={invoiceData} /> 
+            <Pagination
+  total={Math.ceil(detailInvoice.length / pageSize)}
+  value={activePage}
+  onChange={setActivePage}
+  boundaries={1}
+  radius="md"
+  size="sm"
+/>
+            {/* <Pagination total={Math.ceil((invoiceData?.length ?? 0) / pageSize)} 
+            value={activePage}
+            onChange={setActivePage}
+            boundaries={1}
+            /> */}
             <div className="flex flex-justify gap-6">
               <Button type="submit" loading={loading}>Save</Button>
               <Button onClick={() => navigate("/request_discount")} >Cancel</Button>

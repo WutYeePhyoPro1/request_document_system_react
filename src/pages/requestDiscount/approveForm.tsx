@@ -264,6 +264,14 @@ const ApproveForm: React.FC = () => {
   };
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if(e.target.value.length > 150) {
+      Swal.fire({
+        icon: "warning" ,
+        title: "Warning" ,
+        text: "Comment cannot exceed 150 characters" ,
+      });
+      return ;
+    }
     dispatch(setComment(e.target.value));
     console.log(setComment(e.target.value));
   };
@@ -360,7 +368,7 @@ const ApproveForm: React.FC = () => {
                 >
                   {loading ? "Submitting..." : "Approved"}
                 </Button>
-                <Button  color="red" disabled={loading}>
+                <Button  color="red" disabled={loading} onClick = {() => handleSubmit("Cancel")}>
                   Cancel
                 </Button>
               </div>
@@ -398,7 +406,7 @@ const ApproveForm: React.FC = () => {
                 >
                   Back To Previous
                 </Button>
-                <Button color="red" disabled={loading}>
+                <Button color="red" disabled={loading} onClick={() => handleSubmit("Cancel")}>
                   Cancel
                 </Button>
               </div>

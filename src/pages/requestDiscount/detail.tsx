@@ -489,6 +489,23 @@ const Detail: React.FC = () => {
                   </div>
                   
                 </div>
+                <div className="">
+                  {
+                    detailData?.form?.status == "Cancel" && (
+                      <>
+                     <div className="d-flex d-flex-row">
+                     
+                            {/* <div className="alert alert-danger alert-dismissible fade show col-12" role="alert">
+                                This form was rejected by <span
+                                    className="fw-bold">{{ $form_rejected->rejected->title }}{{ $form_rejected->rejected->name }}</span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                    aria-label="Close"></button>
+                            </div> */}
+                        </div>
+                      </>
+                    )
+                  }
+                </div>
               </div>
             </div>
              <div className="">
