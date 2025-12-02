@@ -98,7 +98,7 @@ const Detail: React.FC = () => {
   const navigate = useNavigate();
   const handleBack = () => {
     navigate(-1);
-    detailData(null);
+    // detailData(null);
   };
   console.log("Detail Data>>", detailData?.form_rejected);
   // const showLoading = loading || pageLoading || !detailData?.form;

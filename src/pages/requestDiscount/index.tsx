@@ -1,15 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Table,
-  Pagination,
-  Select,
-  MultiSelect,
-  Loader,
-} from "@mantine/core";
+import { Table, Pagination, Select, MultiSelect, Loader } from "@mantine/core";
 import type { IndexData } from "../../utils/requestDiscountUtil";
 import NavPath from "../../components/NavPath";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { dateFormat, dateTimeFormat } from "../../utils/requestDiscountUtil/helper";
+import {
+  dateFormat,
+  dateTimeFormat,
+} from "../../utils/requestDiscountUtil/helper";
 import { DatePickerInput } from "@mantine/dates";
 import StatusBadge from "../../components/ui/StatusBadge";
 
@@ -17,9 +14,9 @@ import {
   getRequestDiscountData,
   searchDiscountProduct,
 } from "../../api/requestDiscount/requestDiscountData";
+import { parse } from "uuid";
 
 export default function Demo() {
-  
   const [discountData, setDiscountData] = useState<IndexData[]>([]);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage, setActivePage] = useState<number>(1);
@@ -55,51 +52,77 @@ export default function Demo() {
     setSearchTerm((prev) => ({ ...prev, branch_id: value }));
   };
   const navigate = useNavigate();
-  
 
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    setLoading(true)
+    setLoading(true);
     try {
       const data = await getRequestDiscountData(token);
       setDiscountData(data);
-      setLoading(false) ;
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching discount data:", error);
-    }finally{
-      setLoading(false) ;
+    } finally {
+      setLoading(false);
     }
   };
-  
-
 
   useEffect(() => {
-    fetchData();
+    const cached = sessionStorage.getItem("discount_cache");
+    if(cached) {
+      const parsed = JSON.parse(cached) ;
+      setDiscountData(parsed.discountData) ;
+      setSearchTerm(parsed.searchTerm) ;
+      setActivePage(parsed.activePage) ;
+      setLoading(false) ;
+    }else{
+fetchData();
+    }
+    
   }, []);
+  useEffect(() => {
+    const cached = sessionStorage.getItem("discount_cache");
+    if(cached) {
+      const parsed = JSON.parse(cached) ;
+      parsed.activePage = activePage ;
+     sessionStorage.setItem("discount_cache", JSON.stringify(parsed));
+    }
+  } , [activePage]) ;
   console.log("Data Check>>", discountData);
   const pageSize: number = 10;
   const start = (activePage - 1) * pageSize;
   const end = start + pageSize;
   // const paginateData = discountData?.data?.slice(start, end) ?? [];
   const paginateData = useMemo(() => {
-    const start = (activePage - 1) * pageSize ;
-    return discountData?.data?.slice(start , start + pageSize) ?? [] ;
-  } , [discountData , activePage]) ;
-//Hello test git conflig
+    const start = (activePage - 1) * pageSize;
+    return discountData?.data?.slice(start, start + pageSize) ?? [];
+  }, [discountData, activePage]);
+  //Hello test git conflig
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
-
+setLoading(true);
     try {
       const results = await searchDiscountProduct(token, searchTerm);
+      const cache = {
+        discountData: results ,
+        searchTerm ,
+        activePage: 1 ,
+      }
+    sessionStorage.setItem("discount_cache", JSON.stringify(cache));
       setDiscountData(results);
       setActivePage(1);
+      
     } catch (error) {
       console.error("Search failed:", error);
+    }finally{
+      setLoading(false);
     }
   };
   const handleRestart = async () => {
+  sessionStorage.removeItem("discount_cache");
+
     setSearchTerm({
       form_doc_no: "",
       product_category: "",
@@ -114,8 +137,8 @@ export default function Demo() {
   };
 
   const rows = useMemo(() => {
-    return paginateData?.map((element , index) => (
-       <Table.Tr
+    return paginateData?.map((element, index) => (
+      <Table.Tr
         key={element.id}
         bg={
           selectedRows.includes(element.id)
@@ -126,7 +149,6 @@ export default function Demo() {
         <Link
           to={`/request_discount_detail/${element.id}`}
           className="contents"
-         
         >
           <Table.Td>{start + index + 1}</Table.Td>
           <Table.Td>
@@ -142,9 +164,9 @@ export default function Demo() {
           </Table.Td>
         </Link>
       </Table.Tr>
-    ))
-  } , [paginateData , selectedRows])
-  const showLoading = loading ||  !discountData;
+    ));
+  }, [paginateData, selectedRows]);
+  const showLoading = loading || !discountData;
   if (showLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -347,17 +369,16 @@ export default function Demo() {
               {discountData?.data?.length > 0 ? (
                 rows
               ) : (
-               
-                  <Table.Tr>
-          <Table.Td colSpan={7}>
-            <div className="flex flex-col items-center justify-center py-10">
-              {/* <Loader size="xl" color="blue" /> */}
-              <p className="mt-4 text-lg font-semibold text-gray-700 animate-pulse">
-                There has no data
-              </p>
-            </div>
-          </Table.Td>
-        </Table.Tr>
+                <Table.Tr>
+                  <Table.Td colSpan={7}>
+                    <div className="flex flex-col items-center justify-center py-10">
+                      {/* <Loader size="xl" color="blue" /> */}
+                      <p className="mt-4 text-lg font-semibold text-gray-700 animate-pulse">
+                        There has no data
+                      </p>
+                    </div>
+                  </Table.Td>
+                </Table.Tr>
               )}
             </Table.Tbody>
           </Table>
