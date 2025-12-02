@@ -1745,7 +1745,7 @@ const normalizeImageEntries = (list) => {
     }
   };
   return (
-    <div className={`mx-auto font-sans p-3 sm:p-4 max-w-full${mode === 'view' ? ' text-sm' : ''}`}>
+    <div className={`mx-auto font-sans max-w-full p-4 sm:p-0${mode === 'view' ? ' text-sm' : ''}`}>
       <ErrorModal 
         isOpen={errorModal.isOpen}
         message={errorModal.message}

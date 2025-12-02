@@ -28,8 +28,8 @@
   },
   "investigation": {
     "title": "စုံစမ်းစစ်ဆေးရေးဖောင်",
-    "bmReason": "BM အကြပြချက်",
-    "bmReasonRequired": "BM အကြပြချက်ကို ဖြည့်ရန်လိုအပ်ပါသည်",
+    "bmReason": "BM အကြံပြုချက်",
+    "bmReasonRequired": "BM အကြံပြုချက်ကို ဖြည့်ရန်လိုအပ်ပါသည်",
     "bmReasonPlaceholder": "အသေးစိတ်အကြပြချက် ထည့်သွင်းပါ ...",
     "category": "စုံစမ်းစစ်ဆေးရေးအမျိုးအစားများ",
     "responsibilityDistribution": "တာဝန်ဝတ္တရားခွဲဝေမှု",
@@ -50,7 +50,16 @@
     "percentagesRequiredForSection": "ရာခိုင်နှုန်းများ လိုအပ်ပါသည်။",
     "percentagesMustIncludeForSection": "ရာခိုင်နှုန်းများတွင် ကုမ္ပဏီ၊ အသုံးပြုသူနှင့် ဝင်ငွေပါဝင်ရမည်။",
     "percentagesMustBeNumericForSection": " ရာခိုင်နှုန်းများသည် ဂဏန်းတန်ဖိုးများ ဖြစ်ရမည်။",
-    "percentagesMustTotalForSection": "ရာခိုင်နှုန်းများသည် ၁၀၀% စုစုပေါင်းဖြစ်ရမည်။ လက်ရှိ {total}%။"
+    "percentagesMustTotalForSection": "ရာခိုင်နှုန်းများသည် ၁၀၀% စုစုပေါင်းဖြစ်ရမည်။ လက်ရှိ {{total}}%။",
+    "categories": {
+      "thief": "ခိုးယူမှု",
+      "delivery": "ပို့ဆောင်မှု",
+      "naturalAccident": "သဘာဝ မတော်တဆမှု",
+      "discipline": "စည်းကမ်း",
+      "accident": "မတော်တဆမှု",
+      "safety": "လုံခြုံရေး",
+      "other": "အခြား"
+    }
   },
   "damageForm": {
     "addProduct": "ထုတ်ကုန်ထည့်ရန်",
@@ -152,6 +161,7 @@
     "submitDescription": "တင်သွင်းပြီးသည်နှင့် ဖောင်ကို စစ်ဆေးသူများနှင့် အတည်ပြုသူများထံ ပို့ဆောင်မည်ဖြစ်သည်။",
     "rejectDescription": "ဤသည်မှာ ဖောင်ကို ငြင်းဆိုပြီး ယခင်အဆင့်သို့ ပြန်ပို့မည်ဖြစ်သည်။",
     "backToPreviousDescription": "ဤသည်မှာ ဖောင်ကို ယခင်အတည်ပြုချက်အဆင့်သို့ ပြန်ပို့မည်ဖြစ်သည်။",
+    "cancelDescription": "ဤသည်မှာ ဖောင်ကို ပယ်ဖျက်ပြီး နောက်ထပ် လုပ်ဆောင်မှုများကို တားဆီးမည်ဖြစ်သည်။",
     "actions": {
       "submitForm": "ဖောင်တင်သွင်းရန်",
       "checkForm": "ဖောင်စစ်ဆေးရန်",
@@ -162,6 +172,7 @@
       "rejectForm": "ဖောင်ငြင်းဆိုရန်",
       "editForm": "ဖောင်ပြင်ဆင်ရန်",
       "backToPrevious": "ယခင်သို့ ပြန်ရန်",
+      "cancelForm": "ဖောင်ပယ်ဖျက်ရန်",
       "performAction": "လုပ်ဆောင်ချက် လုပ်ဆောင်ရန်"
     }
   },

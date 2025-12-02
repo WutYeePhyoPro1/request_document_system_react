@@ -230,7 +230,7 @@ export default function DamageFormHeader({
     <div className="relative"> 
          {formData.status && (
   <span
-    className={`text-sm px-2.5 py-0.5 border font-semibold text-center rounded-full block w-full sm:hidden sm:w-auto ${
+    className={`text-sm px-2.5 py-0.5 border font-semibold text-center rounded block w-full sm:hidden sm:w-auto sm:rounded-full ${
       (() => {
         switch (formData.status) {
           case 'Ongoing':
@@ -238,6 +238,7 @@ export default function DamageFormHeader({
           case 'Checked':
             return 'bg-yellow-100 text-yellow-700 border-yellow-300';
           case 'BM Approved':
+            return 'bg-blue-600 text-white border-blue-700';
           case 'OPApproved':
             return 'op-approved-status-badge';
           case 'Ac_Acknowledged':
@@ -248,7 +249,8 @@ export default function DamageFormHeader({
           case 'Completed':
             return 'bg-emerald-100 text-emerald-700 border-emerald-300';
           case 'Cancel':
-            return 'bg-gray-100 text-gray-700 border-gray-300';
+          case 'Cancelled':
+            return 'bg-red-100 text-red-700 border-red-300';
           default:
             return 'bg-yellow-100 text-yellow-700 border-yellow-300';
         }
@@ -351,8 +353,7 @@ export default function DamageFormHeader({
                   case 'Checked':
                     return 'bg-yellow-100 text-yellow-700 border-yellow-300';
                   case 'BM Approved':
-                          return 'bg-blue-100 text-blue-700 border-blue-300';
-                    return 'bg-blue-100 text-blue-700 border-blue-300';
+                    return 'bg-blue-600 text-white border-blue-700';
 
                   case 'OPApproved':
                     return 'op-approved-status-badge';
@@ -364,7 +365,8 @@ export default function DamageFormHeader({
                   case 'Completed':
                     return 'bg-emerald-100 text-emerald-700 border-emerald-300';
                   case 'Cancel':
-                    return 'bg-gray-100 text-gray-700 border-gray-300';
+                  case 'Cancelled':
+                    return 'bg-red-100 text-red-700 border-red-300';
                   default:
                     return 'bg-yellow-100 text-yellow-700 border-yellow-300';
                 }

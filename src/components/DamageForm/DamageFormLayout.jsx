@@ -240,6 +240,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return updated;
   };
 
+  // Track original attachments (files that were loaded from server) to detect deletions
+  const [originalAttachments, setOriginalAttachments] = useState(() => {
+    const initialAttachments = resolveInitialAttachments(initialData);
+    // Only track files that are already saved on server (have downloadUrl or isRemote)
+    return initialAttachments.filter(att => att.downloadUrl || att.isRemote || att.id);
+  });
+
   const [formData, setFormData] = useState(() => {
     const user = getCurrentUser();
     const initialRequester = resolveSubmitterName(initialData);
@@ -965,6 +972,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         return 'Completed';
       case 'SupervisorIssued':
         return 'Completed'; // Supervisor step removed - map to Completed
+      case 'BackToPrevious':
+        // Return the actual btp value from API (op_btp, bm_btp, bracc_btp) or default to BackToPrevious
+        return apiActions?.btp || 'BackToPrevious';
+      case 'Cancel':
+        return 'Cancel';
       default:
         return action;
     }
@@ -1289,12 +1301,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         });
       
         
+        const newAttachments = resolveInitialAttachments(mergedData, prev.attachments);
+        // Update original attachments when form data is loaded/merged
+        const serverAttachments = newAttachments.filter(att => att.downloadUrl || att.isRemote || att.id);
+        if (serverAttachments.length > 0) {
+          setOriginalAttachments(serverAttachments);
+        }
+        
         return {
           ...prev,
           ...mergedData,
           branch: mergedData?.branch || mergedData?.branch_name || prev.branch,
           items: itemsWithAccountCodes,
-          attachments: resolveInitialAttachments(mergedData, prev.attachments),
+          attachments: newAttachments,
           issue_remarks: issueRemarks,
           iss_remark: mergedData?.iss_remark ?? 
             mergedData?.general_form?.iss_remark ?? 
@@ -1724,6 +1743,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   const deriveActions = () => {
     const act = { ...apiActions };
+    
+    // Map btp value from API to backToPrevious
+    if (apiActions.btp && ['op_btp', 'bm_btp', 'bracc_btp'].includes(apiActions.btp)) {
+      act.backToPrevious = true;
+    }
     
     if (!normalize(act.approve)) {
       const role = getUserRole();
@@ -2731,6 +2755,33 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }, 0);
       formDataToSend.append('total_amount', totalAmount);
       
+      // Detect deleted files (files that were in originalAttachments but not in current attachments)
+      const currentAttachmentIds = new Set(
+        (formData.attachments || [])
+          .filter(att => att.id || att.downloadUrl || att.file)
+          .map(att => att.id || att.file || att.downloadUrl)
+      );
+      
+      const deletedFiles = (originalAttachments || []).filter(originalAtt => {
+        const originalId = originalAtt.id || originalAtt.file || originalAtt.downloadUrl;
+        return originalId && !currentAttachmentIds.has(originalId);
+      });
+      
+      // Send deleted file IDs to backend so they can be removed
+      if (deletedFiles.length > 0) {
+        const deletedFileIds = deletedFiles
+          .map(file => file.id || file.file || file.downloadUrl)
+          .filter(Boolean);
+        if (deletedFileIds.length > 0) {
+          console.log(`[Form Submission] Sending ${deletedFileIds.length} deleted file ID(s):`, deletedFileIds);
+          formDataToSend.append('deleted_file_ids', JSON.stringify(deletedFileIds));
+          // Also try alternative key names that backend might expect
+          deletedFileIds.forEach((fileId, index) => {
+            formDataToSend.append(`deleted_files[${index}]`, fileId);
+          });
+        }
+      }
+      
       // Send supporting info attachments (files uploaded in SupportingInfo component)
       if (formData.attachments && Array.isArray(formData.attachments)) {
         const filesToSend = formData.attachments.filter(attachment => attachment?.fileObject instanceof File);
@@ -3091,6 +3142,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           
           console.log('[Form Submission] Final attachments to save:', finalAttachments.length, finalAttachments);
           
+          // Update originalAttachments with the final attachments (so we can track deletions in future edits)
+          if (finalAttachments.length > 0) {
+            const serverAttachments = finalAttachments.filter(att => att.downloadUrl || att.isRemote || att.id);
+            if (serverAttachments.length > 0) {
+              setOriginalAttachments(serverAttachments);
+            }
+          }
+          
           setFormData((prev) => {
             // Merge attachments: use fetched attachments if available, otherwise keep existing
             const mergedAttachments = finalAttachments.length > 0 
@@ -3406,17 +3465,22 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           ));
         
         // Only show button if Operation Manager has actually approved/acknowledged
-        // If status is Ac_Acknowledged, allow button to show
+        // If status is Ac_Acknowledged, allow button to show only if systemQtyUpdated is true
         if (isAcknowledged) {
-          result = true; // Status indicates acknowledgment - show button
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          result = systemQtyUpdated; // Only show button if system quantity is updated
         } else if (isBMApproved || isOpApprovalPending) {
           result = false; // Explicitly false - must wait for OP approval
         } else {
-          result = opManagerHasApproved;
+          // Check if system quantity has been updated before showing button
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          result = opManagerHasApproved && systemQtyUpdated;
         }
       } else {
-        // Amount <= 500000 - can acknowledge at BM Approved (no Operation Manager stage needed)
-        result = isBMApproved;
+        // Amount <= 500000 - can acknowledge at BM Approved only if systemQtyUpdated is true
+        const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+        result = isBMApproved && systemQtyUpdated;
       }
       
       // Debug logging for account button visibility
@@ -3428,7 +3492,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         isOpApprovalPending,
         opManagerHasApproved,
         requiresOpManagerApproval,
-        normalizedStatus
+        normalizedStatus,
+        systemQtyUpdated: Boolean(formData.systemQtyUpdated)
       });
     }
     // Supervisor should NOT see approve button - they have a separate Issue button
@@ -3507,10 +3572,16 @@ const resolveApproveAction = () => {
                             normalizedActionStatus === 'OPApproved' ||
                             normalizedActionStatus === 'OP Approved';
         
-        // If status is Ac_Acknowledged or Acknowledged, allow Issue button regardless of approval entry
+        // If status is Ac_Acknowledged or Acknowledged, allow Issue button only if systemQtyUpdated is true
         // The status itself indicates that Operation Manager has acknowledged
         if (isAcknowledged) {
-          // Status indicates acknowledgment - allow Issue button
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            console.log('[resolveApproveAction] Status is Ac_Acknowledged but systemQtyUpdated is false - not showing Issue button');
+            return null; // Don't show Issue button until system quantity is updated
+          }
+          // Status indicates acknowledgment and system quantity is updated - allow Issue button
           return 'Completed'; // Return Completed to show Issue button
         }
         
@@ -3534,27 +3605,45 @@ const resolveApproveAction = () => {
           (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
         );
         
-        // If status is Ac_Acknowledged, return Completed directly (don't wait for backend action)
+        // If status is Ac_Acknowledged, return Completed only if systemQtyUpdated is true
         // This ensures Issue button shows even if backend doesn't return the correct action
         if (isAcknowledged) {
-          console.log('[resolveApproveAction] Status is Ac_Acknowledged - returning Completed');
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            console.log('[resolveApproveAction] Status is Ac_Acknowledged but systemQtyUpdated is false - not showing Issue button');
+            return null; // Don't show Issue button until system quantity is updated
+          }
+          console.log('[resolveApproveAction] Status is Ac_Acknowledged and systemQtyUpdated is true - returning Completed');
           return 'Completed'; // Return Completed to show Issue button
         }
         
-        // Only allow Completed (Issue) if Operation Manager has acknowledged via approval entry
+        // Only allow Completed (Issue) if Operation Manager has acknowledged via approval entry AND system quantity is updated
         if (opManagerHasAcknowledged && 
             (actions.approve === 'Completed' || actions.approve === 'completed')) {
+          // Check if system quantity has been updated
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            console.log('[resolveApproveAction] OP Manager has acknowledged but systemQtyUpdated is false - not showing Issue button');
+            return null; // Don't show Issue button until system quantity is updated
+          }
           return actions.approve;
         }
         // Don't use backend action if Operation Manager hasn't acknowledged or is still pending
         return null;
       } else {
-        // Amount <= 500000 - allow Completed (Issue) at BM Approved
+        // Amount <= 500000 - allow Completed (Issue) at BM Approved only if systemQtyUpdated is true
         const isBMApproved = normalizedActionStatus.toLowerCase() === 'bm approved' || 
                             normalizedActionStatus === 'BMApproved' ||
                             normalizedActionStatus.toLowerCase() === 'bmapproved';
         if (isBMApproved && 
             (actions.approve === 'Completed' || actions.approve === 'completed')) {
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            console.log('[resolveApproveAction] BM Approved but systemQtyUpdated is false - not showing Issue button');
+            return null; // Don't show Issue button until system quantity is updated
+          }
           return actions.approve;
         }
       }
@@ -3657,6 +3746,12 @@ const resolveApproveAction = () => {
       });
       
       if (opManagerHasAcknowledged) {
+        // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+        const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+        if (!systemQtyUpdated) {
+          console.log('[resolveApproveAction] OP Manager has acknowledged but systemQtyUpdated is false - not showing Issue button');
+          return null; // Don't show Issue button until system quantity is updated
+        }
         console.log('[resolveApproveAction] Returning Completed from fallback logic');
         return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
       }
@@ -3664,8 +3759,14 @@ const resolveApproveAction = () => {
       console.log('[resolveApproveAction] Returning null - OP Manager has not acknowledged');
       return null;
     } else {
-      // Amount <= 500000 - can issue at BM Approved
+      // Amount <= 500000 - can issue at BM Approved only if systemQtyUpdated is true
       if (isBMApproved) {
+        // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+        const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+        if (!systemQtyUpdated) {
+          console.log('[resolveApproveAction] BM Approved but systemQtyUpdated is false - not showing Issue button');
+          return null; // Don't show Issue button until system quantity is updated
+        }
         return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
       }
     }
@@ -3703,13 +3804,13 @@ const resolveApproveAction = () => {
         <span></span>
         <span></span>
         <span></span>
-      </div>
+      </div>a
       <div className="loading-text">Loading</div>
     </div>
   );
 
   return (
-    <div className="mx-auto p-4 sm:p-4 bg-gray-50 min-h-screen space-y-4 sm:space-y-4 font-sans">
+    <div className="mx-auto p-0 sm:p-4 bg-gray-50 min-h-screen space-y-4 sm:space-y-4 font-sans">
       <ToastContainer position="top-right" autoClose={5000} />
       
       {isSubmitting && <BoxesLoader />}
@@ -4295,6 +4396,18 @@ const resolveApproveAction = () => {
               >
                 <CornerUpLeft className="w-4 h-4 transition-transform duration-300 group-hover:rotate-[360deg]" />
                 <span className="transition-transform duration-200 group-hover:scale-[1.1]">Back To Previous</span>
+              </button>
+            )}
+            
+            {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
+            {actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+              <button 
+                onClick={() => handleSubmitClick('Cancel')}
+                className="btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border bg-red-600 hover:bg-red-700 border-red-700" 
+                style={{ fontSize: '0.75rem', minWidth: '90px' }}
+              >
+                <span className="btn-text">Cancel</span>
+                <XCircle className="btn-icon w-4 h-4 absolute" />
               </button>
             )}
           </div>

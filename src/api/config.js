@@ -30,6 +30,8 @@ export const apiFetch = async (endpoint, options = {}) => {
   
   // Don't set Content-Type for FormData - let browser set it automatically with boundary
   const headers = {
+    'Accept': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest',
     ...options.headers,
   };
   

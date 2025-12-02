@@ -47,10 +47,19 @@
     "percentagesMustTotal": "percentages must total 100%. Currently",
     "percentagesMustBeNumeric": "percentages must be numeric values.",
     "percentagesMustInclude": "percentages must include Company, User, and Income.",
-    "percentagesRequiredForSection": "{section} percentages are required.",
-    "percentagesMustIncludeForSection": "{section} percentages must include Company, User, and Income.",
-    "percentagesMustBeNumericForSection": "{section} percentages must be numeric values.",
-    "percentagesMustTotalForSection": "{section} percentages must total 100%. Currently {total}%."
+    "percentagesRequiredForSection": "{{section}} percentages are required.",
+    "percentagesMustIncludeForSection": "{{section}} percentages must include Company, User, and Income.",
+    "percentagesMustBeNumericForSection": "{{section}} percentages must be numeric values.",
+    "percentagesMustTotalForSection": "{{section}} percentages must total 100%. Currently {{total}}%.",
+    "categories": {
+      "thief": "Thief",
+      "delivery": "Delivery",
+      "naturalAccident": "Natural Accident",
+      "discipline": "Discipline",
+      "accident": "Accident",
+      "safety": "Safety",
+      "other": "Other"
+    }
   },
   "damageForm": {
     "addProduct": "Add Product",
@@ -148,10 +157,11 @@
   "confirmation": {
     "title": "Confirm",
     "areYouSure": "Are you sure?",
-    "areYouSureAction": "Are you sure you want to {action} this form?",
+    "areYouSureAction": "Are you sure you want to {{action}} this form?",
     "submitDescription": "Once submitted, the form will be sent to checkers and approvers for review.",
     "rejectDescription": "This will reject the form and send it back to the previous step.",
     "backToPreviousDescription": "This will send the form back to the previous approval stage.",
+    "cancelDescription": "This will cancel the form and prevent further processing.",
     "actions": {
       "submitForm": "Submit Form",
       "checkForm": "Check Form",
@@ -162,6 +172,7 @@
       "rejectForm": "Reject Form",
       "editForm": "Edit Form",
       "backToPrevious": "Back to Previous",
+      "cancelForm": "Cancel Form",
       "performAction": "Perform Action"
     }
   },

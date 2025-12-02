@@ -27,6 +27,7 @@ export default function StatusBadge({ status, count }) {
       case "completed":
         return "bg-[#adebbb] text-[#28a745]";
       case "cancel":
+      case "cancelled":
         return "bg-[#fda19d] text-[#f91206]";
       case "acknowledged": 
         return "bg-[#ffeaab] text-[#28a745]";

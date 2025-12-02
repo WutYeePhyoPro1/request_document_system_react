@@ -31,7 +31,8 @@ const StatusBadge = ({ status }) => {
       colorClasses = 'bg-emerald-100 text-emerald-700 border border-emerald-300';
       break;
     case 'Cancel':
-      colorClasses = 'bg-gray-100 text-gray-700 border border-gray-300';
+    case 'Cancelled':
+      colorClasses = 'bg-red-100 text-red-700 border border-red-300';
       break;
     default:
       colorClasses = 'bg-gray-100 text-gray-700 border border-gray-300';

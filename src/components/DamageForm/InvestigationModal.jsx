@@ -439,13 +439,13 @@ const InvestigationFormModal = ({
     || (isReadOnly && !canAccountEdit && role === 1);
 
   const categories = [
-    { id: "Thief", label: "Thief", icon: User },
-    { id: "Delivery", label: "Delivery", icon: Truck },
-    { id: "Natural Accident", label: "Natural Accident", icon: CloudLightning },
-    { id: "Discipline", label: "Discipline", icon: Shield },
-    { id: "Accident", label: "Accident", icon: AlertTriangle },
-    { id: "Safety", label: "Safety", icon: Users },
-    { id: "Other", label: "Other", icon: FileText },
+    { id: "Thief", label: t('investigation.categories.thief'), icon: User },
+    { id: "Delivery", label: t('investigation.categories.delivery'), icon: Truck },
+    { id: "Natural Accident", label: t('investigation.categories.naturalAccident'), icon: CloudLightning },
+    { id: "Discipline", label: t('investigation.categories.discipline'), icon: Shield },
+    { id: "Accident", label: t('investigation.categories.accident'), icon: AlertTriangle },
+    { id: "Safety", label: t('investigation.categories.safety'), icon: Users },
+    { id: "Other", label: t('investigation.categories.other'), icon: FileText },
   ];
 
   const normalizePct = (raw) => {

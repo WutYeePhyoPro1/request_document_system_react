@@ -90,6 +90,14 @@ export default function ActionConfirmationModal({
           focus: 'focus:ring-red-500',
           customClass: null
         };
+      case 'Cancel':
+      case 'Cancelled':
+        return {
+          bg: 'bg-red-600',
+          hover: 'hover:bg-red-700',
+          focus: 'focus:ring-red-500',
+          customClass: null
+        };
       case 'BackToPrevious':
         return {
           bg: 'bg-yellow-600',
@@ -122,14 +130,16 @@ export default function ActionConfirmationModal({
       'Issued': t('confirmation.actions.issue'),
       'Rejected': t('confirmation.actions.rejectForm'),
       'Edit': t('confirmation.actions.editForm'),
-      'BackToPrevious': t('confirmation.actions.backToPrevious')
+      'BackToPrevious': t('confirmation.actions.backToPrevious'),
+      'Cancel': t('confirmation.actions.cancelForm', { defaultValue: 'Cancel Form' }),
+      'Cancelled': t('confirmation.actions.cancelForm', { defaultValue: 'Cancel Form' })
     };
     return actionMap[action] || action || t('confirmation.actions.performAction');
   };
 
   const actionLabel = getActionLabel(action);
   const buttonColors = getButtonColorClasses(action);
-  const isDestructive = ['Rejected', 'BackToPrevious'].includes(action);
+  const isDestructive = ['Rejected', 'BackToPrevious', 'Cancel', 'Cancelled'].includes(action);
   
   // Get header background color based on action
   const getHeaderColorClasses = (action) => {
@@ -151,6 +161,9 @@ export default function ActionConfirmationModal({
       case 'Issued':
         return { bg: 'bg-green-50', border: 'border-green-200', text: 'text-green-600' };
       case 'Rejected':
+        return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-600' };
+      case 'Cancel':
+      case 'Cancelled':
         return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-600' };
       case 'BackToPrevious':
         return { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600' };
@@ -203,6 +216,11 @@ export default function ActionConfirmationModal({
               {action === 'Rejected' && (
                 <p className="text-xs text-red-600 mt-2">
                   {t('confirmation.rejectDescription')}
+                </p>
+              )}
+              {(action === 'Cancel' || action === 'Cancelled') && (
+                <p className="text-xs text-red-600 mt-2">
+                  {t('confirmation.cancelDescription')}
                 </p>
               )}
               {action === 'BackToPrevious' && (
