@@ -250,14 +250,23 @@ setLoading(true);
             >
               From Date
             </label>
-
-            <DatePickerInput
+           <input
+              id="formDocNo"
+              type="date"
+              placeholder="Enter Date"
+              className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
+              name="from_date"
+              value={searchTerm.from_date}
+              onChange={handleInputChange}
+            />
+            {/* <DatePickerInput
               className="border border-blue-500 focus:outline-none w-full rounded-md"
               placeholder="Pick date"
               name="from_date"
               value={searchTerm.from_date}
-              onChange={(value) => handleDateChange("from_date", value)}
-            />
+              onChange={(value) => handleDateChange("from_date", value)} 
+              
+            /> */}
           </div>
           <div className="flex flex-col">
             <label
@@ -266,14 +275,22 @@ setLoading(true);
             >
               To Date
             </label>
-
-            <DatePickerInput
+              <input
+              id="formDocNo"
+              type="date"
+              placeholder="Enter Date"
+              className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
+              name="to_date"
+              value={searchTerm.to_date}
+              onChange={handleInputChange}
+            />
+            {/* <DatePickerInput
               placeholder="Pick date"
               className="border border-blue-500 focus:outline-none w-full rounded-md"
               name="to_date"
               value={searchTerm.to_date}
               onChange={(value) => handleDateChange("to_date", value)}
-            />
+            /> */}
           </div>
           <div className="flex flex-col">
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
