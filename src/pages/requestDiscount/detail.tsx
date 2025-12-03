@@ -109,7 +109,7 @@ const Detail: React.FC = () => {
         <div className="flex justify-center items-center min-h-screen">
           <div className="flex flex-col items-center gap-4">
             <Loader size="xl" color="blue" />
-            <div className="text-lg font-semibold text-gray-700 animate-pulse">
+            <div className="text-lg font-semibold  text-gray-700 animate-pulse">
               Loading Detail Data...
             </div>
           </div>
@@ -145,7 +145,7 @@ const Detail: React.FC = () => {
                     className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
                       copied
                         ? "text-green-600 bg-green-50"
-                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+                        : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
                     }`}
                     title={copied ? "Copied!" : "Copy ID"}
                     disabled={copied}
@@ -299,16 +299,16 @@ const Detail: React.FC = () => {
                   <div className="userData grid grid-cols-6 items-start text-sm">
                     {/* Prepared By */}
                     <div className="flex flex-col">
-                      <span className="font-medium text-gray-700">
+                      <span className="font-medium ">
                         Prepared By
                       </span>
-                      <span className="font-semibold text-lg">
+                      <span className="font-semibold text-blue-400 mt-1">
                         Miss. {detailData?.form?.originators?.name}
                       </span>
-                      <span className="text-gray-600">
+                      <span className="text-blue-500 mt-1">
                         ({detailData?.form?.originators?.departments?.name})
                       </span>
-                      <span className="text-gray-500">
+                      <span className="text-blue-500 mt-1">
                         {dateFormat(detailData?.form?.created_at)}
                       </span>
                     </div>
@@ -325,11 +325,11 @@ const Detail: React.FC = () => {
                         ].includes(detailData?.form?.status) ? (
                           <div>
                             <div className="font-medium">Checked By</div>
-                            <div className="font-semibold">
+                            <div className="font-semibold text-blue-400 mt-1">
                               {detailData?.getApprover?.approval_users?.title}{" "}
                               {detailData?.getApprover?.approval_users?.name}
                             </div>
-                            <div className="text-gray-600">
+                            <div className="text-blue-500 mt-1">
                               (
                               {
                                 detailData?.getApprover?.approval_users
@@ -337,11 +337,11 @@ const Detail: React.FC = () => {
                               }
                               )
                             </div>
-                            <div className="text-gray-500">
+                            <div className="text-blue-500 mt-1">
                               {dateFormat(detailData?.getApprover?.created_at)}
                             </div>
                             {detailData?.getApprover?.comment && (
-                              <div className="text-info text-break italic">
+                              <div className="text-info text-break italic text-blue-500 mt-1">
                                 “{detailData?.getApprover?.comment}”
                               </div>
                             )}
@@ -369,7 +369,7 @@ const Detail: React.FC = () => {
                             <div className="font-medium">
                               Approved By Category Head
                             </div>
-                            <div className="font-semibold">
+                            <div className="font-semibold text-blue-400 mt-1">
                               {
                                 detailData?.getSupervisor[0]?.approval_users
                                   ?.title
@@ -379,7 +379,7 @@ const Detail: React.FC = () => {
                                   ?.name
                               }
                             </div>
-                            <div className="text-gray-600">
+                            <div className="text-blue-500 mt-1">
                               (
                               {
                                 detailData?.getSupervisor[0]?.approval_users
@@ -387,13 +387,13 @@ const Detail: React.FC = () => {
                               }
                               )
                             </div>
-                            <div className="text-gray-500">
+                            <div className="text-blue-500 mt-1">
                               {dateFormat(
                                 detailData?.getSupervisor[0]?.created_at
                               )}
                             </div>
                             {detailData?.getSupervisor[0]?.comment && (
-                              <div className="text-info text-break italic">
+                              <div className="text-info text-break italic text-blue-500 mt-1">
                                 “{detailData?.getSupervisor[0]?.comment}”
                               </div>
                             )}
@@ -421,11 +421,11 @@ const Detail: React.FC = () => {
                       ) ? (
                         <div>
                           <div className="font-medium">Acknowledge By</div>
-                          <div className="font-semibold">
+                          <div className="font-semibold text-blue-400 mt-1">
                             {detailData?.getApprover2?.approval_users?.title}{" "}
                             {detailData?.getApprover2?.approval_users?.name}
                           </div>
-                          <div className="text-gray-600">
+                          <div className="text-blue-500 mt-1">
                             (
                             {
                               detailData?.getApprover2?.approval_users
@@ -433,11 +433,11 @@ const Detail: React.FC = () => {
                             }
                             )
                           </div>
-                          <div className="text-gray-500">
+                          <div className="text-blue-500 mt-1">
                             {dateFormat(detailData?.getApprover2?.created_at)}
                           </div>
                           {detailData?.getApprover2?.comment && (
-                            <div className="text-info text-break italic">
+                            <div className="text-info text-break italic text-blue-500 mt-1">
                               “{detailData?.getApprover2?.comment}”
                             </div>
                           )}
@@ -457,14 +457,14 @@ const Detail: React.FC = () => {
                         detailData?.form?.status === "Completed" ? (
                           <div>
                             <div className="font-medium">Finished By</div>
-                            <div className="font-semibold">
+                            <div className="font-semibold text-blue-400 mt-1">
                               {
                                 detailData?.getAcknowledge?.approval_users
                                   ?.title
                               }{" "}
                               {detailData?.getAcknowledge?.approval_users?.name}
                             </div>
-                            <div className="text-gray-600">
+                            <div className="text-blue-500 mt-1">
                               (
                               {
                                 detailData?.getAcknowledge?.approval_users
@@ -472,13 +472,13 @@ const Detail: React.FC = () => {
                               }
                               )
                             </div>
-                            <div className="text-gray-500">
+                            <div className="text-blue-500 mt-1">
                               {dateFormat(
                                 detailData?.getAcknowledge?.created_at
                               )}
                             </div>
                             {detailData?.getAcknowledge?.comment && (
-                              <div className="text-info text-break italic">
+                              <div className="text-info text-break italic text-blue-500 mt-1">
                                 “{detailData?.getAcknowledge?.comment}”
                               </div>
                             )}

@@ -49,6 +49,7 @@ const ApproveForm: React.FC = () => {
   const icon = <IconFile size={18} stroke={1.5} />;
   const navigate = useNavigate();
   const handleSubmit = async (statusValue: string) => {
+    
     if (statusValue == "cateCheck") {
       const checkCount =
         formData.check?.filter((v: string | null) => v === "checked").length ||
@@ -67,7 +68,7 @@ const ApproveForm: React.FC = () => {
       console.error("Form ID is missing");
       return;
     }
-   if (statusValue === "bracc_btp" || statusValue === "cat_btp" || statusValue === "mer_btp") {
+   if (statusValue === "bracc_btp" || statusValue === "cat_btp" || statusValue === "mer_btp" || statusValue === "Approved") {
   if (!formData.comment || formData.comment.trim() === "") {
     Swal.fire({
       icon: "warning",

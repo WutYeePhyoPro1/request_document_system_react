@@ -6,6 +6,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   dateFormat,
   dateTimeFormat,
+  handleCopy,
 } from "../../utils/requestDiscountUtil/helper";
 import { DatePickerInput } from "@mantine/dates";
 import StatusBadge from "../../components/ui/StatusBadge";
@@ -15,12 +16,14 @@ import {
   searchDiscountProduct,
 } from "../../api/requestDiscount/requestDiscountData";
 import { parse } from "uuid";
+import { FiCopy } from "react-icons/fi";
 
 export default function Demo() {
   const [discountData, setDiscountData] = useState<IndexData[]>([]);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [activePage, setActivePage] = useState<number>(1);
   const [value, setValue] = useState<string | null>(null);
+  const [copied, setCopied] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState({
     form_doc_no: "",
     product_category: "",
@@ -70,25 +73,24 @@ export default function Demo() {
 
   useEffect(() => {
     const cached = sessionStorage.getItem("discount_cache");
-    if(cached) {
-      const parsed = JSON.parse(cached) ;
-      setDiscountData(parsed.discountData) ;
-      setSearchTerm(parsed.searchTerm) ;
-      setActivePage(parsed.activePage) ;
-      setLoading(false) ;
-    }else{
-fetchData();
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      setDiscountData(parsed.discountData);
+      setSearchTerm(parsed.searchTerm);
+      setActivePage(parsed.activePage);
+      setLoading(false);
+    } else {
+      fetchData();
     }
-    
   }, []);
   useEffect(() => {
     const cached = sessionStorage.getItem("discount_cache");
-    if(cached) {
-      const parsed = JSON.parse(cached) ;
-      parsed.activePage = activePage ;
-     sessionStorage.setItem("discount_cache", JSON.stringify(parsed));
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      parsed.activePage = activePage;
+      sessionStorage.setItem("discount_cache", JSON.stringify(parsed));
     }
-  } , [activePage]) ;
+  }, [activePage]);
   console.log("Data Check>>", discountData);
   const pageSize: number = 10;
   const start = (activePage - 1) * pageSize;
@@ -96,32 +98,33 @@ fetchData();
   // const paginateData = discountData?.data?.slice(start, end) ?? [];
   const paginateData = useMemo(() => {
     const start = (activePage - 1) * pageSize;
-    return discountData?.data?.slice(start, start + pageSize) ?? [];
+    return Array.isArray(discountData?.data)
+      ? discountData.data.slice(start, start + pageSize)
+      : [];
   }, [discountData, activePage]);
   //Hello test git conflig
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
-setLoading(true);
+    setLoading(true);
     try {
       const results = await searchDiscountProduct(token, searchTerm);
       const cache = {
-        discountData: results ,
-        searchTerm ,
-        activePage: 1 ,
-      }
-    sessionStorage.setItem("discount_cache", JSON.stringify(cache));
+        discountData: results,
+        searchTerm,
+        activePage: 1,
+      };
+      sessionStorage.setItem("discount_cache", JSON.stringify(cache));
       setDiscountData(results);
       setActivePage(1);
-      
     } catch (error) {
       console.error("Search failed:", error);
-    }finally{
+    } finally {
       setLoading(false);
     }
   };
   const handleRestart = async () => {
-  sessionStorage.removeItem("discount_cache");
+    sessionStorage.removeItem("discount_cache");
 
     setSearchTerm({
       form_doc_no: "",
@@ -137,7 +140,10 @@ setLoading(true);
   };
 
   const rows = useMemo(() => {
-    return paginateData?.map((element, index) => (
+  return paginateData?.map((element, index) => {
+    const isCopied = copied === element.id;
+
+    return (
       <Table.Tr
         key={element.id}
         bg={
@@ -146,15 +152,38 @@ setLoading(true);
             : undefined
         }
       >
-        <Link
-          to={`/request_discount_detail/${element.id}`}
-          className="contents"
-        >
-          <Table.Td>{start + index + 1}</Table.Td>
-          <Table.Td>
-            <StatusBadge status={element.status} />
-          </Table.Td>
-          <Table.Td>{element.form_doc_no}</Table.Td>
+        <Table.Td>{start + index + 1}</Table.Td>
+        <Table.Td>
+          <StatusBadge status={element.status} />
+        </Table.Td>
+
+        {/* Copy Button Section */}
+        <Table.Td>
+          {element.form_doc_no}
+          <button
+            onClick={() => {
+              handleCopy(
+                element.form_doc_no,
+                () => {
+                  setCopied(element.id);
+                  setTimeout(() => setCopied(null), 2000);
+                },
+                (err) => console.log("Copy Failed:", err)
+              );
+            }}
+            className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
+              isCopied
+                ? "text-green-600 bg-green-50"
+                : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+            }`}
+            title={isCopied ? "Copied!" : "Copy ID"}
+            disabled={isCopied}
+          >
+            {isCopied ? "Copied!" : <FiCopy className="w-4 h-4" />}
+          </button>
+        </Table.Td>
+
+        <Link to={`/request_discount_detail/${element.id}`} className="contents">
           <Table.Td>{element.from_branches?.branch_name}</Table.Td>
           <Table.Td>{element.originators?.name}</Table.Td>
           <Table.Td>{dateFormat(element.created_at)}</Table.Td>
@@ -164,8 +193,10 @@ setLoading(true);
           </Table.Td>
         </Link>
       </Table.Tr>
-    ));
-  }, [paginateData, selectedRows]);
+    );
+  });
+}, [paginateData, selectedRows, copied]);
+
   const showLoading = loading || !discountData;
   if (showLoading) {
     return (
@@ -250,7 +281,7 @@ setLoading(true);
             >
               From Date
             </label>
-           <input
+            <input
               id="formDocNo"
               type="date"
               placeholder="Enter Date"
@@ -275,7 +306,7 @@ setLoading(true);
             >
               To Date
             </label>
-              <input
+            <input
               id="formDocNo"
               type="date"
               placeholder="Enter Date"
@@ -365,7 +396,7 @@ setLoading(true);
               }}
               onClick={handleRestart}
             >
-              Restart
+              Clear Search
             </button>
           </div>
         </div>

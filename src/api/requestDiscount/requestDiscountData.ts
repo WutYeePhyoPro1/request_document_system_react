@@ -20,6 +20,15 @@ export const getRequestDiscountData = async(token:string): Promise<requestDiscou
     throw error;
   }
 };
+export const branchData = async(token:string) => {
+  try {
+    const response = await API.get('/request_discount/branchData' , {
+      headers: {Authorization: `Bearer ${token}`} ,
+    })
+  } catch (error) {
+    
+  }
+}
 
 // export const searchDiscountProduct = async (token: string, searchTerm: string) => {
 //   try {

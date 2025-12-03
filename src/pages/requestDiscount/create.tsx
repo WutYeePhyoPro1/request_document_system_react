@@ -72,7 +72,21 @@ const Create: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve , 1000));
       const token = localStorage.getItem("token");
       if (!token) return;
-
+ if (!values.sale_invoice || !values.sale_staff?.trim() || !values.discount_type?.length || !invoiceFile[0]?.file || !values.remark?.trim()) {
+  const missingFields = [];
+  if(!values.sale_invoice?.trim()) missingFields.push("Enter Sale Invoice No");
+  if (!values.sale_staff?.trim()) missingFields.push("Sale Staff");
+  if (!values.discount_type?.length) missingFields.push("Discount Type");
+  if (!invoiceFile[0]?.file) missingFields.push("Upload File");
+  if (!values.remark?.trim()) missingFields.push("Remark");
+  
+  Swal.fire({
+    icon: "warning",
+    title: "Warning",
+    text: `${missingFields.join(", ")} are required!`,
+  });
+  return;
+}
       const formData = new FormData();
       formData.append("sale_staff", values.sale_staff);
       formData.append("customer_name", detailInvoice[0].custname);
@@ -108,21 +122,7 @@ const Create: React.FC = () => {
         formData.append("netamount[]", "");
         formData.append("request_discount[]", "");
       }
-      if (!values.sale_staff?.trim() || !values.discount_type?.length || !invoiceFile[0]?.file || !values.remark?.trim()) {
-  const missingFields = [];
-  
-  if (!values.sale_staff?.trim()) missingFields.push("Sale Staff");
-  if (!values.discount_type?.length) missingFields.push("Discount Type");
-  if (!invoiceFile[0]?.file) missingFields.push("Upload File");
-  if (!values.remark?.trim()) missingFields.push("Remark");
-  
-  Swal.fire({
-    icon: "warning",
-    title: "Warning",
-    text: `${missingFields.join(", ")} are required!`,
-  });
-  return;
-}
+     
       if (values.discount_type && values.discount_type.length > 0) {
         values.discount_type.forEach((type, i) =>
           formData.append(`discount_type[${i}]`, type)
