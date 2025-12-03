@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   Upload,
 } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 
 Modal.setAppElement("#root");
 
@@ -146,6 +147,7 @@ export default function ProductDetailModal({
   onRemarkChange = null,
   handleImageUpload = null,
 }) {
+  const { t } = useTranslation();
   if (!product) return null;
   
   const canEdit = (mode === 'add' || mode === 'edit') && !isCompleted;
@@ -209,7 +211,7 @@ export default function ProductDetailModal({
 
             <div className="flex justify-between items-center p-3 border-b border-[#cde6eb]">
               <h3 className="text-green-700 font-semibold text-sm flex items-center gap-2">
-                <FileText size={16} /> Product Information
+                <FileText size={16} /> {t('damageForm.productInformation')}
               </h3>
               <button
                 onClick={onClose}

@@ -23,7 +23,12 @@ export const AuthProvider = ({ children }) => {
         try {
             const response = await fetch("/api/login", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest"
+                },
+                credentials: 'include', // ✅ CRITICAL: Include cookies for Laravel session
                 body: JSON.stringify({ employee_number, password, remember }),
             });
             
@@ -98,7 +103,9 @@ export const AuthProvider = ({ children }) => {
 
     const loginWithToken = async (token) => {
         try {
-            const response = await axios.post('/api/auto-login', { token }); // Adjust endpoint as needed
+            const response = await axios.post('/api/auto-login', { token }, {
+                withCredentials: true // ✅ Include cookies for Laravel session
+            }); // Adjust endpoint as needed
             if (response.data && response.data.user) {
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('user', JSON.stringify(response.data.user));

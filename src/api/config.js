@@ -50,6 +50,7 @@ export const apiFetch = async (endpoint, options = {}) => {
   const response = await fetch(url, {
     ...options,
     headers,
+    credentials: 'include', // ✅ CRITICAL: Include cookies for Laravel session
   });
 
   if (!response.ok) {
