@@ -40,6 +40,7 @@ export default function Login() {
   // PWA install prompt logic remains the same
   useEffect(() => {
     const handleBeforeInstallPrompt = (e) => {
+       if (window.location.pathname === "/login") return;
       e.preventDefault();
       setDeferredPrompt(e);
       setIsVisible(true);
