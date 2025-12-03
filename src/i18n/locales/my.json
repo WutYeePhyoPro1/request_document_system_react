@@ -30,7 +30,7 @@
     "title": "စုံစမ်းစစ်ဆေးရေးဖောင်",
     "bmReason": "BM အကြံပြုချက်",
     "bmReasonRequired": "BM အကြံပြုချက်ကို ဖြည့်ရန်လိုအပ်ပါသည်",
-    "bmReasonPlaceholder": "အသေးစိတ်အကြပြချက် ထည့်သွင်းပါ ...",
+    "bmReasonPlaceholder": "အသေးစိတ်အကြံပြုချက် ထည့်သွင်းပါ ...",
     "category": "စုံစမ်းစစ်ဆေးရေးအမျိုးအစားများ",
     "responsibilityDistribution": "တာဝန်ဝတ္တရားခွဲဝေမှု",
     "bmOperation": "BM / Operation",
@@ -207,7 +207,7 @@
     "forWholeDocument": "(စာရွက်စာတမ်း တစ်ခုလုံးအတွက်)",
     "remarks": "မှတ်ချက်",
     "noRemarkProvided": "မှတ်ချက် မပေးထားပါ။",
-    "enterDetailedReason": "အသေးစိတ် အကြပြချက် ထည့်သွင်းပါ...",
+    "enterDetailedReason": "အသေးစိတ် အကြံပြုချက် ထည့်သွင်းပါ...",
     "attachFiles": "ဖိုင်များ ချိတ်ဆက်ရန်",
     "uploadFiles": "ဖိုင်များ တင်ရန်",
     "noFilesAttached": "ဖိုင်များ ချိတ်ဆက်ထားခြင်း မရှိပါ။"

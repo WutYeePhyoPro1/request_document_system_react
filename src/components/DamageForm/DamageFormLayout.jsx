@@ -3475,12 +3475,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         } else {
           // Check if system quantity has been updated before showing button
           const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
-          result = opManagerHasApproved && systemQtyUpdated;
+          result = !!(opManagerHasApproved && systemQtyUpdated);
         }
       } else {
         // Amount <= 500000 - can acknowledge at BM Approved only if systemQtyUpdated is true
         const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
-        result = isBMApproved && systemQtyUpdated;
+        result = !!(isBMApproved && systemQtyUpdated);
       }
       
       // Debug logging for account button visibility
@@ -3498,7 +3498,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     }
     // Supervisor should NOT see approve button - they have a separate Issue button
     console.log('[showApproveButton] Final result:', result);
-    return result;
+    return !!result; // Ensure boolean return value
   };
 
   const showRejectButton = () => {
@@ -4339,7 +4339,7 @@ const resolveApproveAction = () => {
             )}
             
             {/* Reject Button - Visible based on role and status */}
-            {showRejectButton() && (
+            {!!showRejectButton() && (
               <button 
                 onClick={() => handleSubmitClick('Rejected')}
                 className="btn-with-icon btn-reject inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
@@ -4352,7 +4352,7 @@ const resolveApproveAction = () => {
             
             {/* Approve Button - Visible based on role and status */}
         
-            {showApproveButton() && (() => {
+            {!!showApproveButton() && (() => {
               console.log('[DamageFormLayout] showApproveButton returned true, resolving action...');
               const action = resolveApproveAction();
               console.log('[DamageFormLayout] Button render check:', {
@@ -4388,7 +4388,7 @@ const resolveApproveAction = () => {
             {/* Removed supervisor Issue button */}
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
-            {actions.backToPrevious && (
+            {!!actions.backToPrevious && (
               <button 
                 onClick={() => handleSubmitClick('BackToPrevious')}
                 className="group inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200" 
@@ -4400,7 +4400,7 @@ const resolveApproveAction = () => {
             )}
             
             {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
-            {actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+            {!!actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
                 className="btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border bg-red-600 hover:bg-red-700 border-red-700" 
