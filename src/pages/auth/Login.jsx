@@ -119,6 +119,7 @@ export default function Login() {
               </div>
 
               <div className="mt-6 sm:mt-8 md:mt-10 lg:mt-12">
+              
                 <InstallButton />
                 <button
                   type="submit"
