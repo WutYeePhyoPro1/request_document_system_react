@@ -105,6 +105,13 @@ export default function ActionConfirmationModal({
           focus: 'focus:ring-yellow-500',
           customClass: null
         };
+      case 'Cancel':
+        return {
+          bg: 'bg-red-600',
+          hover: 'hover:bg-red-700',
+          focus: 'focus:ring-red-500',
+          customClass: null
+        };
       default:
         // Default orange for Submit (matches Ongoing status)
         return {
@@ -131,15 +138,23 @@ export default function ActionConfirmationModal({
       'Rejected': t('confirmation.actions.rejectForm'),
       'Edit': t('confirmation.actions.editForm'),
       'BackToPrevious': t('confirmation.actions.backToPrevious'),
+<<<<<<< HEAD
       'Cancel': t('confirmation.actions.cancelForm', { defaultValue: 'Cancel Form' }),
       'Cancelled': t('confirmation.actions.cancelForm', { defaultValue: 'Cancel Form' })
+=======
+      'Cancel': t('confirmation.actions.cancelForm') || 'Cancel Form'
+>>>>>>> 76fac46 (before fix testing error)
     };
     return actionMap[action] || action || t('confirmation.actions.performAction');
   };
 
   const actionLabel = getActionLabel(action);
   const buttonColors = getButtonColorClasses(action);
+<<<<<<< HEAD
   const isDestructive = ['Rejected', 'BackToPrevious', 'Cancel', 'Cancelled'].includes(action);
+=======
+  const isDestructive = ['Rejected', 'BackToPrevious', 'Cancel'].includes(action);
+>>>>>>> 76fac46 (before fix testing error)
   
   // Get header background color based on action
   const getHeaderColorClasses = (action) => {
@@ -167,6 +182,8 @@ export default function ActionConfirmationModal({
         return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-600' };
       case 'BackToPrevious':
         return { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600' };
+      case 'Cancel':
+        return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-600' };
       default:
         return { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' };
     }
@@ -226,6 +243,11 @@ export default function ActionConfirmationModal({
               {action === 'BackToPrevious' && (
                 <p className="text-xs text-yellow-600 mt-2">
                   {t('confirmation.backToPreviousDescription')}
+                </p>
+              )}
+              {action === 'Cancel' && (
+                <p className="text-xs text-red-600 mt-2">
+                  {t('confirmation.cancelDescription') || 'This action will cancel the form. You won\'t be able to revert this!'}
                 </p>
               )}
             </div>

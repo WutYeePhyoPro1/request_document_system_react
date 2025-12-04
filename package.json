@@ -42,7 +42,7 @@
     "react-select": "^5.10.2",
     "react-toastify": "^11.0.5",
     "sweetalert2": "^11.23.0",
-    "swr": "^2.3.6",
+    "swr": "^2.3.7",
     "uuid": "^13.0.0",
     "web-push": "^3.6.7"
   },

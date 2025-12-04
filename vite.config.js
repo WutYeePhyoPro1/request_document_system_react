@@ -12,10 +12,10 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL,
+          target: env.VITE_API_URL || 'http://localhost:8000',
           changeOrigin: true,
           secure: false,
-          rewrite: (p) => p.replace(/^\/api/, '/api')
+          // No rewrite needed - forward /api/* to backend /api/*
         }
       }
     }

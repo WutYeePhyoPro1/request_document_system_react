@@ -973,7 +973,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'SupervisorIssued':
         return 'Completed'; // Supervisor step removed - map to Completed
       case 'BackToPrevious':
+<<<<<<< HEAD
         // Return the actual btp value from API (op_btp, bm_btp, bracc_btp) or default to BackToPrevious
+=======
+        // Map BackToPrevious to the actual btp value from API
+        // Laravel expects: 'op_btp', 'bm_btp', or 'bracc_btp'
+>>>>>>> 76fac46 (before fix testing error)
         return apiActions?.btp || 'BackToPrevious';
       case 'Cancel':
         return 'Cancel';
@@ -1744,8 +1749,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const deriveActions = () => {
     const act = { ...apiActions };
     
+<<<<<<< HEAD
     // Map btp value from API to backToPrevious
     if (apiActions.btp && ['op_btp', 'bm_btp', 'bracc_btp'].includes(apiActions.btp)) {
+=======
+    // Map btp value to backToPrevious (matching Laravel logic)
+    // Laravel returns btp values: 'op_btp', 'bm_btp', 'bracc_btp' when back to previous is available
+    if (act.btp && (act.btp === 'op_btp' || act.btp === 'bm_btp' || act.btp === 'bracc_btp')) {
+>>>>>>> 76fac46 (before fix testing error)
       act.backToPrevious = true;
     }
     
@@ -4399,11 +4410,19 @@ const resolveApproveAction = () => {
               </button>
             )}
             
+<<<<<<< HEAD
             {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
             {actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
                 className="btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border bg-red-600 hover:bg-red-700 border-red-700" 
+=======
+            {/* Cancel Button - For certain roles to cancel the form */}
+            {actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+              <button 
+                onClick={() => handleSubmitClick('Cancel')}
+                className="btn-with-icon btn-cancel inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border border-red-600 bg-red-600 hover:bg-red-700" 
+>>>>>>> 76fac46 (before fix testing error)
                 style={{ fontSize: '0.75rem', minWidth: '90px' }}
               >
                 <span className="btn-text">Cancel</span>

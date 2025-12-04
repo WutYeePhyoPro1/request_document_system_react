@@ -516,277 +516,300 @@ export default function DamageView() {
       if (!gfId) {
         return { record: payload, items: [], approvals: [], actions: {}, attachments: [] };
       }
-      // Reduce parallel bursts: fetch sequentially with 429 backoff
-      let items = [];
-      try {
-        const listJson = await fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-issues?per_page=1000`);
-        const rows = Array.isArray(listJson?.data) ? listJson.data : (Array.isArray(listJson) ? listJson : []);
-        items = rows.map(r => {
-          const price = Number(r.price ?? 0);
-          const qty = Number(r.product_type ?? r.actual_qty ?? r.final_qty ?? 0);
-          // Always recalculate amount to ensure accuracy
-          const amount = Number((price * qty).toFixed(2));
-
-          const rawImages = Array.isArray(r.img) && r.img.length
-            ? r.img
-            : (Array.isArray(r.images) ? r.images : []);
-          const uniqueImages = Array.from(new Set(rawImages.filter((value) => typeof value === 'string' && value.trim().length)))
-            .slice(0, 3);
-          const fallbackPath = Array.isArray(r.images)
-            ? r.images.find((entry) => entry && entry.path)
-            : null;
-
-          return {
-            id: r.id,
-            category: (r.categories && r.categories.name) || '',
-            category_id: r.product_category_id || null,
-            code: r.product_code || '',
-            name: r.product_name || '',
-            unit: r.unit || '',
-            system_qty: r.system_qty ?? 0,
-            request_qty: r.request_qty ?? 0,
-            final_qty: r.final_qty ?? 0,
-            actual_qty: qty,
-            price: price,
-            amount: amount,
-            remark: r.remark || '',
-            acc_code: r.acc_code ?? null,
-            acc_code1: r.acc_code1 ?? r.acc_code ?? null,
-            img: uniqueImages,
-            images: uniqueImages,
-            damage_images: fallbackPath ? [fallbackPath.path] : uniqueImages,
-          };
-        });
-      } catch (_) {}
-
-      try {
-        const allJson = await fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-images`);
-        const files = Array.isArray(allJson?.data) ? allJson.data : [];
-        items = attachImagesToItems(items, files);
-      } catch (error) {
-        // Silently handle error
-      }
-
-      let operationFiles = [];
-      try {
-        const operationFilesResponse = await fetchJsonWithBackoff('/api/big-damage-issues/get-image', {
+      
+        // OPTIMIZE: Fetch all data in parallel instead of sequentially
+        // This reduces total loading time from sum of all requests to max of all requests
+        const [
+          itemsResult,
+          imagesResult,
+          operationFilesResult,
+          approvalsResult
+        ] = await Promise.allSettled([
+          // Fetch items (reduced per_page from 1000 to 500 for better performance)
+          fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-issues?per_page=500`).catch(() => ({ data: [] })),
+        // Fetch images
+        fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-images`).catch(() => ({ data: [] })),
+        // Fetch operation files
+        fetchJsonWithBackoff('/api/big-damage-issues/get-image', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify({
-            type: 'all', // 'all' for operation/owner uploads, 'ch' for checker uploads
+            type: 'all',
             id: gfId
           })
-        });
+        }).catch(() => ({ img: [] })),
+        // Fetch approvals
+        fetchJsonWithBackoff(`/api/general-forms/${gfId}/approvals`).catch(() => ({ data: [] }))
+      ]);
 
-        const operationFilesData = operationFilesResponse?.img || [];
-        operationFiles = Array.isArray(operationFilesData) ? operationFilesData.map(file => {
-          // Files are copied to public storage by get_Image method, so use just the filename
-          // The get_Image method copies from FTP 'big_damage_doc/' to public storage
-          return {
-            id: file.id || `doc_${file.file}`,
-            name: file.name || file.file,
-            file: file.file,
-            downloadUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
-            previewUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
-            size: null,
-            acc_type: file.acc_type || null,
-          };
-        }) : [];
-      } catch (error) {
-        // Silently handle error
+      // Process items
+      let items = [];
+      if (itemsResult.status === 'fulfilled') {
+        try {
+          const listJson = itemsResult.value;
+          const rows = Array.isArray(listJson?.data) ? listJson.data : (Array.isArray(listJson) ? listJson : []);
+          items = rows.map(r => {
+            const price = Number(r.price ?? 0);
+            const qty = Number(r.product_type ?? r.actual_qty ?? r.final_qty ?? 0);
+            // Always recalculate amount to ensure accuracy
+            const amount = Number((price * qty).toFixed(2));
+
+            const rawImages = Array.isArray(r.img) && r.img.length
+              ? r.img
+              : (Array.isArray(r.images) ? r.images : []);
+            const uniqueImages = Array.from(new Set(rawImages.filter((value) => typeof value === 'string' && value.trim().length)))
+              .slice(0, 3);
+            const fallbackPath = Array.isArray(r.images)
+              ? r.images.find((entry) => entry && entry.path)
+              : null;
+
+            return {
+              id: r.id,
+              category: (r.categories && r.categories.name) || '',
+              category_id: r.product_category_id || null,
+              code: r.product_code || '',
+              name: r.product_name || '',
+              unit: r.unit || '',
+              system_qty: r.system_qty ?? 0,
+              request_qty: r.request_qty ?? 0,
+              final_qty: r.final_qty ?? 0,
+              actual_qty: qty,
+              price: price,
+              amount: amount,
+              remark: r.remark || '',
+              acc_code: r.acc_code ?? null,
+              acc_code1: r.acc_code1 ?? r.acc_code ?? null,
+              img: uniqueImages,
+              images: uniqueImages,
+              damage_images: fallbackPath ? [fallbackPath.path] : uniqueImages,
+            };
+          });
+        } catch (_) {}
       }
 
+      // Attach images to items
+      if (imagesResult.status === 'fulfilled') {
+        try {
+          const allJson = imagesResult.value;
+          const files = Array.isArray(allJson?.data) ? allJson.data : [];
+          items = attachImagesToItems(items, files);
+        } catch (_) {}
+      }
+
+      // Process operation files
+      let operationFiles = [];
+      if (operationFilesResult.status === 'fulfilled') {
+        try {
+          const operationFilesResponse = operationFilesResult.value;
+          const operationFilesData = operationFilesResponse?.img || [];
+          operationFiles = Array.isArray(operationFilesData) ? operationFilesData.map(file => {
+            return {
+              id: file.id || `doc_${file.file}`,
+              name: file.name || file.file,
+              file: file.file,
+              downloadUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
+              previewUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
+              size: null,
+              acc_type: file.acc_type || null,
+            };
+          }) : [];
+        } catch (_) {}
+      }
+
+      // Process approvals
       let approvals = [];
-      try {
-        const apprJson = await fetchJsonWithBackoff(`/api/general-forms/${gfId}/approvals`);
-        const rowsAppr = Array.isArray(apprJson?.data) ? apprJson.data : [];
-        const availableRows = [...rowsAppr];
-        const consumeBy = (...predicates) => {
-          for (const predicate of predicates) {
-            const index = availableRows.findIndex((row) => {
-              try {
-                return predicate(row);
-              } catch (error) {
-                return false;
+      if (approvalsResult.status === 'fulfilled') {
+        try {
+          const apprJson = approvalsResult.value;
+          const rowsAppr = Array.isArray(apprJson?.data) ? apprJson.data : [];
+          const availableRows = [...rowsAppr];
+          const consumeBy = (...predicates) => {
+            for (const predicate of predicates) {
+              const index = availableRows.findIndex((row) => {
+                try {
+                  return predicate(row);
+                } catch (error) {
+                  return false;
+                }
+              });
+              if (index !== -1) {
+                return availableRows.splice(index, 1)[0];
               }
-            });
-            if (index !== -1) {
-              return availableRows.splice(index, 1)[0];
             }
-          }
-          return null;
-        };
+            return null;
+          };
 
-        const normalizeText = (value) => (value ?? '').toString().trim();
-        const preparedName = payload?.general_form?.originators?.name
-          || payload?.general_form?.created_by_name
-          || payload?.general_form?.originator_name
-          || payload?.general_form?.requester_name
-          || payload?.general_form?.user?.name
-          || '';
-        const preparedDate = payload?.general_form?.created_at || payload?.general_form?.datetime || '';
-        
-        const checkerEntry = consumeBy(
-          (row) => ['C', 'CS'].includes(normalizeText(row?.user_type)),
-          (row) => normalizeText(row?.status) === 'Checked'
-        );
-        const approverEntry = consumeBy(
-          (row) => normalizeText(row?.user_type) === 'A1',
-          (row) => ['BM Approved', 'Approved'].includes(normalizeText(row?.status))
-        );
-        const opManagerEntry = consumeBy(
-          (row) => normalizeText(row?.user_type) === 'A2',
-          (row) => normalizeText(row?.status) === 'OPApproved'
-        );
-        const acknowledgedEntry = consumeBy(
-          (row) => normalizeText(row?.user_type) === 'AC',
-          (row) => ['Ac_Acknowledged', 'Acknowledged'].includes(normalizeText(row?.status))
-        );
-        const issuedEntry = consumeBy(
-          (row) => normalizeText(row?.user_type) === 'ACK' && ['Issued', 'Completed', 'SupervisorIssued'].includes(normalizeText(row?.status)),
-          (row) => normalizeText(row?.user_type) === 'ACK',
-          (row) => normalizeText(row?.user_type) === 'R' && ['Issued', 'Completed'].includes(normalizeText(row?.status))
-        );
-        const totalAmount = payload?.general_form?.total_amount || 0;
+          const normalizeText = (value) => (value ?? '').toString().trim();
+          const preparedName = payload?.general_form?.originators?.name
+            || payload?.general_form?.created_by_name
+            || payload?.general_form?.originator_name
+            || payload?.general_form?.requester_name
+            || payload?.general_form?.user?.name
+            || '';
+          const preparedDate = payload?.general_form?.created_at || payload?.general_form?.datetime || '';
+          
+          const checkerEntry = consumeBy(
+            (row) => ['C', 'CS'].includes(normalizeText(row?.user_type)),
+            (row) => normalizeText(row?.status) === 'Checked'
+          );
+          const approverEntry = consumeBy(
+            (row) => normalizeText(row?.user_type) === 'A1',
+            (row) => ['BM Approved', 'Approved'].includes(normalizeText(row?.status))
+          );
+          const opManagerEntry = consumeBy(
+            (row) => normalizeText(row?.user_type) === 'A2',
+            (row) => normalizeText(row?.status) === 'OPApproved'
+          );
+          const acknowledgedEntry = consumeBy(
+            (row) => normalizeText(row?.user_type) === 'AC',
+            (row) => ['Ac_Acknowledged', 'Acknowledged'].includes(normalizeText(row?.status))
+          );
+          const issuedEntry = consumeBy(
+            (row) => normalizeText(row?.user_type) === 'ACK' && ['Issued', 'Completed', 'SupervisorIssued'].includes(normalizeText(row?.status)),
+            (row) => normalizeText(row?.user_type) === 'ACK',
+            (row) => normalizeText(row?.user_type) === 'R' && ['Issued', 'Completed'].includes(normalizeText(row?.status))
+          );
+          const totalAmount = payload?.general_form?.total_amount || 0;
 
-        const resolveName = (entry) => {
-          // Prioritize actual_user_name as it's the most accurate
-          if (entry?.actual_user_name) return entry.actual_user_name;
-          if (entry?.name) return entry.name;
-          if (entry?.assigned_name) return entry.assigned_name;
-          if (entry?.approver_name) return entry.approver_name;
-          // Check raw data
-          if (entry?.raw?.actual_user_name) return entry.raw.actual_user_name;
-          if (entry?.raw?.name) return entry.raw.name;
-          return '';
-        };
-        const resolveDate = (entry) => entry?.acted_at || entry?.updated_at || entry?.date || entry?.created_at || '';
-        const resolveStatus = (entry, fallback) => {
-          if (!entry) return 'Pending';
-          const normalizedStatus = normalizeText(entry.status);
-          const normalizedFallback = normalizeText(fallback);
+          const resolveName = (entry) => {
+            // Prioritize actual_user_name as it's the most accurate
+            if (entry?.actual_user_name) return entry.actual_user_name;
+            if (entry?.name) return entry.name;
+            if (entry?.assigned_name) return entry.assigned_name;
+            if (entry?.approver_name) return entry.approver_name;
+            // Check raw data
+            if (entry?.raw?.actual_user_name) return entry.raw.actual_user_name;
+            if (entry?.raw?.name) return entry.raw.name;
+            return '';
+          };
+          const resolveDate = (entry) => entry?.acted_at || entry?.updated_at || entry?.date || entry?.created_at || '';
+          const resolveStatus = (entry, fallback) => {
+            if (!entry) return 'Pending';
+            const normalizedStatus = normalizeText(entry.status);
+            const normalizedFallback = normalizeText(fallback);
 
-          if (entry.acted) {
-            return entry.status || fallback;
-          }
-
-          if (normalizedStatus) {
-            if (normalizedStatus === normalizedFallback) {
+            if (entry.acted) {
               return entry.status || fallback;
             }
 
-            if (['completed', 'issued', 'supervisorissued'].includes(normalizedStatus)) {
-              return entry.status || (normalizedStatus === 'completed'
-                ? 'Completed'
-                : normalizedStatus === 'supervisorissued'
-                  ? 'SupervisorIssued'
-                  : 'Issued');
+            if (normalizedStatus) {
+              if (normalizedStatus === normalizedFallback) {
+                return entry.status || fallback;
+              }
+
+              if (['completed', 'issued', 'supervisorissued'].includes(normalizedStatus)) {
+                return entry.status || (normalizedStatus === 'completed'
+                  ? 'Completed'
+                  : normalizedStatus === 'supervisorissued'
+                    ? 'SupervisorIssued'
+                    : 'Issued');
+              }
             }
+
+            return 'Pending';
+          };
+
+          const addStage = (label, entry, fallbackStatus, role, defaultUserType) => {
+            const statusValue = entry ? resolveStatus(entry, fallbackStatus) : 'Pending';
+            const normalizedStatusValue = normalizeText(statusValue);
+            const actedValue = entry ? (
+              Boolean(entry?.acted)
+              || normalizedStatusValue === normalizeText(fallbackStatus)
+              || (label === 'Issued by' && ['completed', 'issued', 'supervisorissued'].includes(normalizedStatusValue))
+              || (label === 'Acknowledged by' && ['ac_acknowledged', 'acknowledged'].includes(normalizedStatusValue))
+            ) : (
+              // If no entry but status indicates it should be acted
+              (label === 'Acknowledged by' && (normalizeText(payload?.general_form?.status) === 'ac_acknowledged' || normalizeText(payload?.general_form?.status) === 'acknowledged')) ||
+              (label === 'Issued by' && (normalizeText(payload?.general_form?.status) === 'completed' || normalizeText(payload?.general_form?.status) === 'issued' || normalizeText(payload?.general_form?.status) === 'supervisorissued'))
+            );
+            const rawDate = entry ? resolveDate(entry) : '';
+            const rawName = entry ? resolveName(entry) : '';
+            const commentValue = entry?.comment || '';
+            const userTypeValue = entry?.user_type || defaultUserType;
+            const fallbackNames = [
+              rawName,
+              entry?.user?.name,
+              entry?.approval_users?.name,
+              entry?.actual_user?.name,
+              (label === 'Checked by' && normalizeText(entry?.user_type) === 'A1' && normalizeText(entry?.status) === 'Checked') ? (entry?.name || entry?.assigned_name) : null,
+              entry?.assigned_name,
+              label === 'Prepared by' ? entry?.created_by_name : null,
+              label === 'Prepared by' ? entry?.originator_name : null,
+              label === 'Prepared by' ? entry?.requester_name : null,
+              label === 'Checked by' ? payload?.general_form?.checked_by_name : null,
+              label === 'Checked by' ? payload?.general_form?.checked_by_user?.name : null,
+              (!entry && label === 'Checked by') ? currentUser?.name : null,
+              label === 'Acknowledged by' ? payload?.general_form?.acknowledged_by_name : null,
+              label === 'Acknowledged by' ? payload?.general_form?.acknowledged_by_user?.name : null,
+              // For "Issued by", prioritize actual_user_name from entry (most accurate)
+              label === 'Issued by' ? entry?.actual_user_name : null,
+              label === 'Issued by' ? entry?.raw?.actual_user_name : null,
+              label === 'Issued by' ? entry?.name : null,
+              label === 'Issued by' ? entry?.raw?.name : null,
+              label === 'Issued by' ? payload?.general_form?.issued_by_name : null,
+              label === 'Issued by' ? payload?.general_form?.issued_by_user?.name : null,
+            ].filter((val) => val && val.toString().trim().length > 0);
+            const fallbackDates = [
+              rawDate,
+              entry?.date,
+              entry?.acted_at,
+              entry?.updated_at,
+              label === 'Prepared by' ? entry?.created_at : null,
+              label === 'Checked by' ? payload?.general_form?.checked_at : null,
+              label === 'Checked by' ? payload?.general_form?.checked_datetime : null,
+              label === 'Acknowledged by' ? payload?.general_form?.acknowledged_at : null,
+              label === 'Acknowledged by' ? entry?.created_at : null,
+              label === 'Issued by' ? payload?.general_form?.issued_at : null,
+            ].filter(Boolean);
+            const nameValue = fallbackNames.length ? fallbackNames[0] : (
+              label === 'Checked by' && actedValue
+                ? (payload?.general_form?.checked_by_name || payload?.general_form?.checked_by_user?.name || '')
+                : ''
+            );
+            const dateValue = fallbackDates.length ? fallbackDates[0] : (
+              label === 'Checked by' && actedValue
+                ? (payload?.general_form?.checked_at || payload?.general_form?.checked_datetime || payload?.general_form?.updated_at || '')
+                : ''
+            );
+            const branchValue = entry?.actual_user_branch || entry?.user?.from_branches?.branch_short_name || '';
+
+            approvals.push({
+              label,
+              user_type: userTypeValue,
+              name: nameValue,
+              date: dateValue,
+              status: statusValue,
+              comment: commentValue,
+              acted: actedValue,
+              role,
+              branch: branchValue,
+              raw: entry,
+            });
+          };
+
+          addStage('Checked by', checkerEntry, 'Checked', 'Branch LP', 'C');
+          addStage('BM Approved by', approverEntry, 'Approved', 'BM/ABM', 'A1');
+
+          if (totalAmount > 500000) {
+            addStage('Operation Mgr Approved by', opManagerEntry, 'Approved', 'Operation Manager', 'A2');
           }
 
-          return 'Pending';
-        };
+          // Add Acknowledged by stage if status is Ac_Acknowledged or if AC approval exists
+          const currentStatus = payload?.general_form?.status || '';
+          if (acknowledgedEntry || currentStatus === 'Ac_Acknowledged' || currentStatus === 'Acknowledged') {
+            addStage('Acknowledged by', acknowledgedEntry, 'Ac_Acknowledged', 'Branch Account', 'AC');
+          }
 
-        const addStage = (label, entry, fallbackStatus, role, defaultUserType) => {
-          const statusValue = entry ? resolveStatus(entry, fallbackStatus) : 'Pending';
-          const normalizedStatusValue = normalizeText(statusValue);
-          const actedValue = entry ? (
-            Boolean(entry?.acted)
-            || normalizedStatusValue === normalizeText(fallbackStatus)
-            || (label === 'Issued by' && ['completed', 'issued', 'supervisorissued'].includes(normalizedStatusValue))
-            || (label === 'Acknowledged by' && ['ac_acknowledged', 'acknowledged'].includes(normalizedStatusValue))
-          ) : (
-            // If no entry but status indicates it should be acted
-            (label === 'Acknowledged by' && (normalizeText(payload?.general_form?.status) === 'ac_acknowledged' || normalizeText(payload?.general_form?.status) === 'acknowledged')) ||
-            (label === 'Issued by' && (normalizeText(payload?.general_form?.status) === 'completed' || normalizeText(payload?.general_form?.status) === 'issued' || normalizeText(payload?.general_form?.status) === 'supervisorissued'))
-          );
-          const rawDate = entry ? resolveDate(entry) : '';
-          const rawName = entry ? resolveName(entry) : '';
-          const commentValue = entry?.comment || '';
-          const userTypeValue = entry?.user_type || defaultUserType;
-            const fallbackNames = [
-            rawName,
-            entry?.user?.name,
-            entry?.approval_users?.name,
-            entry?.actual_user?.name,
-            (label === 'Checked by' && normalizeText(entry?.user_type) === 'A1' && normalizeText(entry?.status) === 'Checked') ? (entry?.name || entry?.assigned_name) : null,
-            entry?.assigned_name,
-            label === 'Prepared by' ? entry?.created_by_name : null,
-            label === 'Prepared by' ? entry?.originator_name : null,
-            label === 'Prepared by' ? entry?.requester_name : null,
-            label === 'Checked by' ? payload?.general_form?.checked_by_name : null,
-            label === 'Checked by' ? payload?.general_form?.checked_by_user?.name : null,
-            (!entry && label === 'Checked by') ? currentUser?.name : null,
-            label === 'Acknowledged by' ? payload?.general_form?.acknowledged_by_name : null,
-            label === 'Acknowledged by' ? payload?.general_form?.acknowledged_by_user?.name : null,
-            // For "Issued by", prioritize actual_user_name from entry (most accurate)
-            label === 'Issued by' ? entry?.actual_user_name : null,
-            label === 'Issued by' ? entry?.raw?.actual_user_name : null,
-            label === 'Issued by' ? entry?.name : null,
-            label === 'Issued by' ? entry?.raw?.name : null,
-            label === 'Issued by' ? payload?.general_form?.issued_by_name : null,
-            label === 'Issued by' ? payload?.general_form?.issued_by_user?.name : null,
-          ].filter((val) => val && val.toString().trim().length > 0);
-          const fallbackDates = [
-            rawDate,
-            entry?.date,
-            entry?.acted_at,
-            entry?.updated_at,
-            label === 'Prepared by' ? entry?.created_at : null,
-            label === 'Checked by' ? payload?.general_form?.checked_at : null,
-            label === 'Checked by' ? payload?.general_form?.checked_datetime : null,
-            label === 'Acknowledged by' ? payload?.general_form?.acknowledged_at : null,
-            label === 'Acknowledged by' ? entry?.created_at : null,
-            label === 'Issued by' ? payload?.general_form?.issued_at : null,
-          ].filter(Boolean);
-          const nameValue = fallbackNames.length ? fallbackNames[0] : (
-            label === 'Checked by' && actedValue
-              ? (payload?.general_form?.checked_by_name || payload?.general_form?.checked_by_user?.name || '')
-              : ''
-          );
-          const dateValue = fallbackDates.length ? fallbackDates[0] : (
-            label === 'Checked by' && actedValue
-              ? (payload?.general_form?.checked_at || payload?.general_form?.checked_datetime || payload?.general_form?.updated_at || '')
-              : ''
-          );
-          const branchValue = entry?.actual_user_branch || entry?.user?.from_branches?.branch_short_name || '';
-
-          approvals.push({
-            label,
-            user_type: userTypeValue,
-            name: nameValue,
-            date: dateValue,
-            status: statusValue,
-            comment: commentValue,
-            acted: actedValue,
-            role,
-            branch: branchValue,
-            raw: entry,
-          });
-        };
-
-        addStage('Checked by', checkerEntry, 'Checked', 'Branch LP', 'C');
-        addStage('BM Approved by', approverEntry, 'Approved', 'BM/ABM', 'A1');
-
-        if (totalAmount > 500000) {
-          addStage('Operation Mgr Approved by', opManagerEntry, 'Approved', 'Operation Manager', 'A2');
-        }
-
-        // Add Acknowledged by stage if status is Ac_Acknowledged or if AC approval exists
-        const currentStatus = payload?.general_form?.status || '';
-        if (acknowledgedEntry || currentStatus === 'Ac_Acknowledged' || currentStatus === 'Acknowledged') {
-          addStage('Acknowledged by', acknowledgedEntry, 'Ac_Acknowledged', 'Branch Account', 'AC');
-        }
-
-        // Add Issued by stage - always show it, especially when status is Completed/Issued
-        // This ensures it appears even if the ACK approval entry is not found
-        if (issuedEntry || currentStatus === 'Completed' || currentStatus === 'Issued' || currentStatus === 'SupervisorIssued') {
-          addStage('Issued by', issuedEntry, 'Completed', 'Supervisor', 'ACK');
-        }
-      } catch (_) {}
+          // Add Issued by stage - always show it, especially when status is Completed/Issued
+          // This ensures it appears even if the ACK approval entry is not found
+          if (issuedEntry || currentStatus === 'Completed' || currentStatus === 'Issued' || currentStatus === 'SupervisorIssued') {
+            addStage('Issued by', issuedEntry, 'Completed', 'Supervisor', 'ACK');
+          }
+        } catch (_) {}
+      }
 
       let actions = {};
       try {

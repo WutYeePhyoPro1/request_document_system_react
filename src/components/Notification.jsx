@@ -20,7 +20,7 @@ export default function Notification({ notifications }) {
             e.preventDefault();
             e.stopPropagation();
         }
-        
+      
         // Make sure we're using the correct form_id (sometimes it might be a string)
         const formId = typeof noti.form_id === 'string' ? parseInt(noti.form_id, 10) : noti.form_id;
         const specificFormId = typeof noti.specific_form_id === 'string' ? parseInt(noti.specific_form_id, 10) : noti.specific_form_id;
@@ -65,7 +65,6 @@ export default function Notification({ notifications }) {
                     </span>
                 )}
             </div>
-
             {isDropdownOpen && hasNotifications && (
                 <div className="absolute -right-30 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                     <div className="max-h-60 overflow-y-auto">

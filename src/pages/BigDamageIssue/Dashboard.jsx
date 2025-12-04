@@ -111,16 +111,16 @@ const Dashboard = () => {
   const [has429Error, setHas429Error] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // List with SWR - enable revalidation to show updated forms
+  // List with SWR - optimized for performance
   const { data: listPayload, isLoading: listLoading, error: listError, mutate } = useSWR(
-    token ? [`/api/big-damage-issues?${query}&page=${currentPage}`] : null,
+    token ? [`/api/big-damage-issues?${query}`] : null, // Query already includes page parameter
     ([url]) => fetcher(url),
     { 
       revalidateOnFocus: false,  // Disable revalidation on focus to reduce requests
-      revalidateOnReconnect: true,  // Revalidate when network reconnects
-      revalidateOnMount: true,  // Always revalidate when component mounts
-      dedupingInterval: 15000,  // Increase deduping to 15 seconds to prevent duplicate requests
-      refreshInterval: has429Error ? 0 : 30000,  // Increase to 30 seconds to reduce request frequency
+      revalidateOnReconnect: false,  // Disable auto-reconnect to reduce requests
+      revalidateOnMount: true,  // Only revalidate on mount
+      dedupingInterval: 30000,  // Increase deduping to 30 seconds to prevent duplicate requests
+      refreshInterval: 0,  // Disable auto-refresh to reduce server load
       keepPreviousData: true,  // Keep old data when refreshing
       revalidateIfStale: false,  // Disable automatic revalidation of stale data
       onError: (error) => {
