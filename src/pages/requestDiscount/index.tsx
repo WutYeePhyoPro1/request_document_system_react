@@ -329,7 +329,7 @@ export default function Demo() {
             </label>
             <MultiSelect
               id="status"
-              placeholder="Select Status"
+               placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
               data={[
                 "All",
                 "Ongoing",

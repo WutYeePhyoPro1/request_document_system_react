@@ -13,6 +13,7 @@ import {
   Filter,
   X
 } from "lucide-react";
+import { useTranslation } from 'react-i18next';
 import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
 import ProductDetailModal from "./ProductDetailModal";
@@ -329,7 +330,6 @@ export default function DamageItemTable({
 }) {
   // Remove debug logging to prevent infinite re-renders
   const { t } = useTranslation();
-
   const [items, setItems] = useState(Array.isArray(itemsProp) ? itemsProp : []);
   const [searchTerm, setSearchTerm] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
@@ -1832,7 +1832,7 @@ const normalizeImageEntries = (list) => {
       />
       <div className="flex items-center justify-start mb-4">
         <h3 className={`${mode === 'view' ? 'text-sm' : 'text-[0.8rem] sm:text-sm'} font-semibold text-green-600 flex items-center gap-2`}>
-          <CheckCircle size={16} /> Product Information
+          <CheckCircle size={16} /> {t('damageForm.productInformation')}
         </h3>
         <span className="font-medium text-gray-600 px-2 py-0.5 rounded">
             <span className="text-[0.8rem] sm:text-[0.7rem] bg-green-50 text-green-800 px-2.5 py-0.5 rounded-md border border-green-200">

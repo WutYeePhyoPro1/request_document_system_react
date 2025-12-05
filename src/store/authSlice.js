@@ -5,14 +5,11 @@ export const login = createAsyncThunk(
   "auth/login",
   async ({ employee_number, password }, { rejectWithValue }) => {
     try {
-      const response = await axios.post("/api/login", { 
-        employee_number, 
-        password 
-      }, {
-        withCredentials: true,
+      const response = await axios.post("/api/login", { employee_number, password }, {
+        withCredentials: true, // ✅ CRITICAL: Include cookies for Laravel session
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
         }
       });
       localStorage.setItem("token", response.data.token);

@@ -296,7 +296,7 @@ const Detail: React.FC = () => {
                   <div className="approve">
                     <ApproveForm />
                   </div>
-                  <div className="userData grid grid-cols-6 items-start text-sm">
+                  <div className="userData grid lg:grid-cols-6 md:grid-cols-6 grid-cols-3 items-start text-sm">
                     {/* Prepared By */}
                     <div className="flex flex-col">
                       <span className="font-medium ">
@@ -324,7 +324,7 @@ const Detail: React.FC = () => {
                           "Cancel",
                         ].includes(detailData?.form?.status) ? (
                           <div>
-                            <div className="font-medium">Checked By</div>
+                            <div className="font-medium ">Checked By</div>
                             <div className="font-semibold text-blue-400 mt-1">
                               {detailData?.getApprover?.approval_users?.title}{" "}
                               {detailData?.getApprover?.approval_users?.name}

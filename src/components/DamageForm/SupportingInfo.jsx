@@ -226,7 +226,7 @@ export default function SupportingInfo({
           {shouldShowAttachments && (
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
-                Attach Files (Multiple allowed)
+                {t('supportingInfo.attachFilesMultiple')}
               </label>
               <input
                 type="file"

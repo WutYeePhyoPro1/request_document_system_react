@@ -74,7 +74,9 @@
     "deleteImage": "Delete Image",
     "accountCode": "Account Code",
     "showAccountCodes": "Show Account Codes",
-    "hideAccountCodes": "Hide Account Codes"
+    "hideAccountCodes": "Hide Account Codes",
+    "productInformation": "Product Information",
+    "productNumbered": "{{number}}-Product"
   },
   "approval": {
     "preparedBy": "Prepared by",
@@ -231,6 +233,7 @@
     "noRemarkProvided": "No remark provided.",
     "enterDetailedReason": "Enter detailed reason...",
     "attachFiles": "Attach Files",
+    "attachFilesMultiple": "Attach Files (Multiple allowed)",
     "uploadFiles": "Upload Files",
     "noFilesAttached": "No files attached."
   }

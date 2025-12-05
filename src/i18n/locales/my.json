@@ -74,7 +74,9 @@
     "deleteImage": "ပုံဖျက်ရန်",
     "accountCode": "အကောင့်ကုဒ်",
     "showAccountCodes": "အကောင့်ကုဒ်များ ပြရန်",
-    "hideAccountCodes": "အကောင့်ကုဒ်များ ဖျောက်ရန်"
+    "hideAccountCodes": "အကောင့်ကုဒ်များ ဖျောက်ရန်",
+    "productInformation": "ထုတ်ကုန် အချက်အလက်",
+    "productNumbered": "{{number}}-ထုတ်ကုန်"
   },
   "approval": {
     "preparedBy": "ပြင်ဆင်သူ",
@@ -231,6 +233,7 @@
     "noRemarkProvided": "မှတ်ချက် မပေးထားပါ။",
     "enterDetailedReason": "အသေးစိတ် အကြံပြုချက် ထည့်သွင်းပါ...",
     "attachFiles": "ဖိုင်များ ချိတ်ဆက်ရန်",
+    "attachFilesMultiple": "ဖိုင်များ ချိတ်ဆက်ရန် (များစွာ ခွင့်ပြုထားသည်)",
     "uploadFiles": "ဖိုင်များ တင်ရန်",
     "noFilesAttached": "ဖိုင်များ ချိတ်ဆက်ထားခြင်း မရှိပါ။"
   }
