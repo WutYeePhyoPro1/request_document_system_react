@@ -18,7 +18,6 @@ import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
 import ProductDetailModal from "./ProductDetailModal";
 import ErrorModal from "../common/ErrorModal";
-import { useTranslation } from 'react-i18next';
 import "../DamageForm/ButtonHoverEffects.css";
 import img1 from "../../assets/images/marble texture.jpeg";
 import img2 from "../../assets/images/marble texture.jpeg";
