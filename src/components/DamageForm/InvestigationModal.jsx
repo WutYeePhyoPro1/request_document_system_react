@@ -86,11 +86,20 @@ const InvestigationFormModal = ({
     
     // Get general_form_id and amount for fallback check
     const generalFormId = formData?.general_form_id || formData?.generalFormId || formData?.id || initialData?.id;
-    const totalAmount = Number(
+    // Calculate totalAmount from items first (like main totalAmount), then fallback to formData fields
+    const totalAmount = formData.items && formData.items.length > 0 
+      ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+      : Number(
       formData?.general_form?.total_amount
       ?? formData?.total_amount
       ?? formData?.general_form?.totalAmount
       ?? formData?.totalAmount
+          ?? formData?.general_form?.total
+          ?? formData?.total
+          ?? initialData?.general_form?.total_amount
+          ?? initialData?.total_amount
+          ?? initialData?.general_form?.total
+          ?? initialData?.total
       ?? 0
     );
     const requiresOpManagerApproval = totalAmount > 500000;
@@ -144,7 +153,7 @@ const InvestigationFormModal = ({
     
     const result = Boolean(opApproval);
     return result;
-  }, [currentUserId, approvals, status, formData]);
+  }, [currentUserId, approvals, status, formData, initialData]);
   
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = normalizedUserRole === 'op_manager' || isOpManagerByApproval;
@@ -181,38 +190,72 @@ const InvestigationFormModal = ({
     // Only run when modal opens or when investigation data actually changes
     if (!isOpen) return;
     
+    // Check all possible sources for investigation data
     const existing = formData?.investigation
       || formData?.investigate
       || formData?.general_form?.investigation
       || formData?.general_form?.investigate
+      || initialData?.investigation
+      || initialData?.investigate
+      || initialData?.general_form?.investigation
+      || initialData?.general_form?.investigate
       || null;
 
+    console.log('[InvestigationModal] useEffect - Checking investigation data:', {
+      isOpen,
+      hasFormDataInvestigation: Boolean(formData?.investigation),
+      hasFormDataInvestigate: Boolean(formData?.investigate),
+      hasGeneralFormInvestigation: Boolean(formData?.general_form?.investigation),
+      hasGeneralFormInvestigate: Boolean(formData?.general_form?.investigate),
+      hasInitialDataInvestigation: Boolean(initialData?.investigation),
+      hasInitialDataGeneralFormInvestigation: Boolean(initialData?.general_form?.investigation),
+      existingFound: Boolean(existing),
+      existingData: existing ? {
+        id: existing.id,
+        bdi_reason: existing.bdi_reason,
+        bm_reason: existing.bm_reason,
+        bm_company: existing.bm_company
+      } : null,
+    });
+
     if (!existing) {
+      console.log('[InvestigationModal] No investigation data found');
       setInvestigationId(null);
       return;
     }
 
     const existingId = existing.id || existing.investi_id || null;
     
-    // Only update if investigation ID changed (prevent infinite loop)
-    setInvestigationId(prevId => {
-      if (prevId !== existingId) {
-        setSelectedCategory((existing.bdi_reason && existing.bdi_reason[0]?.toUpperCase() + existing.bdi_reason.slice(1)) || 'Thief');
+    // Always update state when investigation data changes (not just when ID changes)
+    // This ensures the modal shows the latest data after save
+    if (existingId !== investigationId || investigationId === null) {
+      console.log('[InvestigationModal] useEffect - Updating modal state from existing data:', {
+        existingId,
+        currentInvestigationId: investigationId,
+        bmReason: existing.bm_reason,
+        bmCompany: existing.bm_company,
+        opCompany: existing.op_company,
+        accCompany: existing.acc_company,
+      });
+      
+      // Handle bdi_reason: convert 'discipl' to 'discipline' for display
+      const reason = existing.bdi_reason === 'discipl' ? 'discipline' : existing.bdi_reason;
+      const category = (reason && reason[0]?.toUpperCase() + reason.slice(1)) || 'Thief';
+      
+      setInvestigationId(existingId);
+      setSelectedCategory(category);
         setBmReason(existing.bm_reason || '');
-        setCompanyPct(existing.bm_company ?? existing.companyPct ?? '');
-        setUserPct(existing.bm_user ?? existing.userPct ?? '');
-        setIncomePct(existing.bm_income ?? existing.incomePct ?? '');
-        setOpCompanyPct(existing.op_company ?? existing.opCompanyPct ?? '');
-        setOpUserPct(existing.op_user ?? existing.opUserPct ?? '');
-        setOpIncomePct(existing.op_income ?? existing.opIncomePct ?? '');
-        setAccCompanyPct(existing.acc_company ?? existing.accCompanyPct ?? '');
-        setAccUserPct(existing.acc_user ?? existing.accUserPct ?? '');
-        setAccIncomePct(existing.acc_income ?? existing.accIncomePct ?? '');
-        return existingId;
-      }
-      return prevId;
-    });
-  }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate, isOpen]);
+      setCompanyPct(existing.bm_company ?? '');
+      setUserPct(existing.bm_user ?? '');
+      setIncomePct(existing.bm_income ?? '');
+      setOpCompanyPct(existing.op_company ?? '');
+      setOpUserPct(existing.op_user ?? '');
+      setOpIncomePct(existing.op_income ?? '');
+      setAccCompanyPct(existing.acc_company ?? '');
+      setAccUserPct(existing.acc_user ?? '');
+      setAccIncomePct(existing.acc_income ?? '');
+    }
+  }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate, initialData?.investigation, initialData?.general_form?.investigation, isOpen, investigationId]);
 
   const resolveRole = () => {
     // Check if user is op_manager by role name OR by approval user_type
@@ -288,11 +331,20 @@ const InvestigationFormModal = ({
   const accountFieldsDisabled = !canEditAccountFields;
 
   const hasOperationManagerStage = useMemo(() => {
-    const totalAmount = Number(
+    // Calculate totalAmount from items first (like main totalAmount), then fallback to formData fields
+    const totalAmount = formData.items && formData.items.length > 0 
+      ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+      : Number(
       formData?.general_form?.total_amount
       ?? formData?.total_amount
       ?? formData?.general_form?.totalAmount
       ?? formData?.totalAmount
+          ?? formData?.general_form?.total
+          ?? formData?.total
+          ?? initialData?.general_form?.total_amount
+          ?? initialData?.total_amount
+          ?? initialData?.general_form?.total
+          ?? initialData?.total
       ?? 0
     );
 
@@ -302,11 +354,38 @@ const InvestigationFormModal = ({
       return false;
     }
 
+    // Check if current user has OP approval entry assigned to them (same logic as showApproveButton)
+    const hasOpApprovalAssignment = approvals.some(approval => {
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      const userTypeMatches = (userType === 'OP' || userType === 'A2');
+      const userIdMatches = currentUserId && allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+      
+      return userTypeMatches && userIdMatches;
+    });
+    
+    // Check role_id directly for Operation Manager (role_id 4 or 5)
+    const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+    const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
+    
+    // Final check: User is Operation Manager if:
+    // 1. role_id is 4 or 5, OR
+    // 2. role name is 'op_manager', OR
+    // 3. isOpManager is true, OR
+    // 4. isOpManagerByApproval is true, OR
+    // 5. user has OP approval entry assigned to them
+    const isOpManagerFinal = isOpManagerByRoleId || normalizedUserRole === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
+
     // Check if status matches conditions from Laravel blade:
     // status === 'OPApproved' || (isOp && status === 'BM Approved') || status === 'Completed'
     // IMPORTANT: When status is 'OPApproved' or 'Completed', the section is VISIBLE to EVERYONE (including BM)
     // but only editable by Op_Manager. When status is 'BM Approved', only Op_Manager can see it.
-    // isOpManager is already calculated above (checks both role name and approval user_type)
     const currentStatus = (status || '').trim();
     
     // Status is 'OPApproved' - visible to everyone (BM can see but not edit)
@@ -315,17 +394,11 @@ const InvestigationFormModal = ({
     }
     
     // Status is 'BM Approved' - only visible to Op_Manager (checking both role and approval user_type)
-    // If form is 'BM Approved', amount > 500000, and there's an OP approval entry, show it
+    // If form is 'BM Approved', amount > 500000, and user has OP approval assignment, show it
     // This matches Laravel blade: Op_Manager($general_form) && $general_form->status == 'BM Approved'
     if (currentStatus === 'BM Approved' || currentStatus === 'BMApproved') {
-      // Check if there's an OP approval entry (user will be operation manager if they have it)
-      const hasOPApproval = approvals.some(a => {
-        const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
-        return userType === 'OP' || userType === 'A2';
-      });
-      
-      // Show if user is op_manager OR if there's an OP approval entry (they're the assigned OP manager)
-      if (isOpManager || hasOPApproval) {
+      // Show if user is Operation Manager (using isOpManagerFinal which includes hasOpApprovalAssignment)
+      if (isOpManagerFinal) {
         return true;
       }
     }
@@ -348,7 +421,7 @@ const InvestigationFormModal = ({
     }
 
     return false;
-  }, [approvals, formData, status, normalizedUserRole, isOpManager]);
+  }, [approvals, formData, status, normalizedUserRole, isOpManager, isOpManagerByApproval, currentUserId, currentUser, initialData]);
 
   const showOperationManagerFields = useMemo(() => {
     return hasOperationManagerStage;
@@ -358,14 +431,23 @@ const InvestigationFormModal = ({
     // Use the outer role variable that was already calculated, don't recalculate it
     const body = new FormData();
     const generalFormId = resolveGeneralFormId();
-    body.append('id', generalFormId ?? '');
-    body.append('general_form_id', generalFormId ?? '');
-    body.append('role', role);
+    
+    if (!generalFormId) {
+      console.error('[InvestigationModal] buildRequestBody: No generalFormId found!');
+      throw new Error('General form ID is required');
+    }
+    
+    // Backend expects 'id' or 'general_form_id' - send both for compatibility
+    body.append('id', String(generalFormId));
+    body.append('general_form_id', String(generalFormId));
+    body.append('role', String(role));
     body.append('action', investigationId ? 'Update' : 'Save');
-    body.append('bm_reason', payload.bmReason);
-    body.append('bm_company', payload.companyPct);
-    body.append('bm_user', payload.userPct);
-    body.append('bm_income', payload.incomePct);
+    
+    // Always send BM fields (role 1 can edit these)
+    body.append('bm_reason', String(payload.bmReason || ''));
+    body.append('bm_company', String(payload.companyPct || '0'));
+    body.append('bm_user', String(payload.userPct || '0'));
+    body.append('bm_income', String(payload.incomePct || '0'));
 
     // Include operation manager percentages ONLY if user can edit operation fields
     // This ensures consistency: if fields are editable, they should be saveable
@@ -378,21 +460,25 @@ const InvestigationFormModal = ({
       body.append('op_income', String(payload.opIncomePct || '0'));
     }
 
+    // Include account percentages if user is account (role 3)
     if (role === 3) {
-      body.append('acc_company', payload.accCompanyPct);
-      body.append('acc_user', payload.accUserPct);
-      body.append('acc_income', payload.accIncomePct);
+      body.append('acc_company', String(payload.accCompanyPct || '0'));
+      body.append('acc_user', String(payload.accUserPct || '0'));
+      body.append('acc_income', String(payload.accIncomePct || '0'));
     }
 
+    // Include investigation ID if updating existing record
     if (investigationId) {
-      body.append('investi_id', investigationId);
+      body.append('investi_id', String(investigationId));
     }
 
+    // Map category to backend reason flag
     const reasonKey = payload.selectedCategory?.toLowerCase() || '';
     const reasonFlags = {
       thief: 'thief',
       delivery: 'delivery',
       'natural accident': 'natural',
+      'natural': 'natural', // Support both formats
       discipline: 'discipline', // Backend expects 'discipline' but DB column is VARCHAR(8) - backend should handle truncation
       displine: 'discipline', // Support typo variant for backward compatibility
       accident: 'accident',
@@ -402,6 +488,7 @@ const InvestigationFormModal = ({
 
     const flagKey = reasonFlags[reasonKey];
     if (flagKey) {
+      // Backend uses $request->boolean() which expects '1', 'true', 'on', or 'yes'
       body.append(flagKey, '1');
     }
     
@@ -416,14 +503,39 @@ const InvestigationFormModal = ({
   
   // Only show Operation Manager section if amount > 500000 (CRITICAL requirement)
   // Even if there are existing OP percentage values, don't show if amount <= 500000
-  const totalAmountForDisplay = Number(
+  // Calculate from items first (like main totalAmount), then fallback to formData fields
+  const totalAmountForDisplay = formData.items && formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+    : Number(
     formData?.general_form?.total_amount
     ?? formData?.total_amount
     ?? formData?.general_form?.totalAmount
     ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
+        ?? initialData?.general_form?.total_amount
+        ?? initialData?.total_amount
+        ?? initialData?.general_form?.total
+        ?? initialData?.total
     ?? 0
   );
+      
   const requiresOpManagerApproval = totalAmountForDisplay > 500000;
+  
+  // Debug logging (after totalAmountForDisplay is defined)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[InvestigationModal] Operation Manager section check:', {
+      totalAmountForDisplay,
+      requiresOpManagerApproval,
+      hasOperationManagerStage,
+      showOperationManagerFields,
+      status,
+      isOpManager,
+      isOpManagerByApproval,
+      normalizedUserRole,
+      hasOpPercentages: Boolean(opCompanyPct || opUserPct || opIncomePct)
+    });
+  }
   
   // Show Operation Manager section only if:
   // 1. hasOperationManagerStage is true (which already checks amount > 500000), OR
@@ -584,9 +696,29 @@ const InvestigationFormModal = ({
 
     const body = buildRequestBody(payload);
     
+    // Debug: Log the FormData being sent
+    console.log('[InvestigationModal] Request payload:', {
+      generalFormId,
+      role,
+      investigationId,
+      payload,
+      canEditOperationFields,
+      canEditAccountFields: role === 3,
+    });
+    
+    // Debug: Log FormData contents
+    if (body instanceof FormData) {
+      const formDataEntries = {};
+      for (const [key, value] of body.entries()) {
+        formDataEntries[key] = value;
+      }
+      console.log('[InvestigationModal] FormData contents:', formDataEntries);
+    }
 
     setIsSubmitting(true);
     try {
+      console.log('[InvestigationModal] Sending request to:', '/api/big-damage-issues/investigation');
+      
       // apiRequest already parses JSON and throws on error, so we don't need to check response.ok
       const responseData = await apiRequest('/api/big-damage-issues/investigation', {
         method: 'POST',
@@ -597,31 +729,75 @@ const InvestigationFormModal = ({
       // Laravel returns: { message: '...', data: investigation }
       const investigationData = responseData?.data || responseData?.investigation || responseData;
     
+      console.log('[InvestigationModal] Save response:', {
+        responseData,
+        investigationData,
+        hasData: Boolean(investigationData),
+        investigationId: investigationData?.id || investigationData?.investi_id,
+      });
+    
       toast.success(responseData?.message || t('investigation.updateSuccess'));
       
-      // Call onSave callback if provided to refresh formData in parent
+      // Update modal state with saved data FIRST (before calling onSave)
+      if (investigationData) {
+        const newInvestigationId = investigationData.id || investigationData.investi_id || null;
+        setInvestigationId(newInvestigationId);
+        
+        // Update all fields from response, including account percentages
+        setBmReason(investigationData.bm_reason || '');
+        setCompanyPct(investigationData.bm_company ?? investigationData.bm_company ?? '');
+        setUserPct(investigationData.bm_user ?? investigationData.bm_user ?? '');
+        setIncomePct(investigationData.bm_income ?? investigationData.bm_income ?? '');
+        setOpCompanyPct(investigationData.op_company ?? investigationData.op_company ?? '');
+        setOpUserPct(investigationData.op_user ?? investigationData.op_user ?? '');
+        setOpIncomePct(investigationData.op_income ?? investigationData.op_income ?? '');
+        setAccCompanyPct(investigationData.acc_company ?? investigationData.acc_company ?? '');
+        setAccUserPct(investigationData.acc_user ?? investigationData.acc_user ?? '');
+        setAccIncomePct(investigationData.acc_income ?? investigationData.acc_income ?? '');
+        
+        // Update category from bdi_reason
+        if (investigationData.bdi_reason) {
+          // Handle both 'discipl' (stored) and 'discipline' (display) formats
+          const reason = investigationData.bdi_reason === 'discipl' ? 'discipline' : investigationData.bdi_reason;
+          const category = reason[0]?.toUpperCase() + reason.slice(1);
+          setSelectedCategory(category || 'Thief');
+        }
+        
+        console.log('[InvestigationModal] Updated modal state:', {
+          investigationId: newInvestigationId,
+          bmReason: investigationData.bm_reason,
+          bmCompany: investigationData.bm_company,
+          bmUser: investigationData.bm_user,
+          bmIncome: investigationData.bm_income,
+          opCompany: investigationData.op_company,
+          opUser: investigationData.op_user,
+          opIncome: investigationData.op_income,
+          accCompany: investigationData.acc_company,
+          accUser: investigationData.acc_user,
+          accIncome: investigationData.acc_income,
+          bdiReason: investigationData.bdi_reason,
+        });
+      }
+      
+      // Call onSave callback AFTER updating modal state to refresh formData in parent
       if (onSave && typeof onSave === 'function') {
+        console.log('[InvestigationModal] Calling onSave callback with:', { investigation: investigationData });
         onSave({ investigation: investigationData });
       }
       
-      // Reload investigation data in the modal state
-      if (investigationData) {
-        setInvestigationId(investigationData.id || investigationData.investi_id || null);
-        setOpCompanyPct(investigationData.op_company ?? investigationData.opCompanyPct ?? '');
-        setOpUserPct(investigationData.op_user ?? investigationData.opUserPct ?? '');
-        setOpIncomePct(investigationData.op_income ?? investigationData.opIncomePct ?? '');
-        setCompanyPct(investigationData.bm_company ?? investigationData.companyPct ?? '');
-        setUserPct(investigationData.bm_user ?? investigationData.userPct ?? '');
-        setIncomePct(investigationData.bm_income ?? investigationData.incomePct ?? '');
-        setBmReason(investigationData.bm_reason || '');
-        if (investigationData.bdi_reason) {
-          const category = investigationData.bdi_reason[0]?.toUpperCase() + investigationData.bdi_reason.slice(1);
-          setSelectedCategory(category || 'Thief');
-        }
-      }
-      
+      // Close modal after a short delay to show success message
+      setTimeout(() => {
       onClose();
+      }, 1000);
     } catch (error) {
+      console.error('[InvestigationModal] Save error:', {
+        error,
+        message: error.message,
+        response: error.response,
+        responseData: error.response?.data,
+        stack: error.stack,
+      });
+      
       // Show specific error message from backend if available
       const errorMessage = error.message || error.response?.data?.message || error.response?.data?.error || t('investigation.updateFailed');
       toast.error(errorMessage);

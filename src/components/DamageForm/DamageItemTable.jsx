@@ -17,6 +17,7 @@ import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
 import ProductDetailModal from "./ProductDetailModal";
 import ErrorModal from "../common/ErrorModal";
+import { useTranslation } from 'react-i18next';
 import "../DamageForm/ButtonHoverEffects.css";
 import img1 from "../../assets/images/marble texture.jpeg";
 import img2 from "../../assets/images/marble texture.jpeg";
@@ -327,13 +328,15 @@ export default function DamageItemTable({
   onOpenAddProductModal = () => {}
 }) {
   // Remove debug logging to prevent infinite re-renders
+  const { t } = useTranslation();
 
   const [items, setItems] = useState(Array.isArray(itemsProp) ? itemsProp : []);
   const [searchTerm, setSearchTerm] = useState("");
   const [showConfirm, setShowConfirm] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
+  const [qtyErrorModal, setQtyErrorModal] = useState({ isOpen: false, message: '' });
   
   // Filter state
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -383,6 +386,29 @@ export default function DamageItemTable({
 
   // Define these early to avoid initialization errors in useEffect
   const normalizedRole = (userRole || '').toString().trim().toLowerCase();
+  
+  // Check if user is operation manager - check multiple sources (must be defined before useState)
+  const isOpManager = normalizedRole === 'op_manager' || 
+                      normalizedRole === 'operation_manager' || 
+                      normalizedRole === 'operation' ||
+                      normalizedRole === 'op' ||
+                      normalizedRole === 'a2' ||
+                      (userRole && typeof userRole === 'string' && (
+                        userRole.toLowerCase().includes('operation') ||
+                        userRole.toLowerCase().includes('op_manager') ||
+                        userRole.toLowerCase() === 'op'
+                      ));
+  
+  // Debug logging for account codes visibility
+  if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+    console.log('[DamageItemTable] Account Codes Visibility Check:', {
+      userRole,
+      normalizedRole,
+      isOpManager,
+      status,
+      showAccountCodes: undefined, // Will be set in useState
+    });
+  }
   
   /**
    * Check if user can see "Update System Qty" button - matches Laravel acknowledge() function exactly
@@ -621,10 +647,23 @@ export default function DamageItemTable({
 
   // Define showAccountCodes state before useEffect that uses it
   const [showAccountCodes, setShowAccountCodes] = useState(() => {
+    // CRITICAL: Operation Manager should NEVER see account codes at Ac_Acknowledged stage
+    // This check must happen FIRST before any other logic
+    if (isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
+      console.log('[DamageItemTable] Initial state: Hiding account codes for Operation Manager', {
+        isOpManager,
+        status,
+        userRole,
+        normalizedRole
+      });
+      return false;
+    }
+    
     const hasCodes = itemsProp.some((item) => {
       const compareId = item?.id ?? item?.specific_form_id;
       return Boolean(item?.acc_code1 || item?.acc_code);
     });
+    
     // Account should always see account codes at OPApproved, BM Approved, or Ac_Acknowledged stages
     const accountShouldSeeCodes = isAccount && (
       status === 'OPApproved' || 
@@ -646,6 +685,21 @@ export default function DamageItemTable({
     );
     
     const shouldShow = isCompleted || hasCodes || accountShouldSeeCodes || supervisorShouldSeeCodes;
+    
+    if ((status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
+      console.log('[DamageItemTable] Initial state check:', {
+        isOpManager,
+        status,
+        userRole,
+        normalizedRole,
+        shouldShow,
+        hasCodes,
+        accountShouldSeeCodes,
+        supervisorShouldSeeCodes,
+        isCompleted
+      });
+    }
+    
     return shouldShow;
   });
 
@@ -660,6 +714,20 @@ export default function DamageItemTable({
   );
 
   useEffect(() => {
+    // CRITICAL: Operation Manager should NEVER see account codes at Ac_Acknowledged stage
+    // This check must happen FIRST before any other logic
+    if (isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
+      console.log('[DamageItemTable] useEffect: Hiding account codes for Operation Manager', {
+        isOpManager,
+        status,
+        userRole,
+        normalizedRole,
+        currentShowAccountCodes: showAccountCodes
+      });
+      setShowAccountCodes(false);
+      return; // Early return - don't process any other conditions
+    }
+    
     // Account should always see account codes at OPApproved, BM Approved, or Ac_Acknowledged stages
     const accountShouldSeeCodes = isAccount && (
       status === 'OPApproved' || 
@@ -698,7 +766,7 @@ export default function DamageItemTable({
     if (shouldShow) {
       setShowAccountCodes(true);
     }
-  }, [itemsProp, showAccountCodes, isCompleted, isAccount, isSupervisorUser, status]);
+  }, [itemsProp, showAccountCodes, isCompleted, isAccount, isSupervisorUser, status, isOpManager]);
   
   const isCheckerRole = ['branch_lp', 'checker', 'cs', 'loss prevention'].some(r => normalizedRole.includes(r));
   const isApproverRole = ['bm', 'abm', 'approver', 'manager'].some(r => normalizedRole.includes(r));
@@ -1040,18 +1108,24 @@ const handleRemarkChange = (id, value) => {
       if (mode === 'view' && !allowFinalQtyEdit && qtyType === 'final_qty') return prevItems;
 
       const item = prevItems[index];
-      const qtyNumeric = value === '' ? 0 : parseFloat(value) || 0;
+      const systemQty = parseFloat(item.system_qty) || 0;
+      // Ensure proper parsing - handle string numbers correctly
+      const qtyNumeric = value === '' ? 0 : (isNaN(parseFloat(value)) ? 0 : parseFloat(value));
       
-      // Validate final_qty against system_qty (matching Laravel Blade logic)
+      // Validate all quantity fields against system_qty - don't auto-cap, return early if invalid
+      // The onChange handler will show error modal and prevent the change
+      if (systemQty > 0 && qtyNumeric > systemQty) {
+        return prevItems; // Don't update if exceeds system_qty
+      }
+      // If system_qty is 0, all quantities must be 0
+      if (systemQty === 0 && qtyNumeric > 0) {
+        return prevItems; // Don't update if system_qty is 0
+      }
+      
+      // Use qtyNumeric for calculations (already validated above)
       let finalQty = qtyNumeric;
       if (qtyType === 'final_qty') {
-        const systemQty = parseFloat(item.system_qty) || 0;
-        if (systemQty > 0 && finalQty > systemQty) {
-          finalQty = systemQty; // Cap at system_qty
-        }
-        if (systemQty === 0) {
-          finalQty = 0; // If system_qty is 0, final_qty must be 0
-        }
+        // Same validation applies
       }
       
       const price = parseFloat(item.price) || 0;
@@ -1751,6 +1825,11 @@ const normalizeImageEntries = (list) => {
         message={errorModal.message}
         onClose={() => setErrorModal({ isOpen: false, message: '' })}
       />
+      <ErrorModal 
+        isOpen={qtyErrorModal.isOpen}
+        message={qtyErrorModal.message}
+        onClose={() => setQtyErrorModal({ isOpen: false, message: '' })}
+      />
       <div className="flex items-center justify-start mb-4">
         <h3 className={`${mode === 'view' ? 'text-sm' : 'text-[0.8rem] sm:text-sm'} font-semibold text-green-600 flex items-center gap-2`}>
           <CheckCircle size={16} /> Product Information
@@ -1811,11 +1890,35 @@ const normalizeImageEntries = (list) => {
           )}
           
           {/* Account codes button should appear only in acknowledge and issue stages */}
-          {accountCodes.length > 0 && (
-            (status === 'Ac_Acknowledged' || 
+          {/* Operation Manager should NOT see account code button at Ac_Acknowledged stage */}
+          {(() => {
+            // Don't show button if no account codes available
+            if (accountCodes.length === 0) return null;
+            
+            // Don't show button if account codes are hidden
+            if (!showAccountCodes) return null;
+            
+            // Only show button at specific stages
+            const isAllowedStage = status === 'Ac_Acknowledged' || 
              status === 'Acknowledged' || 
              status === 'Issued' || 
-             status === 'SupervisorIssued') && (
+                                  status === 'SupervisorIssued';
+            if (!isAllowedStage) return null;
+            
+            // CRITICAL: Don't show button for Operation Manager at Ac_Acknowledged stage
+            const isOpManagerAtAcknowledged = isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged');
+            if (isOpManagerAtAcknowledged) {
+              console.log('[DamageItemTable] Button render: Hiding for Operation Manager', {
+                isOpManager,
+                status,
+                userRole,
+                normalizedRole,
+                showAccountCodes
+              });
+              return null;
+            }
+            
+            return (
               <button
                 type="button"
                 onClick={() => setShowAccountCodes((prev) => !prev)}
@@ -1823,8 +1926,8 @@ const normalizeImageEntries = (list) => {
               >
                 <span className="font-semibold">{showAccountCodes ? 'Hide Account Codes' : 'Show Account Codes'}</span>
               </button>
-            )
-          )}
+            );
+          })()}
           
           {/* Add Product button for Ongoing stage - hide in add mode - Desktop only */}
           {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
@@ -1987,17 +2090,77 @@ const normalizeImageEntries = (list) => {
                           inputMode="numeric"
                           pattern="[0-9]*"
                           value={item.actual_qty ?? item.request_qty ?? ''}
+                          max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
                             const nextValue = e.target.value;
                             if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
+                              // Validate against system_qty
+                              const systemQty = parseFloat(item.system_qty) || 0;
+                              const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                              
+                              if (systemQty === 0 && numericValue > 0) {
+                                // Show error modal
+                                setQtyErrorModal({
+                                  isOpen: true,
+                                  message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                });
+                                return; // Don't update the value
+                              }
+                              
+                              if (systemQty > 0 && numericValue > systemQty) {
+                                // Show error modal
+                                const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                setQtyErrorModal({
+                                  isOpen: true,
+                                  message: t('messages.errors.requestQtyExceedsSystem', { 
+                                    productName,
+                                    qty: numericValue,
+                                    systemQty,
+                                    defaultValue: `${productName}: Request Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                  })
+                                });
+                                return; // Don't update the value
+                              }
+                              
                               handleQtyChange(item.id, nextValue, 'actual_qty');
                             }
                           }}
                           onBlur={(e) => {
                             const nextValue = e.target.value === '' ? '0' : e.target.value;
+                            const systemQty = parseFloat(item.system_qty) || 0;
+                            const numericValue = parseFloat(nextValue) || 0;
+                            
+                            // Validate on blur as well - show error but don't auto-change
+                            if (systemQty === 0 && numericValue > 0) {
+                              setQtyErrorModal({
+                                isOpen: true,
+                                message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                              });
+                              // Reset to previous value
+                              e.target.value = String(item.actual_qty ?? item.request_qty ?? '0');
+                              return;
+                            }
+                            
+                            if (systemQty > 0 && numericValue > systemQty) {
+                              const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                              setQtyErrorModal({
+                                isOpen: true,
+                                message: t('messages.errors.requestQtyExceedsSystem', { 
+                                  productName,
+                                  qty: numericValue,
+                                  systemQty,
+                                  defaultValue: `${productName}: Request Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                })
+                              });
+                              // Reset to previous value
+                              e.target.value = String(item.actual_qty ?? item.request_qty ?? '0');
+                              return;
+                            }
+                            
                             handleQtyChange(item.id, nextValue, 'actual_qty');
                           }}
                           className="w-20 border border-gray-300 rounded px-2 py-1"
+                          title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
                         />
                       </div>
                     ) : (
@@ -2017,17 +2180,77 @@ const normalizeImageEntries = (list) => {
                             inputMode="numeric"
                             pattern="[0-9]*"
                             value={item.final_qty ?? ''}
+                            max={item.system_qty > 0 ? item.system_qty : undefined}
                             onChange={(e) => {
                               const nextValue = e.target.value;
                               if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
+                                // Validate against system_qty
+                                const systemQty = parseFloat(item.system_qty) || 0;
+                                const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                                
+                                if (systemQty === 0 && numericValue > 0) {
+                                  // Show error modal
+                                  setQtyErrorModal({
+                                    isOpen: true,
+                                    message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                  });
+                                  return; // Don't update the value
+                                }
+                                
+                                if (systemQty > 0 && numericValue > systemQty) {
+                                  // Show error modal
+                                  const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                  setQtyErrorModal({
+                                    isOpen: true,
+                                    message: t('messages.errors.finalQtyExceedsSystem', { 
+                                      productName,
+                                      qty: numericValue,
+                                      systemQty,
+                                      defaultValue: `${productName}: Final Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                    })
+                                  });
+                                  return; // Don't update the value
+                                }
+                                
                                 handleQtyChange(item.id, nextValue, 'final_qty');
                               }
                             }}
                             onBlur={(e) => {
                               const nextValue = e.target.value === '' ? '0' : e.target.value;
+                              const systemQty = parseFloat(item.system_qty) || 0;
+                              const numericValue = parseFloat(nextValue) || 0;
+                              
+                              // Validate on blur as well - show error but don't auto-change
+                              if (systemQty === 0 && numericValue > 0) {
+                                setQtyErrorModal({
+                                  isOpen: true,
+                                  message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                });
+                                // Reset to previous value
+                                e.target.value = String(item.final_qty ?? '0');
+                                return;
+                              }
+                              
+                              if (systemQty > 0 && numericValue > systemQty) {
+                                const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                setQtyErrorModal({
+                                  isOpen: true,
+                                  message: t('messages.errors.finalQtyExceedsSystem', { 
+                                    productName,
+                                    qty: numericValue,
+                                    systemQty,
+                                    defaultValue: `${productName}: Final Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                  })
+                                });
+                                // Reset to previous value
+                                e.target.value = String(item.final_qty ?? '0');
+                                return;
+                              }
+                              
                               handleQtyChange(item.id, nextValue, 'final_qty');
                             }}
                             className="w-20 border border-gray-300 rounded px-2 py-1"
+                            title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
                           />
                         </div>
                       )}
@@ -2063,13 +2286,35 @@ const normalizeImageEntries = (list) => {
                               style={systemQty === 0 ? { pointerEvents: 'none', backgroundColor: '#f3f4f6' } : {}}
                               onChange={(e) => {
                                 const newValue = parseFloat(e.target.value) || 0;
-                                const maxValue = systemQty > 0 ? systemQty : 0;
-                                const finalValue = Math.min(newValue, maxValue);
                                 const matchId = item.id ?? item.specific_form_id;
+                                
+                                // Validate against system_qty
+                                if (systemQty === 0 && newValue > 0) {
+                                  setQtyErrorModal({
+                                    isOpen: true,
+                                    message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                  });
+                                  return; // Don't update the value
+                                }
+                                
+                                if (systemQty > 0 && newValue > systemQty) {
+                                  const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                  setQtyErrorModal({
+                                    isOpen: true,
+                                    message: t('messages.errors.actualQtyExceedsSystem', { 
+                                      productName,
+                                      qty: newValue,
+                                      systemQty,
+                                      defaultValue: `${productName}: Actual Quantity (${newValue}) cannot be greater than System Quantity (${systemQty}).`
+                                    })
+                                  });
+                                  return; // Don't update the value
+                                }
+                                
                                 onItemChange(
                                   items.findIndex(i => (i.id ?? i.specific_form_id) === matchId),
                                   'product_type',
-                                  finalValue
+                                  newValue
                                 );
                               }}
                             />

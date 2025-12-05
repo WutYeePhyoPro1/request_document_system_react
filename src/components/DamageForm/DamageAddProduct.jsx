@@ -4,7 +4,7 @@ import { Hash, Search } from 'lucide-react';
 
 export default function AddDamageItem({ onSearch, branchName, isSearching }) {
   const [productCode, setProductCode] = useState('');
-  const [selectedCase, setSelectedCase] = useState('Other income sell');
+  const [selectedCase, setSelectedCase] = useState('Not sell');
   
   const INPUT_TEXT_SIZE = { fontSize: '0.8rem' };
   
@@ -89,8 +89,14 @@ export default function AddDamageItem({ onSearch, branchName, isSearching }) {
             style={INPUT_TEXT_SIZE}
             value={selectedCase}
             onChange={(e) => setSelectedCase(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md appearance-none bg-white pr-8 
-             focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            className={`w-full p-2 border rounded-md appearance-none bg-white pr-8 
+             focus:outline-none focus:ring-1 text-sm font-medium transition-colors ${
+              selectedCase === 'Not sell'
+                ? 'border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500'
+                : selectedCase === 'Other income sell'
+                ? 'border-green-300 bg-green-50 text-green-700 focus:ring-green-500 focus:border-green-500'
+                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+            }`}
           >
             {caseOptions.map(option => (
               <option key={option} value={option}>{option}</option>

@@ -138,23 +138,15 @@ export default function ActionConfirmationModal({
       'Rejected': t('confirmation.actions.rejectForm'),
       'Edit': t('confirmation.actions.editForm'),
       'BackToPrevious': t('confirmation.actions.backToPrevious'),
-<<<<<<< HEAD
       'Cancel': t('confirmation.actions.cancelForm', { defaultValue: 'Cancel Form' }),
       'Cancelled': t('confirmation.actions.cancelForm', { defaultValue: 'Cancel Form' })
-=======
-      'Cancel': t('confirmation.actions.cancelForm') || 'Cancel Form'
->>>>>>> 76fac46 (before fix testing error)
     };
     return actionMap[action] || action || t('confirmation.actions.performAction');
   };
 
   const actionLabel = getActionLabel(action);
   const buttonColors = getButtonColorClasses(action);
-<<<<<<< HEAD
   const isDestructive = ['Rejected', 'BackToPrevious', 'Cancel', 'Cancelled'].includes(action);
-=======
-  const isDestructive = ['Rejected', 'BackToPrevious', 'Cancel'].includes(action);
->>>>>>> 76fac46 (before fix testing error)
   
   // Get header background color based on action
   const getHeaderColorClasses = (action) => {

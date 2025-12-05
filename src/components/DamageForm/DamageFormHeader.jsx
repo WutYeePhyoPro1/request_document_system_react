@@ -88,7 +88,9 @@ export default function DamageFormHeader({
   isCompleted = false,
   userRoleOverride = null,
   statusOverride = null,
-  onDownloadPdf = null
+  mode = 'view',
+  onDownloadPdf = null,
+  issueRemarks = [] // Add issueRemarks prop for ISS remark type display
 }) {
   const { t } = useTranslation();
   // Set the branch from user's session on component mount
@@ -178,37 +180,33 @@ export default function DamageFormHeader({
       formData?.big_damage_issue?.investigate
     );
 
+    // Show investigation button when status is Completed, Issued, or SupervisorIssued
+    if (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued') {
+      return true;
+    }
+    
+    // Show investigation button for all users at Ac_Acknowledged stage
+    if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+      return true;
+    }
+
     // Always show for BM/ABM in Checked status or beyond
-    if (isBM && ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'Completed'].includes(status)) {
+    if (isBM && ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status)) {
       return true;
     }
     
-    // Supervisor can view investigation form at Ac_Acknowledged stage
-    if (isSupervisor && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'Approved' || status === 'Completed')) {
+    // Supervisor can view investigation form at Approved stage
+    if (isSupervisor && (status === 'Approved')) {
       return true;
     }
     
-    // For completed forms, show button if investigation exists (read-only view)
-    if (status === 'Completed' && hasInvestigationData) {
+    // Account users can view investigation at OPApproved or BM Approved stages
+    if (userRole === 'account' && (status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
       return true;
     }
     
     // For other roles with investigation data
     if (hasInvestigationData) {
-      const allowedRoles = ['op_manager', 'account'];
-      if (allowedRoles.includes(userRole)) {
-        const allowedStatuses = userRole === 'op_manager' 
-          ? ['BM Approved', 'BMApproved', 'OPApproved', 'Ac_Acknowledged', 'Acknowledged', 'Completed']
-          : ['OPApproved', 'BM Approved', 'BMApproved', 'Ac_Acknowledged', 'Acknowledged', 'Completed'];
-          
-        const canView = allowedStatuses.includes(status);
-        return canView;
-      }
-    }
-    
-    // Account users should be able to view investigation at Ac_Acknowledged stage even without investigation data
-    // (They might need to view it before acknowledging)
-    if (userRole === 'account' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved')) {
       return true;
     }
     
@@ -332,11 +330,7 @@ export default function DamageFormHeader({
               />
               <div className="flex flex-col">
                 <h2 className="text-lg font-semibold text-gray-900">
-<<<<<<< HEAD
                   {t('damageFormHeader.bigDamageIssueForm', { defaultValue: 'Big Damage Form' })}
-=======
-                  {t('damageFormHeader.bigDamageIssueForm')}
->>>>>>> 76fac46 (before fix testing error)
                   {docNumber && (
                     <span className="text-gray-500 text-[0.8rem] sm:text-sm md:ml-2 md:inline-block">
                       ({docNumber})
@@ -346,11 +340,9 @@ export default function DamageFormHeader({
               </div>
             </div>
 
-<<<<<<< HEAD
-            <p className="text-sm text-gray-500 mt-0.5">{t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}</p>
-=======
-            <p className="text-sm text-gray-500 mt-0.5">{t('damageFormHeader.otherIncomeSell')}</p>
->>>>>>> 76fac46 (before fix testing error)
+            <p className="text-sm text-gray-500 mt-0.5">
+              {formData.caseType || t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
+            </p>
           </div>
           <div className="flex flex-col items-end gap-3 ml-3 relative z-10">
             {formData.status && (
@@ -389,11 +381,14 @@ export default function DamageFormHeader({
         </div>
 
         <div className="flex flex-col md:flex-row md:items-center justify-between mt-2">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-800 border border-gray-400 px-3 py-1 rounded-md bg-white/40 whitespace-nowrap">
-              {headerDateTimeLabel}
-            </span>
-          </div>
+          {/* Hide datetime in add mode */}
+          {mode !== 'add' && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-800 border border-gray-400 px-3 py-1 rounded-md bg-white/40 whitespace-nowrap">
+                {headerDateTimeLabel}
+              </span>
+            </div>
+          )}
           
           {showInvestigationButton() && (
             <div className="hidden md:block">

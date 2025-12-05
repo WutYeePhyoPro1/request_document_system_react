@@ -1038,6 +1038,7 @@ export default function DamageView() {
     user_id: gf.user_id || gf.created_by || null,
     created_by: gf.created_by || null,
     general_form: gf,
+    investigation: gf.investigation || null, // Add investigation data
     items,
     reason: gf.remark || "",
     g_remark: gf.g_remark || "",
@@ -1065,13 +1066,14 @@ export default function DamageView() {
     issue_remarks: remarkOptions,
     acc_status: gf.acc_status ?? null,
     acc_code: gf.acc_code ?? null,
-    // Extract ISS remark from general_form_files (file field contains remark name, reason field can also contain it)
+    // Extract ISS remark from general_form_files (reason field contains remark type ID for ISS_DOCUMENT files)
     iss_remark: gf.iss_remark ?? 
+      gf.iss_remark_type ??
       (Array.isArray(gf.files) && gf.files.length > 0
-        ? (gf.files.find(f => f.file && f.file !== 'ISS_DOCUMENT')?.file || gf.files.find(f => f.reason)?.reason)
+        ? gf.files.find(f => f.file === 'ISS_DOCUMENT')?.reason
         : null) ??
       (Array.isArray(gf.general_form_files) && gf.general_form_files.length > 0
-        ? (gf.general_form_files.find(f => f.file && f.file !== 'ISS_DOCUMENT')?.file || gf.general_form_files.find(f => f.reason)?.reason)
+        ? gf.general_form_files.find(f => f.file === 'ISS_DOCUMENT')?.reason
         : null) ??
       null,
   };

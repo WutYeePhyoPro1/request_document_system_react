@@ -34,10 +34,18 @@ const ROLE_MAP = {
 const pickFirstFilled = (...values) =>
   values.find((value) => typeof value === "string" && value.trim()) || "";
 
-export default function ApprovalSection({ approvals = [], status, formData = {} }) {
+export default function ApprovalSection({ approvals = [], status, formData = {}, totalAmount = 0 }) {
   const nameCache = useRef({});
   const safeApprovals = Array.isArray(approvals) ? approvals : [];
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  
+  // Get totalAmount from multiple sources if not passed as prop
+  const resolvedTotalAmount = totalAmount || 
+    Number(formData?.general_form?.total_amount) ||
+    Number(formData?.total_amount) ||
+    Number(formData?.general_form?.totalAmount) ||
+    Number(formData?.totalAmount) ||
+    0;
 
   // Define resolveLabel before it's used
   const resolveLabel = (approval) => {
@@ -167,25 +175,83 @@ export default function ApprovalSection({ approvals = [], status, formData = {} 
     
     // Operation Manager approval section removed
     
-    // Always show Account Acknowledged by if:
-    // 1. It exists in safeApprovals (user_type: 'AC' or label includes 'acknowledge'), OR
-    // 2. Status is Ac_Acknowledged or Acknowledged (even if approval not found yet)
-    const accountApproval = safeApprovals.find(a => {
-      const label = (resolveLabel(a) || "").toLowerCase();
-      const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
-      const matches = label.includes("acknowledge") || userType === "ac";
-      return matches;
+    // Show Account Acknowledged by - matching Laravel blade logic exactly:
+    // Laravel blade line 951: @if ($getAc_Acknowledged !== null && $general_form->total_amount > 500000)
+    // getAc_Acknowledged() returns ApprovalProcessUser with user_type='AC' or null
+    const numericTotalAmount = Number(resolvedTotalAmount) || 0;
+    const requiresOpManagerApproval = numericTotalAmount > 500000;
+    
+    // Normalize status for comparison
+    const normalizedStatus = (status || '').toString().trim();
+    
+    // Find approval with user_type='AC' (matching getAc_Acknowledged() helper)
+    const acAcknowledgedApproval = safeApprovals.find(a => {
+      const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
+      return userType === "AC";
     });
-    const shouldShowAcknowledged = accountApproval || 
-      status === 'Ac_Acknowledged' || 
-      status === 'Acknowledged' ||
-      safeApprovals.some(a => {
-        const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
-        return userType === "ac";
+    
+    // Laravel blade shows "Acknowledged by" when:
+    // 1. $getAc_Acknowledged !== null (approval with user_type='AC' exists), AND
+    // 2. $general_form->total_amount > 500000, AND
+    // 3. Status matches: 'Ac_Acknowledged', 'Approved', 'SupervisorIssued', 'Completed', or Cancel with conditions
+    // 
+    // However, we should also show it even if approval doesn't exist yet but conditions are met
+    // (for display purposes, showing empty slot like blade does in @elseif condition)
+    const hasAcAcknowledgedApproval = acAcknowledgedApproval !== null && acAcknowledgedApproval !== undefined;
+    
+    // Statuses that show "Acknowledged by" (from Laravel blade line 952-957)
+    const statusesForAcknowledged = [
+      'Ac_Acknowledged',
+      'Acknowledged',
+      'Approved',
+      'SupervisorIssued',
+      'Completed'
+    ];
+    
+    const statusMatches = statusesForAcknowledged.some(s => 
+      normalizedStatus === s || normalizedStatus.toLowerCase() === s.toLowerCase()
+    );
+    
+    // Special case: Cancel status (from Laravel blade line 957)
+    const isCancelWithValidStatus = normalizedStatus === 'Cancel' || normalizedStatus === 'Cancelled';
+    const cancelConditionMet = isCancelWithValidStatus && 
+      acAcknowledgedApproval && 
+      acAcknowledgedApproval.status !== 'Cancel' && 
+      acAcknowledgedApproval.raw?.status !== 'Cancel';
+    
+    // Show "Acknowledged by" if:
+    // Option 1: Approval exists AND amount > 500000 AND status matches (exact Laravel logic)
+    // Option 2: Amount > 500000 (regardless of status - show as placeholder for future acknowledgment)
+    // This ensures the section appears when amount exceeds 500k, even if form hasn't reached that stage yet
+    // User requirement: Show whenever total amount exceeds 500,000
+    const shouldShowAcknowledged = requiresOpManagerApproval || 
+      (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet));
+    
+    // Debug logging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[ApprovalSection] Acknowledged by check (Laravel logic):', {
+        totalAmount: numericTotalAmount,
+        requiresOpManagerApproval,
+        status: normalizedStatus,
+        hasAcAcknowledgedApproval,
+        acAcknowledgedApproval: acAcknowledgedApproval ? {
+          user_type: acAcknowledgedApproval.user_type || acAcknowledgedApproval.raw?.user_type,
+          status: acAcknowledgedApproval.status || acAcknowledgedApproval.raw?.status,
+          actual_user_id: acAcknowledgedApproval.actual_user_id || acAcknowledgedApproval.raw?.actual_user_id
+        } : null,
+        statusMatches,
+        cancelConditionMet,
+        shouldShowAcknowledged,
+        allApprovals: safeApprovals.map(a => ({
+          user_type: a?.user_type || a?.raw?.user_type,
+          label: resolveLabel(a),
+          status: a?.status || a?.raw?.status
+        }))
       });
+    }
     
     if (shouldShowAcknowledged) {
-      approvalsToShow.push({ label: "Acknowledged by", key: "acknowledged", approval: accountApproval });
+      approvalsToShow.push({ label: "Acknowledged by", key: "acknowledged", approval: acAcknowledgedApproval });
     }
     
     // Always show Issued by

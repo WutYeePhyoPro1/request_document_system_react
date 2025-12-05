@@ -22,18 +22,47 @@ const Dashboard = () => {
     return finalPage;
   }, [searchParams]);
 
-  const [filters, setFilters] = useState({
-    productName: "",
-    formDocNo: "",
-    fromDate: "",
-    toDate: "",
-    status: null, // Will be an array for multi-select
-    branch: null,
-  });
+  // Initialize filters from URL params to preserve state when navigating back
+  const initializeFiltersFromUrl = useMemo(() => {
+    const productName = searchParams.get('search') || '';
+    const formDocNo = searchParams.get('form_doc_no') || '';
+    const fromDate = searchParams.get('start_date') || '';
+    const toDate = searchParams.get('end_date') || '';
+    const statusParam = searchParams.get('status');
+    const branchParam = searchParams.get('branch');
+    
+    // Parse status - can be comma-separated string or single value
+    let status = null;
+    if (statusParam) {
+      const statusValues = statusParam.split(',').map(s => s.trim()).filter(Boolean);
+      if (statusValues.length > 0) {
+        // Map to filter format (array of objects with value property)
+        status = statusValues.map(s => ({ value: s, label: s }));
+      }
+    }
+    
+    // Parse branch - will be set after branchOptions are loaded
+    let branch = null;
+    if (branchParam) {
+      branch = { value: branchParam, label: branchParam }; // Label will be updated when branchOptions load
+    }
+    
+    return {
+      productName,
+      formDocNo,
+      fromDate,
+      toDate,
+      status,
+      branch,
+    };
+  }, [searchParams]);
+
+  const [filters, setFilters] = useState(initializeFiltersFromUrl);
   const perPage = 15;
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef(null);
+  const filtersInitializedRef = useRef(false);
 
   const token = useMemo(() => localStorage.getItem("token"), []);
   const listAbortRef = useRef(null);
@@ -222,6 +251,25 @@ const Dashboard = () => {
           last_page: listPayload.last_page || 1,
         };
         
+        // CRITICAL: Remove duplicates based on form ID to prevent display errors
+        const seenIds = new Set();
+        allRows = allRows.filter((row) => {
+          const formId = row?.general_form?.id || row?.id;
+          if (!formId) return true; // Keep rows without ID (shouldn't happen, but be safe)
+          
+          if (seenIds.has(formId)) {
+            console.warn('[Dashboard] Duplicate form detected and removed:', {
+              formId,
+              form_doc_no: row?.general_form?.form_doc_no,
+              row_id: row?.id
+            });
+            return false; // Remove duplicate
+          }
+          
+          seenIds.add(formId);
+          return true; // Keep unique form
+        });
+        
         // Apply role-based filtering
         const filteredRows = filterFormsByRole(allRows, user);
         
@@ -276,6 +324,25 @@ const Dashboard = () => {
           allRows = listPayload.records;
         }
       }
+      
+      // CRITICAL: Remove duplicates from all data sources (prevent display errors)
+      const seenFormIds = new Set();
+      allRows = allRows.filter((row) => {
+        const formId = row?.general_form?.id || row?.id;
+        if (!formId) return true; // Keep rows without ID
+        
+        if (seenFormIds.has(formId)) {
+          console.warn('[Dashboard] Duplicate form detected and removed:', {
+            formId,
+            form_doc_no: row?.general_form?.form_doc_no,
+            row_id: row?.id
+          });
+          return false; // Remove duplicate
+        }
+        
+        seenFormIds.add(formId);
+        return true; // Keep unique form
+      });
       
       // Apply role-based filtering
       allRows = filterFormsByRole(allRows, user);
@@ -332,9 +399,92 @@ const Dashboard = () => {
   }, [branchList]);
 
   useEffect(() => {
-    const opts = [{ value: '', label: 'All Branch' }, ...branchList.map(b => ({ value: b.id, label: b.branch_name }))];
+    // Filter branches based on user (matching Laravel blade logic)
+    // Special users (emp_id in ['000-000046', '000-000024', '000-000067']) see all branches
+    // Other users only see branches from their user_branches
+    let filteredBranches = branchList;
+    
+    if (currentUser?.emp_id && !['000-000046', '000-000024', '000-000067'].includes(currentUser.emp_id)) {
+      // User is not in special list - filter by user_branches
+      // Check multiple possible structures for user_branches
+      const userBranches = currentUser.user_branches || currentUser.userBranches || [];
+      
+      if (Array.isArray(userBranches) && userBranches.length > 0) {
+        // Extract branch IDs from user_branches - handle different structures
+        const userBranchIds = userBranches.map(ub => {
+          // Handle different possible structures: {branch_id: X}, {id: X}, or just X
+          return ub?.branch_id || ub?.id || ub;
+        }).filter(Boolean);
+        
+        if (userBranchIds.length > 0) {
+          filteredBranches = branchList.filter(b => userBranchIds.includes(b.id));
+        } else if (currentUser.from_branch_id) {
+          // Fallback to single branch if user_branches array is empty but has from_branch_id
+          filteredBranches = branchList.filter(b => b.id === currentUser.from_branch_id);
+        } else {
+          // If no valid branch IDs, show no branches (empty list)
+          filteredBranches = [];
+        }
+      } else if (currentUser.from_branch_id) {
+        // Fallback to single branch if no user_branches
+        filteredBranches = branchList.filter(b => b.id === currentUser.from_branch_id);
+      } else {
+        // If no user_branches and no from_branch_id, show no branches (empty list)
+        filteredBranches = [];
+      }
+      
+      // Debug logging
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('[Dashboard] Branch filtering:', {
+          emp_id: currentUser.emp_id,
+          hasUserBranches: Array.isArray(userBranches) && userBranches.length > 0,
+          userBranchesCount: Array.isArray(userBranches) ? userBranches.length : 0,
+          from_branch_id: currentUser.from_branch_id,
+          filteredBranchesCount: filteredBranches.length,
+          allBranchesCount: branchList.length
+        });
+      }
+    }
+    // If user is in special list or has no restrictions, show all branches (filteredBranches = branchList)
+    
+    const opts = [{ value: '', label: 'All Branch' }, ...filteredBranches.map(b => ({ value: b.id, label: b.branch_name }))];
     setBranchOptions(opts);
-  }, [branchList]);
+    
+    // Initialize filters from URL params on mount or when branchOptions are ready
+    if (opts.length > 1) {
+      const urlFilters = { ...initializeFiltersFromUrl };
+      
+      // Update branch filter with proper label from branchOptions
+      if (urlFilters.branch && urlFilters.branch.value) {
+        const branchOption = opts.find(o => String(o.value) === String(urlFilters.branch.value));
+        if (branchOption) {
+          urlFilters.branch = branchOption;
+        }
+      }
+      
+      // Only update filters if they're different (to avoid infinite loops)
+      // Check if any URL param differs from current filters
+      const hasUrlParams = urlFilters.productName || urlFilters.formDocNo || urlFilters.fromDate || 
+                          urlFilters.toDate || urlFilters.status || urlFilters.branch;
+      
+      if (hasUrlParams && (!filtersInitializedRef.current || 
+          filters.productName !== urlFilters.productName ||
+          filters.formDocNo !== urlFilters.formDocNo ||
+          filters.fromDate !== urlFilters.fromDate ||
+          filters.toDate !== urlFilters.toDate ||
+          JSON.stringify(filters.status) !== JSON.stringify(urlFilters.status) ||
+          filters.branch?.value !== urlFilters.branch?.value)) {
+        setFilters(urlFilters);
+        filtersInitializedRef.current = true;
+      } else if (filters.branch && filters.branch.value && !filters.branch.label) {
+        // Update branch label if it's missing (e.g., when branchOptions load after filters are set)
+        const branchOption = opts.find(o => String(o.value) === String(filters.branch.value));
+        if (branchOption) {
+          setFilters(prev => ({ ...prev, branch: branchOption }));
+        }
+      }
+    }
+  }, [branchList, initializeFiltersFromUrl, filters, currentUser]);
 
   useEffect(() => {
     try {
@@ -343,8 +493,9 @@ const Dashboard = () => {
       // 1. User has a branch ID
       // 2. No branch filter is currently set
       // 3. No branch is in URL params (to preserve filters when navigating back)
+      // 4. Filters have been initialized from URL
       const branchFromUrl = searchParams.get('branch');
-      if (storedUser?.from_branch_id && !filters.branch && !branchFromUrl) {
+      if (storedUser?.from_branch_id && !filters.branch && !branchFromUrl && filtersInitializedRef.current) {
         const defaultBranch = branchOptions.find(o => o.value === storedUser.from_branch_id);
         if (defaultBranch) {
           setFilters(prev => ({ ...prev, branch: defaultBranch }));
@@ -416,7 +567,7 @@ const Dashboard = () => {
   
   // Refresh when navigating back to dashboard (location pathname changes) - debounced
   useEffect(() => {
-    if (mutate && location.pathname === '/big-damage-issue' && !has429Error) {
+    if (mutate && location.pathname === '/big_damage_issue' && !has429Error) {
       // Debounce navigation refresh to prevent rapid requests
       const timeoutId = setTimeout(() => {
         mutate(undefined, { 

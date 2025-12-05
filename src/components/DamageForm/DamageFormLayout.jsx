@@ -9,6 +9,7 @@ import InvestigationFormModal from "./InvestigationModal";
 import ApprovalSection from "./ApprovalSection";
 import DamageAddProduct from "./DamageAddProduct";
 import ActionConfirmationModal from "./ActionConfirmationModal";
+import ValidationErrorModal from "./ValidationErrorModal";
 import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -286,7 +287,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     
     return {
       branch: "",
-      caseType: "Other income sell",
+      // Preserve caseType from initialData if it exists, otherwise default to "Not sell"
+      caseType: initialData?.caseType || initialData?.general_form?.caseType || initialData?.case_type || "Not sell",
       datetime: new Date().toISOString().slice(0, 16),
       items: [],
       reason: "",
@@ -295,19 +297,22 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       attachments: resolveInitialAttachments(initialData),
       issue_remarks: initialData?.issue_remarks || [],
       iss_remark: (() => {
-        // First check direct iss_remark field
+        // Priority 1: Direct iss_remark or iss_remark_type field from backend
         if (initialData?.iss_remark) return initialData.iss_remark;
+        if (initialData?.iss_remark_type) return initialData.iss_remark_type;
         if (initialData?.general_form?.iss_remark) return initialData.general_form.iss_remark;
+        if (initialData?.general_form?.iss_remark_type) return initialData.general_form.iss_remark_type;
         
-        // Check general_form_files - the reason field contains the remark ID
+        // Priority 2: Extract from general_form_files - the reason field contains the remark ID
         const allFiles = [
+          ...(Array.isArray(initialData?.general_form?.files) ? initialData.general_form.files : []),
+          ...(Array.isArray(initialData?.general_form?.general_form_files) ? initialData.general_form.general_form_files : []),
           ...(Array.isArray(initialData?.general_form_files) ? initialData.general_form_files : []),
-          ...(Array.isArray(initialData?.files) ? initialData.files : []),
-          ...(Array.isArray(initialData?.general_form?.files) ? initialData.general_form.files : [])
+          ...(Array.isArray(initialData?.files) ? initialData.files : [])
         ];
         
         // Find ISS_DOCUMENT files - prefer the one with ISS number (from issue stage) over the one from acknowledge stage
-        const issFiles = allFiles.filter(f => f.file === 'ISS_DOCUMENT' || f.file_type === 'ISS_DOCUMENT');
+        const issFiles = allFiles.filter(f => f && f.file === 'ISS_DOCUMENT');
         
         // Prefer the one with an ISS number (name field not empty) - this is from the issue stage
         // If multiple have names, get the most recent one (highest ID or latest created_at)
@@ -332,17 +337,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           return issFile.reason;
         }
         
-        // Fallback to other sources
-        return issFile?.value ?? 
-          issFile?.name ?? 
-          issFile?.description ??
-          issFile?.file ??
-          nestedIssFile?.value ??
-          nestedIssFile?.name ??
-          nestedIssFile?.description ??
-          nestedIssFile?.file ??
-          issNumber ??
-          null;
+        return null;
       })(),
       iss_numbers: Array.isArray(initialData?.iss_numbers)
         ? [...initialData.iss_numbers]
@@ -366,6 +361,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Use ref for synchronous duplicate submission prevention
+  const isSubmittingRef = useRef(false);
+  // Track submission ID to detect duplicate submissions
+  const submissionIdRef = useRef(null);
   
   // Track if form has been initialized to prevent overwriting user input
   const formInitializedRef = useRef(false);
@@ -826,6 +825,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ?? formData?.total_amount
         ?? formData?.general_form?.totalAmount
         ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
         ?? 0
       );
       const requiresOpManagerApproval = totalAmount > 500000;
@@ -870,12 +871,49 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       return matches;
     });
     
-    const result = Boolean(opApproval && currentUser);
-    return result;
+    // If we found an OP approval entry that matches, return true
+    // Also check if user role is op_manager (from role_id or role name)
+    const hasOpApprovalEntry = Boolean(opApproval);
+    const result = hasOpApprovalEntry && currentUser;
+    
+    // Debug logging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[isOpManagerByApproval] Check result:', {
+        hasOpApprovalEntry,
+        currentUser: Boolean(currentUser),
+        result,
+        formStatus: formData?.status,
+        totalAmount: Number(
+          formData?.general_form?.total_amount
+          ?? formData?.total_amount
+          ?? formData?.general_form?.totalAmount
+          ?? formData?.totalAmount
+          ?? 0
+        ),
+        approvalsCount: Array.isArray(formData?.approvals) ? formData.approvals.length : 0
+      });
+    }
+    
+    return Boolean(result);
   }, [currentUser, formData.approvals, formData.status, formData.general_form_id, formData.generalFormId, formData.id, initialData?.id, initialData?.generalFormId, initialData?.general_form_id]);
 
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
+  
+  // Debug logging for Operation Manager detection
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Operation Manager Detection]', {
+      userRole,
+      isOpManagerByApproval,
+      isOpManager,
+      currentUserId: currentUser?.id || currentUser?.admin_id || currentUser?.userId,
+      approvalsCount: Array.isArray(formData?.approvals) ? formData.approvals.length : 0,
+      opApprovals: Array.isArray(formData?.approvals) ? formData.approvals.filter(a => {
+        const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+        return userType === 'OP' || userType === 'A2';
+      }) : []
+    });
+  }
   
 
   // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
@@ -973,12 +1011,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'SupervisorIssued':
         return 'Completed'; // Supervisor step removed - map to Completed
       case 'BackToPrevious':
-<<<<<<< HEAD
         // Return the actual btp value from API (op_btp, bm_btp, bracc_btp) or default to BackToPrevious
-=======
-        // Map BackToPrevious to the actual btp value from API
-        // Laravel expects: 'op_btp', 'bm_btp', or 'bracc_btp'
->>>>>>> 76fac46 (before fix testing error)
         return apiActions?.btp || 'BackToPrevious';
       case 'Cancel':
         return 'Cancel';
@@ -1043,8 +1076,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       return true;
     }
     
+    // Show investigation button for all users at Ac_Acknowledged stage
+    if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+      return true;
+    }
+    
     // Supervisor can view investigation form at Ac_Acknowledged stage
-    if (userRole === 'supervisor' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'Approved')) {
+    if (userRole === 'supervisor' && (status === 'Approved')) {
       return true;
     }
     
@@ -1053,13 +1091,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // Always show button for BM/ABM in Checked status or beyond
     if (
       isBM &&
-      ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Ac_Acknowledged', 'Acknowledged'].includes(status)
+      ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status)
     ) {
       return true;
     }
 
-    // Account users can view investigation at Ac_Acknowledged, OPApproved, or BM Approved stages
-    if (userRole === 'account' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
+    // Account users can view investigation at OPApproved or BM Approved stages
+    if (userRole === 'account' && (status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
       return true;
     }
 
@@ -1166,6 +1204,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         initialData.big_damage_issue?.investigate;
       
       const hasInvestigationData = Boolean(investigationData);
+      
+      console.log('[DamageFormLayout] Initializing with investigation data:', {
+        hasInvestigationData,
+        investigationSource: investigationData ? (
+          initialData.investigation ? 'initialData.investigation' :
+          initialData.investigate ? 'initialData.investigate' :
+          initialData.general_form?.investigation ? 'initialData.general_form.investigation' :
+          initialData.general_form?.investigate ? 'initialData.general_form.investigate' :
+          'unknown'
+        ) : 'none',
+        investigationId: investigationData?.id,
+        investigationData: investigationData ? {
+          id: investigationData.id,
+          bdi_reason: investigationData.bdi_reason,
+          bm_reason: investigationData.bm_reason,
+          bm_company: investigationData.bm_company,
+          op_company: investigationData.op_company,
+          acc_company: investigationData.acc_company
+        } : null
+      });
       
       setHasInvestigation(hasInvestigationData);
       
@@ -1319,19 +1377,23 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           branch: mergedData?.branch || mergedData?.branch_name || prev.branch,
           items: itemsWithAccountCodes,
           attachments: newAttachments,
+          investigation: investigationData || mergedData?.investigation || prev.investigation || null, // Explicitly preserve investigation
           issue_remarks: issueRemarks,
           iss_remark: mergedData?.iss_remark ?? 
+            mergedData?.iss_remark_type ??
             mergedData?.general_form?.iss_remark ?? 
+            mergedData?.general_form?.iss_remark_type ??
             // Check general_form_files for ISS remark - remark ID is stored in reason field
             (() => {
               const allFiles = [
+                ...(Array.isArray(mergedData?.general_form?.files) ? mergedData.general_form.files : []),
+                ...(Array.isArray(mergedData?.general_form?.general_form_files) ? mergedData.general_form.general_form_files : []),
                 ...(Array.isArray(mergedData?.general_form_files) ? mergedData.general_form_files : []),
-                ...(Array.isArray(mergedData?.files) ? mergedData.files : []),
-                ...(Array.isArray(mergedData?.general_form?.files) ? mergedData.general_form.files : [])
+                ...(Array.isArray(mergedData?.files) ? mergedData.files : [])
               ];
               
               // Find ISS_DOCUMENT files - prefer the one with ISS number (from issue stage) over the one from acknowledge stage
-              const issFiles = allFiles.filter(f => f.file === 'ISS_DOCUMENT' || f.file_type === 'ISS_DOCUMENT');
+              const issFiles = allFiles.filter(f => f && f.file === 'ISS_DOCUMENT');
               
               // Prefer the one with an ISS number (name field not empty) - this is from the issue stage
               // If multiple have names, get the most recent one (highest ID or latest created_at)
@@ -1477,6 +1539,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     action: null,
     emptyFields: []
   });
+  const [validationErrorModal, setValidationErrorModal] = useState({
+    isOpen: false,
+    errors: []
+  });
 
   const handleOpenModal = () => setIsModalOpen(true);
   const handleCloseModal = () => setIsModalOpen(false);
@@ -1560,7 +1626,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     });
   }, []);
 
-  const handleSearchProduct = async (productCode, caseType = 'Other income sell', onSuccess) => {
+  const handleSearchProduct = async (productCode, caseType = 'Not sell', onSuccess) => {
     if (!productCode?.trim()) {
       return;
     }
@@ -1646,21 +1712,24 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         name: info.product_name || "",
         unit: info.unit || "",
         system_qty: Number(sysQty) || 0,
-        request_qty: 1, // Initialize with 1 instead of 0
-        actual_qty: 1, // Initialize with 1 instead of 0
-        final_qty: 1, // Initialize with 1 instead of 0
+        request_qty: 0, // Initialize with 0, user will enter the value
+        actual_qty: 0, // Initialize with 0, user will enter the value
+        final_qty: 0, // Initialize with 0, user will enter the value
         price,
-        amount: price * 1, // Calculate initial amount
+        amount: 0, // Calculate initial amount (will be calculated when qty is entered)
         remark: "",
         img: [],
       };
 
-      // Add the new item to the form
+      // Add the new item to the form and update caseType
       setFormData(prev => {
         const updatedItems = [...prev.items, newItem];
         return {
           ...prev,
-          items: updatedItems
+          items: updatedItems,
+          // Update form caseType based on the selected caseType when adding product
+          // If user selects "Other income sell", update the form's caseType
+          caseType: caseType || prev.caseType
         };
       });
 
@@ -1686,8 +1755,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ?? formData?.total_amount
         ?? formData?.general_form?.totalAmount
         ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
         ?? initialData?.general_form?.total_amount
         ?? initialData?.total_amount
+        ?? initialData?.general_form?.total
+        ?? initialData?.total
         ?? 0
       );
   const apiActions = initialData?.actions || {};
@@ -1749,14 +1822,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const deriveActions = () => {
     const act = { ...apiActions };
     
-<<<<<<< HEAD
-    // Map btp value from API to backToPrevious
-    if (apiActions.btp && ['op_btp', 'bm_btp', 'bracc_btp'].includes(apiActions.btp)) {
-=======
     // Map btp value to backToPrevious (matching Laravel logic)
     // Laravel returns btp values: 'op_btp', 'bm_btp', 'bracc_btp' when back to previous is available
     if (act.btp && (act.btp === 'op_btp' || act.btp === 'bm_btp' || act.btp === 'bracc_btp')) {
->>>>>>> 76fac46 (before fix testing error)
       act.backToPrevious = true;
     }
     
@@ -1770,6 +1838,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ?? formData?.total_amount
         ?? formData?.general_form?.totalAmount
         ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
         ?? 0
       );
       const requiresOpManagerApproval = totalAmount > 500000;
@@ -1822,7 +1892,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       // Extract pathname and search from the stored URL
       const urlParts = storedReturnUrl.split('?');
-      const pathname = urlParts[0] || '/big-damage-issue';
+      const pathname = urlParts[0] || '/big_damage_issue';
       const search = urlParts[1] ? `?${urlParts[1]}` : '';
       
       // Navigate with search params - React Router will handle this properly
@@ -1834,7 +1904,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const returnUrl = location.state?.returnUrl;
     if (returnUrl) {
       const urlParts = returnUrl.split('?');
-      const pathname = urlParts[0] || '/big-damage-issue';
+      const pathname = urlParts[0] || '/big_damage_issue';
       const search = urlParts[1] ? `?${urlParts[1]}` : '';
       navigate(pathname + search, { replace: false });
       return;
@@ -1843,12 +1913,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // Fallback: Check location state for return page
     const returnPage = location.state?.returnPage;
     if (returnPage && returnPage > 1) {
-      navigate(`/big-damage-issue?page=${returnPage}`, { replace: false });
+      navigate(`/big_damage_issue?page=${returnPage}`, { replace: false });
       return;
     }
     
     // Final fallback: Navigate to default list page
-    navigate('/big-damage-issue', { replace: false });
+    navigate('/big_damage_issue', { replace: false });
   };
 
   // Handle download PDF
@@ -2019,6 +2089,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // Show confirmation modal before submitting
   const handleSubmitClick = (action) => {
+    // Prevent duplicate submissions using ref for synchronous check
+    if (isSubmittingRef.current || isSubmitting) {
+      console.warn('Form submission already in progress, ignoring duplicate click');
+      return;
+    }
+    
     // Check if investigation is required for approval at Checked status
     const status = (formData.status || '').toString().trim();
     const normalizedStatus = status.replace(/\s+/g, ' ');
@@ -2037,63 +2113,95 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const emptyFields = [];
     
     if (!formData.branch || formData.branch.trim() === '') {
-      emptyFields.push('Branch');
+      emptyFields.push(t('messages.errors.validation.branch', { defaultValue: 'Branch' }));
     }
     
-    if (!formData.datetime || formData.datetime.trim() === '') {
-      emptyFields.push('Date/Time');
+    // Only validate datetime in non-add modes (datetime is auto-set in add mode)
+    if (mode !== 'add' && (!formData.datetime || formData.datetime.trim() === '')) {
+      emptyFields.push(t('messages.errors.validation.dateTime', { defaultValue: 'Date/Time' }));
     }
     
     if (!formData.requester_name || formData.requester_name.trim() === '') {
-      emptyFields.push('Requester Name');
+      emptyFields.push(t('messages.errors.validation.requesterName', { defaultValue: 'Requester Name' }));
     }
     
-    // Check product items for missing images and remarks
+    // In "add" mode, validate required fields: remark, product images, and attachments
+    const isAddMode = mode === 'add';
+    
+    // Check product items for missing images and remarks (only in "add" mode)
     const items = Array.isArray(formData.items) ? formData.items : [];
     let itemsWithoutImagesCount = 0;
     let itemsWithoutRemarksCount = 0;
     const itemsWithoutImages = [];
     const itemsWithoutRemarks = [];
     
-    items.forEach((item, index) => {
-      const productCode = (item?.product_code || item?.code || '').toString().trim();
-      if (!productCode) return; // Skip items without product code
+    if (isAddMode) {
+      items.forEach((item, index) => {
+        const productCode = (item?.product_code || item?.code || '').toString().trim();
+        if (!productCode) return; // Skip items without product code
+        
+        // Check if item has images
+        const itemImages = extractImageArray(item);
+        if (itemImages.length === 0) {
+          itemsWithoutImagesCount++;
+          const productName = `${t('common.product', { defaultValue: 'Product' })} ${index + 1} (${productCode})`;
+          itemsWithoutImages.push(productName);
+        }
+        
+        // Check if item has remark
+        const remark = (item?.remark || '').toString().trim();
+        if (!remark) {
+          itemsWithoutRemarksCount++;
+          const productName = `${t('common.product', { defaultValue: 'Product' })} ${index + 1} (${productCode})`;
+          itemsWithoutRemarks.push(productName);
+        }
+      });
       
-      // Check if item has images
-      const itemImages = extractImageArray(item);
-      if (itemImages.length === 0) {
-        itemsWithoutImagesCount++;
-        itemsWithoutImages.push(`Product ${index + 1} (${productCode})`);
+      if (itemsWithoutImagesCount > 0) {
+        if (itemsWithoutImagesCount === 1) {
+          const productName = itemsWithoutImages[0];
+          emptyFields.push(t('messages.errors.validation.productMissingImage', {
+            productName: productName,
+            defaultValue: `${t('messages.errors.validation.productImage', { defaultValue: 'Product Image' })}: ${productName}`
+          }));
+        } else {
+          emptyFields.push(t('messages.errors.validation.productsMissingImages', {
+            count: itemsWithoutImagesCount,
+            defaultValue: `${t('messages.errors.validation.productImages', { defaultValue: 'Product Images' })}: ${itemsWithoutImagesCount} products missing images`
+          }));
+        }
       }
       
-      // Check if item has remark
-      const remark = (item?.remark || '').toString().trim();
-      if (!remark) {
-        itemsWithoutRemarksCount++;
-        itemsWithoutRemarks.push(`Product ${index + 1} (${productCode})`);
-      }
-    });
-    
-    if (itemsWithoutImagesCount > 0) {
-      if (itemsWithoutImagesCount === 1) {
-        emptyFields.push(`Product Image: ${itemsWithoutImages[0]}`);
-      } else {
-        emptyFields.push(`Product Images: ${itemsWithoutImagesCount} products missing images`);
+      if (itemsWithoutRemarksCount > 0) {
+        if (itemsWithoutRemarksCount === 1) {
+          const productName = itemsWithoutRemarks[0];
+          emptyFields.push(t('messages.errors.validation.productMissingRemark', {
+            productName: productName,
+            defaultValue: `${t('messages.errors.validation.productRemark', { defaultValue: 'Product Remark' })}: ${productName}`
+          }));
+        } else {
+          emptyFields.push(t('messages.errors.validation.productsMissingRemarks', {
+            count: itemsWithoutRemarksCount,
+            defaultValue: `${t('messages.errors.validation.productRemarks', { defaultValue: 'Product Remarks' })}: ${itemsWithoutRemarksCount} products missing remarks`
+          }));
+        }
       }
     }
     
-    if (itemsWithoutRemarksCount > 0) {
-      if (itemsWithoutRemarksCount === 1) {
-        emptyFields.push(`Product Remark: ${itemsWithoutRemarks[0]}`);
-      } else {
-        emptyFields.push(`Product Remarks: ${itemsWithoutRemarksCount} products missing remarks`);
-      }
-    }
-    
-    // Check supporting info attachments
+    // Check supporting info attachments (only in "add" mode)
     const attachments = Array.isArray(formData.attachments) ? formData.attachments : [];
-    if (attachments.length === 0) {
-      emptyFields.push('Supporting Info Attachments');
+    if (isAddMode && attachments.length === 0) {
+      emptyFields.push(t('messages.errors.validation.supportingInfoAttachments', { defaultValue: 'Supporting Info Attachments' }));
+    }
+    
+    // In "add" mode, prevent submission if required fields are missing
+    if (isAddMode && emptyFields.length > 0) {
+      // Show validation error modal instead of toast
+      setValidationErrorModal({
+        isOpen: true,
+        errors: emptyFields
+      });
+      return; // Prevent submission
     }
     
     setConfirmationModal({ isOpen: true, action, emptyFields });
@@ -2101,6 +2209,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // Handle confirmation - proceed with actual submission
   const handleConfirmSubmit = async () => {
+    // Prevent duplicate submissions using ref for synchronous check
+    if (isSubmittingRef.current || isSubmitting) {
+      console.warn('Form submission already in progress, ignoring duplicate confirmation');
+      return;
+    }
+    
     const actionToSubmit = confirmationModal.action;
     setConfirmationModal({ isOpen: false, action: null, emptyFields: [] });
     if (actionToSubmit) {
@@ -2115,10 +2229,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   //Handle form submission (actual submission logic)
   const handleSubmit = async (action) => {
+    // Generate unique submission ID for tracking
+    const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Prevent duplicate submissions using ref for synchronous check
+    if (isSubmittingRef.current || isSubmitting) {
+      console.warn(`[DUPLICATE PREVENTION] Form submission already in progress (ID: ${submissionIdRef.current}), ignoring duplicate request (ID: ${currentSubmissionId})`);
+      return;
+    }
    
     try {
+      console.log(`[FORM SUBMISSION START] Submission ID: ${currentSubmissionId}, Action: ${action}`);
+      submissionIdRef.current = currentSubmissionId;
       setError('');
       setSuccessMessage('');
+      isSubmittingRef.current = true; // Set ref immediately (synchronous)
       setIsSubmitting(true);
       
       const token = localStorage.getItem('token');
@@ -2136,13 +2261,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const items = Array.isArray(formData.items) ? formData.items : [];
       if (!items.length) {
         toast.error(t('messages.addProductRequired'));
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
-
+      
       const hasValidProduct = items.some((item) => (item?.code || item?.product_code || '').toString().trim());
       if (!hasValidProduct) {
         toast.error(t('messages.productCodeRequired'));
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
@@ -2218,6 +2345,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Critical validation - items are still required (blocking error)
       if (validItems.length === 0) {
         toast.error(t('messages.addProductRequired'));
+        isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
       }
@@ -2234,8 +2362,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         const rawQty = item?.request_qty ?? item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
         const requestQty = safeNumber(rawQty);
         
-        // Ensure requestQty is at least 1 for valid items (since we filtered for qty > 0)
-        const finalRequestQty = requestQty > 0 ? requestQty : 1;
+        // Use the actual requestQty value, don't force it to be at least 1
+        const finalRequestQty = requestQty;
         
         const systemQty = safeNumber(item?.system_qty);
         const priceValue = Number(item?.price);
@@ -2530,6 +2658,55 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Account codes are already included in items[i][acc_code1] above
       // No need to send separate acc_code1[] array
       
+      // Include investigation form data when approving at Checked stage (BMApprovedMem) or Completed stage
+      // This allows the backend to update the investigation form when status changes
+      const investigation = formData?.investigation || 
+                           formData?.investigate || 
+                           formData?.general_form?.investigation || 
+                           formData?.general_form?.investigate || 
+                           null;
+      
+      // When action is Checked/BMApprovedMem, include BM investigation data (bm_reason, bm_company, bm_user, bm_income)
+      if (action === 'Checked' || action === 'BMApprovedMem' || action === 'checked' || action === 'bmapprovedmem') {
+        if (investigation) {
+          // Send BM reason if it exists
+          if (investigation.bm_reason !== null && investigation.bm_reason !== undefined && investigation.bm_reason.trim() !== '') {
+            formDataToSend.append('bm_reason', investigation.bm_reason);
+          }
+          
+          // Send BM percentages if they exist
+          if (investigation.bm_company !== null && investigation.bm_company !== undefined) {
+            formDataToSend.append('bm_company', investigation.bm_company);
+          }
+          if (investigation.bm_user !== null && investigation.bm_user !== undefined) {
+            formDataToSend.append('bm_user', investigation.bm_user);
+          }
+          if (investigation.bm_income !== null && investigation.bm_income !== undefined) {
+            formDataToSend.append('bm_income', investigation.bm_income);
+          }
+          
+          // Send BDI reason (category) if it exists
+          if (investigation.bdi_reason !== null && investigation.bdi_reason !== undefined && investigation.bdi_reason.trim() !== '') {
+            // Map reason to flag (thief, delivery, natural, discipline, accident, safety, other)
+            const reasonMap = {
+              'thief': 'thief',
+              'delivery': 'delivery',
+              'natural': 'natural',
+              'discipl': 'discipline', // Backend stores 'discipl' but we send 'discipline'
+              'discipline': 'discipline',
+              'accident': 'accident',
+              'safety': 'safety',
+              'other': 'other'
+            };
+            const reasonKey = investigation.bdi_reason.toLowerCase();
+            const flagKey = reasonMap[reasonKey];
+            if (flagKey) {
+              formDataToSend.append(flagKey, '1');
+            }
+          }
+        }
+      }
+      
       // When status is 'Completed', send approval fields for "Issued by" (ACK user_type)
       // The backend expects these fields to update the approval record
       // Note: actual_user_id is also appended later, but we need to ensure all fields are sent
@@ -2558,6 +2735,21 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
         if (approverBranch) {
           formDataToSend.append('actual_user_branch', approverBranch.trim());
+        }
+        
+        // Include investigation form data (account percentages) when acknowledging
+        // This allows the backend to update the investigation form when status changes to Completed
+        if (investigation) {
+          // Send account percentages if they exist
+          if (investigation.acc_company !== null && investigation.acc_company !== undefined) {
+            formDataToSend.append('acc_company', investigation.acc_company);
+          }
+          if (investigation.acc_user !== null && investigation.acc_user !== undefined) {
+            formDataToSend.append('acc_user', investigation.acc_user);
+          }
+          if (investigation.acc_income !== null && investigation.acc_income !== undefined) {
+            formDataToSend.append('acc_income', investigation.acc_income);
+          }
         }
       }
       
@@ -2935,8 +3127,22 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
       
       if (isExistingForm) formDataToSend.append('general_form_id', generalFormId);
+      
+      // Add unique submission ID to track duplicate submissions
+      const requestId = submissionIdRef.current || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      formDataToSend.append('_submission_id', requestId);
 
       try {
+        // Log before making API call to detect duplicate calls
+        console.log(`[API CALL] About to make API call - Submission ID: ${submissionIdRef.current}, Request ID: ${requestId}, Endpoint: ${endpoint}, Method: ${method}, Items count: ${normalizedItems.length}`);
+        console.log(`[API CALL] isSubmittingRef.current: ${isSubmittingRef.current}, isSubmitting state: ${isSubmitting}`);
+        
+        // CRITICAL: Double-check we're not already submitting right before API call
+        if (!isSubmittingRef.current) {
+          console.error(`[CRITICAL ERROR] isSubmittingRef was false right before API call! This should never happen.`);
+          isSubmittingRef.current = true; // Force set it
+        }
+        
         // Make the API call with detailed logging
         const response = await apiFetch(endpoint, {
           method: method,
@@ -3051,17 +3257,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
           // Extract ISS remark from response if available, otherwise preserve current value
           const responseIssRemark = response?.iss_remark ?? 
+                                   response?.iss_remark_type ??
                                    response?.general_form?.iss_remark ??
+                                   response?.general_form?.iss_remark_type ??
                                    (() => {
                                      // Check general_form_files in response for ISS remark
                                      const allFiles = [
+                                       ...(Array.isArray(response?.general_form?.files) ? response.general_form.files : []),
+                                       ...(Array.isArray(response?.general_form?.general_form_files) ? response.general_form.general_form_files : []),
                                        ...(Array.isArray(response?.general_form_files) ? response.general_form_files : []),
-                                       ...(Array.isArray(response?.files) ? response.files : []),
-                                       ...(Array.isArray(response?.general_form?.files) ? response.general_form.files : [])
+                                       ...(Array.isArray(response?.files) ? response.files : [])
                                      ];
                                      
                                      // Find ISS_DOCUMENT files - prefer the one with ISS number (from issue stage)
-                                     const issFiles = allFiles.filter(f => f.file === 'ISS_DOCUMENT' || f.file_type === 'ISS_DOCUMENT');
+                                     const issFiles = allFiles.filter(f => f && f.file === 'ISS_DOCUMENT');
                                      
                                      // Prefer the one with an ISS number (name field not empty) - this is from the issue stage
                                      let issFile = issFiles.find(f => f.name && f.name.trim() !== '' && f.name !== 'ISS_DOCUMENT');
@@ -3115,7 +3324,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             try {
               const token = localStorage.getItem("token");
               if (token) {
-                const filesResponse = await apiFetch('/api/big-damage-issues/get-image', {
+                const filesResponse = await apiFetch('/big-damage-issues/get-image', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -3217,14 +3426,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             
             // Extract pathname and search from the stored URL
             const urlParts = storedReturnUrl.split('?');
-            const pathname = urlParts[0] || '/big-damage-issue';
+            const pathname = urlParts[0] || '/big_damage_issue';
             const search = urlParts[1] ? `?${urlParts[1]}` : '';
             
             // Navigate with search params to preserve filters/pagination
             navigate(pathname + search, { replace: true });
           } else {
             // Fallback: Navigate to default Big Damage Issue list page
-            navigate('/big-damage-issue', { replace: true });
+            navigate('/big_damage_issue', { replace: true });
           }
         }, 1500);
 
@@ -3316,6 +3525,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       throw error;
     } finally {
+      console.log(`[FORM SUBMISSION END] Submission ID: ${submissionIdRef.current}, Resetting submission state`);
+      isSubmittingRef.current = false; // Reset ref
+      submissionIdRef.current = null; // Clear submission ID
       setIsSubmitting(false);
     }
 
@@ -3323,6 +3535,46 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // Determine which buttons to show based on user role and form status
   const showApproveButton = () => {
+    // Don't return early if status is missing - check if user has OP approval assignment first
+    // The form data might still be loading, but we can check approvals array
+    const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    
+    // Check if user has OP approval entry assigned to them (even if role_id is not 4 or 5)
+    const hasOpApprovalAssignment = approvals.some(approval => {
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      // Check if user_type is OP or A2 AND user ID matches
+      const userTypeMatches = (userType === 'OP' || userType === 'A2');
+      const userIdMatches = currentUserId && allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+      
+      if (userTypeMatches) {
+        console.log('[showApproveButton] Found OP/A2 approval entry:', {
+          userType,
+          adminId,
+          actualUserId,
+          userId,
+          allUserIds,
+          currentUserId,
+          userIdMatches
+        });
+      }
+      
+      return userTypeMatches && userIdMatches;
+    });
+    
+    // If user has OP approval assignment but no status yet, wait for form data to load
+    if (hasOpApprovalAssignment && !formData.status) {
+      console.log('[showApproveButton] User has OP approval assignment but form status not loaded yet - waiting');
+      return false;
+    }
+    
     if (!formData.status) {
       console.log('[showApproveButton] No status - returning false');
       return false;
@@ -3334,23 +3586,61 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
     
     // Get total amount to check if Operation Manager approval is required
-    const totalAmount = Number(
+    // Calculate from items first (like main totalAmount), then fallback to formData fields
+    const totalAmount = formData.items && formData.items.length > 0 
+      ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+      : Number(
       formData?.general_form?.total_amount
       ?? formData?.total_amount
       ?? formData?.general_form?.totalAmount
       ?? formData?.totalAmount
+          ?? formData?.general_form?.total
+          ?? formData?.total
+          ?? initialData?.general_form?.total_amount
+          ?? initialData?.total_amount
+          ?? initialData?.general_form?.total
+          ?? initialData?.total
       ?? 0
     );
     const requiresOpManagerApproval = totalAmount > 500000;
     
+    // CRITICAL: Check role_id directly for Operation Manager (role_id 4 or 5)
+    // This takes priority over role_name because a user might have role_name="BM" but role_id=4 (Operation Manager)
+    const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+    const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
+    
+    // Note: hasOpApprovalAssignment is already calculated at the top of this function
+    
+    // Final check: User is Operation Manager if:
+    // 1. role_id is 4 or 5, OR
+    // 2. role name is 'op_manager', OR
+    // 3. isOpManagerByApproval is true, OR
+    // 4. user has OP approval entry assigned to them
+    const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
+    
     console.log('[showApproveButton] Starting:', {
       role,
+      userRoleId,
+      isOpManagerByRoleId,
+      hasOpApprovalAssignment,
+      isOpManager,
+      isOpManagerByApproval,
+      isOpManagerFinal,
       status,
       normalizedStatus,
       totalAmount,
       requiresOpManagerApproval,
-      isAccount
+      isAccount,
+      currentUserId,
+      approvalsCount: approvals.length
     });
+    
+    // Debug: Log the OP approval assignment check result
+    if (hasOpApprovalAssignment) {
+      console.log('[showApproveButton] ✅ User has OP approval assignment - isOpManagerFinal should be true');
+    } else {
+      console.log('[showApproveButton] ❌ User does NOT have OP approval assignment');
+    }
     
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
     // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
@@ -3406,15 +3696,48 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       result = true;
     } else if (['branch_lp', 'checker', 'cs', 'loss prevention'].includes(role) && status === 'Ongoing') {
       result = true;
-    } else if ((isOpManager || role === 'op_manager') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked')) {
+    } else if (isOpManagerFinal && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked' || status === 'BM Approved' || status === 'BMApproved' || status === 'Checked')) {
       // Operation Manager should see approve button when:
       // 1. Form status is "BM Approved" or "Checked"
-      // 2. AND amount > 500000 (Operation Manager approval is required)
-      // This allows OP Manager to approve forms that exceed 500000
-      if (requiresOpManagerApproval) {
-        result = true; // Show approve button for OP Manager when amount > 500000 and status is BM Approved/Checked
+      // 2. AND (amount > 500000 OR user has OP approval assignment)
+      // If user is assigned as OP Manager in approval process, they should see the button
+      // even if amount isn't loaded yet (amount might be 0 during initial load)
+      console.log('[showApproveButton] ✅ Operation Manager check passed:', {
+        isOpManager,
+        isOpManagerByRoleId,
+        hasOpApprovalAssignment,
+        isOpManagerFinal,
+        role,
+        userRoleId,
+        status,
+        normalizedStatus,
+        requiresOpManagerApproval,
+        totalAmount,
+        statusMatches: normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked' || status === 'BM Approved' || status === 'BMApproved' || status === 'Checked'
+      });
+      // Show button if:
+      // 1. Amount > 500000 (requires OP Manager approval), OR
+      // 2. User has OP approval assignment (they're assigned to approve this form)
+      // The second condition handles cases where amount isn't loaded yet or user is assigned regardless of amount
+      if (requiresOpManagerApproval || hasOpApprovalAssignment) {
+        result = true; // Show approve button for OP Manager
+        console.log('[showApproveButton] ✅ Operation Manager - SHOWING BUTTON', {
+          reason: requiresOpManagerApproval ? 'amount > 500000' : 'user has OP approval assignment',
+          hasOpApprovalAssignment,
+          requiresOpManagerApproval,
+          totalAmount
+        });
       } else {
+        console.log('[showApproveButton] ❌ Operation Manager - amount <= 500000 and no OP assignment, not showing button');
       }
+    } else if (isOpManagerFinal) {
+      // Log why the button is not showing even though isOpManagerFinal is true
+      console.log('[showApproveButton] ⚠️ Operation Manager detected but status does not match:', {
+        isOpManagerFinal,
+        status,
+        normalizedStatus,
+        expectedStatuses: ['BM Approved', 'BMApproved', 'Checked']
+      });
     } else if ((role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
       // BM/ABM can also see approve button at BM Approved status (for re-approval or other actions)
       result = true;
@@ -3535,14 +3858,55 @@ const resolveApproveAction = () => {
   const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
   
   // Get total amount to check if Operation Manager approval is required
-  const totalAmount = Number(
+  // Calculate from items first (like main totalAmount), then fallback to formData fields
+  const totalAmount = formData.items && formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+    : Number(
     formData?.general_form?.total_amount
     ?? formData?.total_amount
     ?? formData?.general_form?.totalAmount
     ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
+        ?? initialData?.general_form?.total_amount
+        ?? initialData?.total_amount
+        ?? initialData?.general_form?.total
+        ?? initialData?.total
     ?? 0
   );
   const requiresOpManagerApproval = totalAmount > 500000;
+  
+  // Check if user is Operation Manager (same logic as showApproveButton)
+  const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+  const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+  
+  // Check if user has OP approval entry assigned to them
+  const hasOpApprovalAssignment = approvals.some(approval => {
+    const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+    const adminId = approval?.admin_id || approval?.raw?.admin_id;
+    const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+    const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+    const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+    
+    const userTypeMatches = (userType === 'OP' || userType === 'A2');
+    const userIdMatches = currentUserId && allUserIds.some(id => 
+      String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+    );
+    
+    return userTypeMatches && userIdMatches;
+  });
+  
+  // Check role_id directly for Operation Manager (role_id 4 or 5)
+  const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+  const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
+  
+  // Final check: User is Operation Manager if:
+  // 1. role_id is 4 or 5, OR
+  // 2. role name is 'op_manager', OR
+  // 3. isOpManager is true, OR
+  // 4. isOpManagerByApproval is true, OR
+  // 5. user has OP approval entry assigned to them
+  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
   
   console.log('[resolveApproveAction] Starting:', {
     role,
@@ -3551,7 +3915,10 @@ const resolveApproveAction = () => {
     totalAmount,
     requiresOpManagerApproval,
     isAccount,
-    actionsApprove: actions?.approve
+    actionsApprove: actions?.approve,
+    isOpManagerFinal,
+    hasOpApprovalAssignment,
+    userRoleId
   });
   
   // Resolve approve action
@@ -3662,16 +4029,20 @@ const resolveApproveAction = () => {
     
     // For non-account users, validate the action from backend
     if (!isAccount && actionRole !== 'account') {
-      // If backend returns OPApproved for op_manager, validate it's appropriate
-      if ((isOpManager || actionRole === 'op_manager') && 
-          (actions.approve === 'OPApproved' || actions.approve === 'opapproved' || actions.approve === 'Proceed')) {
-        // Validate that status and amount are correct for OP Manager approval
+      // If backend returns Ac_Acknowledged or OPApproved for op_manager, validate it's appropriate
+      // Use isOpManagerFinal (calculated above) which includes hasOpApprovalAssignment check
+      if (isOpManagerFinal && 
+          (actions.approve === 'Ac_Acknowledged' || actions.approve === 'ac_acknowledged' ||
+           actions.approve === 'OPApproved' || actions.approve === 'opapproved' || actions.approve === 'Proceed')) {
+        // Validate that status and amount are correct for OP Manager acknowledgment
         const normalizedActionStatus = (status || '').toString().trim().replace(/\s+/g, ' ');
         const isBMApprovedOrChecked = normalizedActionStatus === 'BM Approved' || 
                                       normalizedActionStatus === 'BMApproved' ||
                                       normalizedActionStatus === 'Checked';
         if (isBMApprovedOrChecked && requiresOpManagerApproval) {
-          return 'OPApproved';
+          // Operation Manager acknowledges - should return Ac_Acknowledged (not OPApproved)
+          // This matches Laravel blade behavior where acknowledge button sets status to Ac_Acknowledged
+          return 'Ac_Acknowledged';
         }
       }
       // For other actions or users, use backend action directly
@@ -3683,14 +4054,16 @@ const resolveApproveAction = () => {
     return 'BMApproved';
   }
 
-  // Check if user is op_manager (by role OR by approval user_type)
-  // Operation Manager should only approve if amount > 500000
-  const isOpManagerCheck = isOpManager || role === 'op_manager';
+  // Check if user is op_manager (by role OR by approval user_type OR by approval assignment)
+  // Operation Manager should only acknowledge if amount > 500000
+  // Use isOpManagerFinal (calculated above) which includes hasOpApprovalAssignment check
   const statusMatches = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked';
   
-  if (isOpManagerCheck && statusMatches) {
+  if (isOpManagerFinal && statusMatches) {
     if (requiresOpManagerApproval) {
-      return 'OPApproved';
+      // Operation Manager acknowledges - should return Ac_Acknowledged (not OPApproved)
+      // This matches Laravel blade behavior where acknowledge button sets status to Ac_Acknowledged
+      return 'Ac_Acknowledged';
     } else {
     }
   }
@@ -3882,6 +4255,7 @@ const resolveApproveAction = () => {
             userRoleOverride={userRole}
             statusOverride={formData.status}
             onDownloadPdf={handleDownloadPdf}
+            issueRemarks={formData.issue_remarks || []}
           />
         );
       })()}
@@ -4292,7 +4666,7 @@ const resolveApproveAction = () => {
                       {issNumbers.map((issNum, idx) => (
                         <span key={idx} className="font-mono text-blue-900">
                           {issNum}
-                          {idx < issNumbers.length - 1 && ','}
+                          {idx < issNumbers.length - 1 ? ',' : ''}
                         </span>
                       ))}
                     </span>
@@ -4329,7 +4703,8 @@ const resolveApproveAction = () => {
             </button>
             <button 
               onClick={() => handleSubmitClick('Submit')}
-              className="btn-with-icon inline-flex items-center justify-center gap-1 px-6 py-2.5 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700"
+              disabled={isSubmitting}
+              className="btn-with-icon inline-flex items-center justify-center gap-1 px-6 py-2.5 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ minWidth: '110px' }}
             >
               <span className="btn-text">Submit</span>
@@ -4350,7 +4725,7 @@ const resolveApproveAction = () => {
             )}
             
             {/* Reject Button - Visible based on role and status */}
-            {showRejectButton() && (
+            {Boolean(showRejectButton()) && (
               <button 
                 onClick={() => handleSubmitClick('Rejected')}
                 className="btn-with-icon btn-reject inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
@@ -4362,8 +4737,10 @@ const resolveApproveAction = () => {
             )}
             
             {/* Approve Button - Visible based on role and status */}
-        
-            {showApproveButton() && (() => {
+            {(() => {
+              if (!showApproveButton()) {
+                return null;
+              }
               console.log('[DamageFormLayout] showApproveButton returned true, resolving action...');
               const action = resolveApproveAction();
               console.log('[DamageFormLayout] Button render check:', {
@@ -4399,7 +4776,7 @@ const resolveApproveAction = () => {
             {/* Removed supervisor Issue button */}
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
-            {actions.backToPrevious && (
+            {Boolean(actions.backToPrevious) && (
               <button 
                 onClick={() => handleSubmitClick('BackToPrevious')}
                 className="group inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200" 
@@ -4410,19 +4787,11 @@ const resolveApproveAction = () => {
               </button>
             )}
             
-<<<<<<< HEAD
             {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
-            {actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
-              <button 
-                onClick={() => handleSubmitClick('Cancel')}
-                className="btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border bg-red-600 hover:bg-red-700 border-red-700" 
-=======
-            {/* Cancel Button - For certain roles to cancel the form */}
-            {actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+            {Boolean(actions.cancel) && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
                 className="btn-with-icon btn-cancel inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border border-red-600 bg-red-600 hover:bg-red-700" 
->>>>>>> 76fac46 (before fix testing error)
                 style={{ fontSize: '0.75rem', minWidth: '90px' }}
               >
                 <span className="btn-text">Cancel</span>
@@ -4432,7 +4801,7 @@ const resolveApproveAction = () => {
           </div>
         )}
       </div>
-      {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} />}
+      {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} totalAmount={totalAmount} />}
 
       {/* Action Confirmation Modal */}
       <ActionConfirmationModal
@@ -4441,6 +4810,13 @@ const resolveApproveAction = () => {
         emptyFields={confirmationModal.emptyFields || []}
         onConfirm={handleConfirmSubmit}
         onCancel={handleCancelSubmit}
+      />
+
+      {/* Validation Error Modal */}
+      <ValidationErrorModal
+        isOpen={validationErrorModal.isOpen}
+        errors={validationErrorModal.errors}
+        onClose={() => setValidationErrorModal({ isOpen: false, errors: [] })}
       />
     </div>
   );

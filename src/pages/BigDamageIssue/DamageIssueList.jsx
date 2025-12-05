@@ -1,9 +1,42 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { ChatBubbleLeftRightIcon,DocumentIcon } from '@heroicons/react/24/solid';
+import { ChatBubbleLeftRightIcon, DocumentIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/solid';
 import '../../components/DamageForm/ButtonHoverEffects.css';
+
+// Copy Button Component
+const CopyButton = ({ text, size = 'small' }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e) => {
+    e.stopPropagation(); // Prevent row click
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  const iconSize = size === 'small' ? 'h-4 w-4' : 'h-5 w-5';
+  const buttonSize = size === 'small' ? 'p-1.5' : 'p-2';
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`${buttonSize} ml-2 inline-flex items-center justify-center text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200`}
+      title={copied ? 'Copied!' : 'Copy document number'}
+    >
+      {copied ? (
+        <CheckIcon className={`${iconSize} text-green-600`} />
+      ) : (
+        <ClipboardDocumentIcon className={iconSize} />
+      )}
+    </button>
+  );
+};
 
 const StatusBadge = ({ status }) => {
   let colorClasses = '';
@@ -196,8 +229,28 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     });
   };
 
-  // Ensure data is an array
-  const issues = Array.isArray(data) ? data : [];
+  // Ensure data is an array and remove duplicates
+  const rawIssues = Array.isArray(data) ? data : [];
+  
+  // Remove duplicates based on form ID (prevent display errors)
+  const seenFormIds = new Set();
+  const issues = rawIssues.filter((row) => {
+    const formId = row?.general_form?.id || row?.id;
+    if (!formId) return true; // Keep rows without ID
+    
+    if (seenFormIds.has(formId)) {
+      console.warn('[DamageIssueList] Duplicate form detected and removed:', {
+        formId,
+        form_doc_no: row?.general_form?.form_doc_no,
+        row_id: row?.id
+      });
+      return false; // Remove duplicate
+    }
+    
+    seenFormIds.add(formId);
+    return true; // Keep unique form
+  });
+  
   const hasRecords = issues.length > 0;
   const isEmpty = !loading && !hasRecords;
 
@@ -277,7 +330,16 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       ? toBranchInfo
                       : fromBranchInfo;
                     const branchName = resolveBranchName(gf, branchInfo);
-                    const isOtherIncomeSell = Boolean(row.acc_code) || (gf.status === 'Completed' && Boolean(row.acc_code));
+                    // Determine sell status dynamically:
+                    // "Other Income Sell" = item has acc_code (account code is set when form is completed with "Other income sell")
+                    // "Not Sell" = item has no acc_code (default)
+                    // Note: acc_code is only set when form is completed, so forms in progress will show "Not Sell" until completed
+                    const hasAccCode = Boolean(row.acc_code || row.acc_code1);
+                    // Also check general_form.caseType if available (though it's not typically in API response)
+                    const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell';
+                    // Check if items array has any item with acc_code (if items are loaded)
+                    const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
+                    const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
                     const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
                     return (
                       
@@ -299,7 +361,12 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           <StatusBadge status={gf.status || '-'} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          {gf.form_doc_no || '-'}
+                          <div className="flex items-center">
+                            <span>{gf.form_doc_no || '-'}</span>
+                            {gf.form_doc_no && (
+                              <CopyButton text={gf.form_doc_no} size="small" />
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span
@@ -363,7 +430,15 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
             const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
             const branchName = resolveBranchName(gf, branchInfo);
-            const isOtherIncomeSell = Boolean(row.acc_code) || (gf.status === 'Completed' && Boolean(row.acc_code));
+            // Check multiple sources to determine if it's "Other Income Sell":
+            // 1. Check if this item has acc_code (item-level)
+            // 2. Check if general_form has caseType set to "Other income sell"
+            // 3. Check if general_form has case_type set to "Other income sell"
+            // 4. Check if any items in the form have acc_code (if items array is available)
+            const hasAccCode = Boolean(row.acc_code || row.acc_code1);
+            const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell';
+            const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
+            const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
             const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
 
             return (
@@ -388,9 +463,14 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     ) : null}
                     <div className="min-w-0 flex-1">
                       <span className="hidden md:inline text-xs font-semibold text-gray-400">#{displayNo}</span>
-                      <p className="mt-1 text-base font-semibold text-gray-900 truncate">
-                        {gf.form_doc_no || 'Untitled'}
-                      </p>
+                      <div className="mt-1 flex items-center">
+                        <p className="text-base font-semibold text-gray-900 truncate">
+                          {gf.form_doc_no || 'Untitled'}
+                        </p>
+                        {gf.form_doc_no && (
+                          <CopyButton text={gf.form_doc_no} size="small" />
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex-shrink-0">

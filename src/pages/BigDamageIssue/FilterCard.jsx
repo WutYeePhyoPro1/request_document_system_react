@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
+import { MagnifyingGlassIcon } from '@heroicons/react/24/solid';
 
 export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions }) {
   // Styles and Constants
@@ -20,14 +21,65 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     { value: 'Cancel', label: 'Cancel' },
   ];
 
+  // Local state to store filter values before applying
+  const [localFilters, setLocalFilters] = useState({
+    productName: "",
+    formDocNo: "",
+    fromDate: "",
+    toDate: "",
+    status: null,
+    branch: null,
+  });
+
   const [branchOptions, setBranchOptions] = useState([
     { value: '', label: 'All Branch' },
   ]);
 
+  // Function to filter branches based on user's branch
+  const filterBranchesByUser = (allBranchOptions) => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userBranchId = storedUser?.from_branch_id;
+
+      if (!userBranchId) {
+        // If user has no branch assigned, show only "All Branch" option
+        setBranchOptions([{ value: '', label: 'All Branch' }]);
+        return;
+      }
+
+      // Filter to only show user's branch and "All Branch" option
+      const filteredOptions = allBranchOptions.filter(option => {
+        // Keep "All Branch" option
+        if (!option.value || option.value === '') return true;
+        // Keep only the user's branch
+        return Number(option.value) === Number(userBranchId);
+      });
+
+      setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [{ value: '', label: 'All Branch' }]);
+    } catch (e) {
+      console.error('Error filtering branches by user:', e);
+      // On error, show only "All Branch" as fallback
+      setBranchOptions([{ value: '', label: 'All Branch' }]);
+    }
+  };
+
+  // Sync local filters with props when filters are cleared from parent
+  useEffect(() => {
+    setLocalFilters({
+      productName: filters.productName || "",
+      formDocNo: filters.formDocNo || "",
+      fromDate: filters.fromDate || "",
+      toDate: filters.toDate || "",
+      status: filters.status || null,
+      branch: filters.branch || null,
+    });
+  }, [filters]);
+
   useEffect(() => {
     // If parent passes branch options (even initially), use them and skip fetching
     if (externalBranchOptions) {
-      setBranchOptions(externalBranchOptions);
+      // Filter branches based on user's branch
+      filterBranchesByUser(externalBranchOptions);
       return;
     }
 
@@ -51,8 +103,9 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               ? data.data.data
               : [];
         const mapped = list.map(b => ({ value: b.id, label: b.branch_name }));
-        const options = [{ value: '', label: 'All Branch' }, ...mapped];
-        setBranchOptions(options);
+        const allOptions = [{ value: '', label: 'All Branch' }, ...mapped];
+        // Filter branches based on user's branch
+        filterBranchesByUser(allOptions);
       } catch (e) {
         // keep default All Branch only on failure
         setBranchOptions([{ value: '', label: 'All Branch' }]);
@@ -63,21 +116,39 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    onFilter({ ...filters, [name]: value });
+    // Only update local state, don't apply filters
+    setLocalFilters({ ...localFilters, [name]: value });
   };
 
   const handleSelectChange = (selected, action) => {
     const { name } = action;
+    // Only update local state, don't apply filters
     // For multi-select (status), selected is an array or null
     // For single select (branch), selected is an object or null
-    onFilter({ ...filters, [name]: selected });
+    setLocalFilters({ ...localFilters, [name]: selected });
+  };
+
+  const handleSearch = () => {
+    // Apply filters when search button is clicked
+    onFilter(localFilters);
   };
 
   const clearFilters = () => {
+    // Reset local filters
+    const emptyFilters = {
+      productName: "",
+      formDocNo: "",
+      fromDate: "",
+      toDate: "",
+      status: null,
+      branch: null,
+    };
+    setLocalFilters(emptyFilters);
+    // Clear filters in parent
     onClear?.();
   };
 
-  const isAnyFilterApplied = Object.entries(filters).some(([key, val]) => {
+  const isAnyFilterApplied = Object.entries(localFilters).some(([key, val]) => {
     if (key === 'status') {
       // For status (multi-select), check if it's an array with items
       return Array.isArray(val) && val.length > 0;
@@ -201,9 +272,14 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     }),
   };
 
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    handleSearch();
+  };
+
   return (
     <div className="bg-white shadow-lg rounded-xl p-4 sm:p-6 mx-auto">
-      <form className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 sm:gap-x-6 gap-y-4 items-end">
+      <form onSubmit={handleFormSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 sm:gap-x-6 gap-y-4 items-end">
 
         {/* Product Name / Code */}
         <div>
@@ -213,7 +289,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           <input
             type="text"
             name="productName"
-            value={filters.productName}
+            value={localFilters.productName || ""}
             onChange={handleChange}
             placeholder="Enter product name or code"
             className={CONTROL_CLASSES}
@@ -229,7 +305,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           <input
             type="text"
             name="formDocNo"
-            value={filters.formDocNo}
+            value={localFilters.formDocNo || ""}
             onChange={handleChange}
             placeholder="Document number"
             className={CONTROL_CLASSES}
@@ -245,7 +321,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           <input
             type="date"
             name="fromDate"
-            value={filters.fromDate}
+            value={localFilters.fromDate || ""}
             onChange={handleChange}
             className={CONTROL_CLASSES}
             style={INPUT_TEXT_SIZE}
@@ -260,7 +336,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           <input
             type="date"
             name="toDate"
-            value={filters.toDate}
+            value={localFilters.toDate || ""}
             onChange={handleChange}
             className={CONTROL_CLASSES}
             style={INPUT_TEXT_SIZE}
@@ -275,7 +351,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           <Select
             name="status"
             isMulti
-            value={filters.status || null}
+            value={localFilters.status || null}
             onChange={handleSelectChange}
             options={statusOptions}
             placeholder="Select Status"
@@ -291,7 +367,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           </label>
           <Select
             name="branch"
-            value={filters.branch}
+            value={localFilters.branch || null}
             onChange={handleSelectChange}
             options={branchOptions}
             placeholder="Select Branch"
@@ -300,19 +376,28 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           />
         </div>
 
-        {/* Clear Filters Button */}
-        {isAnyFilterApplied && (
-          <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end pt-2">
+        {/* Action Buttons */}
+        <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            onClick={handleSearch}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-xs font-medium transition duration-150 ease-in-out shadow-sm hover:shadow-md"
+            style={INPUT_TEXT_SIZE}
+          >
+            <MagnifyingGlassIcon className="h-4 w-4" />
+            Search
+          </button>
+          {isAnyFilterApplied && (
             <button
               type="button"
               onClick={clearFilters}
-              className="px-4 py-1 bg-red-500 text-white rounded-md hover:bg-red-700 text-xs transition duration-150 ease-in-out"
+              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-700 text-xs font-medium transition duration-150 ease-in-out shadow-sm hover:shadow-md"
               style={INPUT_TEXT_SIZE}
             >
               Clear Filters
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </form>
     </div>
   );

@@ -69,7 +69,7 @@ export default function DamageDetail() {
         
         // Redirect to dashboard if there's an error
         setTimeout(() => {
-          navigate('/big-damage-issue');
+          navigate('/big_damage_issue');
         }, 3000);
       } finally {
         setLoading(false);

@@ -24,7 +24,8 @@
     "yes": "Yes",
     "no": "No",
     "required": "Required",
-    "optional": "Optional"
+    "optional": "Optional",
+    "product": "Product"
   },
   "investigation": {
     "title": "Investigation Form",
@@ -125,6 +126,23 @@
       "forbidden": "You do not have permission to perform this action.",
       "notFound": "The requested resource was not found. Please check if the form exists.",
       "validationError": "Validation error. Please check your input and try again.",
+      "validation": {
+        "title": "Validation Error",
+        "pleaseFillRequired": "Please fill in all required fields:",
+        "branch": "Branch",
+        "dateTime": "Date/Time",
+        "requesterName": "Requester Name",
+        "remark": "Remark",
+        "productImage": "Product Image",
+        "productImages": "Product Images",
+        "productRemark": "Product Remark",
+        "productRemarks": "Product Remarks",
+        "supportingInfoAttachments": "Supporting Info Attachments",
+        "productMissingImage": "{{productName}}: Missing image",
+        "productMissingRemark": "{{productName}}: Missing remark",
+        "productsMissingImages": "{{count}} products missing images",
+        "productsMissingRemarks": "{{count}} products missing remarks"
+      },
       "serverError": "Server error occurred. Please try again later or contact support.",
       "networkError": "Network connection failed. Please check your internet connection and try again.",
       "timeout": "Request timed out. Please try again.",
@@ -151,7 +169,11 @@
       "approvalFailed": "Approval process failed. Please try again.",
       "permissionDenied": "You do not have permission to perform this action.",
       "formLocked": "Form is locked and cannot be modified at this time.",
-      "concurrentEdit": "Form has been modified by another user. Please refresh and try again."
+      "concurrentEdit": "Form has been modified by another user. Please refresh and try again.",
+      "systemQtyZero": "System Quantity is 0. You cannot enter a quantity greater than 0.",
+      "requestQtyExceedsSystem": "{{productName}}: Request Quantity ({{qty}}) cannot be greater than System Quantity ({{systemQty}}).",
+      "finalQtyExceedsSystem": "{{productName}}: Final Quantity ({{qty}}) cannot be greater than System Quantity ({{systemQty}}).",
+      "actualQtyExceedsSystem": "{{productName}}: Actual Quantity ({{qty}}) cannot be greater than System Quantity ({{systemQty}})."
     }
   },
   "confirmation": {
@@ -199,11 +221,7 @@
     "userGuide": "User Guide"
   },
   "damageFormHeader": {
-<<<<<<< HEAD
     "bigDamageIssueForm": "Big Damage Form",
-=======
-    "bigDamageIssueForm": "Big Damage Issue Form",
->>>>>>> 76fac46 (before fix testing error)
     "otherIncomeSell": "Other Income Sell"
   },
   "supportingInfo": {
