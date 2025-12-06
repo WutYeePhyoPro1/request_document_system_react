@@ -843,7 +843,15 @@ export default function DamageView() {
       const generalFormId = viewData?.record?.general_form?.id 
         || viewData?.record?.general_form_id 
         || location?.state?.generalFormId;
-      if (!generalFormId) return;
+      if (!generalFormId) {
+        return;
+      }
+
+      // Get actual form_id from the record (should be 8 for Big Damage Issue)
+      const actualFormId = viewData?.record?.general_form?.form_id 
+        || viewData?.record?.form_id 
+        || 8; // Default to 8 for Big Damage Issue
+
 
       // Mark that we've attempted to mark notifications to prevent duplicate calls
       hasMarkedNotificationRef.current = true;
@@ -863,6 +871,10 @@ export default function DamageView() {
           })
         });
 
+        // Get form_doc_no for fallback matching
+        const formDocNo = viewData?.record?.general_form?.form_doc_no 
+          || viewData?.record?.form_doc_no;
+
         // Mark notifications as read
         const response = await fetch('/api/notifications/mark-as-read', {
           method: 'POST',
@@ -873,20 +885,28 @@ export default function DamageView() {
           },
           credentials: 'include',
           body: JSON.stringify({
-            form_id: 8, // Big Damage Issue form_id
+            form_id: actualFormId, // Use actual form_id from record
             general_form_id: generalFormId,
-            specific_form_id: generalFormId
+            specific_form_id: generalFormId,
+            form_doc_no: formDocNo // Include for fallback matching
           })
         });
 
-        if (response.ok && viewResponse.ok) {
-          // Set flag to trigger list refresh when user returns to dashboard
-          sessionStorage.setItem('bigDamageFormViewed', 'true');
-          
-          const result = await response.json();
-          // Refresh notifications by fetching them again
-          const user = JSON.parse(localStorage.getItem('user') || '{}');
-          if (user?.id) {
+        // Check mark-as-read response
+        if (!response.ok) {
+          await response.json().catch(() => ({}));
+          return;
+        }
+
+        await response.json();
+
+        // Set flag to trigger list refresh when user returns to dashboard
+        sessionStorage.setItem('bigDamageFormViewed', 'true');
+        
+        // Immediately refresh notifications to update the UI
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user?.id) {
+          try {
             const notiResponse = await fetch(`/api/notifications/${user.id}`, {
               headers: {
                 'Authorization': `Bearer ${token}`,
@@ -895,21 +915,41 @@ export default function DamageView() {
               credentials: 'include'
             });
             
-            if (notiResponse.ok) {
-              const notiData = await notiResponse.json();
-              if (Array.isArray(notiData)) {
-                const parsed = notiData.map(n => ({
-                  form_id: n.data?.form_id,
-                  specific_form_id: n.data?.specific_form_id,
-                  form_doc_no: n.data?.form_doc_no,
-                  created_at: n.created_at,
-                  form_name: n.form_name || 'Unknown Form',
-                  status: n.status || 'pending',
-                }));
-                setNotifications(parsed);
-                localStorage.setItem("notifications", JSON.stringify(parsed));
+              if (notiResponse.ok) {
+                const notiData = await notiResponse.json();
+                if (Array.isArray(notiData)) {
+                  const parsed = notiData.map(n => ({
+                    form_id: n.data?.form_id,
+                    specific_form_id: n.data?.specific_form_id,
+                    form_doc_no: n.data?.form_doc_no,
+                    created_at: n.created_at,
+                    form_name: n.form_name || 'Unknown Form',
+                    status: n.status || 'pending',
+                    is_viewed: n.is_viewed !== undefined ? n.is_viewed : (n.data?.is_viewed !== undefined ? n.data.is_viewed : null),
+                  }));
+                  
+                  // Filter to only show unread notifications (is_viewed is false, null, or undefined)
+                  const unreadNotifications = parsed.filter(n => 
+                    n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined
+                  );
+                  
+                  // Update both context and localStorage
+                  setNotifications(unreadNotifications);
+                  localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
+                  
+                  // Trigger a custom event to notify Navbar and Dashboard to refresh immediately
+                  window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+                    detail: { forceRefresh: true, generalFormId: generalFormId } 
+                  }));
+                  
+                  // Also trigger a specific event for list refresh
+                  window.dispatchEvent(new CustomEvent('formViewed', { 
+                    detail: { generalFormId: generalFormId } 
+                  }));
+                }
               }
-            }
+          } catch (refreshError) {
+            // Error refreshing notifications
           }
         }
       } catch (error) {

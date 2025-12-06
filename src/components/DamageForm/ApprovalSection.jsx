@@ -123,7 +123,19 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   };
 
   const resolveRole = (approval, fallbackLabel) => {
-    if (!approval) return null;
+    if (!approval) {
+      // For "Prepared by", try to get role from formData
+      const label = (fallbackLabel || '').toLowerCase();
+      if (label.includes('prepared')) {
+        return formData?.originator?.title ||
+               formData?.user?.title ||
+               formData?.created_by?.title ||
+               formData?.general_form?.originators?.title ||
+               formData?.general_form?.user?.title ||
+               'Creator';
+      }
+      return null;
+    }
 
     if (approval.role) return approval.role;
     if (approval.user_role) return approval.user_role;
@@ -137,7 +149,14 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     }
 
     const label = (fallbackLabel || '').toLowerCase();
-    if (label.includes('prepared')) return 'Creator';
+    if (label.includes('prepared')) {
+      return formData?.originator?.title ||
+             formData?.user?.title ||
+             formData?.created_by?.title ||
+             formData?.general_form?.originators?.title ||
+             formData?.general_form?.user?.title ||
+             'Creator';
+    }
     if (label.includes('checked')) return 'Branch LP';
     if (label.includes('approved')) return 'BM/ABM';
     if (label.includes('issued')) return 'Branch Account';
@@ -452,6 +471,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           matchingApproval?.raw?.updated_at ||
           '';
         
+        // For "Prepared by", get the created_at date
+        if (!resolvedDate && label === 'Prepared by') {
+          resolvedDate = formData?.created_at || 
+            formData?.general_form?.created_at || 
+            matchingApproval?.created_at ||
+            matchingApproval?.raw?.created_at ||
+            '';
+        }
+        
         // For "Issued by" when status is Completed, check formData
         if (!resolvedDate && label === 'Issued by' && (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued')) {
           resolvedDate = formData?.issued_at || formData?.general_form?.issued_at || formData?.general_form?.updated_at || '';
@@ -468,7 +496,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
             '';
         }
       } else if (isPreparedBy) {
-        resolvedDate = new Date().toISOString();
+        resolvedDate = formData?.created_at || formData?.general_form?.created_at || new Date().toISOString();
       }
 
       const currentStageLabel = CURRENT_STEP_STATUS[key];
@@ -510,6 +538,19 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
       // Resolve title and department from approval data
       const resolveTitle = () => {
+        // For "Prepared by", try to get title from formData first
+        if (label === 'Prepared by') {
+          return formData?.originator?.title ||
+                 formData?.user?.title ||
+                 formData?.created_by?.title ||
+                 formData?.general_form?.originators?.title ||
+                 formData?.general_form?.user?.title ||
+                 matchingApproval?.raw?.approval_users?.title ||
+                 matchingApproval?.raw?.user?.title ||
+                 matchingApproval?.approval_users?.title ||
+                 matchingApproval?.user?.title ||
+                 '';
+        }
         return matchingApproval?.raw?.approval_users?.title ||
                matchingApproval?.raw?.acknowledges?.title ||
                matchingApproval?.raw?.user?.title ||
@@ -520,6 +561,19 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       };
 
       const resolveDepartment = () => {
+        // For "Prepared by", try to get department from formData first
+        if (label === 'Prepared by') {
+          return formData?.originator?.departments?.name ||
+                 formData?.user?.departments?.name ||
+                 formData?.created_by?.departments?.name ||
+                 formData?.general_form?.originators?.departments?.name ||
+                 formData?.general_form?.user?.departments?.name ||
+                 matchingApproval?.raw?.approval_users?.departments?.name ||
+                 matchingApproval?.raw?.user?.departments?.name ||
+                 matchingApproval?.approval_users?.departments?.name ||
+                 matchingApproval?.user?.departments?.name ||
+                 '';
+        }
         return matchingApproval?.raw?.approval_users?.departments?.name ||
                matchingApproval?.raw?.acknowledges?.departments?.name ||
                matchingApproval?.raw?.user?.departments?.name ||

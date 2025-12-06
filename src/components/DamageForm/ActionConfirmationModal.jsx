@@ -105,13 +105,6 @@ export default function ActionConfirmationModal({
           focus: 'focus:ring-yellow-500',
           customClass: null
         };
-      case 'Cancel':
-        return {
-          bg: 'bg-red-600',
-          hover: 'hover:bg-red-700',
-          focus: 'focus:ring-red-500',
-          customClass: null
-        };
       default:
         // Default orange for Submit (matches Ongoing status)
         return {
@@ -174,8 +167,6 @@ export default function ActionConfirmationModal({
         return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-600' };
       case 'BackToPrevious':
         return { bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-600' };
-      case 'Cancel':
-        return { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-600' };
       default:
         return { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' };
     }

@@ -28,12 +28,10 @@ export default function Navbar({ toggleSidebar }) {
         }
 
         const registration = await navigator.serviceWorker.register('/sw.js');
-        // console.log(registration);e
 
         // Request Notification Permission
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') {
-            // console.error('Notification permission denied');
             return;
         }
 
@@ -96,10 +94,16 @@ export default function Navbar({ toggleSidebar }) {
                     created_at: n.created_at,
                     form_name: n.form_name || 'Unknown Form',
                     status: n.status || 'pending',
+                    is_viewed: n.is_viewed !== undefined ? n.is_viewed : (n.data?.is_viewed !== undefined ? n.data.is_viewed : null),
                 }));
 
-                setNotifications(parsed);
-                localStorage.setItem("notifications", JSON.stringify(parsed));
+                // Filter to only show unread notifications (is_viewed is false, null, or undefined)
+                const unreadNotifications = parsed.filter(n => 
+                    n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined
+                );
+
+                setNotifications(unreadNotifications);
+                localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
             } catch (err) {
                 // Don't throw to prevent uncaught promise rejection
             }
@@ -107,8 +111,32 @@ export default function Navbar({ toggleSidebar }) {
 
         fetchNotifications();
         subscribeToPush();
+        
+        // Listen for custom event to refresh notifications immediately
+        const handleNotificationsUpdated = (event) => {
+            // Force immediate refresh when notifications are updated
+            fetchNotifications();
+        };
+        window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
+        
+        // Also listen for storage events in case notifications are updated in another tab
+        const handleStorageChange = (e) => {
+            if (e.key === 'notifications') {
+                try {
+                    const updatedNotifications = JSON.parse(e.newValue || '[]');
+                    setNotifications(updatedNotifications);
+                } catch (err) {
+                }
+            }
+        };
+        window.addEventListener('storage', handleStorageChange);
+        
         const interval = setInterval(fetchNotifications, 10000);
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
+            window.removeEventListener('storage', handleStorageChange);
+        };
     }, [userRoleId, token, setNotifications]);
 
     const handleLogout = () => {

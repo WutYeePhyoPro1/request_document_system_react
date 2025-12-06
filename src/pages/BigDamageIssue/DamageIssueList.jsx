@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { ChatBubbleLeftRightIcon, DocumentIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/solid';
+import { SparklesIcon, DocumentIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/solid';
 import '../../components/DamageForm/ButtonHoverEffects.css';
 
 // Copy Button Component
@@ -132,7 +132,7 @@ const EmptyState = () => {
           animation: rotate 20s linear infinite;
         }
       `}</style>
-      
+  
       {/* Animated Document Icon */}
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center justify-center">
@@ -239,11 +239,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     if (!formId) return true; // Keep rows without ID
     
     if (seenFormIds.has(formId)) {
-      console.warn('[DamageIssueList] Duplicate form detected and removed:', {
-        formId,
-        form_doc_no: row?.general_form?.form_doc_no,
-        row_id: row?.id
-      });
       return false; // Remove duplicate
     }
     
@@ -351,10 +346,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 w-12">
                           {displayNo}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap w-8">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
                            !['Completed', 'Issued', 'Ac_Acknowledged', 'Acknowledged', 'SupervisorIssued'].includes(gf.status) ? (
-                            <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500" title="Unviewed form" />
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
+                              <SparklesIcon className="h-3 w-3" />
+                              <span>New</span>
+                            </span>
                           ) : null}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -459,7 +457,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
                      !['Completed', 'Issued', 'Ac_Acknowledged', 'Acknowledged', 'SupervisorIssued'].includes(gf.status) ? (
-                      <ChatBubbleLeftRightIcon className="h-5 w-5 text-blue-500 flex-shrink-0" title="Unviewed form" />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">
+                        <SparklesIcon className="h-3 w-3" />
+                        <span>New</span>
+                      </span>
                     ) : null}
                     <div className="min-w-0 flex-1">
                       <span className="hidden md:inline text-xs font-semibold text-gray-400">#{displayNo}</span>

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import DamageFormLayout from "../../components/DamageForm/DamageFormLayout";
 import { toast } from 'react-toastify';
+import { XCircle } from 'lucide-react';
 
 export default function DamageDetail() {
   const { id } = useParams();

@@ -10,6 +10,7 @@ import ApprovalSection from "./ApprovalSection";
 import DamageAddProduct from "./DamageAddProduct";
 import ActionConfirmationModal from "./ActionConfirmationModal";
 import ValidationErrorModal from "./ValidationErrorModal";
+import AnimatedBackButton from "../common/AnimatedBackButton";
 import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -1037,31 +1038,70 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // eslint-disable-next-line no-console
   }
   
+  // Resolve investigation data from multiple possible sources
+  const investigationData = useMemo(() => {
+    return formData?.investigation || 
+           formData?.investigate || 
+           formData?.general_form?.investigation || 
+           formData?.general_form?.investigate || 
+           null;
+  }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate]);
+
+  // Normalize percentage values for validation
+  const normalizeInvestigationPct = useCallback((value) => {
+    if (value === null || typeof value === 'undefined' || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, []);
+
+  const baseInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.bm_company ?? investigationData.companyPct),
+      normalizeInvestigationPct(investigationData.bm_user ?? investigationData.userPct),
+      normalizeInvestigationPct(investigationData.bm_income ?? investigationData.incomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
+  const accountInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.acc_company ?? investigationData.accCompanyPct),
+      normalizeInvestigationPct(investigationData.acc_user ?? investigationData.accUserPct),
+      normalizeInvestigationPct(investigationData.acc_income ?? investigationData.accIncomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
   // Check if investigation form is filled (required for BM approval at Checked status)
   const isInvestigationFilled = useMemo(() => {
-    const investigation = formData?.investigation || 
-                         formData?.investigate || 
-                         formData?.general_form?.investigation || 
-                         formData?.general_form?.investigate || 
-                         null;
-    
-    if (!investigation) {
+    if (!investigationData) {
       return false;
     }
     
     // Check if BM reason is filled (required for BM role)
-    const hasBmReason = Boolean(investigation.bm_reason && investigation.bm_reason.trim());
-    
-    // Check if BM/Operation percentages are filled and total 100%
-    const bmCompany = parseFloat(investigation.bm_company || investigation.companyPct || 0);
-    const bmUser = parseFloat(investigation.bm_user || investigation.userPct || 0);
-    const bmIncome = parseFloat(investigation.bm_income || investigation.incomePct || 0);
-    const bmTotal = bmCompany + bmUser + bmIncome;
-    const hasValidPercentages = Math.abs(bmTotal - 100) < 0.01 && bmTotal > 0;
+    const hasBmReason = Boolean(investigationData.bm_reason && investigationData.bm_reason.trim());
     
     // Investigation is filled if it has BM reason and valid percentages
-    return hasBmReason && hasValidPercentages;
-  }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate]);
+    return hasBmReason && baseInvestigationValidation.isValid;
+  }, [investigationData, baseInvestigationValidation]);
   
   const showInvestigationButton = () => {
     const statusRaw =
@@ -2105,6 +2145,44 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     
     // If status is Checked and user is BM/ABM trying to approve, check if investigation is filled
     if (isCheckedStatus && isApprovalAction && isBMOrABM && !isInvestigationFilled) {
+      toast.error(t('messages.investigationRequired'));
+      return;
+    }
+
+    // Account issuing requires investigation form to be filled
+    const isIssueAction = action === 'Completed' || action === 'Issue' || action === 'SupervisorIssued';
+    if ((role === 'account' || isAccount) && isIssueAction) {
+      // Require BM investigation to be filled first
+      if (!isInvestigationFilled) {
+        toast.error(t('messages.investigationRequired'));
+        return;
+      }
+
+      // Require Account responsibility percentages to be provided and valid
+      const accountSectionLabel = t('investigation.accountsReview', { defaultValue: 'Accounts Review' });
+      let accountError = '';
+      if (!accountInvestigationValidation.hasAny) {
+        accountError = t('investigation.percentagesRequiredForSection', { section: accountSectionLabel });
+      } else if (!accountInvestigationValidation.hasAll) {
+        accountError = t('investigation.percentagesMustIncludeForSection', { section: accountSectionLabel });
+      } else if (!accountInvestigationValidation.isValid) {
+        accountError = t('investigation.percentagesMustTotalForSection', { section: accountSectionLabel, total: accountInvestigationValidation.total.toFixed(2) });
+      }
+
+      if (accountError) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [accountError]
+        });
+        toast.error(accountError);
+        return;
+      }
+    }
+
+    // Operation Manager acknowledgment at BM Approved requires investigation percentages
+    const isOpAckAction = action === 'Ac_Acknowledged' || action === 'OPApproved' || action === 'Acknowledged';
+    const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
+    if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction && !isInvestigationFilled) {
       toast.error(t('messages.investigationRequired'));
       return;
     }
@@ -4690,9 +4768,13 @@ const resolveApproveAction = () => {
         onAttachmentsChange={(newAttachments) => setFormData(prev => ({ ...prev, attachments: newAttachments }))}
       />
 
-      <div className="flex flex-wrap items-center justify-end gap-2 mt-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
+        <div className="flex items-center">
+          <AnimatedBackButton status={formData.status || statusText} />
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2">
         {mode === 'add' ? (
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <>
             <button 
               onClick={handleBack}
               className="btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-gray-900 bg-white hover:bg-gray-50 border border-black transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 overflow-hidden"
@@ -4710,9 +4792,9 @@ const resolveApproveAction = () => {
               <span className="btn-text">Submit</span>
               <Send className="btn-icon w-4 h-4 absolute" />
             </button>
-          </div>
+          </>
         ) : (
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <>
             {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Edit')}
@@ -4795,8 +4877,9 @@ const resolveApproveAction = () => {
                 <XCircle className="btn-icon w-4 h-4 absolute" />
               </button>
             )}
-          </div>
+          </>
         )}
+        </div>
       </div>
       {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} totalAmount={totalAmount} />}
 

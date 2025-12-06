@@ -76,8 +76,17 @@ const Dashboard = () => {
     params.set("form_type", "big_damage_issue");
     
     // Add other filters
-    if (filters.productName) params.set("search", filters.productName);
-    if (filters.formDocNo) params.set("form_doc_no", filters.formDocNo);
+    if (filters.productName) {
+      // Send to multiple backend fields to ensure search works
+      params.set("search", filters.productName);
+      params.set("product_name", filters.productName);
+      params.set("product_code", filters.productName);
+    }
+    if (filters.formDocNo) {
+      params.set("form_doc_no", filters.formDocNo);
+      params.set("doc_no", filters.formDocNo); // fallback key some APIs use
+      params.set("document_no", filters.formDocNo); // additional fallback
+    }
     // Handle status as array (multi-select) or single value
     if (filters.status) {
       if (Array.isArray(filters.status) && filters.status.length > 0) {
@@ -94,8 +103,14 @@ const Dashboard = () => {
     }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
     // Only send date filters if they have actual values (not empty strings)
-    if (filters.fromDate && filters.fromDate.trim() !== "") params.set("start_date", filters.fromDate);
-    if (filters.toDate && filters.toDate.trim() !== "") params.set("end_date", filters.toDate);
+    if (filters.fromDate && filters.fromDate.trim() !== "") {
+      params.set("start_date", filters.fromDate);
+      params.set("from_date", filters.fromDate); // fallback key
+    }
+    if (filters.toDate && filters.toDate.trim() !== "") {
+      params.set("end_date", filters.toDate);
+      params.set("to_date", filters.toDate); // fallback key
+    }
     
     // Add current page to the query
     if (currentPage > 1) {
@@ -590,6 +605,33 @@ const Dashboard = () => {
       return () => clearTimeout(timeoutId);
     }
   }, [mutate, token, has429Error]); // Only run once on mount or when mutate/token changes
+
+  // Refresh list when notifications are updated (form viewed, marked as read)
+  useEffect(() => {
+    if (!mutate) return;
+
+    const handleNotificationsUpdated = () => {
+      // Refresh the list to update is_viewed status for message icons
+      setTimeout(() => {
+        mutate(undefined, { revalidate: true });
+      }, 500); // Delay to ensure backend has updated
+    };
+
+    const handleFormViewed = () => {
+      // Also refresh when form is viewed (additional trigger)
+      setTimeout(() => {
+        mutate(undefined, { revalidate: true });
+      }, 500);
+    };
+
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
+    window.addEventListener('formViewed', handleFormViewed);
+    
+    return () => {
+      window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
+      window.removeEventListener('formViewed', handleFormViewed);
+    };
+  }, [mutate]);
 
   return (
     <div>
