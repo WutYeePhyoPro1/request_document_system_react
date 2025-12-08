@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { Hash, Search } from 'lucide-react';
 
 
-export default function AddDamageItem({ onSearch, branchName, isSearching }) {
+export default function AddDamageItem({ onSearch, branchName, isSearching, caseType, onCaseTypeChange, isReadOnly = false }) {
   const [productCode, setProductCode] = useState('');
-  const [selectedCase, setSelectedCase] = useState('Not sell');
+  // Use caseType from props if provided, otherwise default to 'Not sell'
+  const selectedCase = caseType || 'Not sell';
   
   const INPUT_TEXT_SIZE = { fontSize: '0.8rem' };
   
@@ -15,6 +16,18 @@ export default function AddDamageItem({ onSearch, branchName, isSearching }) {
     'Other income sell',
     'Not sell'
   ];
+
+  const handleCaseChange = (e) => {
+    // If read-only mode, don't allow changes
+    if (isReadOnly) {
+      return;
+    }
+    const newCaseType = e.target.value;
+    // Update parent form's caseType immediately when dropdown changes
+    if (onCaseTypeChange) {
+      onCaseTypeChange(newCaseType);
+    }
+  };
 
   const handleSearch = () => {
     if (onSearch) {
@@ -88,14 +101,25 @@ export default function AddDamageItem({ onSearch, branchName, isSearching }) {
           <select
             style={INPUT_TEXT_SIZE}
             value={selectedCase}
-            onChange={(e) => setSelectedCase(e.target.value)}
-            className={`w-full p-2 border rounded-md appearance-none bg-white pr-8 
+            onChange={handleCaseChange}
+            disabled={isReadOnly}
+            className={`w-full p-2 border rounded-md appearance-none pr-8 
              focus:outline-none focus:ring-1 text-sm font-medium transition-colors ${
+              isReadOnly 
+                ? 'bg-gray-100 cursor-not-allowed' 
+                : 'bg-white'
+            } ${
               selectedCase === 'Not sell'
                 ? 'border-red-300 bg-red-50 text-red-700 focus:ring-red-500 focus:border-red-500'
                 : selectedCase === 'Other income sell'
                 ? 'border-green-300 bg-green-50 text-green-700 focus:ring-green-500 focus:border-green-500'
                 : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+            } ${
+              isReadOnly && selectedCase === 'Not sell'
+                ? 'bg-red-100 border-red-200'
+                : isReadOnly && selectedCase === 'Other income sell'
+                ? 'bg-green-100 border-green-200'
+                : ''
             }`}
           >
             {caseOptions.map(option => (

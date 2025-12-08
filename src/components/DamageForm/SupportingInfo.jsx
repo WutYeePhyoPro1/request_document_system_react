@@ -110,10 +110,27 @@ export default function SupportingInfo({
   onClosePreview,
   readOnly = false,
   status = '',
+  maxRemarkLength = 500, // Character limit for remark field
 }) {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
   const [localPreviewImageUrl, setLocalPreviewImageUrl] = useState(null);
+  
+  // Ensure reason never exceeds the limit (truncate if it does)
+  const truncatedReason = (reason || '').slice(0, maxRemarkLength);
+  
+  // If reason was truncated, update it via callback (only once on mount or when maxRemarkLength changes)
+  useEffect(() => {
+    if (reason && reason.length > maxRemarkLength) {
+      onReasonChange(truncatedReason);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxRemarkLength]); // Only run when maxRemarkLength changes to avoid infinite loops
+  
+  // Calculate current character count and remaining characters
+  const currentLength = truncatedReason.length;
+  const remainingChars = maxRemarkLength - currentLength;
+  const isNearLimit = remainingChars <= 50; // Show warning when 50 or fewer characters remain
 
   useEffect(() => {
     // Debug how many attachments SupportingInfo receives each render
@@ -182,15 +199,34 @@ export default function SupportingInfo({
 
   const safeAttachments = Array.isArray(attachments) ? attachments.filter(Boolean) : [];
   const isCompleted = status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued';
+  
+  // Hide attach files input in these statuses: Checked, BM Approved, Ac_Acknowledged
+  const statusesThatHideAttachments = [
+    'Checked',
+    'BM Approved',
+    'BMApproved',
+    'Ac_Acknowledged',
+    'Acknowledged'
+  ];
+  const shouldHideAttachments = statusesThatHideAttachments.includes(status);
+  
   const shouldShowRemark = showRemark && !isCompleted;
-  const shouldShowAttachments = showAttachments && !isCompleted;
+  // Hide attachments if completed, or if status is one of the restricted statuses
+  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments;
   
   return (
     <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
-      <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2 mb-4">
-        <FileText size={16} />
-        {t('supportingInfo.title')} <span className="font-normal text-xs text-gray-700">{t('supportingInfo.forWholeDocument')}</span>
-      </h4>
+      <div className="mb-4">
+        <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2">
+          <FileText size={16} />
+          {t('supportingInfo.title')} <span className="font-normal text-xs text-gray-700">{t('supportingInfo.forWholeDocument')}</span>
+        </h4>
+        {shouldShowRemark && !readOnly && (
+          <p className="text-xs text-gray-600 mt-1 ml-6">
+            {t('supportingInfo.characterLimitWarning', { max: maxRemarkLength }) || `You can only type ${maxRemarkLength} characters.`}
+          </p>
+        )}
+      </div>
       
       {/* Remark and Attach Files on one line */}
       {(shouldShowRemark || shouldShowAttachments) && (
@@ -203,21 +239,75 @@ export default function SupportingInfo({
               </label>
               {readOnly ? (
                 <div className="w-full border border-transparent rounded-md px-2 py-2 text-sm bg-transparent text-gray-800 min-h-[3rem] whitespace-pre-wrap">
-                  {(reason ?? '').trim() ? reason : <span className="text-gray-400">{t('supportingInfo.noRemarkProvided')}</span>}
+                  {truncatedReason.trim() ? truncatedReason : <span className="text-gray-400">{t('supportingInfo.noRemarkProvided')}</span>}
                 </div>
               ) : (
-                <textarea
-                  placeholder={t('supportingInfo.enterDetailedReason')}
-                  value={reason || ''}
-                  onChange={e => {
-                    e.stopPropagation();
-                    onReasonChange(e.target.value);
-                  }}
-                  rows={2}
-                  className="w-full border border-gray-300 rounded-md px-2 py-2 text-sm min-h-[3.5rem] bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 resize-y"
-                  required={isRequired}
-                  onKeyDown={e => e.stopPropagation()}
-                ></textarea>
+                <div>
+                  <textarea
+                    placeholder={t('supportingInfo.enterDetailedReason')}
+                    value={truncatedReason}
+                    onChange={e => {
+                      e.stopPropagation();
+                      const newValue = e.target.value;
+                      // Strictly enforce character limit by truncating
+                      const truncatedValue = newValue.slice(0, maxRemarkLength);
+                      onReasonChange(truncatedValue);
+                    }}
+                    onPaste={e => {
+                      e.stopPropagation();
+                      // Handle paste events to enforce limit
+                      const pastedText = e.clipboardData.getData('text');
+                      const currentText = truncatedReason;
+                      const combinedText = currentText + pastedText;
+                      const truncatedText = combinedText.slice(0, maxRemarkLength);
+                      
+                      // Always prevent default and handle paste manually to ensure limit
+                      e.preventDefault();
+                      onReasonChange(truncatedText);
+                    }}
+                    rows={2}
+                    maxLength={maxRemarkLength}
+                    className={`w-full border rounded-md px-2 py-2 text-sm min-h-[3.5rem] bg-white focus:outline-none focus:ring-1 resize-y ${
+                      remainingChars <= 0 
+                        ? 'border-red-300 focus:ring-red-400' 
+                        : isNearLimit 
+                        ? 'border-amber-300 focus:ring-amber-400' 
+                        : 'border-gray-300 focus:ring-blue-400'
+                    }`}
+                    required={isRequired}
+                    onKeyDown={e => {
+                      e.stopPropagation();
+                      // Prevent typing if at limit (additional safeguard)
+                      if (remainingChars <= 0 && !['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Tab'].includes(e.key) && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault();
+                      }
+                      // Prevent paste shortcuts when at limit
+                      if (remainingChars <= 0 && (e.ctrlKey || e.metaKey) && e.key === 'v') {
+                        e.preventDefault();
+                      }
+                    }}
+                  ></textarea>
+                  {/* Character count warning */}
+                  <div className={`mt-1 text-xs flex items-center justify-between ${
+                    remainingChars <= 0 
+                      ? 'text-red-600' 
+                      : isNearLimit 
+                      ? 'text-amber-600' 
+                      : 'text-gray-500'
+                  }`}>
+                    <span>
+                      {remainingChars <= 0 
+                        ? t('supportingInfo.characterLimitReached', { max: maxRemarkLength })
+                        : isNearLimit 
+                        ? t('supportingInfo.charactersRemaining', { remaining: remainingChars, max: maxRemarkLength })
+                        : `${remainingChars} characters remaining`
+                      }
+                    </span>
+                    <span className="font-medium">
+                      {currentLength}/{maxRemarkLength}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
           )}

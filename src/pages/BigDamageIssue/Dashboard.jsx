@@ -635,7 +635,7 @@ const Dashboard = () => {
 
   return (
     <div>
-      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-6 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-14px' }}>
+      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-3 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-14px' }}>
         <div className="flex flex-col md:flex-1 md:justify-between">
           <div className="flex items-center justify-between gap-3 md:justify-start">
             <div className="flex items-center space-x-2">
@@ -675,19 +675,31 @@ const Dashboard = () => {
           <p className="mt-1 text-sm text-gray-500 md:text-base md:mx-8 md:mt-2">/big-damage-issue</p>
         </div>
         <div className="hidden md:flex items-center">
-          <button className="bg-blue-500 shadow-lg shadow-blue-500/50">
-            <Link
-              to="/big-damage-issue-add"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-sm font-medium"
-            >
-              <PlusCircleIcon className="h-5 w-5 inline-block mr-1" />
-              Add new 
-            </Link>
-          </button>
+          <Link
+            to="/big-damage-issue-add"
+            className="group relative inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-md text-xs font-medium shadow-lg shadow-blue-500/50 transition-all duration-500 ease-in-out hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/60 hover:scale-105 hover:-translate-y-0.5 active:scale-100 active:translate-y-0 overflow-hidden min-w-[100px]"
+          >
+            {/* Initial icon - visible, fades out and moves left on hover */}
+            <PlusCircleIcon className="h-4 w-4 transition-all duration-500 ease-in-out opacity-100 group-hover:opacity-0 group-hover:translate-x-[-15px] group-hover:scale-75 relative z-10" />
+            
+            {/* Text - fades out and moves left on hover */}
+            <span className="relative z-10 transition-all duration-500 ease-in-out opacity-100 group-hover:opacity-0 group-hover:translate-x-[-20px] group-hover:scale-75 whitespace-nowrap text-xs">
+              Add new
+            </span>
+            
+            {/* Large centered icon - hidden initially, appears and grows on hover */}
+            <PlusCircleIcon className="h-6 w-6 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out opacity-0 group-hover:opacity-100 transform scale-0 group-hover:scale-110 group-hover:rotate-180 z-10" />
+            
+            {/* Animated background glow on hover */}
+            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md -z-0"></span>
+            
+            {/* Shimmer sweep effect on hover */}
+            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 group-hover:opacity-100 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></span>
+          </Link>
         </div>
       </div>
       <div className="mx-6">
-      <div ref={filterRef} className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2 sticky top-0 z-30 bg-white md:bg-transparent shadow-lg md:shadow-none border-b border-gray-200 md:border-0 py-3 md:py-0 -mx-6 px-6`}>
+      <div ref={filterRef} className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2 sticky top-0 z-30 bg-white md:bg-transparent shadow-lg md:shadow-none border-b border-gray-200 md:border-0 py-3 md:py-0 -mx-6 `}>
         <FilterCard
           filters={filters}
           onFilter={(v) => {
@@ -791,10 +803,14 @@ const Dashboard = () => {
 
       <Link
         to="/big-damage-issue-add"
-        className="fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl shadow-blue-500/40 transition hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 md:hidden"
+        className="group fixed bottom-6 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-500 text-white shadow-xl shadow-blue-500/40 transition-all duration-500 ease-out hover:bg-blue-600 hover:shadow-2xl hover:shadow-blue-500/60 hover:scale-125 hover:-translate-y-2 active:scale-110 active:translate-y-0 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 md:hidden overflow-hidden"
         aria-label="Add new big damage issue"
       >
-        <PlusIcon className="h-7 w-7" />
+        <PlusIcon className="h-7 w-7 transition-all duration-500 ease-out group-hover:rotate-180 group-hover:scale-125 relative z-10" />
+        {/* Animated pulse ring on hover */}
+        <span className="absolute inset-0 rounded-full bg-blue-400 opacity-0 group-hover:opacity-50 group-hover:animate-ping"></span>
+        {/* Shimmer effect */}
+        <span className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 -translate-x-full group-hover:translate-x-full group-hover:animate-shimmer"></span>
       </Link>
     </div>
   );

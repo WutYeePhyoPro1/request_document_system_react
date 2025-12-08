@@ -1092,6 +1092,83 @@ const handleRemarkChange = (id, value) => {
   }
 };
 
+// Handle input changes for mobile view (request_qty, final_qty, remark)
+const handleInputChange = (id, field, value) => {
+  // For quantity fields, validate numeric input
+  if (field === 'request_qty' || field === 'final_qty') {
+    if (value !== '' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
+      return;
+    }
+  }
+
+  setItems(prevItems => {
+    const index = prevItems.findIndex(item => {
+      const matchId = item.id ?? item.specific_form_id;
+      return matchId === id;
+    });
+    
+    if (index === -1) return prevItems;
+    
+    const item = prevItems[index];
+    const newItems = [...prevItems];
+    
+    // Calculate numeric value for quantity fields
+    const qtyNumeric = (field === 'request_qty' || field === 'final_qty')
+      ? (value === '' ? 0 : parseFloat(value) || 0)
+      : null;
+    
+    // Update the field
+    const updatedItem = {
+      ...item,
+      [field]: field === 'request_qty' || field === 'final_qty' 
+        ? (value === '' ? '' : qtyNumeric)
+        : value
+    };
+    
+    // Recalculate amount when quantity changes
+    if ((field === 'request_qty' || field === 'final_qty') && qtyNumeric !== null) {
+      const price = parseFloat(item.price) || 0;
+      const qtyForAmount = field === 'final_qty' ? qtyNumeric : (updatedItem.final_qty ?? qtyNumeric);
+      const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
+        ? 0
+        : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
+      
+      updatedItem.amount = amountNumeric;
+      updatedItem.total = amountNumeric;
+    }
+    
+    newItems[index] = updatedItem;
+    return newItems;
+  });
+  
+  const index = items.findIndex(item => {
+    const matchId = item.id ?? item.specific_form_id;
+    return matchId === id;
+  });
+  
+  if (index !== -1) {
+    const item = items[index];
+    let valueToSend = field === 'request_qty' || field === 'final_qty' 
+      ? (value === '' ? 0 : parseFloat(value) || 0)
+      : value;
+    
+    // If quantity changed, also send updated amount
+    if (field === 'request_qty' || field === 'final_qty') {
+      const price = parseFloat(item.price) || 0;
+      const qtyForAmount = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+      const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
+        ? 0
+        : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
+      
+      onItemChange(index, field, valueToSend);
+      onItemChange(index, 'amount', amountNumeric);
+      onItemChange(index, 'total', amountNumeric);
+    } else {
+      onItemChange(index, field, valueToSend);
+    }
+  }
+};
+
   const handleQtyChange = (id, value, qtyType = 'final_qty') => {
     if (value !== '' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
       return;
@@ -1818,7 +1895,7 @@ const normalizeImageEntries = (list) => {
     }
   };
   return (
-    <div className={`mx-auto font-sans max-w-full p-4 sm:p-0${mode === 'view' ? ' text-sm' : ''}`}>
+    <div className={`mx-auto font-sans max-w-full sm:p-0${mode === 'view' ? ' text-sm' : ''}`}>
       <ErrorModal 
         isOpen={errorModal.isOpen}
         message={errorModal.message}
@@ -1928,21 +2005,25 @@ const normalizeImageEntries = (list) => {
             );
           })()}
           
-          {/* Add Product button for Ongoing stage - hide in add mode - Desktop only */}
-          {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
+          {/* Add Product button for Ongoing and Checked stage - hide in add mode - Desktop only */}
+          {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
             <button
               onClick={onOpenAddProductModal}
-              className="hidden md:inline-flex add-product-btn-hover group items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md font-medium text-sm shadow-sm transition-all duration-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="hidden md:inline-flex group relative items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-sm transition-all duration-300 ease-out hover:shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 overflow-hidden"
+              title="Add Product"
             >
-              <Plus size={18} className="transition-all duration-300 group-hover:scale-110 shrink-0" />
-              <Package size={18} className="transition-all duration-300 group-hover:scale-110 shrink-0 opacity-0 w-0 group-hover:opacity-100 group-hover:w-auto group-hover:ml-0 -ml-0" />
-              <span className="transition-all duration-300 whitespace-nowrap group-hover:opacity-0 group-hover:max-w-0 group-hover:overflow-hidden">Add Product</span>
+              {/* Background shine effect on hover */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
+              
+              {/* Icons with modern animation */}
+              <Plus size={18} className="relative z-10 transition-all duration-300 ease-out group-hover:rotate-90" />
+              <Package size={18} className="relative z-10 transition-all duration-300 ease-out group-hover:scale-110" />
             </button>
           )}
         </div>
         
         {/* Add Product button for mobile - Fixed position at bottom right */}
-        {status === 'Ongoing' && !isCompleted && mode !== 'add' && (
+        {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
           <button
             onClick={onOpenAddProductModal}
             className="md:hidden fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-2xl transition-all duration-300 hover:shadow-blue-500/50 hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2"
@@ -2345,8 +2426,8 @@ const normalizeImageEntries = (list) => {
                   {/* Remark */}
                   <td className="px-2 py-2">
                     <div className="w-full" onClick={e => e.stopPropagation()}>
-                      {/* Make remark editable when: mode is not view, OR status is Ongoing (for newly added products) */}
-                      {(mode === 'view' && status !== 'Ongoing') ? (
+                      {/* Make remark editable when: mode is not view, OR status is Ongoing/Checked (for newly added products) */}
+                      {(mode === 'view' && status !== 'Ongoing' && status !== 'Checked' && status !== 'checked') ? (
                         <div className="min-w-[100px] p-1">
                           {item.remark || '-'}
                         </div>
@@ -2367,8 +2448,8 @@ const normalizeImageEntries = (list) => {
                     </div>
                   </td>
                   <td className="px-2 py-2">
-                    {/* Make img editable when: mode is add/edit, OR status is Ongoing (for newly added products) */}
-                    {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted)) ? (
+                    {/* Make img editable when: mode is add/edit, OR status is Ongoing/Checked (for newly added products) */}
+                    {((mode === 'add' || mode === 'edit') || ((status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted)) ? (
                       <div className="flex items-center gap-1">
                         {Array.isArray(item.img) && item.img.length > 0 ? (
                           <div className="relative">
@@ -2544,10 +2625,9 @@ const normalizeImageEntries = (list) => {
           paginatedItems.map((item) => (
             <div
               key={item.id}
-              className={`border border-gray-200 rounded-lg p-2.5 mb-2 bg-white shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer ${
+              className={`border border-gray-200 rounded-lg p-2.5 mb-2 bg-white shadow-md hover:shadow-lg transition-all duration-200 ${
                 selectedIds.includes(item.id) ? "ring-1 ring-emerald-400 border-emerald-300" : ""
               }`}
-              onClick={() => openProductModal(item)}
             >
               <div className="flex gap-2 min-w-0">
                 <input
@@ -2563,7 +2643,10 @@ const normalizeImageEntries = (list) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between min-w-0 gap-2">
                     <div className="min-w-0 flex-1 basis-0">
-                      <div className="block text-sm font-semibold text-gray-900 w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis py-0.5 leading-tight">
+                      <div 
+                        className="block text-sm font-semibold text-gray-900 w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis py-0.5 leading-tight cursor-pointer"
+                        onClick={() => openProductModal(item)}
+                      >
                       {item.name}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
@@ -2573,13 +2656,109 @@ const normalizeImageEntries = (list) => {
                         <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
                           {item.unit}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium">
-                          Req: {item.actual_qty ?? item.request_qty ?? '0'}
-                        </span>
-                        <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
-                          Final: {item.final_qty ?? item.actual_qty ?? '0'}
-                        </span>
                       </div>
+                      
+                      {/* Editable quantity inputs for mobile */}
+                      {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+                        <div 
+                          className="mt-2 space-y-2"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
+                          onTouchEnd={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex gap-2">
+                            <div className="flex-1">
+                              <label 
+                                className="block text-xs text-gray-600 mb-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
+                                Request Qty
+                              </label>
+                              <input
+                                type="number"
+                                value={item.request_qty ?? ''}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  const val = e.target.value;
+                                  handleInputChange(item.id, 'request_qty', val);
+                                }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onTouchStart={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                min="0"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <label 
+                                className="block text-xs text-gray-600 mb-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
+                                Final Qty
+                              </label>
+                              <input
+                                type="number"
+                                value={item.final_qty ?? ''}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  const val = e.target.value;
+                                  handleInputChange(item.id, 'final_qty', val);
+                                }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onTouchStart={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                min="0"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div>
+                            <label 
+                              className="block text-xs text-gray-600 mb-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            >
+                              Remark
+                            </label>
+                            <input
+                              type="text"
+                              value={item.remark || ''}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleInputChange(item.id, 'remark', e.target.value);
+                              }}
+                              onMouseDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onTouchStart={(e) => {
+                                e.stopPropagation();
+                              }}
+                              onPointerDown={(e) => {
+                                e.stopPropagation();
+                              }}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                              placeholder="Enter remark..."
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
@@ -2594,31 +2773,110 @@ const normalizeImageEntries = (list) => {
                                   src={src0}
                                   alt={item.name}
                                   loading="lazy"
-                                  className="w-11 h-11 object-cover rounded-lg cursor-zoom-in border border-gray-200"
+                                  className="w-11 h-11 object-cover rounded-lg border border-gray-200 cursor-pointer"
                                   onError={(e) => {
                                     e.currentTarget.src = testImage;
                                     e.currentTarget.onError = null;
                                   }}
-                                  onClick={(e) => { e.stopPropagation(); openPreview(item.img, 0); }}
+                                  onClick={(e) => { 
+                                    e.stopPropagation();
+                                    // Always show preview when clicking image
+                                    setPreviewItemId(item.id);
+                                    openPreview(item.img, 0);
+                                  }}
                                 />
                                 {item.img.length >= 2 && (
-                                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-semibold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center shadow-md">
+                                  <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-semibold min-w-[1.25rem] h-5 px-1 rounded-full flex items-center justify-center shadow-md z-10">
                                     {item.img.length}
                                   </div>
+                                )}
+                                {/* Delete button for Ongoing and Checked stage */}
+                                {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+                                  <button
+                                    type="button"
+                                    className="absolute -top-1 -left-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:bg-red-600 transition-colors z-10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      // Delete the first image (index 0)
+                                      removeImage(item.id, 0);
+                                    }}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onTouchStart={(e) => e.stopPropagation()}
+                                    title="Delete image"
+                                  >
+                                    <X size={10} strokeWidth={3} />
+                                  </button>
+                                )}
+                                {/* Upload button for Ongoing and Checked stage - separate from preview */}
+                                {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+                                  <>
+                                    <input
+                                      type="file"
+                                      id={`file-input-mobile-${item.id}`}
+                                      ref={el => fileInputRefs.current[item.id] = el}
+                                      onChange={(e) => handleImageUpload(item.id, e)}
+                                      className="hidden"
+                                      accept="image/*"
+                                      multiple
+                                    />
+                                    <button
+                                      type="button"
+                                      className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:bg-blue-700 transition-colors z-10"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (fileInputRefs.current[item.id]) {
+                                          fileInputRefs.current[item.id].click();
+                                        }
+                                      }}
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                      onTouchStart={(e) => e.stopPropagation()}
+                                      title="Add more images"
+                                    >
+                                      <Plus size={12} strokeWidth={2.5} />
+                                    </button>
+                                  </>
                                 )}
                               </>
                             );
                           })()
                         ) : (
-                          <div className="w-11 h-11 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-xs text-gray-400">
-                            No Image
-                          </div>
+                          <>
+                            {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' ? (
+                              <label
+                                className="w-11 h-11 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-200 hover:border-blue-400 transition-colors"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                                onTouchStart={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  type="file"
+                                  id={`file-input-mobile-${item.id}`}
+                                  ref={el => fileInputRefs.current[item.id] = el}
+                                  onChange={(e) => handleImageUpload(item.id, e)}
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                />
+                                <Upload size={18} strokeWidth={1.5} />
+                              </label>
+                            ) : (
+                              <div 
+                                className="w-11 h-11 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 cursor-pointer"
+                                onClick={() => openProductModal(item)}
+                              >
+                                <ImageIcon size={20} strokeWidth={1.5} />
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="flex items-center justify-between mt-2">
+                  <div 
+                    className="flex items-center justify-between mt-2 cursor-pointer"
+                    onClick={() => openProductModal(item)}
+                  >
                     <span className="text-emerald-700 font-semibold text-sm">
                       {Number(item.amount || 0).toLocaleString()}
                     </span>

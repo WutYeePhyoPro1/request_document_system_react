@@ -1043,6 +1043,7 @@ export default function DamageView() {
     || record?.files
     || [];
   const issNumbers = Array.isArray(rawIssFiles)
+  
     ? rawIssFiles
         .map((entry) => {
           if (!entry) return null;
@@ -1066,10 +1067,20 @@ export default function DamageView() {
     ? gf.issue_remarks
     : (Array.isArray(record?.issue_remarks) ? record.issue_remarks : []);
 
+  // Convert asset_type from backend format ("on"/"off") to frontend format ("Other income sell"/"Not sell")
+  const convertAssetTypeToCaseType = (assetType) => {
+    if (assetType === 'on') return 'Other income sell';
+    if (assetType === 'off') return 'Not sell';
+    // If already in frontend format, return as is
+    if (assetType === 'Other income sell' || assetType === 'Not sell') return assetType;
+    // Default fallback
+    return 'Not sell';
+  };
+
   const initialData = {
     id: gf.id, // Add id field for DamageFormLayout
     branch: gf.from_branch_name || gf.to_branch_name || "",
-    caseType: gf.case_type || gf.asset_type || "",
+    caseType: convertAssetTypeToCaseType(gf.case_type || gf.caseType || gf.asset_type || 'off'),
     datetime: gf.created_at || new Date().toISOString().slice(0, 16),
     requester_name: gf.requester_name || gf.originator_name || gf.created_by_name || gf.originators?.name || '',
     originator_name: gf.originators?.name || gf.originator_name || '',

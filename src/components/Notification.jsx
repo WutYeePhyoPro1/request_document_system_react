@@ -67,7 +67,7 @@ export default function Notification({ notifications }) {
             e.preventDefault();
             e.stopPropagation();
         }
-        
+      
         if (isNavigating) {
             console.log('[Notification] Already navigating, ignoring click');
             return;
@@ -143,7 +143,7 @@ export default function Notification({ notifications }) {
         markNotificationAsRead(noti).catch(err => {
             console.warn('[Notification] Failed to mark as read:', err);
         });
-
+            
         // Helper function to navigate to Big Damage Issue form (defined outside try-catch for scope)
         const navigateToBigDamage = (bigDamageId) => {
             // Store notification data for DamageView to use
@@ -182,7 +182,7 @@ export default function Notification({ notifications }) {
             console.log('[Notification] Using window.location.href for navigation');
             window.location.href = targetPath;
         };
-
+        
         // Close dropdown immediately
         setIsDropdownOpen(false);
 

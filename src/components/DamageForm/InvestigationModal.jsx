@@ -314,18 +314,49 @@ const InvestigationFormModal = ({
   const isFormFinalized = ['Completed'].includes(status);
   const canAccountEdit = normalizedUserRole === 'account'
     && ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status);
-  const canEditBaseFields = (!isReadOnly || canAccountEdit || role === 2) && !isFormFinalized;
-  // Operation Manager fields: Only Op_Manager can edit (matching Laravel blade: Op_Manager($general_form) ? '' : 'disabled')
-  // When status is 'OPApproved' or 'Completed', BM can SEE the section but cannot EDIT it
-  // When status is 'BM Approved', only Op_Manager can see and edit it
-  // At OP approve stage, Op_Manager can edit their percentages
-  // isOpManager now checks both role name AND approval user_type: 'OP'
-  // IMPORTANT: Account users should NOT be able to edit Operation Manager fields
+  
+  // Calculate totalAmount to check if form exceeds 500000
+  const totalAmount = formData.items && formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+    : Number(
+      formData?.general_form?.total_amount
+      ?? formData?.total_amount
+      ?? formData?.general_form?.totalAmount
+      ?? formData?.totalAmount
+      ?? formData?.general_form?.total
+      ?? formData?.total
+      ?? initialData?.general_form?.total_amount
+      ?? initialData?.total_amount
+      ?? initialData?.general_form?.total
+      ?? initialData?.total
+      ?? 0
+    );
+  
+  // Permission logic for editing percentages:
+  // 1. BM/Operation percentages: Only role 1 (BM) can edit - NEVER allow operation manager or account to edit
+  // 2. Operation Manager Review percentages: Only role 2 (Operation Manager) can edit - NEVER allow BM or account to edit
+  // 3. Accounts Review percentages: Only role 3 (Account) can edit - NEVER allow BM or operation manager to edit
+  
+  // Check if form is in acknowledged status (BM/Operation percentages should NOT be editable in this status)
+  const isAcknowledgedStatus = ['Ac_Acknowledged', 'Acknowledged'].includes(status);
+  
+  // BM/Operation percentages: Only Branch Manager (role 1) can edit
+  // Operation managers (role 2) and accounts (role 3) should NEVER be able to edit these
+  // IMPORTANT: BM/Operation percentages should NOT be editable when form is in Ac_Acknowledged/Acknowledged status
+  const canEditBaseFields = role === 1 && !isReadOnly && !isFormFinalized && !isAcknowledgedStatus;
+  
+  // Operation Manager Review percentages: Only Operation Manager (role 2) can edit
+  // Also allow if user has OP approval assignment and form is in appropriate status
+  // Branch managers (role 1) and accounts (role 3) should NEVER be able to edit these
   const canEditOperationFields = (
     (role === 2 && !isFormFinalized) || // Op_Manager role (role === 2) can edit
     (isOpManager && !isFormFinalized && (status === 'BM Approved' || status === 'BMApproved' || status === 'OPApproved' || status === 'OP Approved'))
   );
-  const canEditAccountFields = ((role === 3 && !isFormFinalized) || canAccountEdit);
+  
+  // Accounts Review percentages: Only Account (role 3) can edit
+  // Branch managers (role 1) and operation managers (role 2) should NEVER be able to edit these
+  const canEditAccountFields = (role === 3 && !isFormFinalized) || canAccountEdit;
+  
   const baseFieldsDisabled = !canEditBaseFields;
   const operationFieldsDisabled = !canEditOperationFields;
   const accountFieldsDisabled = !canEditAccountFields;
@@ -443,15 +474,18 @@ const InvestigationFormModal = ({
     body.append('role', String(role));
     body.append('action', investigationId ? 'Update' : 'Save');
     
-    // Always send BM fields (role 1 can edit these)
-    body.append('bm_reason', String(payload.bmReason || ''));
-    body.append('bm_company', String(payload.companyPct || '0'));
-    body.append('bm_user', String(payload.userPct || '0'));
-    body.append('bm_income', String(payload.incomePct || '0'));
+    // Only send BM fields if user can edit them (role 1 - Branch Manager)
+    // Operation managers and accounts should NEVER be able to save BM percentages
+    if (canEditBaseFields) {
+      body.append('bm_reason', String(payload.bmReason || ''));
+      body.append('bm_company', String(payload.companyPct || '0'));
+      body.append('bm_user', String(payload.userPct || '0'));
+      body.append('bm_income', String(payload.incomePct || '0'));
+    }
 
     // Include operation manager percentages ONLY if user can edit operation fields
     // This ensures consistency: if fields are editable, they should be saveable
-    // IMPORTANT: Account users should NOT be able to save Operation Manager percentages
+    // IMPORTANT: Branch managers and account users should NOT be able to save Operation Manager percentages
     // Use canEditOperationFields directly to ensure consistency with UI state
     if (canEditOperationFields) {
       // Always include operation manager percentages if user can edit them, even if values are 0
@@ -460,8 +494,10 @@ const InvestigationFormModal = ({
       body.append('op_income', String(payload.opIncomePct || '0'));
     }
 
-    // Include account percentages if user is account (role 3)
-    if (role === 3) {
+    // Include account percentages ONLY if user can edit account fields
+    // Use canEditAccountFields to ensure consistency with UI state
+    // Branch managers and operation managers should NOT be able to save account percentages
+    if (canEditAccountFields) {
       body.append('acc_company', String(payload.accCompanyPct || '0'));
       body.append('acc_user', String(payload.accUserPct || '0'));
       body.append('acc_income', String(payload.accIncomePct || '0'));

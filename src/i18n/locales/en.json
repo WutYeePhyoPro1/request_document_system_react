@@ -121,6 +121,11 @@
     "productCodeRequired": "Please provide a product code for each item.",
     "emptyFieldsWarning": "The following fields are empty:",
     "submittingWithWarnings": "Submitting form with empty fields. You can still proceed.",
+    "itemsWithZeroQuantity": "Please ensure all products have a Final Quantity greater than 0. Products with 0 Final Quantity cannot be submitted.",
+    "remarkRequired": "Remark is required when checking the form.",
+    "imagesRequired": "At least one product must have an image when checking the form.",
+    "productsNeedImages": "The following products need images: {{products}}",
+    "productsNeedRemarks": "The following products need remarks: {{products}}",
     "errors": {
       "authTokenNotFound": "Authentication token not found. Please log in again.",
       "sessionExpired": "Your session has expired. Please log in again.",
@@ -235,7 +240,10 @@
     "attachFiles": "Attach Files",
     "attachFilesMultiple": "Attach Files (Multiple allowed)",
     "uploadFiles": "Upload Files",
-    "noFilesAttached": "No files attached."
+    "noFilesAttached": "No files attached.",
+    "characterLimitWarning": "You can only type {{max}} characters.",
+    "characterLimitReached": "Character limit reached. You can only type {{max}} characters.",
+    "charactersRemaining": "You can only type {{remaining}} more characters ({{max}} total)."
   }
 }
 

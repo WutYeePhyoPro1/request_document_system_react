@@ -39,45 +39,105 @@ const CopyButton = ({ text, size = 'small' }) => {
 };
 
 const StatusBadge = ({ status }) => {
+  // Match Laravel blade badge colors exactly from custom.css
   let colorClasses = '';
   switch (status) {
     case 'Ongoing':
-      colorClasses = 'bg-orange-100 text-orange-700 border border-orange-300';
-      break;
+      // custom-badge-bg-ongoing: bg #fbb193, text #e1341e
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#fbb193', color: '#e1341e' }}
+        >
+          {status}
+        </span>
+      );
     case 'Checked':
-      colorClasses = 'bg-yellow-100 text-yellow-700 border border-yellow-300';
-      break;
+      // custom-badge-bg-checked: bg #fedec3, text #fb923c
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#fedec3', color: '#fb923c' }}
+        >
+          {status}
+        </span>
+      );
     case 'BM Approved':
-      colorClasses = 'bg-blue-100 text-blue-700 border border-blue-300';
-      break;
+    case 'BMApproved':
+      // custom-badge-bg-bm-approved: bg #ffeaab, text #e6ac00
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#ffeaab', color: '#e6ac00' }}
+        >
+          {status}
+        </span>
+      );
     case 'OPApproved':
-      colorClasses = 'op-approved-status-badge border';
-      break;
+    case 'OP Approved':
+    case 'Approved':
+      // custom-badge-bg-approved: bg #e9f9cf, text #a3e635
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#e9f9cf', color: '#a3e635' }}
+        >
+          {status}
+        </span>
+      );
     case 'Ac_Acknowledged':
     case 'Acknowledged':
-      colorClasses = 'acknowledge-status-badge border';
-      break;
-    case 'Approved':
-      colorClasses = 'bg-green-100 text-green-700 border border-green-300';
-      break;
+      // custom-badge-bg-acknowledged: bg #aff1d7, text #20be7f
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#aff1d7', color: '#20be7f' }}
+        >
+          {status}
+        </span>
+      );
     case 'Completed':
-      colorClasses = 'bg-emerald-100 text-emerald-700 border border-emerald-300';
-      break;
+    case 'Issued':
+    case 'SupervisorIssued':
+      // custom-badge-bg-completed: bg #adebbb, text #28a745
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#adebbb', color: '#28a745' }}
+        >
+          {status}
+        </span>
+      );
     case 'Cancel':
     case 'Cancelled':
-      colorClasses = 'bg-red-100 text-red-700 border border-red-300';
-      break;
+      // custom-badge-bg-cancel: bg #fda19d, text #f91206
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#fda19d', color: '#f91206' }}
+        >
+          {status}
+        </span>
+      );
     default:
-      colorClasses = 'bg-gray-100 text-gray-700 border border-gray-300';
+      // Default gray for unknown statuses
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#f3f4f6', color: '#374151' }}
+        >
+          {status}
+        </span>
+      );
   }
-
-  return (
-    <span
-      className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${colorClasses}`}
-    >
-      {status}
-    </span>
-  );
 };
 
 // Animated Empty State Component
@@ -330,8 +390,11 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     // "Not Sell" = item has no acc_code (default)
                     // Note: acc_code is only set when form is completed, so forms in progress will show "Not Sell" until completed
                     const hasAccCode = Boolean(row.acc_code || row.acc_code1);
+                    // Check asset_type from backend ("on" = Other income sell, "off" = Not sell)
+                    const assetType = gf.asset_type || gf.case_type || gf.caseType;
+                    const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
                     // Also check general_form.caseType if available (though it's not typically in API response)
-                    const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell';
+                    const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
                     // Check if items array has any item with acc_code (if items are loaded)
                     const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
                     const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
@@ -434,7 +497,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             // 3. Check if general_form has case_type set to "Other income sell"
             // 4. Check if any items in the form have acc_code (if items array is available)
             const hasAccCode = Boolean(row.acc_code || row.acc_code1);
-            const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell';
+            const assetType = gf.asset_type || gf.case_type || gf.caseType;
+            const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
+            const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
             const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
             const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
             const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';

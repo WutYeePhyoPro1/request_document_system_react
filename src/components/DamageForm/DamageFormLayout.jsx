@@ -286,10 +286,29 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
     });
     
+    // Convert asset_type from backend format ("on"/"off") to frontend format ("Other income sell"/"Not sell")
+    const convertAssetTypeToCaseType = (value) => {
+      if (value === 'on') return 'Other income sell';
+      if (value === 'off') return 'Not sell';
+      // If already in frontend format, return as is
+      if (value === 'Other income sell' || value === 'Not sell') return value;
+      // Default fallback
+      return 'Not sell';
+    };
+
     return {
       branch: "",
       // Preserve caseType from initialData if it exists, otherwise default to "Not sell"
-      caseType: initialData?.caseType || initialData?.general_form?.caseType || initialData?.case_type || "Not sell",
+      // Convert asset_type from backend if needed
+      caseType: convertAssetTypeToCaseType(
+        initialData?.caseType || 
+        initialData?.general_form?.caseType || 
+        initialData?.case_type || 
+        initialData?.general_form?.case_type ||
+        initialData?.asset_type ||
+        initialData?.general_form?.asset_type ||
+        "off"
+      ),
       datetime: new Date().toISOString().slice(0, 16),
       items: [],
       reason: "",
@@ -1861,11 +1880,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   const deriveActions = () => {
     const act = { ...apiActions };
+    const currentStatus = formData.status || 'Ongoing';
+    const normalizedStatus = (currentStatus || '').toString().trim();
     
     // Map btp value to backToPrevious (matching Laravel logic)
     // Laravel returns btp values: 'op_btp', 'bm_btp', 'bracc_btp' when back to previous is available
     if (act.btp && (act.btp === 'op_btp' || act.btp === 'bm_btp' || act.btp === 'bracc_btp')) {
       act.backToPrevious = true;
+    }
+    
+    // Add backToPrevious and cancel for BM Approved and Acknowledge statuses
+    if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || 
+        normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
+      // Enable back to previous button for these statuses
+      if (!act.backToPrevious) {
+        act.backToPrevious = true;
+      }
+      // Enable cancel button for these statuses
+      if (!act.cancel) {
+        act.cancel = true;
+      }
     }
     
     if (!normalize(act.approve)) {
@@ -2129,15 +2163,141 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // Show confirmation modal before submitting
   const handleSubmitClick = (action) => {
+    console.log('[handleSubmitClick] Called with:', { 
+      action, 
+      formStatus: formData.status,
+      formReason: formData.reason,
+      itemsCount: formData.items?.length 
+    });
+    
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
       console.warn('Form submission already in progress, ignoring duplicate click');
       return;
     }
     
+    // Validate that all items have quantity > 0
+    // Check request_qty, actual_qty, final_qty, or quantity depending on what's available
+    const itemsWithZeroQty = formData.items.filter(item => {
+      // Check all possible quantity fields
+      const requestQty = Number(item.request_qty ?? 0);
+      const actualQty = Number(item.actual_qty ?? 0);
+      const finalQty = Number(item.final_qty ?? 0);
+      const quantity = Number(item.quantity ?? 0);
+      
+      // If any quantity field is filled with a value > 0, consider it valid
+      const hasValidQty = requestQty > 0 || actualQty > 0 || finalQty > 0 || quantity > 0;
+      
+      return !hasValidQty;
+    });
+    if (itemsWithZeroQty.length > 0) {
+      const errorMessage = t('messages.itemsWithZeroQuantity', { 
+        defaultValue: 'Please ensure all products have a quantity greater than 0. Products with 0 quantity cannot be submitted.' 
+      });
+      toast.error(errorMessage);
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [errorMessage]
+      });
+      return;
+    }
+    
     // Check if investigation is required for approval at Checked status
     const status = (formData.status || '').toString().trim();
     const normalizedStatus = status.replace(/\s+/g, ' ');
+    
+    console.log('[handleSubmitClick] Status check:', { 
+      status, 
+      normalizedStatus,
+      action 
+    });
+    
+    // Validate remark and images when checking form in Ongoing status
+    const isCheckAction = action === 'Checked' || action === 'Check' || action === 'BMApprovedMem' || action === 'checked' || action === 'bmapprovedmem';
+    console.log('[handleSubmitClick] isCheckAction:', isCheckAction, 'action:', action);
+    const isOngoingStatus = normalizedStatus === 'Ongoing' || normalizedStatus === 'ongoing';
+    
+    if (isCheckAction && isOngoingStatus) {
+      console.log('[Validation] Checking form in Ongoing status', { 
+        action, 
+        status: normalizedStatus, 
+        formData,
+        items: formData.items 
+      });
+      
+      const checkErrors = [];
+      
+      // Check if remark is filled
+      if (!formData.reason || formData.reason.trim() === '') {
+        checkErrors.push(t('messages.remarkRequired', { 
+          defaultValue: 'Remark is required when checking the form.' 
+        }));
+      }
+      
+      // Check if each item has images and remark
+      const items = Array.isArray(formData.items) ? formData.items : [];
+      const itemsWithoutImages = [];
+      const itemsWithoutRemarks = [];
+      
+      items.forEach((item, index) => {
+        console.log(`[Validation] Checking item ${index + 1}:`, {
+          productName: item.product_name || item.name,
+          images: item.images,
+          damage_files: item.damage_files,
+          remark: item.remark,
+          damage_remark: item.damage_remark,
+          fullItem: item
+        });
+        
+        const images = item.images || item.damage_files || [];
+        const itemRemark = item.remark || item.damage_remark || '';
+        
+        // Check if item has no images
+        if (!Array.isArray(images) || images.length === 0) {
+          const productName = item.product_name || item.name || `Product ${index + 1}`;
+          itemsWithoutImages.push(productName);
+          console.log(`[Validation] Item "${productName}" has no images`);
+        }
+        
+        // Check if item has no remark
+        if (!itemRemark || itemRemark.trim() === '') {
+          const productName = item.product_name || item.name || `Product ${index + 1}`;
+          itemsWithoutRemarks.push(productName);
+          console.log(`[Validation] Item "${productName}" has no remark`);
+        }
+      });
+      
+      if (itemsWithoutImages.length > 0) {
+        const errorMsg = t('messages.productsNeedImages', { 
+          defaultValue: 'The following products need images: {{products}}',
+          products: itemsWithoutImages.join(', ')
+        });
+        checkErrors.push(errorMsg);
+        console.log('[Validation] Products without images:', itemsWithoutImages);
+      }
+      
+      if (itemsWithoutRemarks.length > 0) {
+        const errorMsg = t('messages.productsNeedRemarks', { 
+          defaultValue: 'The following products need remarks: {{products}}',
+          products: itemsWithoutRemarks.join(', ')
+        });
+        checkErrors.push(errorMsg);
+        console.log('[Validation] Products without remarks:', itemsWithoutRemarks);
+      }
+      
+      // If there are validation errors, show modal and return
+      if (checkErrors.length > 0) {
+        console.log('[Validation] Validation failed, showing errors:', checkErrors);
+        setValidationErrorModal({
+          isOpen: true,
+          errors: checkErrors
+        });
+        toast.error(checkErrors.join(' '));
+        return;
+      }
+      
+      console.log('[Validation] All validations passed');
+    }
     const role = getUserRole();
     const isCheckedStatus = normalizedStatus === 'Checked';
     const isApprovalAction = action === 'BMApproved' || action === 'BMApprovedMem' || action === 'BM Approved';
@@ -2533,6 +2693,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         'actions',
         'big_damage_issue',
         'meta',
+        'caseType', // Exclude caseType - we convert it to asset_type manually
       ]);
 
       Object.entries(formData).forEach(([key, value]) => {
@@ -2638,8 +2799,28 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         formDataToSend.append('_method', 'PATCH');
       }
 
+      // Convert caseType to asset_type format expected by backend
+      // "Other income sell" -> "on", "Not sell" -> "off"
+      // IMPORTANT: Always use formData.caseType first (user's current selection)
+      // Only fall back to initialData if formData.caseType is not set
+      const currentCaseType = (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== '')
+        ? formData.caseType
+        : (initialData?.caseType || 'Not sell');
+
+      // Normalize the caseType value (handle variations)
+      const normalizedCaseType = String(currentCaseType).trim();
+
+      // Convert to backend format
+      let assetType = 'off'; // Default to 'off' (Not sell)
+      if (normalizedCaseType === 'Other income sell' || normalizedCaseType.toLowerCase() === 'other income sell') {
+        assetType = 'on';
+      } else if (normalizedCaseType === 'Not sell' || normalizedCaseType.toLowerCase() === 'not sell') {
+        assetType = 'off';
+      }
+
       // Always include asset_type for both new and existing forms
-      formDataToSend.append('asset_type', 'Damage');
+      // This will override any asset_type that might have been set earlier
+      formDataToSend.append('asset_type', assetType);
       
       // Send items in nested format that Laravel expects: items[0][product_code], items[1][product_code], etc.
       // Laravel Repository expects: $request['items'] as an array
@@ -4366,6 +4547,13 @@ const resolveApproveAction = () => {
           branchName={formData.branch} 
           onSearch={handleSearchProduct}
           isSearching={isSearching}
+          caseType={formData.caseType}
+          onCaseTypeChange={(newCaseType) => {
+            setFormData(prev => ({
+              ...prev,
+              caseType: newCaseType
+            }));
+          }}
         />
       )}
 
@@ -4398,6 +4586,14 @@ const resolveApproveAction = () => {
                   });
                 }}
                 isSearching={isSearching}
+                caseType={formData.caseType}
+                onCaseTypeChange={(newCaseType) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    caseType: newCaseType
+                  }));
+                }}
+                isReadOnly={true}
               />
             </div>
           </div>
@@ -4768,16 +4964,16 @@ const resolveApproveAction = () => {
         onAttachmentsChange={(newAttachments) => setFormData(prev => ({ ...prev, attachments: newAttachments }))}
       />
 
-      <div className="flex flex-wrap items-center justify-between gap-2 mt-4">
-        <div className="flex items-center">
+      <div className="flex flex-col md:flex-row flex-wrap items-stretch md:items-center justify-between gap-2 mt-4">
+        <div className="hidden md:flex items-center order-2 md:order-1">
           <AnimatedBackButton status={formData.status || statusText} />
         </div>
-        <div className="flex flex-wrap items-center justify-end gap-2">
+        <div className="flex flex-wrap items-stretch justify-end gap-2 w-full md:w-auto order-1 md:order-2">
         {mode === 'add' ? (
           <>
             <button 
               onClick={handleBack}
-              className="btn-with-icon inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-gray-900 bg-white hover:bg-gray-50 border border-black transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 overflow-hidden"
+              className="btn-with-icon inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-gray-900 bg-white hover:bg-gray-50 border border-black transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 overflow-hidden"
               style={{ fontSize: '0.75rem', minWidth: '90px' }}
             >
               <span className="btn-text">Cancel</span>
@@ -4786,19 +4982,19 @@ const resolveApproveAction = () => {
             <button 
               onClick={() => handleSubmitClick('Submit')}
               disabled={isSubmitting}
-              className="btn-with-icon inline-flex items-center justify-center gap-1 px-6 py-2.5 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn-with-icon inline-flex flex-1 md:flex-none items-center justify-center gap-1 px-6 py-2.5 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ minWidth: '110px' }}
             >
               <span className="btn-text">Submit</span>
               <Send className="btn-icon w-4 h-4 absolute" />
             </button>
           </>
-        ) : (
-          <>
-            {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+          ) : (
+            <>
+              {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Edit')}
-                className="btn-with-icon btn-edit inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
+                className="btn-with-icon btn-edit inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
                 style={{ fontSize: '0.75rem', minWidth: '80px' }}
               >
                 <span className="btn-text">Edit</span>
@@ -4810,7 +5006,7 @@ const resolveApproveAction = () => {
             {!!showRejectButton() && (
               <button 
                 onClick={() => handleSubmitClick('Rejected')}
-                className="btn-with-icon btn-reject inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
+                className="btn-with-icon btn-reject inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
                 style={{ fontSize: '0.75rem', minWidth: '90px' }}
               >
                 <span className="btn-text">Reject</span>
@@ -4840,7 +5036,8 @@ const resolveApproveAction = () => {
               return (
                 <button 
                   onClick={() => handleSubmitClick(action)}
-                  className={`btn-with-icon inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-md font-medium text-white transition-all duration-300 border ${buttonClass}`}
+                  disabled={isSubmitting}
+                  className={`btn-with-icon inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-5 py-2.5 rounded-md font-medium text-white transition-all duration-300 border ${buttonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
                   style={{ fontSize: '0.75rem', minWidth: '120px' }}
                 >
                   <span className="btn-text">
@@ -4855,10 +5052,10 @@ const resolveApproveAction = () => {
             {/* Removed supervisor Issue button */}
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
-            {!!actions.backToPrevious && (
-              <button 
+            {!!actions.backToPrevious && formData.status !== 'Checked' && formData.status !== 'checked' && (
+              <button
                 onClick={() => handleSubmitClick('BackToPrevious')}
-                className="group inline-flex items-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200" 
+                className="group inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200"
                 style={{ fontSize: '0.75rem' }}
               >
                 <CornerUpLeft className="w-4 h-4 transition-transform duration-300 group-hover:rotate-[360deg]" />
@@ -4870,15 +5067,15 @@ const resolveApproveAction = () => {
             {!!actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
-                className="btn-with-icon btn-cancel inline-flex items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border border-red-600 bg-red-600 hover:bg-red-700" 
+                className="btn-with-icon btn-cancel inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border border-red-600 bg-red-600 hover:bg-red-700" 
                 style={{ fontSize: '0.75rem', minWidth: '90px' }}
               >
                 <span className="btn-text">Cancel</span>
                 <XCircle className="btn-icon w-4 h-4 absolute" />
               </button>
             )}
-          </>
-        )}
+            </>
+          )}
         </div>
       </div>
       {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} totalAmount={totalAmount} />}

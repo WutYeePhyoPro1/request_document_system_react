@@ -278,7 +278,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-xl p-4 sm:p-6 mx-auto">
+    <div className="bg-white shadow-lg rounded-xl sm:p-6 mx-auto">
       <form onSubmit={handleFormSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 sm:gap-x-6 gap-y-4 items-end">
 
         {/* Product Name / Code */}

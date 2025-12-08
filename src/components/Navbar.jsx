@@ -11,6 +11,37 @@ import NotificationIcon from './Notification';
 import { NotificationContext } from "../context/NotificationContext"; // ✅
 import LanguageSwitcher from './LanguageSwitcher';
 
+// Role ID to Name mapping (fallback if API fails)
+const roleIdToNameMap = {
+    1: 'User',
+    2: 'Checker',
+    3: 'Approver',
+    4: 'Super-Admin',
+    5: 'Acknowledge',
+    6: 'Recorder',
+    7: 'Branch Account',
+    8: 'Branch IT',
+    9: 'Branch HR',
+    10: 'Supervisor'
+};
+
+// Department ID to Name mapping (fallback if API fails)
+const departmentIdToNameMap = {
+    1: 'Construction',
+    2: 'Designer',
+    3: 'Finance & Accounting',
+    4: 'HR',
+    5: 'Marketing',
+    6: 'Merchandise',
+    7: 'Online Sale',
+    8: 'Operation',
+    9: 'Project Sale',
+    10: 'Sourcing',
+    11: 'System Development',
+    12: 'M&E',
+    13: 'Admin'
+};
+
 export default function Navbar({ toggleSidebar }) {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
@@ -21,6 +52,9 @@ export default function Navbar({ toggleSidebar }) {
     const [menuOpen, setMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
+    const [roleName, setRoleName] = useState(null);
+    const [branchName, setBranchName] = useState(null);
+    const [departmentName, setDepartmentName] = useState(null);
 
     const subscribeToPush = async () => {
         if (!('serviceWorker' in navigator)) {
@@ -54,6 +88,151 @@ export default function Navbar({ toggleSidebar }) {
         void endpoint;
     };
 
+
+    // Set role name immediately from mapping if available
+    useEffect(() => {
+        if (user?.role_id && roleIdToNameMap[user.role_id] && !roleName) {
+            setRoleName(roleIdToNameMap[user.role_id]);
+        }
+    }, [user?.role_id, roleName]);
+
+    // Set department name immediately from mapping if available
+    useEffect(() => {
+        if (user?.department_id && departmentIdToNameMap[user.department_id] && !departmentName) {
+            setDepartmentName(departmentIdToNameMap[user.department_id]);
+        }
+    }, [user?.department_id, departmentName]);
+
+    // Fetch role, branch, and department names from API (to get latest data)
+    useEffect(() => {
+        const fetchUserDetails = async () => {
+            if (!user || !token) return;
+
+            try {
+                // Fetch role name if role_id exists
+                if (user.role_id) {
+                    let fetchedRoleName = null;
+                    
+                    // Try multiple API endpoint patterns
+                    const apiEndpoints = [
+                        `/api/roles/${user.role_id}`,
+                        `/api/role/${user.role_id}`,
+                        `/api/user-roles/${user.role_id}`
+                    ];
+
+                    for (const endpoint of apiEndpoints) {
+                        try {
+                            const roleRes = await fetch(endpoint, {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Accept': 'application/json',
+                                },
+                                credentials: 'include'
+                            });
+                            
+                            if (roleRes.ok) {
+                                const roleData = await roleRes.json();
+                                fetchedRoleName = roleData?.name || roleData?.data?.name || roleData?.role?.name || null;
+                                if (fetchedRoleName) {
+                                    setRoleName(fetchedRoleName);
+                                    break; // Use API data if available
+                                }
+                            }
+                        } catch (err) {
+                            // Try next endpoint
+                            continue;
+                        }
+                    }
+
+                    // If API call failed and we don't have a name yet, use fallback mapping
+                    if (!fetchedRoleName && roleIdToNameMap[user.role_id] && !roleName) {
+                        setRoleName(roleIdToNameMap[user.role_id]);
+                    }
+                }
+
+                // Fetch branch name if from_branch_id exists and branch_name is not already available
+                if (user.from_branch_id && !user.from_branch_name && !user.branch_name) {
+                    try {
+                        const branchRes = await fetch(`/api/branches/${user.from_branch_id}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Accept': 'application/json',
+                            },
+                            credentials: 'include'
+                        });
+                        if (branchRes.ok) {
+                            const branchData = await branchRes.json();
+                            setBranchName(branchData?.branch_name || branchData?.data?.branch_name || branchData?.name || null);
+                        }
+                    } catch (err) {
+                        // Silently fail
+                    }
+                }
+
+                // Fetch department name if department_id exists
+                if (user.department_id) {
+                    let fetchedDeptName = null;
+                    
+                    // Try multiple API endpoint patterns
+                    const deptApiEndpoints = [
+                        `/api/departments/${user.department_id}`,
+                        `/api/department/${user.department_id}`,
+                        `/api/user-departments/${user.department_id}`
+                    ];
+
+                    for (const endpoint of deptApiEndpoints) {
+                        try {
+                            const deptRes = await fetch(endpoint, {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Accept': 'application/json',
+                                },
+                                credentials: 'include'
+                            });
+                            
+                            if (deptRes.ok) {
+                                const deptData = await deptRes.json();
+                                fetchedDeptName = deptData?.name || deptData?.data?.name || deptData?.department?.name || null;
+                                if (fetchedDeptName) {
+                                    setDepartmentName(fetchedDeptName);
+                                    break; // Use API data if available
+                                }
+                            }
+                        } catch (err) {
+                            // Try next endpoint
+                            continue;
+                        }
+                    }
+
+                    // If API call failed and we don't have a name yet, use fallback mapping
+                    if (!fetchedDeptName && departmentIdToNameMap[user.department_id] && !departmentName) {
+                        setDepartmentName(departmentIdToNameMap[user.department_id]);
+                    }
+                }
+            } catch (err) {
+                // Silently fail
+            }
+        };
+
+        fetchUserDetails();
+    }, [user, token]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setMenuOpen(false);
+            }
+        };
+
+        if (menuOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [menuOpen]);
 
     useEffect(() => {
         const fetchNotifications = async () => {
@@ -185,45 +364,99 @@ export default function Navbar({ toggleSidebar }) {
                     </button>
 
                     {menuOpen && (
-                        <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                            <div className="p-3 font-semibold border-b border-gray-100 flex items-center">
-                                <svg
-                                    className="w-5 h-5 mr-2"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                                    />
-                                </svg>
-                                {user?.name}
+                        <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                            {/* User Info Header */}
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-4 border-b border-gray-200">
+                                <div className="flex items-center space-x-3">
+                                    <div className="flex-shrink-0">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                            {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                        </div>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                            {user?.name || t('navbar.user')}
+                                        </p>
+                                        {user?.emp_id && (
+                                            <p className="text-xs text-gray-500 truncate">
+                                                ID: {user.emp_id}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <ul className="text-sm text-gray-700">
-                                <li>
-                                    <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
-                                        🔒 {t('navbar.changePassword')}
-                                    </span>
-                                </li>
-                                <li>
-                                    <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
-                                        🏢 {t('navbar.headOffice')}
-                                    </span>
-                                </li>
-                                <li>
-                                    <span className="block px-4 py-2 text-gray-400 cursor-not-allowed select-none">
-                                        🖥️ {t('navbar.systemDevelopment')}
-                                    </span>
-                                </li>
+
+                            {/* User Details Section */}
+                            <div className="px-4 py-3 bg-white border-b border-gray-100">
+                                <div className="space-y-2.5">
+                                    {/* Role - Always displayed */}
+                                    <div className="flex items-start space-x-3">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                            <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                                                <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Role</p>
+                                            <p className="text-sm font-semibold text-gray-900 truncate">
+                                                {roleName || user?.role?.name || user?.role_name || user?.roleName || user?.role?.user_type || (user?.role_id && roleIdToNameMap[user.role_id]) || (user?.role_id ? `Role ID: ${user.role_id}` : 'N/A')}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Branch */}
+                                    {(branchName || user?.from_branch_name || user?.branch_name || user?.from_branch?.branch_name || user?.branch?.branch_name) && (
+                                        <div className="flex items-start space-x-3">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Branch</p>
+                                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                                    {branchName || user?.from_branch_name || user?.branch_name || user?.from_branch?.branch_name || user?.branch?.branch_name || 'N/A'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Department */}
+                                    {(departmentName || user?.department?.name || user?.departments?.name || user?.department_name || (user?.department_id && departmentIdToNameMap[user.department_id])) && (
+                                        <div className="flex items-start space-x-3">
+                                            <div className="flex-shrink-0 mt-0.5">
+                                                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                                    <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Department</p>
+                                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                                    {departmentName || user?.department?.name || user?.departments?.name || user?.department_name || (user?.department_id && departmentIdToNameMap[user.department_id]) || (user?.department_id ? `Dept ID: ${user.department_id}` : 'N/A')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Menu Items */}
+                            <ul className="text-sm text-gray-700 bg-white">
                                 <li>
                                     <button
                                         onClick={handleLogout}
-                                        className="w-full text-left px-4 py-2 hover:bg-gray-100"
+                                        className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 font-medium transition-colors flex items-center space-x-2"
                                     >
-                                        🚪 {t('navbar.signOut')}
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                        <span>{t('navbar.signOut')}</span>
                                     </button>
                                 </li>
                             </ul>
