@@ -50,6 +50,16 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   // Define resolveLabel before it's used
   const resolveLabel = (approval) => {
     if (!approval) return "";
+    
+    // If the form is cancelled, show "Cancelled by" instead of "Issued by"
+    const isCancelledStatus = (status || '').toString().toLowerCase().includes('cancel');
+    if (isCancelledStatus) {
+      const rawLabel = (approval.label || '').toLowerCase();
+      if (rawLabel.includes('issued') || rawLabel.includes('acknowledged') || approval.user_type === 'ACK') {
+        return 'Cancelled by';
+      }
+    }
+    
     if (approval.label) return approval.label;
     return USER_TYPE_MAP[approval.user_type] || "";
   };
@@ -108,6 +118,20 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         '';
       return issuedByName;
     }
+    if (label === 'Cancelled by') {
+      // Check multiple sources for cancelled by name
+      const cancelledByName = 
+        formData?.cancelled_by_name ||
+        formData?.cancel_by_name ||
+        formData?.cancelled_by_user?.name ||
+        formData?.cancel_by_user?.name ||
+        formData?.general_form?.cancelled_by_name ||
+        formData?.general_form?.cancel_by_name ||
+        formData?.general_form?.cancelled_by_user?.name ||
+        formData?.general_form?.cancel_by_user?.name ||
+        '';
+      return cancelledByName;
+    }
     // Operation Mgr Approved by section removed
     if (label === 'Acknowledged by') {
       // Check multiple sources for account acknowledgment name
@@ -159,6 +183,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     }
     if (label.includes('checked')) return 'Branch LP';
     if (label.includes('approved')) return 'BM/ABM';
+    if (label.includes('cancelled')) return 'Branch Account';
     if (label.includes('issued')) return 'Branch Account';
     
     return null;
@@ -273,11 +298,14 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       approvalsToShow.push({ label: "Acknowledged by", key: "acknowledged", approval: acAcknowledgedApproval });
     }
     
-    // Always show Issued by
-    const issuedApproval = safeApprovals.find(a => 
-      (resolveLabel(a) || "").toLowerCase().includes("issued")
-    );
-    approvalsToShow.push({ label: "Issued by", key: "issued", approval: issuedApproval });
+    // Always show Issued by (or Cancelled by if form is cancelled)
+    const isCancelledStatus = (status || '').toString().toLowerCase().includes('cancel');
+    const issuedLabel = isCancelledStatus ? "Cancelled by" : "Issued by";
+    const issuedApproval = safeApprovals.find(a => {
+      const label = (resolveLabel(a) || "").toLowerCase();
+      return label.includes("issued") || label.includes("cancel");
+    });
+    approvalsToShow.push({ label: issuedLabel, key: "issued", approval: issuedApproval });
     
     return approvalsToShow.map(({ label, key, approval: matchingApproval }) => {
       const isCurrentStep = CURRENT_STEP_STATUS[key] === status;
@@ -317,6 +345,27 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
       }
 
+      // For "BM Approved by", only mark as acted if form status is "BM Approved" or higher
+      // This prevents "BM Approved by" from showing as filled when form status is "Checked" or lower
+      if (label === 'BM Approved by') {
+        const isBmApprovedStatus = status === 'BM Approved' || 
+                                  status === 'BMApproved' ||
+                                  status === 'OPApproved' ||
+                                  status === 'OP Approved' ||
+                                  status === 'Ac_Acknowledged' ||
+                                  status === 'Acknowledged' ||
+                                  status === 'Completed' ||
+                                  status === 'Issued' ||
+                                  status === 'SupervisorIssued';
+        
+        if (isBmApprovedStatus) {
+          // Form has been BM Approved or higher - show as acted
+          hasActed = true;
+        } else {
+          // Form is still "Checked" or lower - don't show as acted even if approval record exists
+          hasActed = false;
+        }
+      }
 
       // For "Operation Mgr Approved by", if status is OPApproved/Completed/Ac_Acknowledged, it should be marked as acted
       if (label === 'Operation Mgr Approved by') {
@@ -621,6 +670,26 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         displayName = "";
       }
 
+      // Resolve comment - for cancelled forms, show the reason/remark from supporting info
+      const resolveComment = () => {
+        if (!showDetails) return "";
+        
+        // For "Cancelled by", prioritize reason from formData
+        if (label === 'Cancelled by') {
+          return formData?.reason ||
+                 formData?.cancel_reason ||
+                 formData?.cancellation_reason ||
+                 formData?.general_form?.reason ||
+                 formData?.general_form?.cancel_reason ||
+                 formData?.general_form?.cancellation_reason ||
+                 matchingApproval?.comment ||
+                 "";
+        }
+        
+        // For other approvals, use the comment from approval 
+        return matchingApproval?.comment || "";
+      };
+
       const result = {
         label,
         role: showDetails ? (resolveRole(matchingApproval, label) || (isPreparedBy ? 'Creator' : null)) : null,
@@ -631,7 +700,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         title: showDetails ? resolveTitle() : "",
         department: showDetails ? resolveDepartment() : "",
         date: showDetails ? resolvedDate : "",
-        comment: showDetails ? (matchingApproval?.comment || "") : "",
+        comment: resolveComment(),
         branch: showDetails ? resolveBranch() : "",
       };
       
@@ -652,19 +721,27 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       <div className="grid grid-cols-2 md:flex md:flex-nowrap gap-2 text-sm w-full">
         {displayApprovals.map((approval, index) => {
           const isBmStage = (approval.label || '').toLowerCase().includes('bm approved');
+          const isCancelledCard = (approval.label || '').toLowerCase().includes('cancelled');
           const statusClass = approval.acted
-            ? isBmStage
-              ? 'bg-blue-100 text-blue-700 border-blue-300'
-              : 'bg-green-100 text-green-700 border-green-300'
+            ? isCancelledCard
+              ? 'bg-red-100 text-red-700 border-blue-300'
+              : isBmStage
+                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                : 'bg-green-100 text-green-700 border-green-300'
             : approval.isCurrentStep
-            ? 'bg-blue-100 text-blue-700 border-blue-300'
+            ? isCancelledCard
+              ? 'bg-red-100 text-red-700 border-blue-300'
+              : 'bg-blue-100 text-blue-700 border-blue-300'
             : (approval.label || '').toLowerCase().includes('prepared')
             ? 'bg-blue-50 text-blue-600 border-blue-200'
             : 'bg-yellow-100 text-yellow-700 border-yellow-300';
 
           // Determine inner shadow color class for mobile
           const getInnerShadowClass = () => {
-            if (approval.acted) {
+        if (isCancelledCard) {
+          return '[box-shadow:inset_0_0_30px_rgba(253,161,157,0.4)]'; // Soft red inner shadow matching #fda19d for cancelled card
+        }
+        if (approval.acted) {
               return isBmStage 
                 ? '[box-shadow:inset_0_0_30px_rgba(59,130,246,0.25)]' // Blue inner shadow for BM Approved
                 : '[box-shadow:inset_0_0_30px_rgba(34,197,94,0.25)]'; // Green inner shadow for acted
@@ -681,7 +758,16 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           return (
             <div
               key={`${approval.label}-${index}`}
-              className={`bg-white border rounded-md p-2 text-gray-700 flex flex-col gap-1 min-w-0 md:flex-1 ${approval.acted ? 'border-green-200' : 'border-gray-200'} md:shadow-sm ${getInnerShadowClass()} md:[box-shadow:none]`}
+              className={`border rounded-md p-2 text-gray-700 flex flex-col gap-1 min-w-0 md:flex-1 ${
+                (approval.label || '').toLowerCase().includes('cancelled')
+                  ? 'border-gray-200'
+                  : approval.acted
+                    ? 'bg-white border-green-200'
+                    : 'bg-white border-gray-200'
+              } md:shadow-sm ${getInnerShadowClass()} md:[box-shadow:none]`}
+              style={(approval.label || '').toLowerCase().includes('cancelled') 
+                ? { backgroundColor: '#fda19d' } 
+                : {}}
             >
                 <div className="flex items-center justify-between w-full">
                   <p className="flex items-center gap-1 text-gray-500 text-xs uppercase tracking-wider">

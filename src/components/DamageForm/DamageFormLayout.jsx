@@ -10,10 +10,10 @@ import ApprovalSection from "./ApprovalSection";
 import DamageAddProduct from "./DamageAddProduct";
 import ActionConfirmationModal from "./ActionConfirmationModal";
 import ValidationErrorModal from "./ValidationErrorModal";
+import SuccessModal from "./SuccessModal";
+import ErrorModal from "./ErrorModal";
 import AnimatedBackButton from "../common/AnimatedBackButton";
 import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import './ButtonHoverEffects.css';
 import './BoxesLoader.css';
 
@@ -295,7 +295,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Default fallback
       return 'Not sell';
     };
-
+    
     return {
       branch: "",
       // Preserve caseType from initialData if it exists, otherwise default to "Not sell"
@@ -381,6 +381,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [successModalAction, setSuccessModalAction] = useState('');
+  const [successModalMessage, setSuccessModalMessage] = useState('');
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
   // Use ref for synchronous duplicate submission prevention
   const isSubmittingRef = useRef(false);
   // Track submission ID to detect duplicate submissions
@@ -1031,8 +1036,42 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'SupervisorIssued':
         return 'Completed'; // Supervisor step removed - map to Completed
       case 'BackToPrevious':
-        // Return the actual btp value from API (op_btp, bm_btp, bracc_btp) or default to BackToPrevious
-        return apiActions?.btp || 'BackToPrevious';
+        // Send the btp value directly to backend (op_btp, bm_btp, bracc_btp)
+        // Backend will handle the status change based on the btp value:
+        // - op_btp: goes back to 'Checked' (OP Manager sending back from OPApproved)
+        // - bm_btp: goes back to 'Ongoing' (BM sending back from Checked)
+        // - bracc_btp: goes back to 'BM Approved' or 'Checked' (Account sending back)
+        if (apiActions?.btp) {
+          return apiActions.btp; // Send btp value directly (op_btp, bm_btp, bracc_btp)
+        }
+        // Fallback: determine based on current status
+        // This fallback logic matches the backend's api_actions method
+        const currentStatus = formData.status || '';
+        const normalizedStatus = currentStatus.trim();
+        
+        // OP Manager clicking back from 'OP Approved' → op_btp
+        if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
+          return 'op_btp';
+        } 
+        // Account/Branch Account clicking back from 'Acknowledged' or similar statuses → bracc_btp
+        else if (normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
+          return 'bracc_btp';
+        }
+        // BM or Account clicking back from 'BM Approved' → bracc_btp (Account user)
+        else if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') {
+          return 'bracc_btp';
+        }
+        // BM clicking back from 'Checked' → bm_btp (goes back to Ongoing)
+        else if (normalizedStatus === 'Checked') {
+          return 'bm_btp';
+        }
+        return 'Checked'; // Default fallback
+      case 'backtoprevious':
+        // Handle lowercase variant - use apiActions.btp if available
+        if (apiActions?.btp) {
+          return apiActions.btp;
+        }
+        return 'Checked'; // Default fallback
       case 'Cancel':
         return 'Cancel';
       default:
@@ -1792,6 +1831,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         };
       });
 
+      // Show success modal
+      setSuccessModalMessage(t('messages.productAdded', { defaultValue: 'Product added successfully' }));
+      setSuccessModalAction('submit');
+      setIsSuccessModalOpen(true);
+
       // Call success callback if provided (to close modal, etc.)
       if (onSuccess) {
         setTimeout(() => {
@@ -2002,14 +2046,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId;
       
       if (!generalFormId) {
-        toast.error(t('messages.pdfFormIdNotFound'));
+        setErrorModalMessage(t('messages.pdfFormIdNotFound'));
+        setIsErrorModalOpen(true);
         return;
       }
 
       // Get the token for authentication
       const token = localStorage.getItem('token');
       if (!token) {
-        toast.error(t('messages.authRequired'));
+        setErrorModalMessage(t('messages.authRequired'));
+        setIsErrorModalOpen(true);
         return;
       }
 
@@ -2020,9 +2066,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Construct the PDF URL - using the API route for print
       // The route is /api/big-damage-issues/{general_form_id}/print
       const pdfUrl = `${API_BASE_URL}/big-damage-issues/${generalFormId}/print`;
-      
-      // Show loading toast
-      const loadingToast = toast.loading(t('messages.pdfGenerating'));
       
       console.log('[PDF Download] Starting PDF download', { pdfUrl, generalFormId });
       
@@ -2141,11 +2184,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         window.URL.revokeObjectURL(blobUrl);
         
         console.log('[PDF Download] PDF download completed successfully');
-        toast.dismiss(loadingToast);
-        toast.success(t('messages.pdfGenerated'));
+        setSuccessModalMessage(t('messages.pdfGenerated'));
+        setSuccessModalAction('submit');
+        setIsSuccessModalOpen(true);
       } catch (fetchError) {
         if (timeoutId) clearTimeout(timeoutId);
-        toast.dismiss(loadingToast);
         // Handle abort/timeout
         if (fetchError.name === 'AbortError') {
           throw new Error(t('messages.errors.timeout'));
@@ -2153,10 +2196,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         throw fetchError;
       }
     } catch (error) {
-      // Ensure loading toast is dismissed
-      toast.dismiss(loadingToast);
       const errorMessage = error.message || t('messages.pdfGenerateFailed');
-      toast.error(errorMessage);
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
       console.error('PDF download error:', error);
     }
   };
@@ -2174,6 +2216,37 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if (isSubmittingRef.current || isSubmitting) {
       console.warn('Form submission already in progress, ignoring duplicate click');
       return;
+    }
+    
+    // Validate cancel action - require reason/remark
+    if (action === 'Cancel' || action === 'cancel') {
+      if (!formData.reason || formData.reason.trim() === '') {
+        const errorMessage = t('messages.cancelReasonRequired', { 
+          defaultValue: 'Please provide a reason for canceling the form. The remark field in Supporting Info is required.' 
+        });
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [errorMessage]
+        });
+        return;
+      }
+    }
+    
+    // Validate back to previous action - require reason/remark/comment
+    if (action === 'BackToPrevious' || action === 'backtoprevious') {
+      const hasComment = (formData.comment && formData.comment.trim() !== '') ||
+                         (formData.reason && formData.reason.trim() !== '') ||
+                         (formData.remark && formData.remark.trim() !== '');
+      if (!hasComment) {
+        const errorMessage = t('messages.backToPreviousReasonRequired', { 
+          defaultValue: 'Please provide a remark in Supporting Info for back to previous action.' 
+        });
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [errorMessage]
+        });
+        return;
+      }
     }
     
     // Validate that all items have quantity > 0
@@ -2194,7 +2267,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const errorMessage = t('messages.itemsWithZeroQuantity', { 
         defaultValue: 'Please ensure all products have a quantity greater than 0. Products with 0 quantity cannot be submitted.' 
       });
-      toast.error(errorMessage);
       setValidationErrorModal({
         isOpen: true,
         errors: [errorMessage]
@@ -2292,7 +2364,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           isOpen: true,
           errors: checkErrors
         });
-        toast.error(checkErrors.join(' '));
         return;
       }
       
@@ -2305,7 +2376,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     
     // If status is Checked and user is BM/ABM trying to approve, check if investigation is filled
     if (isCheckedStatus && isApprovalAction && isBMOrABM && !isInvestigationFilled) {
-      toast.error(t('messages.investigationRequired'));
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
       return;
     }
 
@@ -2314,7 +2388,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if ((role === 'account' || isAccount) && isIssueAction) {
       // Require BM investigation to be filled first
       if (!isInvestigationFilled) {
-        toast.error(t('messages.investigationRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
         return;
       }
 
@@ -2334,7 +2411,49 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           isOpen: true,
           errors: [accountError]
         });
-        toast.error(accountError);
+        return;
+      }
+
+      // Validate ISS remark and account codes before issuing
+      const hasIssRemark = formData.iss_remark && formData.iss_remark.trim() !== '';
+      const items = Array.isArray(formData.items) ? formData.items : [];
+      const itemsWithoutAccountCode = items.filter(item => {
+        const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
+        return !accountCode || accountCode.trim() === '';
+      });
+      
+      const missingIssRemark = !hasIssRemark;
+      const missingAccountCodes = itemsWithoutAccountCode.length > 0;
+
+      if (missingIssRemark && missingAccountCodes) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.issRemarkAndAccountCodesRequired', { 
+            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.' 
+          })]
+        });
+        return;
+      } else if (missingIssRemark) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.issRemarkRequired', { 
+            defaultValue: 'Please select ISS remark type before issuing the form.' 
+          })]
+        });
+        return;
+      } else if (missingAccountCodes) {
+        const productNames = itemsWithoutAccountCode
+          .map(item => item.name || item.product_name || item.code || 'Unknown')
+          .join(', ');
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [
+            t('messages.accountCodesRequired', { 
+              defaultValue: 'Please assign account codes to all products before issuing the form.' 
+            }),
+            `Products missing account codes: ${productNames}`
+          ]
+        });
         return;
       }
     }
@@ -2343,7 +2462,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const isOpAckAction = action === 'Ac_Acknowledged' || action === 'OPApproved' || action === 'Acknowledged';
     const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
     if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction && !isInvestigationFilled) {
-      toast.error(t('messages.investigationRequired'));
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
       return;
     }
     
@@ -2498,7 +2620,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       const items = Array.isArray(formData.items) ? formData.items : [];
       if (!items.length) {
-        toast.error(t('messages.addProductRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.addProductRequired')]
+        });
         isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
@@ -2506,7 +2631,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       const hasValidProduct = items.some((item) => (item?.code || item?.product_code || '').toString().trim());
       if (!hasValidProduct) {
-        toast.error(t('messages.productCodeRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.productCodeRequired')]
+        });
         isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
@@ -2582,7 +2710,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       // Critical validation - items are still required (blocking error)
       if (validItems.length === 0) {
-        toast.error(t('messages.addProductRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.addProductRequired')]
+        });
         isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
@@ -3316,6 +3447,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           formDataToSend.append('status', backendStatus);
         }
 
+        // Explicitly ensure reason is sent for Cancel action
+        if ((action === 'Cancel' || action === 'cancel') && formData.reason) {
+          formDataToSend.append('reason', formData.reason);
+        }
+
         const user = currentUser || getCurrentUser() || {};
         
         const resolvedUserId = user?.id
@@ -3656,17 +3792,62 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
         }
 
-        setSuccessMessage(t('messages.formSubmitted'));
+        // Check if this is a "Back to Previous" action - navigate to list instead of reloading
+        const isBackToPreviousAction = action === 'BackToPrevious' || action === 'backtoprevious';
         
-        // Show success toast
-        toast.success(t('messages.formSubmitted'), {
-          position: 'top-right',
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
+        if (isBackToPreviousAction) {
+          // For back to previous, navigate to list to avoid stale data issues
+          const message = t('messages.formSentBackToPrevious', { defaultValue: 'Form sent back to previous successfully' });
+          setSuccessMessage(message);
+          setSuccessModalMessage(message);
+          setSuccessModalAction('BackToPrevious');
+          setIsSuccessModalOpen(true);
+        
+          // Navigate to list page after modal closes (1 second)
+          setTimeout(() => {
+            const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+            if (storedReturnUrl) {
+              sessionStorage.removeItem('bigDamageIssueReturnUrl');
+              const urlParts = storedReturnUrl.split('?');
+              const pathname = urlParts[0] || '/big_damage_issue';
+              const search = urlParts[1] ? `?${urlParts[1]}` : '';
+              navigate(pathname + search, { replace: true });
+            } else {
+              navigate('/big_damage_issue', { replace: true });
+            }
+          }, 1500);
+          
+          return response;
+        }
+        
+        // Get the success message based on the action
+        let message = t('messages.formSubmitted');
+        let actionType = 'submit';
+        
+        if (action === 'Check' || action === 'CheckMem') {
+          message = t('messages.formChecked', { defaultValue: 'Form checked successfully' });
+          actionType = 'check';
+        } else if (action === 'Approve' || action === 'BMApproved' || action === 'BMApprovedMem') {
+          message = t('messages.formApproved', { defaultValue: 'Form approved successfully' });
+          actionType = 'approve';
+        } else if (action === 'Acknowledge' || action === 'AcAcknowledge') {
+          message = t('messages.formAcknowledged', { defaultValue: 'Form acknowledged successfully' });
+          actionType = 'acknowledge';
+        } else if (action === 'Issue' || action === 'SupervisorIssue') {
+          message = t('messages.formIssued', { defaultValue: 'Form issued successfully' });
+          actionType = 'issue';
+        } else if (action === 'Cancel' || action === 'cancel') {
+          message = t('messages.formCanceled', { defaultValue: 'Form canceled successfully' });
+          actionType = 'cancel';
+        } else if (action === 'Submit') {
+          message = t('messages.formSubmitted', { defaultValue: 'Form submitted successfully' });
+          actionType = 'submit';
+        }
+        
+        setSuccessMessage(message);
+        setSuccessModalMessage(message);
+        setSuccessModalAction(actionType);
+        setIsSuccessModalOpen(true);
         
         // If this was a save as draft, update the URL with the new form ID
         if (response && response.id && !isEditMode) {
@@ -3738,15 +3919,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         setError(errorMessage);
         setSuccessMessage('');
         
-        // Show error toast
-        toast.error(errorMessage, {
-          position: 'top-right',
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
+        // Show error modal
+        setErrorModalMessage(errorMessage);
+        setIsErrorModalOpen(true);
         
         throw apiError; // Re-throw to be caught by the outer catch
       }
@@ -3772,15 +3947,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       setError(errorMessage);
       setSuccessMessage('');
       
-      // Show error toast
-      toast.error(errorMessage, {
-        position: 'top-right',
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      // Show error modal
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
       
       throw error;
     } finally {
@@ -4447,15 +4616,13 @@ const resolveApproveAction = () => {
         <span></span>
         <span></span>
         <span></span>
-      </div>a
+      </div>
       <div className="loading-text">Loading</div>
     </div>
   );
 
   return (
     <div className="mx-auto p-0 sm:p-4 bg-gray-50 min-h-screen space-y-4 sm:space-y-4 font-sans">
-      <ToastContainer position="top-right" autoClose={5000} />
-      
       {isSubmitting && <BoxesLoader />}
       
       {error && (
@@ -4659,12 +4826,22 @@ const resolveApproveAction = () => {
         gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
         currentUser={currentUser}
         onOpenAddProductModal={handleOpenAddProductModal}
+        onSuccessModal={(message, action = 'submit') => {
+          setSuccessModalMessage(message);
+          setSuccessModalAction(action);
+          setIsSuccessModalOpen(true);
+        }}
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
           setFormData((prev) => ({
             ...prev,
             systemQtyUpdated: true,
           }));
+          
+          // Show success modal
+          setSuccessModalMessage(t('messages.systemQtyUpdated', { defaultValue: 'System quantities updated successfully' }));
+          setSuccessModalAction('submit');
+          setIsSuccessModalOpen(true);
           
           // Refetch form data to get updated system_qty values after account updates
           // This ensures supervisor sees the updated system_qty values at Ac_Acknowledged stage
@@ -4989,9 +5166,9 @@ const resolveApproveAction = () => {
               <Send className="btn-icon w-4 h-4 absolute" />
             </button>
           </>
-          ) : (
+        ) : (
             <>
-              {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+            {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Edit')}
                 className="btn-with-icon btn-edit inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
@@ -5053,7 +5230,7 @@ const resolveApproveAction = () => {
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
             {!!actions.backToPrevious && formData.status !== 'Checked' && formData.status !== 'checked' && (
-              <button
+              <button 
                 onClick={() => handleSubmitClick('BackToPrevious')}
                 className="group inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200"
                 style={{ fontSize: '0.75rem' }}
@@ -5075,7 +5252,7 @@ const resolveApproveAction = () => {
               </button>
             )}
             </>
-          )}
+        )}
         </div>
       </div>
       {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} totalAmount={totalAmount} />}
@@ -5094,6 +5271,22 @@ const resolveApproveAction = () => {
         isOpen={validationErrorModal.isOpen}
         errors={validationErrorModal.errors}
         onClose={() => setValidationErrorModal({ isOpen: false, errors: [] })}
+      />
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        message={successModalMessage}
+        action={successModalAction}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        message={errorModalMessage}
+        autoClose={false}
       />
     </div>
   );

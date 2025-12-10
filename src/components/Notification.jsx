@@ -272,25 +272,43 @@ export default function Notification({ notifications }) {
 
     return (
         <div className="relative">
-            <div className="relative cursor-pointer" onClick={toggleDropdown}>
-                <FaBell className="text-2xl text-gray-700" />
+            {/* Bell Icon with Badge */}
+            <div className="relative cursor-pointer group" onClick={toggleDropdown}>
+                <div className="p-2 rounded-full transition-all duration-200 group-hover:bg-blue-50">
+                    <FaBell className="text-2xl text-gray-700 group-hover:text-blue-600 transition-colors" />
+                </div>
                 {hasNotifications && (
-                    <span className="absolute -top-4 -right-3 flex items-center justify-center 
-                                    h-6 w-6 text-sm font-bold text-white bg-red-600 rounded-full
-                                    border-2 border-white shadow-lg p-3">
-                        {notifications.length}
+                    <span className="absolute top-0 right-0 flex items-center justify-center 
+                                    min-w-[22px] h-[22px] px-1.5 text-xs font-bold text-white 
+                                    bg-gradient-to-br from-red-500 to-red-600 rounded-full
+                                    border-2 border-white shadow-lg animate-pulse">
+                        {notifications.length > 99 ? '99+' : notifications.length}
                     </span>
                 )}
             </div>
-            {isDropdownOpen && hasNotifications && (
-                <div className="absolute -right-30 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                    <div className="max-h-60 overflow-y-auto">
-                        {notifications.map((noti, index) => (
+
+            {/* Modern Dropdown */}
+            {isDropdownOpen && (
+                <div className="absolute -right-4 mt-3 w-96 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 animate-slideDown">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
+                        <h3 className="text-lg font-bold text-gray-800">Notifications</h3>
+                        {hasNotifications && (
+                            <span className="px-3 py-1 text-xs font-semibold text-blue-600 bg-blue-100 rounded-full">
+                                {notifications.length} new
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Notifications List or Empty State */}
+                    {hasNotifications ? (
+                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                            {notifications.map((noti, index) => (
                             <div
                                 key={index}
                                 role="button"
                                 tabIndex={0}
-                                className="flex p-3 border-b border-gray-200 hover:bg-gray-200 cursor-pointer"
+                                className="relative group p-4 border-b border-gray-50 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 cursor-pointer transition-all duration-200 last:border-b-0"
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
@@ -304,35 +322,166 @@ export default function Notification({ notifications }) {
                                     }
                                 }}
                             >
-                                <img
-                                    src={finalLogo}
-                                    alt="Logo"
-                                    className="w-12 h-12 object-contain rounded-full mr-3"
-                                />
-                                <div className="flex-1">
-                                    {noti?.form_id === 15 && (
-                                        <h3 className="text-xs font-bold uppercase tracking-wider  mb-1">
-                                            {noti?.form_name || 'Unknown Form'}
-                                        </h3>
-                                    )}
-                                    <p className="font-semibold text-sm">{noti?.form_doc_no || 'Unknown Document'}</p>
-                                    <p className="font-semibold text-sm">{noti?.status || 'Unknown status'}</p>
-                                    <p className="text-xs text-blue-500">
-                                        {new Date(noti?.created_at).toLocaleString()}
-                                    </p>
+                                {/* Unread Indicator */}
+                                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-blue-500 rounded-r-full"></div>
+                                
+                                <div className="flex gap-3 items-start ml-2">
+                                    {/* Logo with modern styling */}
+                                    <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl p-2 shadow-sm">
+                                        <img
+                                            src={finalLogo}
+                                            alt="Logo"
+                                            className="w-full h-full object-contain"
+                                        />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div className="flex-1 min-w-0">
+                                        {/* Document Number */}
+                                        <p className="font-bold text-gray-800 text-sm truncate mb-1">
+                                            {noti?.form_doc_no || noti?.data?.form_doc_no || 'Unknown Document'}
+                                        </p>
+                                        
+                                        {/* Actor information or status - check multiple possible paths */}
+                                        {(() => {
+                                            const actorName = noti?.actor_name || noti?.data?.actor_name;
+                                            const action = noti?.action || noti?.data?.action;
+                                            const actorRole = noti?.actor_role || noti?.data?.actor_role;
+                                            
+                                            console.log('[Notification Display]', { 
+                                                actorName, 
+                                                action, 
+                                                actorRole,
+                                                noti,
+                                                data: noti?.data 
+                                            });
+                                            
+                                            if (actorName && action) {
+                                                return (
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm text-gray-700">
+                                                            <span className="font-semibold text-gray-900">{actorName}</span>
+                                                            {actorRole && (
+                                                                <span className="ml-1 text-xs text-blue-600 font-medium">
+                                                                    ({actorRole})
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                        <p className="text-sm text-gray-600">
+                                                            {action === 'checked' ? (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span className="text-green-600">✓</span> Checked your form
+                                                                </span>
+                                                            ) : action === 'approved' ? (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span className="text-purple-600">✓</span> Approved your form
+                                                                </span>
+                                                            ) : action === 'bm_approved' ? (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span className="text-yellow-600">✓</span> Approved form by BM - Please review
+                                                                </span>
+                                                            ) : action === 'op_acknowledged' || action === 'acknowledged' ? (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span className="text-indigo-600">✓</span> Acknowledged form - Please review
+                                                                </span>
+                                                            ) : action === 'created' ? (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span className="text-blue-600">📄</span> Created a new form
+                                                                </span>
+                                                            ) : (
+                                                                <span className="inline-flex items-center gap-1">
+                                                                    <span className="text-gray-600">•</span> {noti?.status || 'Status update'}
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                );
+                                            } else {
+                                                return (
+                                                    <p className="text-sm text-gray-600">
+                                                        {noti?.status || 'Status update'}
+                                                    </p>
+                                                );
+                                            }
+                                        })()}
+                                        
+                                        {/* Timestamp */}
+                                        <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            {new Date(noti?.created_at).toLocaleString('en-US', { 
+                                                year: 'numeric',
+                                                month: 'short', 
+                                                day: 'numeric', 
+                                                hour: '2-digit', 
+                                                minute: '2-digit' 
+                                            })}
+                                        </p>
+                                    </div>
+
+                                    {/* Arrow indicator on hover */}
+                                    <div className="flex-shrink-0 text-gray-400 group-hover:text-blue-600 transition-colors">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-12 px-6">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                <FaBell className="text-3xl text-gray-400" />
+                            </div>
+                            <p className="text-gray-600 font-medium text-base mb-1">No notifications</p>
+                            <p className="text-gray-400 text-sm text-center">You're all caught up! Check back later for updates.</p>
+                        </div>
+                    )}
 
+                    {/* Footer */}
                     <button
                         onClick={toggleDropdown}
-                        className="w-full text-center text-blue-500 text-sm py-2 hover:bg-gray-100 border-t border-gray-200"
+                        className="w-full text-center text-blue-600 font-medium text-sm py-3 
+                                 hover:bg-blue-50 border-t border-gray-100 rounded-b-2xl 
+                                 transition-colors duration-200"
                     >
                         Close
                     </button>
                 </div>
             )}
+
+            {/* Custom Scrollbar Styles */}
+            <style>{`
+                @keyframes slideDown {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-10px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .animate-slideDown {
+                    animation: slideDown 0.2s ease-out;
+                }
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: #f1f1f1;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #cbd5e1;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #94a3b8;
+                }
+            `}</style>
         </div>
     );
 }

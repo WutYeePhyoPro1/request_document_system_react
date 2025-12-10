@@ -274,6 +274,12 @@ export default function Navbar({ toggleSidebar }) {
                     form_name: n.form_name || 'Unknown Form',
                     status: n.status || 'pending',
                     is_viewed: n.is_viewed !== undefined ? n.is_viewed : (n.data?.is_viewed !== undefined ? n.data.is_viewed : null),
+                    // Include actor information and action for notification display
+                    actor_name: n.actor_name ?? n.data?.actor_name ?? null,
+                    actor_role: n.actor_role ?? n.data?.actor_role ?? null,
+                    action: n.action ?? n.data?.action ?? null,
+                    // Also include full data object for backward compatibility
+                    data: n.data || {},
                 }));
 
                 // Filter to only show unread notifications (is_viewed is false, null, or undefined)

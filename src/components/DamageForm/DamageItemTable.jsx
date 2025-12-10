@@ -317,6 +317,7 @@ export default function DamageItemTable({
   onItemAccountCodeChange = () => {},
   systemQtyUpdated = false,
   onSystemQtyStatusChange = () => {},
+  onSuccessModal = () => {},
   isCompleted = false,
   supportingAttachments = [],
   isAccount = false,
@@ -727,14 +728,14 @@ export default function DamageItemTable({
       return; // Early return - don't process any other conditions
     }
     
-    // Account should always see account codes at OPApproved, BM Approved, or Ac_Acknowledged stages
+    // Account should see account codes only at Ac_Acknowledged stage and later (NOT at BM Approved, Checked, or Ongoing)
+    // Account codes are for the acknowledgment/issue stage, not approval stages
     const accountShouldSeeCodes = isAccount && (
-      status === 'OPApproved' || 
-      status === 'OP Approved' || 
-      status === 'BM Approved' || 
-      status === 'BMApproved' ||
       status === 'Ac_Acknowledged' ||
-      status === 'Acknowledged'
+      status === 'Acknowledged' ||
+      status === 'Issued' ||
+      status === 'Completed' ||
+      status === 'SupervisorIssued'
     );
     
     // Supervisor should see account codes at Ac_Acknowledged, Acknowledged, or Approved stages
@@ -769,6 +770,31 @@ export default function DamageItemTable({
   
   const isCheckerRole = ['branch_lp', 'checker', 'cs', 'loss prevention'].some(r => normalizedRole.includes(r));
   const isApproverRole = ['bm', 'abm', 'approver', 'manager'].some(r => normalizedRole.includes(r));
+  // Regular user role (creator/originator) - should not see Add Product button in Ongoing
+  // In Ongoing status, only Checkers, Supervisors, and Approvers should see the button
+  // If user is not a checker, supervisor, approver, or account, they are a regular user
+  const isUserRole = (normalizedRole === 'user' || 
+                     (!isCheckerRole && 
+                      !isSupervisorUser && 
+                      !isApproverRole && 
+                      !isAccount && 
+                      !isOpManager));
+  
+  // Debug logging for Add Product button visibility
+  if (status === 'Ongoing' || status === 'ongoing') {
+    console.log('[DamageItemTable] Add Product Button Visibility Check:', {
+      userRole,
+      normalizedRole,
+      isCheckerRole,
+      isSupervisorUser,
+      isApproverRole,
+      isAccount,
+      isOpManager,
+      isUserRole,
+      status,
+      shouldHide: isUserRole
+    });
+  }
   
   // Allow editing final_qty (Actual Qty) based on role and status - matching Laravel Blade logic
   const allowFinalQtyEdit = isCompleted
@@ -1880,10 +1906,6 @@ const normalizeImageEntries = (list) => {
       
       // Only trigger refetch once
       onSystemQtyStatusChange(true);
-      
-      // Show success message
-      const { toast } = await import('react-toastify');
-      toast.success('System quantities updated successfully');
     } catch (error) {
       console.error('Error updating system quantities:', error);
       setErrorModal({
@@ -2005,8 +2027,19 @@ const normalizeImageEntries = (list) => {
             );
           })()}
           
-          {/* Add Product button for Ongoing and Checked stage - hide in add mode - Desktop only */}
-          {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+          {/* Add Product button for Ongoing (Checkers, Supervisors, Approvers only - NOT regular users) or Checked (BM only) - hide in add mode and Branch Account stages - Desktop only */}
+          {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || (status === 'Checked' && isApproverRole)) && 
+           !isCompleted && 
+           mode !== 'add' && 
+           status !== 'BM Approved' && 
+           status !== 'BMApproved' &&
+           status !== 'Ac_Acknowledged' && 
+           status !== 'Acknowledged' &&
+           status !== 'Issued' &&
+           status !== 'Completed' &&
+           // Hide for Branch Account users and regular user role
+           !isAccount && 
+           !isUserRole && (
             <button
               onClick={onOpenAddProductModal}
               className="hidden md:inline-flex group relative items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-sm transition-all duration-300 ease-out hover:shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 overflow-hidden"
@@ -2022,8 +2055,19 @@ const normalizeImageEntries = (list) => {
           )}
         </div>
         
-        {/* Add Product button for mobile - Fixed position at bottom right */}
-        {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+        {/* Add Product button for mobile - Fixed position at bottom right - Ongoing (Checkers, Supervisors, Approvers only - NOT regular users) or Checked (BM only) - hide in Branch Account stages */}
+        {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || (status === 'Checked' && isApproverRole)) && 
+         !isCompleted && 
+         mode !== 'add' && 
+         status !== 'BM Approved' && 
+         status !== 'BMApproved' &&
+         status !== 'Ac_Acknowledged' && 
+         status !== 'Acknowledged' &&
+         status !== 'Issued' &&
+         status !== 'Completed' &&
+         // Hide for Branch Account users and regular user role
+         !isAccount && 
+         !isUserRole && (
           <button
             onClick={onOpenAddProductModal}
             className="md:hidden fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-2xl transition-all duration-300 hover:shadow-blue-500/50 hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2"
@@ -2865,7 +2909,7 @@ const normalizeImageEntries = (list) => {
                                 onClick={() => openProductModal(item)}
                               >
                                 <ImageIcon size={20} strokeWidth={1.5} />
-                              </div>
+                          </div>
                             )}
                           </>
                         )}

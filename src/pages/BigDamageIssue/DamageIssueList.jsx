@@ -411,7 +411,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
-                           !['Completed', 'Issued', 'Ac_Acknowledged', 'Acknowledged', 'SupervisorIssued'].includes(gf.status) ? (
+                           !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status) ? (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
                               <SparklesIcon className="h-3 w-3" />
                               <span>New</span>
@@ -521,7 +521,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 <div className="flex items-start justify-between gap-2 min-w-0">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
-                     !['Completed', 'Issued', 'Ac_Acknowledged', 'Acknowledged', 'SupervisorIssued'].includes(gf.status) ? (
+                     !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status) ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">
                         <SparklesIcon className="h-3 w-3" />
                         <span>New</span>

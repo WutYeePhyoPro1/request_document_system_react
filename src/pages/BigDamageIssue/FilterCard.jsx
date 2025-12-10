@@ -156,19 +156,25 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     return val !== null && val !== undefined && val !== '';
   });
 
-  // Get status color based on status value
+  // Get status color based on status value (matching DamageIssueList colors)
   const getStatusColor = (statusValue) => {
     const colorMap = {
-      'Ongoing': { bg: '#FED7AA', text: '#9A3412', border: '#FB923C' },
-      'Checked': { bg: '#FEF3C7', text: '#92400E', border: '#FBBF24' },
-      'BM Approved': { bg: '#DBEAFE', text: '#1E40AF', border: '#60A5FA' },
-      'OPApproved': { bg: '#E0E7FF', text: '#3730A3', border: '#818CF8' },
-      'Ac_Acknowledged': { bg: '#F3E8FF', text: '#6B21A8', border: '#A78BFA' },
-      'Approved': { bg: '#D1FAE5', text: '#065F46', border: '#34D399' },
-      'Completed': { bg: '#D1FAE5', text: '#065F46', border: '#10B981' },
-      'Cancel': { bg: '#F3F4F6', text: '#374151', border: '#9CA3AF' },
+      'Ongoing': { bg: '#fbb193', text: '#e1341e', border: '#e1341e' },
+      'Checked': { bg: '#fedec3', text: '#fb923c', border: '#fb923c' },
+      'BM Approved': { bg: '#ffeaab', text: '#e6ac00', border: '#e6ac00' },
+      'BMApproved': { bg: '#ffeaab', text: '#e6ac00', border: '#e6ac00' },
+      'OPApproved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
+      'OP Approved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
+      'Approved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
+      'Ac_Acknowledged': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
+      'Acknowledged': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
+      'Completed': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
+      'Issued': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
+      'SupervisorIssued': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
+      'Cancel': { bg: '#fda19d', text: '#f91206', border: '#f91206' },
+      'Cancelled': { bg: '#fda19d', text: '#f91206', border: '#f91206' },
     };
-    return colorMap[statusValue] || { bg: '#F3F4F6', text: '#374151', border: '#9CA3AF' };
+    return colorMap[statusValue] || { bg: '#fef3c7', text: '#d97706', border: '#d97706' };
   };
 
   // Shared react-select style to match input height

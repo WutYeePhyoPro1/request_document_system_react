@@ -12,8 +12,9 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { apiRequest } from "../../utils/api";
-import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
+import SuccessModal from "./SuccessModal";
+import ErrorModal from "../common/ErrorModal";
 
 const InvestigationCategoryButton = ({
   icon: Icon,
@@ -171,6 +172,10 @@ const InvestigationFormModal = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [investigationId, setInvestigationId] = useState(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [successModalMessage, setSuccessModalMessage] = useState('');
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
 
   const buildPayload = () => ({
     selectedCategory,
@@ -772,7 +777,9 @@ const InvestigationFormModal = ({
         investigationId: investigationData?.id || investigationData?.investi_id,
       });
     
-      toast.success(responseData?.message || t('investigation.updateSuccess'));
+      // Show success modal
+      setSuccessModalMessage(responseData?.message || t('investigation.updateSuccess'));
+      setIsSuccessModalOpen(true);
       
       // Update modal state with saved data FIRST (before calling onSave)
       if (investigationData) {
@@ -821,9 +828,12 @@ const InvestigationFormModal = ({
         onSave({ investigation: investigationData });
       }
       
-      // Close modal after a short delay to show success message
+      // Close modal after success modal closes (1 second)
       setTimeout(() => {
-      onClose();
+        setIsSuccessModalOpen(false);
+        setTimeout(() => {
+          onClose();
+        }, 500);
       }, 1000);
     } catch (error) {
       console.error('[InvestigationModal] Save error:', {
@@ -836,7 +846,8 @@ const InvestigationFormModal = ({
       
       // Show specific error message from backend if available
       const errorMessage = error.message || error.response?.data?.message || error.response?.data?.error || t('investigation.updateFailed');
-      toast.error(errorMessage);
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
       
       // If there's a field-specific error, set it in validation errors
       if (error.response?.data?.field === 'bm_reason') {
@@ -1130,6 +1141,21 @@ const InvestigationFormModal = ({
           </motion.div>
         </motion.div>
       )}
+      
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        message={successModalMessage}
+        action="save"
+      />
+      
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        message={errorModalMessage}
+      />
     </AnimatePresence>
   );
 };
