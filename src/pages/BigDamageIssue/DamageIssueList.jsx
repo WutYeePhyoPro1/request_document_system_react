@@ -1,9 +1,41 @@
 import React, { useState } from 'react';
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import { SparklesIcon, DocumentIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/solid';
+import { DocumentIcon, ClipboardDocumentIcon, CheckIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
+import { FaEnvelope } from 'react-icons/fa';
 import '../../components/DamageForm/ButtonHoverEffects.css';
+
+// Red Speech Bubble Icon Component
+const RedSpeechBubbleIcon = ({ className = "h-4 w-4" }) => {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {/* Speech bubble body with gradient effect */}
+      <defs>
+        <linearGradient id="speechBubbleGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ef4444" stopOpacity="1" />
+          <stop offset="100%" stopColor="#dc2626" stopOpacity="1" />
+        </linearGradient>
+      </defs>
+      {/* Main speech bubble body */}
+      <path
+        d="M18 4H6C4.89543 4 4 4.89543 4 6V14C4 15.1046 4.89543 16 6 16H8L12 20L16 16H18C19.1046 16 20 15.1046 20 14V6C20 4.89543 19.1046 4 18 4Z"
+        fill="url(#speechBubbleGradient)"
+        stroke="#b91c1c"
+        strokeWidth="0.5"
+      />
+      {/* Left eye (white circle) */}
+      <circle cx="9" cy="9" r="1.5" fill="#ffffff" />
+      {/* Right eye (white circle) */}
+      <circle cx="15" cy="9" r="1.5" fill="#ffffff" />
+    </svg>
+  );
+};
 
 // Copy Button Component
 const CopyButton = ({ text, size = 'small' }) => {
@@ -270,8 +302,63 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   );
 };
 
-function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {} }) {
+function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {}, productFilter = '', notificationCounts = new Map() }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams(); // Use React Router's searchParams to react to URL changes
+
+  // Get filter parameters from URL - use searchParams from React Router
+  // Also check window.location as fallback in case searchParams hasn't updated yet
+  // Also accept productFilter as prop (from Dashboard state) as a fallback
+  const searchFromParams = searchParams.get('search');
+  const searchFromUrl = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('search') : null;
+  const productNameParam = searchParams.get('product_name');
+  const productCodeParam = searchParams.get('product_code');
+  // Use prop first, then URL params - prop is more reliable as it comes directly from Dashboard state
+  const productNameFilter = productFilter || searchFromParams || searchFromUrl || productNameParam || productCodeParam || '';
+  
+  // Debug: Log searchParams changes
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.console) {
+      window.console.log('[DamageIssueList] searchParams changed:', {
+        searchParam: searchParams.get('search'),
+        searchFromParams,
+        searchFromUrl,
+        productNameParam: searchParams.get('product_name'),
+        productCodeParam: searchParams.get('product_code'),
+        allParams: searchParams.toString(),
+        windowLocationSearch: window.location.search,
+        productNameFilter
+      });
+    }
+  }, [searchParams, productNameFilter, searchFromParams, searchFromUrl]);
+  
+  // Debug logging - always log to see what's happening
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.console) {
+      window.console.log('[DamageIssueList] Component rendered:', {
+        dataLength: Array.isArray(data) ? data.length : 0,
+        productFilter: productNameFilter,
+        currentPage,
+        loading,
+        totalRows,
+        urlSearch: searchParams.toString(),
+        searchParamValue: searchParams.get('search')
+      });
+      
+      if (Array.isArray(data) && data.length > 0) {
+        window.console.log('[DamageIssueList] Sample data row:', {
+          keys: Object.keys(data[0] || {}),
+          hasProductCode: !!data[0]?.product_code,
+          hasProductName: !!data[0]?.product_name,
+          productCode: data[0]?.product_code,
+          productName: data[0]?.product_name,
+          fullRow: data[0]
+        });
+      } else {
+        window.console.warn('[DamageIssueList] No data received!', { data });
+      }
+    }
+  }, [data, productNameFilter, currentPage, loading, totalRows, searchParams]);
 
   // Helper function to navigate to detail with page preservation
   const navigateToDetail = (detailId, bigDamageId, generalFormId) => {
@@ -291,20 +378,235 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
 
   // Ensure data is an array and remove duplicates
   const rawIssues = Array.isArray(data) ? data : [];
+  const productNameFilterLower = productNameFilter ? productNameFilter.toLowerCase().trim() : '';
   
-  // Remove duplicates based on form ID (prevent display errors)
-  const seenFormIds = new Set();
-  const issues = rawIssues.filter((row) => {
-    const formId = row?.general_form?.id || row?.id;
-    if (!formId) return true; // Keep rows without ID
+  // Always log filter status - use window.console to ensure it works
+  // Use useEffect to log after render to catch URL changes
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.console) {
+      window.console.log('[DamageIssueList] Processing data (useEffect):', {
+        rawIssuesCount: rawIssues.length,
+        productFilter: productNameFilter,
+        productFilterLower: productNameFilterLower,
+        hasFilter: !!productNameFilterLower,
+        urlSearch: searchParams.toString(),
+        searchParam: searchParams.get('search'),
+        allSearchParams: Object.fromEntries(searchParams.entries())
+      });
+    }
+  }, [rawIssues.length, productNameFilter, productNameFilterLower, searchParams]);
+  
+  // Also log during render for immediate feedback
+  if (typeof window !== 'undefined' && window.console && productNameFilter) {
+    window.console.log('[DamageIssueList] Processing data (render):', {
+      rawIssuesCount: rawIssues.length,
+      productFilter: productNameFilter,
+      productFilterLower: productNameFilterLower,
+      hasFilter: !!productNameFilterLower,
+      urlSearch: searchParams.toString(),
+      searchParam: searchParams.get('search')
+    });
+  }
+  
+  // Group items by general_form_id to collect all products per form
+  // This allows us to check if any product in a form matches the filter
+  // Memoize this to prevent glitches when filter is first applied
+  const formsWithItems = React.useMemo(() => {
+    const formsMap = new Map();
+    rawIssues.forEach((row) => {
+      const formId = row?.general_form?.id || row?.general_form_id;
+      if (formId) {
+        if (!formsMap.has(formId)) {
+          formsMap.set(formId, {
+            formId,
+            generalForm: row?.general_form,
+            items: [],
+            formRow: row // Keep the first row as the form representation
+          });
+        }
+        // Add this row's product info to the form's items
+        // Check multiple possible locations for product code and name
+        // Also check nested structures and alternative field names
+        const productCode = (
+          row?.product_code || 
+          row?.code || 
+          row?.productCode || 
+          row?.product?.code ||
+          row?.product?.product_code ||
+          ''
+        ).toString().trim();
+        const productName = (
+          row?.product_name || 
+          row?.name || 
+          row?.productName || 
+          row?.product?.name ||
+          row?.product?.product_name ||
+          ''
+        ).toString().trim();
+        formsMap.get(formId).items.push({
+          product_code: productCode,
+          product_name: productName,
+          amount: parseFloat(row?.amount || row?.total || 0),
+          rawRow: row // Keep raw row for debugging
+        });
+      }
+    });
+    return formsMap;
+  }, [data]); // Use data as dependency since rawIssues is derived from it
+  
+  if (productNameFilterLower) {
+    if (typeof window !== 'undefined' && window.console) {
+      window.console.log('[DamageIssueList] Forms grouped:', formsWithItems.size);
+      window.console.log('[DamageIssueList] Sample form items:', Array.from(formsWithItems.values())[0]?.items);
+    }
+  }
+  
+  // Calculate total amounts per form
+  const formTotals = React.useMemo(() => {
+    const totals = new Map();
+    formsWithItems.forEach((formData, formId) => {
+      const total = formData.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+      totals.set(formId, total);
+    });
+    return totals;
+  }, [formsWithItems]);
+  
+  // Filter forms based on product name/code if filter is active
+  // Use useMemo to prevent unnecessary recalculations and glitches
+  const filteredForms = React.useMemo(() => {
+    let forms = Array.from(formsWithItems.values());
     
-    if (seenFormIds.has(formId)) {
-      return false; // Remove duplicate
+    if (typeof window !== 'undefined' && window.console) {
+      window.console.log('[DamageIssueList] Before filtering:', {
+        totalForms: forms.length,
+        productFilter: productNameFilterLower,
+        sampleFormItems: forms[0]?.items || []
+      });
     }
     
+    if (productNameFilterLower) {
+      const beforeFilterCount = forms.length;
+      forms = forms.filter(formData => {
+        // Check if any item in this form matches the filter
+        const hasMatchingItem = formData.items.some(item => {
+          // Convert to string and normalize - handle numbers, null, undefined
+          const itemCode = String(item.product_code || '').toLowerCase().trim();
+          const itemName = String(item.product_name || '').toLowerCase().trim();
+          // Use includes for partial matching - also try exact match and startsWith
+          const codeMatches = itemCode && (
+            itemCode.includes(productNameFilterLower) || 
+            itemCode === productNameFilterLower ||
+            itemCode.startsWith(productNameFilterLower) ||
+            productNameFilterLower.startsWith(itemCode)
+          );
+          const nameMatches = itemName && (
+            itemName.includes(productNameFilterLower) || 
+            itemName === productNameFilterLower ||
+            itemName.startsWith(productNameFilterLower)
+          );
+          
+          if (codeMatches || nameMatches) {
+            if (typeof window !== 'undefined' && window.console) {
+              window.console.log('[DamageIssueList] Match found:', {
+                itemCode,
+                itemName,
+                filter: productNameFilterLower,
+                codeMatches,
+                nameMatches
+              });
+            }
+          }
+          
+          return codeMatches || nameMatches;
+        });
+        
+        // Also check the form row itself for product info (in case it's a single-item form)
+        if (!hasMatchingItem && formData.formRow) {
+          const rowCode = (
+            formData.formRow?.product_code || 
+            formData.formRow?.code || 
+            formData.formRow?.productCode ||
+            formData.formRow?.product?.code ||
+            formData.formRow?.product?.product_code ||
+            ''
+          ).toString().toLowerCase().trim();
+          const rowName = (
+            formData.formRow?.product_name || 
+            formData.formRow?.name || 
+            formData.formRow?.productName ||
+            formData.formRow?.product?.name ||
+            formData.formRow?.product?.product_name ||
+            ''
+          ).toString().toLowerCase().trim();
+          const codeMatches = rowCode && rowCode.includes(productNameFilterLower);
+          const nameMatches = rowName && rowName.includes(productNameFilterLower);
+          
+          if (codeMatches || nameMatches) {
+            if (typeof window !== 'undefined' && window.console) {
+              window.console.log('[DamageIssueList] Match found in formRow:', {
+                rowCode,
+                rowName,
+                filter: productNameFilterLower
+              });
+            }
+            return true;
+          }
+        }
+        
+        return hasMatchingItem;
+      });
+      
+      if (typeof window !== 'undefined' && window.console) {
+        window.console.log('[DamageIssueList] After filtering:', {
+          before: beforeFilterCount,
+          after: forms.length,
+          filter: productNameFilterLower,
+          filteredOut: beforeFilterCount - forms.length
+        });
+        
+        if (forms.length === 0 && beforeFilterCount > 0) {
+          window.console.warn('[DamageIssueList] No forms matched filter!', {
+            filter: productNameFilterLower,
+            sampleItems: formsWithItems.values().next().value?.items || [],
+            sampleFormRow: formsWithItems.values().next().value?.formRow || null,
+            allProductCodes: Array.from(formsWithItems.values()).flatMap(f => f.items.map(i => i.product_code)).filter(Boolean).slice(0, 10),
+            allProductNames: Array.from(formsWithItems.values()).flatMap(f => f.items.map(i => i.product_name)).filter(Boolean).slice(0, 10)
+          });
+        }
+      }
+    }
+    
+    return forms;
+  }, [formsWithItems, productNameFilterLower]);
+  
+  // Convert back to row format for compatibility with existing code
+  // Remove duplicates by form ID
+  const seenFormIds = new Set();
+  let allFilteredIssues = filteredForms
+    .map(formData => formData.formRow)
+    .filter((row) => {
+      const formId = row?.general_form?.id || row?.general_form_id || row?.id;
+      if (!formId) return true;
+    if (seenFormIds.has(formId)) {
+        return false;
+    }
     seenFormIds.add(formId);
-    return true; // Keep unique form
-  });
+      return true;
+    });
+  
+  // Calculate total after filtering (for pagination)
+  const filteredTotal = allFilteredIssues.length;
+  
+  // Apply client-side pagination if we have a product filter
+  // (Dashboard passes all rows when product filter is active)
+  let issues = allFilteredIssues;
+  if (productNameFilterLower && allFilteredIssues.length > perPage) {
+    const startIndex = (currentPage - 1) * perPage;
+    issues = allFilteredIssues.slice(startIndex, startIndex + perPage);
+  }
+  
+  // Use filtered total for pagination when product filter is active
+  const effectiveTotalRows = productNameFilterLower ? filteredTotal : totalRows;
   
   const hasRecords = issues.length > 0;
   const isEmpty = !loading && !hasRecords;
@@ -341,9 +643,102 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     'Sell / Not Sell',
     'Branch',
     'Requested By',
+    'Amount',
     'Created Date',
     'Modified',
   ];
+
+  // Helper function to get total amount from row data
+  const getTotalAmount = (row, gf) => {
+    // First, try to get from our pre-calculated formTotals map
+    const formId = gf?.id || row?.general_form_id;
+    if (formId && formTotals.has(formId)) {
+      return formTotals.get(formId);
+    }
+    
+    // Fallback: Try direct amount from current row
+    const rowAmount = parseFloat(row?.amount || row?.total || 0);
+    if (rowAmount > 0) {
+      return rowAmount;
+    }
+    
+    // Try multiple possible locations for total amount
+    let totalAmount = 
+      // Check general_form first
+      gf?.total_amount || 
+      gf?.totalAmount || 
+      gf?.total_amt ||
+      gf?.sum_total ||
+      gf?.sumTotal ||
+      // Check row directly
+      row?.total_amount || 
+      row?.totalAmount ||
+      row?.total_amt ||
+      row?.sum_total ||
+      row?.sumTotal ||
+      // Check big_damage_issue object if exists
+      row?.big_damage_issue?.total_amount ||
+      row?.big_damage_issue?.totalAmount ||
+      gf?.big_damage_issue?.total_amount ||
+      gf?.big_damage_issue?.totalAmount ||
+      // Check if there's a calculated total in the response
+      row?.general_form_total ||
+      gf?.general_form_total ||
+      0;
+    
+    // If no direct total, calculate from items if available
+    if (!totalAmount || totalAmount === 0) {
+      // Check items in general_form
+      if (Array.isArray(gf?.items) && gf.items.length > 0) {
+        totalAmount = gf.items.reduce((sum, item) => {
+          // Try direct amount field first
+          let itemAmount = item.amount || item.total_amount || item.totalAmount || item.amt || item.total || 0;
+          
+          // If no direct amount, calculate from price * quantity
+          if (!itemAmount || itemAmount === 0) {
+            const price = parseFloat(item.price || item.unit_price || item.unitPrice || item.unitPrice || 0);
+            const qty = parseFloat(item.final_qty || item.finalQty || item.actual_qty || item.actualQty || item.request_qty || item.requestQty || item.quantity || item.qty || 0);
+            itemAmount = price * qty;
+          }
+          
+          return sum + (parseFloat(itemAmount) || 0);
+        }, 0);
+      }
+      
+      // Check items in row
+      if ((!totalAmount || totalAmount === 0) && Array.isArray(row?.items) && row.items.length > 0) {
+        totalAmount = row.items.reduce((sum, item) => {
+          let itemAmount = item.amount || item.total_amount || item.totalAmount || item.amt || item.total || 0;
+          
+          if (!itemAmount || itemAmount === 0) {
+            const price = parseFloat(item.price || item.unit_price || item.unitPrice || 0);
+            const qty = parseFloat(item.final_qty || item.finalQty || item.actual_qty || item.actualQty || item.request_qty || item.requestQty || item.quantity || item.qty || 0);
+            itemAmount = price * qty;
+          }
+          
+          return sum + (parseFloat(itemAmount) || 0);
+        }, 0);
+      }
+      
+      // Check damage_items if available
+      if ((!totalAmount || totalAmount === 0) && Array.isArray(row?.damage_items) && row.damage_items.length > 0) {
+        totalAmount = row.damage_items.reduce((sum, item) => {
+          let itemAmount = item.amount || item.total_amount || item.totalAmount || item.amt || item.total || 0;
+          
+          if (!itemAmount || itemAmount === 0) {
+            const price = parseFloat(item.price || item.unit_price || item.unitPrice || 0);
+            const qty = parseFloat(item.final_qty || item.finalQty || item.actual_qty || item.actualQty || item.request_qty || item.requestQty || item.quantity || item.qty || 0);
+            itemAmount = price * qty;
+          }
+          
+          return sum + (parseFloat(itemAmount) || 0);
+        }, 0);
+      }
+    }
+    
+    const finalAmount = parseFloat(totalAmount) || 0;
+    return finalAmount;
+  };
 
   return (
     <div className="mx-auto font-sans">
@@ -399,6 +794,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
                     const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
                     const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+                    const totalAmount = getTotalAmount(row, gf);
+                    const exceedsThreshold = totalAmount > 500000;
                     return (
                       
                       <tr
@@ -410,20 +807,58 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           {displayNo}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
-                           !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status) ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200">
-                              <SparklesIcon className="h-3 w-3" />
-                              <span>New</span>
-                            </span>
-                          ) : null}
+                          {(() => {
+                            const formId = String(gf?.id || '');
+                            const notiCount = notificationCounts.get(formId) || 0;
+                            
+                            // Debug logging for first row
+                            if (idx === 0 && process.env.NODE_ENV !== 'production') {
+                              console.log('[DamageIssueList] Notification badge check:', {
+                                formId,
+                                gfId: gf?.id,
+                                notiCount,
+                                notificationCountsSize: notificationCounts.size,
+                                notificationCountsKeys: Array.from(notificationCounts.keys()),
+                                hasNotificationCount: notificationCounts.has(formId),
+                                formDocNo: gf?.form_doc_no
+                              });
+                            }
+                            
+                            // Only show notification count badge in this column
+                            if (notiCount > 0) {
+                              return (
+                                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
+                                                bg-gradient-to-br from-red-500 to-red-600 rounded-full 
+                                                border-2 border-white shadow-lg text-white text-xs font-bold">
+                                  {notiCount > 99 ? '99+' : notiCount}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <StatusBadge status={gf.status || '-'} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
-                          <div className="flex items-center">
+                          <div className="flex items-center gap-2">
                             <span>{gf.form_doc_no || '-'}</span>
+                            {(() => {
+                              const formId = String(gf?.id || '');
+                              const notiCount = notificationCounts.get(formId) || 0;
+                              const isUnread = (row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
+                                             !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                              
+                              // Show red speech bubble icon if unread and no notification count
+                              if (isUnread && notiCount === 0) {
+                                return (
+                                  <span className="inline-flex items-center justify-center">
+                                    <RedSpeechBubbleIcon className="h-4 w-4" />
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                             {gf.form_doc_no && (
                               <CopyButton text={gf.form_doc_no} size="small" />
                             )}
@@ -431,10 +866,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[0.8rem] font-semibold ${
-                              sellStatus === 'Other Income Sell'
-                                ? 'bg-green-50 text-green-700 border-green-200'
-                                : 'bg-red-50 text-red-700 border-red-200'
+                            className={`text-sm font-medium ${
+                              sellStatus === 'Other Income Sell' 
+                                ? 'text-blue-400' 
+                                : 'text-red-500'
                             }`}
                           >
                             {sellStatus}
@@ -445,6 +880,18 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          <div className="flex items-center gap-1">
+                            {exceedsThreshold ? (
+                              <ArrowUpIcon className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <ArrowDownIcon className="h-5 w-5 text-red-600" />
+                            )}
+                            <span className="text-gray-700">
+                              {Math.round(totalAmount).toLocaleString('en-US')}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
@@ -503,6 +950,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
             const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
             const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+            const totalAmount = getTotalAmount(row, gf);
+            const exceedsThreshold = totalAmount > 500000;
 
             return (
               <div
@@ -520,19 +969,57 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
               >
                 <div className="flex items-start justify-between gap-2 min-w-0">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {(row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
-                     !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status) ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-200 flex-shrink-0">
-                        <SparklesIcon className="h-3 w-3" />
-                        <span>New</span>
-                      </span>
-                    ) : null}
+                    {(() => {
+                      const formId = String(gf?.id || '');
+                      const notiCount = notificationCounts.get(formId) || 0;
+                      
+                      // Debug logging for first row
+                      if (idx === 0 && process.env.NODE_ENV !== 'production') {
+                        console.log('[DamageIssueList] Mobile notification badge check:', {
+                          formId,
+                          gfId: gf?.id,
+                          notiCount,
+                          notificationCountsSize: notificationCounts.size,
+                          notificationCountsKeys: Array.from(notificationCounts.keys()),
+                          hasNotificationCount: notificationCounts.has(formId),
+                          formDocNo: gf?.form_doc_no
+                        });
+                      }
+                      
+                      // Only show notification count badge in this position
+                      if (notiCount > 0) {
+                        return (
+                          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
+                                          bg-gradient-to-br from-red-500 to-red-600 rounded-full 
+                                          border-2 border-white shadow-lg text-white text-xs font-bold flex-shrink-0">
+                            {notiCount > 99 ? '99+' : notiCount}
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                     <div className="min-w-0 flex-1">
                       <span className="hidden md:inline text-xs font-semibold text-gray-400">#{displayNo}</span>
-                      <div className="mt-1 flex items-center">
+                      <div className="mt-1 flex items-center gap-2">
                         <p className="text-base font-semibold text-gray-900 truncate">
                           {gf.form_doc_no || 'Untitled'}
                         </p>
+                        {(() => {
+                          const formId = String(gf?.id || '');
+                          const notiCount = notificationCounts.get(formId) || 0;
+                          const isUnread = (row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
+                                         !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                          
+                          // Show red speech bubble icon if unread and no notification count
+                          if (isUnread && notiCount === 0) {
+                            return (
+                              <span className="inline-flex items-center justify-center flex-shrink-0">
+                                <RedSpeechBubbleIcon className="h-4 w-4" />
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                         {gf.form_doc_no && (
                           <CopyButton text={gf.form_doc_no} size="small" />
                         )}
@@ -547,10 +1034,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 <div className="mt-3 flex items-center justify-between">
                   <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sell Status</span>
                   <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold ${
-                      sellStatus === 'Other Income Sell'
-                        ? 'bg-green-50 text-green-700 border-green-200'
-                        : 'bg-red-50 text-red-700 border-red-200'
+                    className={`text-sm font-medium ${
+                      sellStatus === 'Other Income Sell' 
+                        ? 'text-blue-400' 
+                        : 'text-red-500'
                     }`}
                   >
                     {sellStatus}
@@ -569,6 +1056,19 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     <span className="text-sm text-gray-700">
                       {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
                     </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Amount</span>
+                    <div className="flex items-center gap-1">
+                      {exceedsThreshold ? (
+                        <ArrowUpIcon className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <ArrowDownIcon className="h-4 w-4 text-red-600" />
+                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        {Math.round(totalAmount).toLocaleString('en-US')}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Created</span>
@@ -593,19 +1093,19 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         <div className="text-sm text-gray-600 text-center md:text-left">
           {(() => {
             const pageStart = (currentPage - 1) * perPage + 1;
-            const start = totalRows === 0 ? 0 : pageStart;
+            const start = effectiveTotalRows === 0 ? 0 : pageStart;
             const endRaw = (currentPage - 1) * perPage + (issues.length || 0);
-            const end = Math.min(totalRows || 0, endRaw);
+            const end = Math.min(effectiveTotalRows || 0, endRaw);
             return (
               <span>
-                Showing <span className="font-semibold">{start}</span> - <span className="font-semibold">{end}</span> of <span className="font-semibold">{totalRows}</span> rows
+                Showing <span className="font-semibold">{start}</span> - <span className="font-semibold">{end}</span> of <span className="font-semibold">{effectiveTotalRows}</span> rows
               </span>
             );
           })()}
         </div>
         <div className="flex justify-center md:justify-end">
           <Pagination
-            totalRows={totalRows}
+            totalRows={effectiveTotalRows}
             rowsPerPage={perPage}
             currentPage={currentPage}
             onPageChange={onPageChange}

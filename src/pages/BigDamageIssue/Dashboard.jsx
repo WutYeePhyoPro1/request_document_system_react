@@ -70,18 +70,25 @@ const Dashboard = () => {
 
   const buildQuery = () => {
     const params = new URLSearchParams();
-    params.set("per_page", String(perPage));
+    // Request a very large page size (1000) to get all data for client-side pagination
+    // This ensures consistent page sizes after deduplication and filtering
+    // The backend returns product items, but we deduplicate by form_id, so we need enough data
+    params.set("per_page", "1000");
     
     // Always filter for Big Damage Issues by default (form_id: 8)
     params.set("form_type", "big_damage_issue");
+    // Request total amount in response
+    params.set("include_total", "true");
     
     // Add other filters
-    if (filters.productName) {
-      // Send to multiple backend fields to ensure search works
-      params.set("search", filters.productName);
-      params.set("product_name", filters.productName);
-      params.set("product_code", filters.productName);
-    }
+    // NOTE: Do NOT send product filter to backend when doing client-side filtering
+    // We fetch all data and filter client-side to ensure we get all products per form
+    // if (filters.productName) {
+    //   // Send to multiple backend fields to ensure search works
+    //   params.set("search", filters.productName);
+    //   params.set("product_name", filters.productName);
+    //   params.set("product_code", filters.productName);
+    // }
     if (filters.formDocNo) {
       params.set("form_doc_no", filters.formDocNo);
       params.set("doc_no", filters.formDocNo); // fallback key some APIs use
@@ -112,10 +119,9 @@ const Dashboard = () => {
       params.set("to_date", filters.toDate); // fallback key
     }
     
-    // Add current page to the query
-    if (currentPage > 1) {
-      params.set("page", currentPage);
-    }
+    // Don't send page parameter - we'll fetch all data and do client-side pagination
+    // This ensures consistent page sizes after deduplication
+    // params.set("page", currentPage); // Removed for client-side pagination
     
     return params.toString();
   };
@@ -234,15 +240,59 @@ const Dashboard = () => {
     return ids;
   }, [notifications, currentUser]);
 
+  // Create a map of notification counts per form (by general_form_id)
+  const notificationCountsByForm = useMemo(() => {
+    if (!currentUser || !notifications) return new Map();
+    
+    const counts = new Map();
+    
+    notifications.forEach(noti => {
+      // Only count unread notifications for Big Damage Issue Form
+      const isUnread = noti.is_viewed === false || noti.is_viewed === null || noti.is_viewed === undefined;
+      const matchesForm = noti.form_name === 'Big Damage Issue Form';
+      const matchesBranch = !noti.from_branch_id || noti.from_branch_id === currentUser.from_branch_id;
+      
+      if (matchesForm && matchesBranch && isUnread) {
+        // Use specific_form_id (which is general_form_id) as the key
+        // Check multiple possible locations for the form ID
+        const formId = noti.specific_form_id 
+          || noti.data?.specific_form_id 
+          || noti.data?.general_form_id
+          || noti.general_form_id;
+        
+        if (formId) {
+          const formIdStr = String(formId);
+          counts.set(formIdStr, (counts.get(formIdStr) || 0) + 1);
+        }
+      }
+    });
+    
+    // Debug logging
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[Dashboard] Notification counts by form:', {
+        totalNotifications: notifications.length,
+        bigDamageNotifications: notifications.filter(n => n.form_name === 'Big Damage Issue Form').length,
+        unreadBigDamageNotifications: notifications.filter(n => 
+          (n.form_name === 'Big Damage Issue Form') && 
+          (n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined)
+        ).length,
+        countsMap: Array.from(counts.entries()),
+        sampleNotification: notifications.find(n => n.form_name === 'Big Damage Issue Form')
+      });
+    }
+    
+    return counts;
+  }, [notifications, currentUser]);
+
   // Check if there are any unread notifications
   const hasUnreadNotifications = bigDamageNotificationIds.length > 0;
 
   const listData = useMemo(() => {
     try {
-      if (!listPayload) {
+      // Don't process data if still loading - prevents glitches when filters change
+      if (listLoading || !listPayload) {
         return { rows: [], meta: { current_page: currentPage, per_page: perPage, total: 0 } };
       }
-      
       
       // Get current user from localStorage
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -266,40 +316,76 @@ const Dashboard = () => {
           last_page: listPayload.last_page || 1,
         };
         
-        // CRITICAL: Remove duplicates based on form ID to prevent display errors
-        const seenIds = new Set();
-        allRows = allRows.filter((row) => {
-          const formId = row?.general_form?.id || row?.id;
-          if (!formId) return true; // Keep rows without ID (shouldn't happen, but be safe)
-          
-          if (seenIds.has(formId)) {
-            console.warn('[Dashboard] Duplicate form detected and removed:', {
-              formId,
-              form_doc_no: row?.general_form?.form_doc_no,
-              row_id: row?.id
-            });
-            return false; // Remove duplicate
-          }
-          
-          seenIds.add(formId);
-          return true; // Keep unique form
-        });
-        
-        // Apply role-based filtering
+        // Apply role-based filtering first (before deduplication)
         const filteredRows = filterFormsByRole(allRows, user);
-        
         allRows = filteredRows;
         
-        // Note: We don't update meta.total here because:
-        // 1. Role restrictions are disabled, so filtering shouldn't remove items
-        // 2. If filtering does remove items, we'd need server-side filtering to get accurate total
-        // 3. meta.total represents total across all pages, not just current page
+        // IMPORTANT: Do NOT deduplicate here when product filter is active
+        // DamageIssueList needs all product rows to properly filter by product name/code
+        // Deduplication will happen in DamageIssueList after product filtering
+        const productFilterFromUrl = searchParams.get('search') || searchParams.get('product_name') || searchParams.get('product_code') || '';
+        const hasProductFilter = productFilterFromUrl.trim() !== '' || (filters.productName && filters.productName.trim() !== '');
         
-        return {
-          rows: allRows,
-          meta,
-          hasUnreadNotifications: hasUnreadNotifications
-        };
+        if (!hasProductFilter) {
+          // Only deduplicate when there's no product filter
+          // This prevents duplicate forms from showing, but allows product filtering to work
+          const seenIds = new Set();
+          allRows = allRows.filter((row) => {
+            const formId = row?.general_form?.id || row?.id;
+            if (!formId) return true;
+            
+            if (seenIds.has(formId)) {
+              console.warn('[Dashboard] Duplicate form detected and removed:', {
+                formId,
+                form_doc_no: row?.general_form?.form_doc_no,
+                row_id: row?.id
+              });
+              return false;
+            }
+            
+            seenIds.add(formId);
+            return true;
+          });
+        }
+        
+        // Client-side pagination: Always return exactly perPage items (or less on last page)
+        // This ensures consistent page sizes after deduplication and filtering
+        // We fetch 1000 items from backend to have enough data for multiple pages
+        // When product filter is active, we pass all rows to DamageIssueList for proper filtering
+        if (hasProductFilter) {
+          // Pass all rows to DamageIssueList - it will handle filtering and deduplication
+          return {
+            rows: allRows, // Pass all rows, let DamageIssueList handle filtering
+            meta: {
+              ...meta,
+              current_page: currentPage,
+              per_page: perPage,
+              total: meta.total || allRows.length,
+              last_page: meta.last_page || 1,
+            },
+            hasUnreadNotifications: hasUnreadNotifications
+          };
+        } else {
+          // No product filter - do normal pagination
+          const startIndex = (currentPage - 1) * perPage;
+          const paginatedRows = allRows.slice(startIndex, startIndex + perPage);
+          
+          // Calculate total pages based on actual filtered data
+          const filteredTotal = allRows.length;
+          const actualLastPage = Math.ceil(filteredTotal / perPage) || 1;
+          
+          return {
+            rows: paginatedRows,
+            meta: {
+              ...meta,
+              current_page: currentPage,
+              per_page: perPage,
+              total: filteredTotal,
+              last_page: actualLastPage,
+            },
+            hasUnreadNotifications: hasUnreadNotifications
+          };
+        }
       }
       
       // Case 2: Direct array response (fallback)
@@ -394,7 +480,34 @@ const Dashboard = () => {
         } 
       };
     }
-  }, [listPayload, currentPage, perPage, bigDamageNotificationIds, hasUnreadNotifications, searchParams]);
+  }, [listPayload, currentPage, perPage, bigDamageNotificationIds, hasUnreadNotifications, searchParams, filters, listLoading]);
+  
+  // Debug logging for listData
+  useEffect(() => {
+    console.log('[Dashboard] listData updated:', {
+      rowsCount: listData.rows.length,
+      total: listData.meta.total,
+      currentPage: listData.meta.current_page,
+      hasProductFilter: !!(filters.productName && filters.productName.trim()),
+      productFilter: filters.productName,
+      urlSearch: searchParams.get('search')
+    });
+    if (listData.rows.length > 0) {
+      console.log('[Dashboard] Sample row:', {
+        keys: Object.keys(listData.rows[0] || {}),
+        hasProductCode: !!listData.rows[0]?.product_code,
+        hasProductName: !!listData.rows[0]?.product_name,
+        productCode: listData.rows[0]?.product_code,
+        productName: listData.rows[0]?.product_name,
+        fullRow: listData.rows[0]
+      });
+    } else {
+      console.warn('[Dashboard] No rows in listData!', {
+        listPayload: listPayload?.data?.length || 0,
+        hasProductFilter: !!(filters.productName && filters.productName.trim())
+      });
+    }
+  }, [listData, filters.productName, searchParams]);
 
   const branchList = useMemo(() => {
     const json = branchesPayload || {};
@@ -635,7 +748,7 @@ const Dashboard = () => {
 
   return (
     <div>
-      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-3 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-14px' }}>
+      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-3 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-12px' }}>
         <div className="flex flex-col md:flex-1 md:justify-between">
           <div className="flex items-center justify-between gap-3 md:justify-start">
             <div className="flex items-center space-x-2">
@@ -703,11 +816,80 @@ const Dashboard = () => {
         <FilterCard
           filters={filters}
           onFilter={(v) => {
-            setFilters(v);
-            // Reset to page 1 when filters change
+            console.log('[Dashboard] onFilter called with:', v);
+            
+            // Update URL params with filter values first (before setting state)
             const newSearchParams = new URLSearchParams(searchParams);
-            newSearchParams.delete('page');
+            newSearchParams.delete('page'); // Reset to page 1 when filters change
+            
+            // Set product name filter in URL (use 'search' parameter)
+            if (v.productName && v.productName.trim()) {
+              newSearchParams.set('search', v.productName.trim());
+              console.log('[Dashboard] Setting search param to:', v.productName.trim());
+            } else {
+              newSearchParams.delete('search');
+              newSearchParams.delete('product_name');
+              newSearchParams.delete('product_code');
+              console.log('[Dashboard] Removing search param');
+            }
+            
+            // Set form doc no filter
+            if (v.formDocNo && v.formDocNo.trim()) {
+              newSearchParams.set('form_doc_no', v.formDocNo.trim());
+            } else {
+              newSearchParams.delete('form_doc_no');
+            }
+            
+            // Set date filters
+            if (v.fromDate && v.fromDate.trim()) {
+              newSearchParams.set('start_date', v.fromDate.trim());
+            } else {
+              newSearchParams.delete('start_date');
+              newSearchParams.delete('from_date');
+            }
+            
+            if (v.toDate && v.toDate.trim()) {
+              newSearchParams.set('end_date', v.toDate.trim());
+            } else {
+              newSearchParams.delete('end_date');
+              newSearchParams.delete('to_date');
+            }
+            
+            // Set status filter
+            if (v.status) {
+              if (Array.isArray(v.status) && v.status.length > 0) {
+                const statusValues = v.status.map(s => s.value || s).filter(Boolean);
+                if (statusValues.length > 0) {
+                  newSearchParams.set('status', statusValues.join(','));
+                } else {
+                  newSearchParams.delete('status');
+                }
+              } else if (v.status.value) {
+                newSearchParams.set('status', v.status.value);
+              } else {
+                newSearchParams.delete('status');
+              }
+            } else {
+              newSearchParams.delete('status');
+            }
+            
+            // Set branch filter
+            if (v.branch && v.branch.value) {
+              newSearchParams.set('branch', v.branch.value);
+            } else {
+              newSearchParams.delete('branch');
+            }
+            
+            console.log('[Dashboard] New URL params:', newSearchParams.toString());
+            
+            // Update URL params first, then state (prevents race condition)
             setSearchParams(newSearchParams, { replace: true });
+            
+            // Update filters state after URL is updated
+            // Use a small delay to ensure URL params are processed first
+            setTimeout(() => {
+              setFilters(v);
+            }, 0);
           }}
           onClear={() => {
             setFilters({
@@ -718,9 +900,19 @@ const Dashboard = () => {
               status: null,
               branch: null,
             });
-            // Reset to page 1 when clearing filters
+            // Clear all filter params from URL and reset to page 1
             const newSearchParams = new URLSearchParams(searchParams);
             newSearchParams.delete('page');
+            newSearchParams.delete('search');
+            newSearchParams.delete('product_name');
+            newSearchParams.delete('product_code');
+            newSearchParams.delete('form_doc_no');
+            newSearchParams.delete('start_date');
+            newSearchParams.delete('from_date');
+            newSearchParams.delete('end_date');
+            newSearchParams.delete('to_date');
+            newSearchParams.delete('status');
+            newSearchParams.delete('branch');
             setSearchParams(newSearchParams, { replace: true });
           }}
           externalBranchOptions={branchOptions}
@@ -798,6 +990,8 @@ const Dashboard = () => {
           totalRows={listData.meta.total}
           branchMap={branchMap}
           onPageChange={handlePageChange}
+          productFilter={filters.productName || ''}
+          notificationCounts={notificationCountsByForm}
         />
       </div>
 

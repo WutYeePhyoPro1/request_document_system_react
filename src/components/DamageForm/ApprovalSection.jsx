@@ -711,7 +711,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const displayApprovals = buildDisplayApprovals();
 
   return (
-    <div className="bg-blue-50 rounded-xl p-3 sm:p-4 border border-blue-100">
+    <div className="bg-transparent rounded-xl p-3 sm:p-4 border border-gray-200 shadow-2xl" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
       <div className="flex items-center justify-between gap-2 mb-4">
         <h4 className="text-sm font-semibold text-blue-600 flex items-center gap-2">
           <CheckCircle size={16} /> Approval Section

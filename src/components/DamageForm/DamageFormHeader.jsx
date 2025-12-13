@@ -285,7 +285,7 @@ export default function DamageFormHeader({
             Dashboard / Big Damage Issue Form
           </span>
         </div>
-        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-start justify-between mt-2 relative overflow-hidden">
+        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mt-2 relative overflow-hidden">
           {(() => {
             const status = formData.status;
             if (!status) return null;
@@ -352,39 +352,44 @@ export default function DamageFormHeader({
               </>
             );
           })()}
-          <div className="min-w-0 relative z-10">
-       <div className="flex items-center gap-2 mb-1">
+          <div className="min-w-0 flex-1 relative z-10">
+       <div className="flex items-start gap-2 mb-1">
           <img
                 src={BigDamageIsuueLogo}
                 alt="Big Damage Issue Logo"
                 className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:inline-block"
               />
-              <div className="flex flex-col">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <span>{t('damageFormHeader.bigDamageIssueForm', { defaultValue: 'Big Damage Form' })}</span>
-                  {docNumber && (
-                    <span className="text-gray-500 text-[0.8rem] sm:text-sm md:ml-2 md:inline-block flex items-center gap-1">
-                      ({docNumber})
-                      <button
-                        onClick={handleCopyDocumentNumber}
-                        className="inline-flex items-center justify-center p-1 rounded transition-colors duration-200 bg-transparent hover:bg-gray-100"
-                        title="Copy document number"
-                        aria-label="Copy document number"
-                        style={{ backgroundColor: 'transparent' }}
-                      >
-                        <Copy className="w-3 h-3 text-gray-500 hover:text-gray-700" />
-                      </button>
-                    </span>
-                  )}
+              <div className="flex flex-col flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {t('damageFormHeader.bigDamageIssueForm', { defaultValue: 'Big Damage Form' })}
                 </h2>
+                {docNumber && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-gray-500 text-xs sm:text-sm flex items-center gap-1">
+                      ({docNumber})
+                    </span>
+                    <button
+                      onClick={handleCopyDocumentNumber}
+                      className="inline-flex items-center justify-center p-1 rounded transition-colors duration-200 bg-transparent hover:bg-gray-100"
+                      title="Copy document number"
+                      aria-label="Copy document number"
+                      style={{ backgroundColor: 'transparent' }}
+                    >
+                      <Copy className="w-3 h-3 text-gray-500 hover:text-gray-700" />
+                    </button>
+                  </div>
+                )}
+                <span className={`inline-block text-sm mt-1 font-medium px-2.5 py-0.5 rounded-md border w-fit ${
+                  (formData.caseType || '').toLowerCase().includes('not sell') 
+                    ? 'bg-red-50 border-red-200 text-red-700' 
+                    : 'bg-green-50 border-green-200 text-green-700'
+                }`}>
+                  {formData.caseType || t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
+                </span>
               </div>
             </div>
-
-            <p className="text-sm text-gray-500 mt-0.5">
-              {formData.caseType || t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
-            </p>
           </div>
-          <div className="flex flex-col items-end gap-3 ml-3 relative z-10">
+          <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-start gap-2 sm:gap-3 sm:ml-3 relative z-10 flex-shrink-0">
             {formData.status && (
               <span 
                 className="text-sm px-2.5 py-0.5 rounded-full border font-semibold hidden sm:inline-block border-gray-300"
@@ -419,7 +424,10 @@ export default function DamageFormHeader({
                 {formData.status}
               </span>
           )}
-            <span className="text-sm text-gray-700 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
+          </div>
+          {/* Branch name in top-right corner - adjusted to avoid overlap with status */}
+          <div className="absolute top-4 right-4 z-10 sm:top-12 sm:right-4">
+            <span className="text-sm text-gray-700 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md whitespace-nowrap">
               {branchDisplay}
             </span>
           </div>

@@ -160,15 +160,15 @@ const InvestigationFormModal = ({
   const isOpManager = normalizedUserRole === 'op_manager' || isOpManagerByApproval;
   const [selectedCategory, setSelectedCategory] = useState("Thief");
   const [bmReason, setBmReason] = useState("");
-  const [companyPct, setCompanyPct] = useState("");
-  const [userPct, setUserPct] = useState("");
-  const [incomePct, setIncomePct] = useState("");
-  const [opCompanyPct, setOpCompanyPct] = useState("");
-  const [opUserPct, setOpUserPct] = useState("");
-  const [opIncomePct, setOpIncomePct] = useState("");
-  const [accCompanyPct, setAccCompanyPct] = useState("");
-  const [accUserPct, setAccUserPct] = useState("");
-  const [accIncomePct, setAccIncomePct] = useState("");
+  const [companyPct, setCompanyPct] = useState("0");
+  const [userPct, setUserPct] = useState("0");
+  const [incomePct, setIncomePct] = useState("0");
+  const [opCompanyPct, setOpCompanyPct] = useState("0");
+  const [opUserPct, setOpUserPct] = useState("0");
+  const [opIncomePct, setOpIncomePct] = useState("0");
+  const [accCompanyPct, setAccCompanyPct] = useState("0");
+  const [accUserPct, setAccUserPct] = useState("0");
+  const [accIncomePct, setAccIncomePct] = useState("0");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
   const [investigationId, setInvestigationId] = useState(null);
@@ -250,15 +250,15 @@ const InvestigationFormModal = ({
       setInvestigationId(existingId);
       setSelectedCategory(category);
         setBmReason(existing.bm_reason || '');
-      setCompanyPct(existing.bm_company ?? '');
-      setUserPct(existing.bm_user ?? '');
-      setIncomePct(existing.bm_income ?? '');
-      setOpCompanyPct(existing.op_company ?? '');
-      setOpUserPct(existing.op_user ?? '');
-      setOpIncomePct(existing.op_income ?? '');
-      setAccCompanyPct(existing.acc_company ?? '');
-      setAccUserPct(existing.acc_user ?? '');
-      setAccIncomePct(existing.acc_income ?? '');
+      setCompanyPct(existing.bm_company ?? '0');
+      setUserPct(existing.bm_user ?? '0');
+      setIncomePct(existing.bm_income ?? '0');
+      setOpCompanyPct(existing.op_company ?? '0');
+      setOpUserPct(existing.op_user ?? '0');
+      setOpIncomePct(existing.op_income ?? '0');
+      setAccCompanyPct(existing.acc_company ?? '0');
+      setAccUserPct(existing.acc_user ?? '0');
+      setAccIncomePct(existing.acc_income ?? '0');
     }
   }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate, initialData?.investigation, initialData?.general_form?.investigation, isOpen, investigationId]);
 
@@ -788,15 +788,15 @@ const InvestigationFormModal = ({
         
         // Update all fields from response, including account percentages
         setBmReason(investigationData.bm_reason || '');
-        setCompanyPct(investigationData.bm_company ?? investigationData.bm_company ?? '');
-        setUserPct(investigationData.bm_user ?? investigationData.bm_user ?? '');
-        setIncomePct(investigationData.bm_income ?? investigationData.bm_income ?? '');
-        setOpCompanyPct(investigationData.op_company ?? investigationData.op_company ?? '');
-        setOpUserPct(investigationData.op_user ?? investigationData.op_user ?? '');
-        setOpIncomePct(investigationData.op_income ?? investigationData.op_income ?? '');
-        setAccCompanyPct(investigationData.acc_company ?? investigationData.acc_company ?? '');
-        setAccUserPct(investigationData.acc_user ?? investigationData.acc_user ?? '');
-        setAccIncomePct(investigationData.acc_income ?? investigationData.acc_income ?? '');
+        setCompanyPct(investigationData.bm_company ?? '0');
+        setUserPct(investigationData.bm_user ?? '0');
+        setIncomePct(investigationData.bm_income ?? '0');
+        setOpCompanyPct(investigationData.op_company ?? '0');
+        setOpUserPct(investigationData.op_user ?? '0');
+        setOpIncomePct(investigationData.op_income ?? '0');
+        setAccCompanyPct(investigationData.acc_company ?? '0');
+        setAccUserPct(investigationData.acc_user ?? '0');
+        setAccIncomePct(investigationData.acc_income ?? '0');
         
         // Update category from bdi_reason
         if (investigationData.bdi_reason) {
@@ -998,7 +998,7 @@ const InvestigationFormModal = ({
                             max="100"
                             step="0.1"
                             inputMode="decimal"
-                            value={value ?? ""}
+                            value={value ?? "0"}
                             onChange={(e) => {
                               if (baseFieldsDisabled) return;
                               set(e.target.value);
@@ -1039,7 +1039,7 @@ const InvestigationFormModal = ({
                               max="100"
                               step="0.1"
                               inputMode="decimal"
-                              value={value ?? ""}
+                              value={value ?? "0"}
                               onChange={(e) => {
                                 if (operationFieldsDisabled) return;
                                 set(e.target.value);
@@ -1081,7 +1081,7 @@ const InvestigationFormModal = ({
                               max="100"
                               step="0.1"
                               inputMode="decimal"
-                              value={value ?? ""}
+                              value={value ?? "0"}
                               onChange={(e) => {
                                 if (accountFieldsDisabled) return;
                                 set(e.target.value);

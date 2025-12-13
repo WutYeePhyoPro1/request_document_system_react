@@ -399,16 +399,6 @@ export default function DamageItemTable({
                         userRole.toLowerCase() === 'op'
                       ));
   
-  // Debug logging for account codes visibility
-  if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
-    console.log('[DamageItemTable] Account Codes Visibility Check:', {
-      userRole,
-      normalizedRole,
-      isOpManager,
-      status,
-      showAccountCodes: undefined, // Will be set in useState
-    });
-  }
   
   /**
    * Check if user can see "Update System Qty" button - matches Laravel acknowledge() function exactly
@@ -420,17 +410,6 @@ export default function DamageItemTable({
    * 5. User has 'Acknowledge' role
    */
   const canShowUpdateSystemQtyButton = useMemo(() => {
-    console.log('[DamageItemTable] canShowUpdateSystemQtyButton - Checking conditions:', {
-      status,
-      gRemark,
-      totalAmount,
-      currentUser,
-      isAccount,
-      normalizedRole,
-      approvalsCount: approvals?.length || 0,
-      approvals
-    });
-
     // FIX: Do not show button if form is already Issued, Completed, or SupervisorIssued
     const excludedStatuses = ['Issued', 'Completed', 'SupervisorIssued'];
     if (excludedStatuses.includes(status)) {
@@ -494,22 +473,6 @@ export default function DamageItemTable({
       const allowAccountUserAccess = isAccount && !userIdMatches;
 
       if (!userIdMatches && !allowAccountUserAccess) {
-        console.log(`[DamageItemTable] ACK approval at index ${index} - User ID mismatch:`, {
-          adminId,
-          actualUserId,
-          userId,
-          allUserIds,
-          currentUserId,
-          isAccount,
-          allowAccountUserAccess,
-          approval: {
-            user_type: userType,
-            status: approval?.status || approval?.raw?.status,
-            admin_id: adminId,
-            actual_user_id: actualUserId,
-            fullObject: approval
-          }
-        });
         return;
       }
       foundMatchingUser = true;
@@ -551,67 +514,15 @@ export default function DamageItemTable({
       }
 
       if (!statusMatches) {
-        console.log(`[DamageItemTable] ACK approval at index ${index} - Status mismatch:`, {
-          approvalStatus,
-          expectedStatus: numericAmount <= 500000 ? 'BM Approved' : 'OPApproved',
-          numericAmount,
-          approval: {
-            user_type: userType,
-            status: approvalStatus,
-            admin_id: adminId,
-            actual_user_id: actualUserId,
-            fullObject: approval
-          }
-        });
         return;
       }
       foundMatchingStatus = true;
       
       // Found matching approval
       ackApproval = approval;
-      console.log(`[DamageItemTable] ACK approval at index ${index} - MATCHED!`, {
-        approval
-      });
-    });
-
-    // Find all ACK/AC approvals to see what we have
-    const allAckApprovals = approvals.filter(a => {
-      const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
-      return userType === 'ACK' || userType === 'AC';
-    });
-
-    console.log('[DamageItemTable] ACK Approval search result:', {
-      foundMatchingUserType,
-      foundMatchingUser,
-      foundMatchingStatus,
-      ackApproval: ackApproval ? 'Found' : 'Not Found',
-      currentUserId,
-      totalAmount,
-      expectedStatus: totalAmount > 500000 ? 'OPApproved' : 'BM Approved',
-      formStatus: status,
-      allAckApprovals: allAckApprovals.map(a => ({
-        user_type: a?.user_type || a?.raw?.user_type,
-        status: a?.status || a?.raw?.status,
-        admin_id: a?.admin_id || a?.raw?.admin_id,
-        actual_user_id: a?.actual_user_id || a?.raw?.actual_user_id,
-        user_id: a?.user?.id || a?.user_id,
-        label: a?.label,
-        name: a?.name,
-        fullObject: a
-      })),
-      allApprovals: approvals.map(a => ({
-        user_type: a?.user_type || a?.raw?.user_type,
-        status: a?.status || a?.raw?.status,
-        admin_id: a?.admin_id || a?.raw?.admin_id,
-        actual_user_id: a?.actual_user_id || a?.raw?.actual_user_id,
-        user_id: a?.user?.id || a?.user_id,
-        label: a?.label,
-        name: a?.name
-      }))
     });
 
     if (!ackApproval) {
-      console.log('[DamageItemTable] canShowUpdateSystemQtyButton: Returning false - No ACK approval found');
       return false;
     }
 
@@ -628,15 +539,9 @@ export default function DamageItemTable({
     const isAcknowledgeRole = isAccount || acknowledgeRoleAliases.has(normalizedRole);
 
     if (!isAcknowledgeRole) {
-      console.log('[DamageItemTable] canShowUpdateSystemQtyButton: Returning false - Not acknowledge role', {
-        isAccount,
-        normalizedRole,
-        isAcknowledgeRole
-      });
       return false;
     }
 
-    console.log('[DamageItemTable] canShowUpdateSystemQtyButton: Returning TRUE - All conditions met!');
     return true;
   }, [status, gRemark, approvals, totalAmount, currentUser, isAccount, normalizedRole]);
 
@@ -650,12 +555,6 @@ export default function DamageItemTable({
     // CRITICAL: Operation Manager should NEVER see account codes at Ac_Acknowledged stage
     // This check must happen FIRST before any other logic
     if (isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
-      console.log('[DamageItemTable] Initial state: Hiding account codes for Operation Manager', {
-        isOpManager,
-        status,
-        userRole,
-        normalizedRole
-      });
       return false;
     }
     
@@ -686,19 +585,6 @@ export default function DamageItemTable({
     
     const shouldShow = isCompleted || hasCodes || accountShouldSeeCodes || supervisorShouldSeeCodes;
     
-    if ((status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
-      console.log('[DamageItemTable] Initial state check:', {
-        isOpManager,
-        status,
-        userRole,
-        normalizedRole,
-        shouldShow,
-        hasCodes,
-        accountShouldSeeCodes,
-        supervisorShouldSeeCodes,
-        isCompleted
-      });
-    }
     
     return shouldShow;
   });
@@ -717,13 +603,6 @@ export default function DamageItemTable({
     // CRITICAL: Operation Manager should NEVER see account codes at Ac_Acknowledged stage
     // This check must happen FIRST before any other logic
     if (isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
-      console.log('[DamageItemTable] useEffect: Hiding account codes for Operation Manager', {
-        isOpManager,
-        status,
-        userRole,
-        normalizedRole,
-        currentShowAccountCodes: showAccountCodes
-      });
       setShowAccountCodes(false);
       return; // Early return - don't process any other conditions
     }
@@ -780,21 +659,6 @@ export default function DamageItemTable({
                       !isAccount && 
                       !isOpManager));
   
-  // Debug logging for Add Product button visibility
-  if (status === 'Ongoing' || status === 'ongoing') {
-    console.log('[DamageItemTable] Add Product Button Visibility Check:', {
-      userRole,
-      normalizedRole,
-      isCheckerRole,
-      isSupervisorUser,
-      isApproverRole,
-      isAccount,
-      isOpManager,
-      isUserRole,
-      status,
-      shouldHide: isUserRole
-    });
-  }
   
   // Allow editing final_qty (Actual Qty) based on role and status - matching Laravel Blade logic
   const allowFinalQtyEdit = isCompleted
@@ -1885,7 +1749,7 @@ const normalizeImageEntries = (list) => {
       });
       return;
     }
-
+    
     setIsUpdatingSystemQty(true);
 
     try {
@@ -1955,8 +1819,21 @@ const normalizeImageEntries = (list) => {
                 setSearchTerm(e.target.value);
                 setCurrentPage(1); 
               }}
-              className="w-full pl-8 pr-3 py-1.5 text-[0.9rem] sm:text-[0.8rem] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-blue-400 transition"
+              className="w-full pl-8 pr-8 py-1.5 text-[0.9rem] sm:text-[0.8rem] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-blue-400 transition"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setCurrentPage(1);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+                title="Clear search"
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
           
           {/* Filter Button with Hover Animation */}
@@ -2006,13 +1883,6 @@ const normalizeImageEntries = (list) => {
             // CRITICAL: Don't show button for Operation Manager at Ac_Acknowledged stage
             const isOpManagerAtAcknowledged = isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged');
             if (isOpManagerAtAcknowledged) {
-              console.log('[DamageItemTable] Button render: Hiding for Operation Manager', {
-                isOpManager,
-                status,
-                userRole,
-                normalizedRole,
-                showAccountCodes
-              });
               return null;
             }
             
@@ -2063,8 +1933,8 @@ const normalizeImageEntries = (list) => {
          status !== 'BMApproved' &&
          status !== 'Ac_Acknowledged' && 
          status !== 'Acknowledged' &&
-         status !== 'Issued' &&
-         status !== 'Completed' &&
+         status !== 'Issued' && 
+         status !== 'Completed' && 
          // Hide for Branch Account users and regular user role
          !isAccount && 
          !isUserRole && (
@@ -2213,6 +2083,8 @@ const normalizeImageEntries = (list) => {
                           type="text"
                           inputMode="numeric"
                           pattern="[0-9]*"
+                          data-item-id={item.id}
+                          data-field="request_qty"
                           value={item.actual_qty ?? item.request_qty ?? ''}
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
@@ -2723,6 +2595,8 @@ const normalizeImageEntries = (list) => {
                               </label>
                               <input
                                 type="number"
+                                data-item-id={item.id}
+                                data-field="request_qty"
                                 value={item.request_qty ?? ''}
                                 onChange={(e) => {
                                   e.stopPropagation();
@@ -2978,9 +2852,9 @@ const normalizeImageEntries = (list) => {
         </div>
       )}
 
-      <div className="flex justify-center gap-6 items-center mt-4 bg-green-50 p-3 rounded-md font-semibold text-green-700 text-sm sm:text-sm">
+      <div className="flex justify-end gap-6 items-center mt-4 bg-green-50 p-3 rounded-md font-semibold text-green-700 text-sm sm:text-sm">
         <span>Total</span>
-        <span>{formatAmount(total)}</span>
+        <span className="text-right">{Math.round(total).toLocaleString('en-US')}</span>
       </div>
 
       {/* Update System Qty Button - Matches Laravel acknowledge() function logic exactly */}

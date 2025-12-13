@@ -215,7 +215,7 @@ export default function SupportingInfo({
   const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments;
   
   return (
-    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 space-y-3">
+    <div className="bg-transparent border border-gray-200 rounded-xl p-4 space-y-3 shadow-2xl" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
       <div className="mb-4">
         <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2">
           <FileText size={16} />
