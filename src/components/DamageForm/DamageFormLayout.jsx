@@ -1862,14 +1862,189 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         };
       });
 
-      // Auto-focus on request_qty field for the newly added product
-      setTimeout(() => {
-        const requestQtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
-        if (requestQtyInput) {
-          requestQtyInput.focus();
-          requestQtyInput.select(); // Select the text so user can type immediately
-        }
-      }, 100);
+      // Auto-focus on qty field based on form status
+      // In Checked stage: focus on actual_qty
+      // In Ongoing stage: focus on request_qty (which shows as Actual Qty in add mode)
+      // In other stages: focus on final_qty
+      const currentStatus = (formData.status || '').trim();
+      const isCheckedStage = currentStatus === 'Checked' || currentStatus === 'checked';
+      const isOngoingStage = currentStatus === 'Ongoing' || currentStatus === 'ongoing' || mode === 'add';
+      
+      const tryFocusQtyField = (attempt = 1, maxAttempts = 8) => {
+        setTimeout(() => {
+          // Try multiple selectors to find the qty input field
+          let qtyInput = null;
+          
+          // Strategy 1: Check status and prioritize the correct field
+          if (isCheckedStage) {
+            // In Checked stage, prioritize actual_qty
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="actual_qty"][data-auto-focus-target="true"]`);
+            if (!qtyInput) {
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="actual_qty"]`);
+            }
+          } else if (isOngoingStage) {
+            // In Ongoing stage, prioritize request_qty (which is the editable field)
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"][data-auto-focus-target="true"]`);
+            if (!qtyInput) {
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+            }
+          } else {
+            // In other stages (BM Approved, etc.), prioritize final_qty
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"][data-auto-focus-target="true"]`);
+            if (!qtyInput) {
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"]`);
+            }
+          }
+          
+          // Strategy 2: Try by data-auto-focus-target for any qty field
+          if (!qtyInput) {
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-auto-focus-target="true"]`);
+          }
+          
+          // Strategy 3: Try by data-qty-field attribute
+          if (!qtyInput) {
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-qty-field="true"]`);
+          }
+          
+          // Strategy 4: Try by data-item-id only and find any qty-related field (prioritize based on status)
+          if (!qtyInput) {
+            const allInputs = document.querySelectorAll(`input[data-item-id="${newItem.id}"]`);
+            // Prioritize based on status
+            const priorityFields = isCheckedStage 
+              ? ['actual_qty', 'request_qty', 'final_qty']
+              : isOngoingStage
+              ? ['request_qty', 'actual_qty', 'final_qty']
+              : ['final_qty', 'actual_qty', 'request_qty'];
+            
+            for (const priorityField of priorityFields) {
+              for (const input of allInputs) {
+                const field = input.getAttribute('data-field');
+                if (field === priorityField) {
+                  qtyInput = input;
+                  break;
+                }
+              }
+              if (qtyInput) break;
+            }
+          }
+          
+          // Strategy 5: Find the last row in tbody and get the qty field (prioritize based on status)
+          if (!qtyInput) {
+            const tbody = document.querySelector('tbody');
+            if (tbody) {
+              const rows = tbody.querySelectorAll('tr');
+              if (rows.length > 0) {
+                const lastRow = rows[rows.length - 1];
+                // Prioritize based on status
+                const priorityFields = isCheckedStage 
+                  ? ['actual_qty', 'request_qty', 'final_qty']
+                  : isOngoingStage
+                  ? ['request_qty', 'actual_qty', 'final_qty']
+                  : ['final_qty', 'actual_qty', 'request_qty'];
+                
+                for (const priorityField of priorityFields) {
+                  qtyInput = lastRow.querySelector(`input[data-field="${priorityField}"][data-auto-focus-target="true"]`);
+                  if (qtyInput) break;
+                  qtyInput = lastRow.querySelector(`input[data-field="${priorityField}"]`);
+                  if (qtyInput) break;
+                }
+                
+                // Then try data-auto-focus-target for any qty field
+                if (!qtyInput) {
+                  qtyInput = lastRow.querySelector('input[data-auto-focus-target="true"]');
+                }
+                // If not found, get first numeric input
+                if (!qtyInput) {
+                  const numericInputs = lastRow.querySelectorAll('input[type="text"][inputmode="numeric"]');
+                  if (numericInputs.length > 0) {
+                    qtyInput = numericInputs[0];
+                  }
+                }
+              }
+            }
+          }
+          
+          // Strategy 6: Find by item ID in the table - search all rows (prioritize based on status)
+          if (!qtyInput) {
+            const allRows = document.querySelectorAll('tbody tr');
+            const priorityFields = isCheckedStage 
+              ? ['actual_qty', 'request_qty', 'final_qty']
+              : isOngoingStage
+              ? ['request_qty', 'actual_qty', 'final_qty']
+              : ['final_qty', 'request_qty', 'actual_qty'];
+            
+            for (const priorityField of priorityFields) {
+              for (const row of allRows) {
+                const input = row.querySelector(`input[data-item-id="${newItem.id}"][data-field="${priorityField}"]`);
+                if (input) {
+                  qtyInput = input;
+                  break;
+                }
+              }
+              if (qtyInput) break;
+            }
+          }
+          
+          // Strategy 7: Find the input that has the item ID anywhere in the row (prioritize based on status)
+          if (!qtyInput) {
+            const allRows = document.querySelectorAll('tbody tr');
+            const priorityFields = isCheckedStage 
+              ? ['actual_qty', 'request_qty', 'final_qty']
+              : isOngoingStage
+              ? ['request_qty', 'actual_qty', 'final_qty']
+              : ['final_qty', 'request_qty', 'actual_qty'];
+            
+            for (const priorityField of priorityFields) {
+              for (const row of allRows) {
+                const inputs = row.querySelectorAll('input[data-item-id]');
+                for (const input of inputs) {
+                  if (input.getAttribute('data-item-id') === String(newItem.id)) {
+                    const field = input.getAttribute('data-field');
+                    if (field === priorityField) {
+                      qtyInput = input;
+                      break;
+                    }
+                  }
+                }
+                if (qtyInput) break;
+              }
+              if (qtyInput) break;
+            }
+          }
+          
+          if (qtyInput) {
+            // Use requestAnimationFrame to ensure DOM is fully ready
+            requestAnimationFrame(() => {
+              qtyInput.focus();
+              qtyInput.select(); // Select the text so user can type immediately
+              // Scroll into view to ensure the field is visible
+              qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              console.log('[DamageFormLayout] Successfully focused on qty field:', {
+                itemId: newItem.id,
+                field: qtyInput.getAttribute('data-field'),
+                value: qtyInput.value,
+                status: currentStatus,
+                isCheckedStage,
+                isOngoingStage
+              });
+            });
+            return true; // Successfully focused
+          } else if (attempt < maxAttempts) {
+            // Retry with longer delay
+            console.log(`[DamageFormLayout] Qty field not found, retrying (attempt ${attempt}/${maxAttempts})...`);
+            tryFocusQtyField(attempt + 1, maxAttempts);
+          } else {
+            console.warn('[DamageFormLayout] Failed to find qty field after all attempts:', {
+              itemId: newItem.id,
+              allInputs: document.querySelectorAll('input[data-item-id]').length
+            });
+          }
+          return false;
+        }, attempt * 200); // Increase delay with each attempt: 200ms, 400ms, 600ms, etc.
+      };
+      
+      // Start trying to focus immediately
+      tryFocusQtyField();
 
       // Show success modal
       setSuccessModalMessage(t('messages.productAdded', { defaultValue: 'Product added successfully' }));
@@ -1880,7 +2055,175 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       if (onSuccess) {
         setTimeout(() => {
           onSuccess();
+          // After modal closes, try to focus on qty field again with fresh attempts
+          setTimeout(() => {
+            // Retry focusing after modal closes - create a new function instance
+            const retryFocus = (attempt = 1, maxAttempts = 5) => {
+              setTimeout(() => {
+                let qtyInput = null;
+                
+                // Try all the same strategies as the main focus function, prioritizing final_qty
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"][data-auto-focus-target="true"]`);
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"]`);
+                }
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-auto-focus-target="true"]`);
+                }
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+                }
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-qty-field="true"]`);
+                }
+                if (!qtyInput) {
+                  const allInputs = document.querySelectorAll(`input[data-item-id="${newItem.id}"]`);
+                  // Prioritize final_qty
+                  for (const input of allInputs) {
+                    const field = input.getAttribute('data-field');
+                    if (field === 'final_qty') {
+                      qtyInput = input;
+                      break;
+                    }
+                  }
+                  if (!qtyInput) {
+                    for (const input of allInputs) {
+                      const field = input.getAttribute('data-field');
+                      if (field === 'request_qty' || field === 'actual_qty') {
+                        qtyInput = input;
+                        break;
+                      }
+                    }
+                  }
+                }
+                if (!qtyInput) {
+                  const tbody = document.querySelector('tbody');
+                  if (tbody) {
+                    const rows = tbody.querySelectorAll('tr');
+                    if (rows.length > 0) {
+                      const lastRow = rows[rows.length - 1];
+                      qtyInput = lastRow.querySelector('input[data-field="final_qty"][data-auto-focus-target="true"]');
+                      if (!qtyInput) {
+                        qtyInput = lastRow.querySelector('input[data-field="final_qty"]');
+                      }
+                      if (!qtyInput) {
+                        qtyInput = lastRow.querySelector('input[data-auto-focus-target="true"]');
+                      }
+                      if (!qtyInput) {
+                        qtyInput = lastRow.querySelector('input[data-field="request_qty"]');
+                      }
+                      if (!qtyInput) {
+                        const numericInputs = lastRow.querySelectorAll('input[type="text"][inputmode="numeric"]');
+                        if (numericInputs.length > 0) {
+                          qtyInput = numericInputs[0];
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                if (qtyInput) {
+                  requestAnimationFrame(() => {
+                    qtyInput.focus();
+                    qtyInput.select();
+                    qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    console.log('[DamageFormLayout] Successfully focused on qty field after modal close:', {
+                      field: qtyInput.getAttribute('data-field'),
+                      itemId: newItem.id
+                    });
+                  });
+                } else if (attempt < maxAttempts) {
+                  retryFocus(attempt + 1, maxAttempts);
+                }
+              }, attempt * 200);
+            };
+            retryFocus();
+          }, 200);
         }, 500);
+      } else {
+        // If no callback, still try to focus after modal auto-closes (typically after 1-2 seconds)
+        setTimeout(() => {
+          const retryFocus = (attempt = 1, maxAttempts = 5) => {
+            setTimeout(() => {
+              let qtyInput = null;
+              
+              // Try all the same strategies, prioritizing final_qty
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"][data-auto-focus-target="true"]`);
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"]`);
+              }
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-auto-focus-target="true"]`);
+              }
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+              }
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-qty-field="true"]`);
+              }
+              if (!qtyInput) {
+                const allInputs = document.querySelectorAll(`input[data-item-id="${newItem.id}"]`);
+                // Prioritize final_qty
+                for (const input of allInputs) {
+                  const field = input.getAttribute('data-field');
+                  if (field === 'final_qty') {
+                    qtyInput = input;
+                    break;
+                  }
+                }
+                if (!qtyInput) {
+                  for (const input of allInputs) {
+                    const field = input.getAttribute('data-field');
+                    if (field === 'request_qty' || field === 'actual_qty') {
+                      qtyInput = input;
+                      break;
+                    }
+                  }
+                }
+              }
+              if (!qtyInput) {
+                const tbody = document.querySelector('tbody');
+                if (tbody) {
+                  const rows = tbody.querySelectorAll('tr');
+                  if (rows.length > 0) {
+                    const lastRow = rows[rows.length - 1];
+                    qtyInput = lastRow.querySelector('input[data-field="final_qty"][data-auto-focus-target="true"]');
+                    if (!qtyInput) {
+                      qtyInput = lastRow.querySelector('input[data-field="final_qty"]');
+                    }
+                    if (!qtyInput) {
+                      qtyInput = lastRow.querySelector('input[data-auto-focus-target="true"]');
+                    }
+                    if (!qtyInput) {
+                      qtyInput = lastRow.querySelector('input[data-field="request_qty"]');
+                    }
+                    if (!qtyInput) {
+                      const numericInputs = lastRow.querySelectorAll('input[type="text"][inputmode="numeric"]');
+                      if (numericInputs.length > 0) {
+                        qtyInput = numericInputs[0];
+                      }
+                    }
+                  }
+                }
+              }
+              
+              if (qtyInput) {
+                requestAnimationFrame(() => {
+                  qtyInput.focus();
+                  qtyInput.select();
+                  qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  console.log('[DamageFormLayout] Successfully focused on qty field after modal auto-close:', {
+                    field: qtyInput.getAttribute('data-field'),
+                    itemId: newItem.id
+                  });
+                });
+              } else if (attempt < maxAttempts) {
+                retryFocus(attempt + 1, maxAttempts);
+              }
+            }, attempt * 200);
+          };
+          retryFocus();
+        }, 1500);
       }
 
     } catch (_error) {
@@ -1932,10 +2275,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     }
   };
 
-  // Get button color classes based on action type - all action buttons are green
+  // Get button color classes based on action type - matching Laravel blade Bootstrap classes
+  // btn-success = green, btn-warning = yellow, btn-danger = red, btn-info = blue
   const getButtonColorClass = (action) => {
     const a = normalize(action);
-    if (!a) return 'bg-green-600 hover:bg-green-700 border-green-700';
+    if (!a) return 'bg-[#198754] border-[#198754]';
 
     switch (a) {
       case 'BMApprovedMem':
@@ -1948,10 +2292,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'SupervisorIssued':
       case 'Submit':
         // All action buttons are green
-        return 'bg-green-600 hover:bg-green-700 border-green-700';
+        return 'bg-[#198754] border-[#198754]';
       default:
         // Default green for all actions
-        return 'bg-green-600 hover:bg-green-700 border-green-700';
+        return 'bg-[#198754] border-[#198754]';
     }
   };
 
@@ -2104,6 +2448,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm';
   const isOngoingStatus = (formData.status === 'Ongoing' || formData.status === 'ongoing');
   const shouldHideButtonsForBMInOngoing = isBranchManager && isOngoingStatus;
+  
+  // Check if user is an approver role (for Add Product button visibility)
+  const isApproverRole = ['bm', 'abm', 'approver', 'manager', 'checker', 'supervisor'].some(r => userRoleLower.includes(r));
+  const isUserRole = userRoleLower === 'user';
 
   // Show buttons for branch account at branch account stage, or use existing logic for others
   // Branch account should see buttons even when status is BM Approved
@@ -3458,7 +3806,47 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       if (action) {
         const backendStatus = resolveBackendStatus(action);
-        if (backendStatus) {
+        
+        // Handle BackToPrevious action - send btp value as separate field
+        const isBackToPrevious = action === 'BackToPrevious' || action === 'backtoprevious';
+        if (isBackToPrevious && backendStatus) {
+          // For back to previous, send btp value as 'btp' field
+          // Backend expects: op_btp, bm_btp, or bracc_btp
+          if (backendStatus === 'op_btp' || backendStatus === 'bm_btp' || backendStatus === 'bracc_btp') {
+            console.log('[BackToPrevious] Sending btp value:', backendStatus);
+            formDataToSend.append('btp', backendStatus);
+            
+            // Determine target status based on btp value
+            let targetStatus = '';
+            if (backendStatus === 'op_btp') {
+              targetStatus = 'Checked'; // OP Manager sending back from OPApproved → Checked
+            } else if (backendStatus === 'bm_btp') {
+              targetStatus = 'Ongoing'; // BM sending back from Checked → Ongoing
+            } else if (backendStatus === 'bracc_btp') {
+              // Account sending back - determine based on current status
+              const currentStatus = formData.status || '';
+              const normalizedStatus = currentStatus.trim();
+              if (normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
+                // Account sending back from Acknowledged → BM Approved or Checked
+                targetStatus = 'BM Approved';
+              } else if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') {
+                // Account sending back from BM Approved → Checked
+                targetStatus = 'Checked';
+              } else {
+                targetStatus = 'Checked'; // Default fallback
+              }
+            }
+            
+            // Send target status
+            if (targetStatus) {
+              console.log('[BackToPrevious] Sending target status:', targetStatus);
+              formDataToSend.append('status', targetStatus);
+            }
+          } else {
+            console.warn('[BackToPrevious] Invalid btp value:', backendStatus);
+          }
+        } else if (backendStatus) {
+          // For other actions, send status normally
           formDataToSend.append('status', backendStatus);
         }
 
@@ -3590,9 +3978,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
         // Handle successful response
         if (response && typeof response === 'object') {
-          const nextStatus = response.status
+          // Get form status from response - avoid response.status (HTTP status code)
+          // Check form status fields first, then fallback to current formData.status
+          const nextStatus = response?.form_status
+            || response?.status_field
             || response?.general_form?.status
             || response?.general_form?.form_status
+            || response?.data?.status
+            || response?.data?.general_form?.status
             || formData.status;
 
           const normalizedNextStatus = (nextStatus || '').replace(/\s+/g, '').toLowerCase();
@@ -3833,6 +4226,46 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           }, 1500);
           
           return response;
+        }
+        
+        // Mark notifications as read when button action is successfully completed
+        // This ensures the unread badge disappears after the user completes their action
+        const generalFormId = formData.general_form_id || formData.generalFormId || responseGeneralFormId;
+        if (generalFormId && action && action !== 'Edit') {
+          try {
+            const token = localStorage.getItem('token');
+            if (token) {
+              // Mark notifications as read for this form
+              // Try with both form_id values for Big Damage Issue (1 and 8)
+              const markAsReadRequests = [
+                { form_id: 1, general_form_id: generalFormId, specific_form_id: generalFormId },
+                { form_id: 8, general_form_id: generalFormId, specific_form_id: generalFormId }
+              ];
+              
+              // Fire and forget - don't wait for response
+              markAsReadRequests.forEach(payload => {
+                fetch('/api/notifications/mark-as-read', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify(payload)
+                }).catch(err => {
+                  console.warn('[DamageFormLayout] Failed to mark notifications as read:', err);
+                });
+              });
+              
+              // Dispatch event to refresh notifications
+              window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+                detail: { forceRefresh: true, generalFormId: generalFormId } 
+              }));
+            }
+          } catch (error) {
+            console.warn('[DamageFormLayout] Error marking notifications as read:', error);
+          }
         }
         
         // Get the success message based on the action
@@ -4533,7 +4966,7 @@ const resolveApproveAction = () => {
   );
 
   return (
-    <div className="p-3 sm:p-4 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
+    <div className="p-6 sm:p-8 md:p-10 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
       {isSubmitting && <BoxesLoader />}
       
       {error && (
@@ -5044,7 +5477,7 @@ const resolveApproveAction = () => {
         status={formData.status}
         reason={formData.reason}
         onReasonChange={val => setFormData(prev => ({ ...prev, reason: val }))}
-        showRemark={mode !== 'add'}
+        showRemark={mode !== 'add' && !((getUserRole() === 'bm' || getUserRole() === 'abm') && (formData.status === 'BM Approved' || formData.status === 'BMApproved'))}
         showAttachments={true}
         isRequired={mode !== 'add'}
         attachments={formData.attachments || []}
@@ -5061,7 +5494,7 @@ const resolveApproveAction = () => {
             <button 
               onClick={handleBack}
               className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-gray-900 bg-white hover:bg-gray-50 border-2 border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 shadow-sm hover:shadow-md"
-              style={{ fontSize: '0.875rem' }}
+              style={{ fontSize: '0.9375rem' }}
             >
               <span className="btn-text">Cancel</span>
               <XCircle className="btn-icon w-4 h-4 absolute" />
@@ -5069,8 +5502,8 @@ const resolveApproveAction = () => {
             <button 
               onClick={() => handleSubmitClick('Submit')}
               disabled={isSubmitting}
-              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 font-semibold text-white transition-all duration-200 rounded-lg shadow-md bg-green-600 hover:bg-green-700 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ fontSize: '0.875rem' }}
+              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 font-semibold text-white transition-all duration-200 rounded shadow-md bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontSize: '0.9375rem' }}
             >
               <span className="btn-text">Submit</span>
               <Send className="btn-icon w-4 h-4 absolute" />
@@ -5082,10 +5515,32 @@ const resolveApproveAction = () => {
               <button 
                 onClick={() => handleSubmitClick('Edit')}
                 className="btn-with-icon btn-edit inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-sm hover:shadow-md" 
-                style={{ fontSize: '0.875rem' }}
+                style={{ fontSize: '0.9375rem' }}
               >
                 <span className="btn-text">Edit</span>
                 <Edit3 className="btn-icon w-4 h-4 absolute" />   
+              </button>
+            )}
+            
+            {/* Add Product Button - Show for Ongoing or Checked (approver only) status, hide for Account and regular users */}
+            {((formData.status === 'Ongoing' || formData.status?.toLowerCase() === 'ongoing') || 
+              (formData.status === 'Checked' && isApproverRole)) && 
+             formData.status !== 'Completed' && 
+             formData.status !== 'Issued' && 
+             formData.status !== 'SupervisorIssued' &&
+             mode !== 'add' && 
+             formData.status !== 'BM Approved' && 
+             formData.status !== 'BMApproved' &&
+             formData.status !== 'Ac_Acknowledged' && 
+             formData.status !== 'Acknowledged' &&
+             !isAccount && 
+             !isUserRole && (
+              <button 
+                onClick={handleOpenAddProductModal}
+                className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1"
+                style={{ fontSize: '15px' }}
+              >
+                Add
               </button>
             )}
             
@@ -5097,17 +5552,15 @@ const resolveApproveAction = () => {
                 return null;
               }
               const buttonClass = getButtonColorClass(action);
+              const isCheckedButton = action === 'Checked' || action === 'BMApprovedMem';
               return (
                 <button 
                   onClick={() => handleSubmitClick(action)}
                   disabled={isSubmitting}
-                  className={`btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-md hover:shadow-lg ${buttonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={{ fontSize: '0.875rem' }}
+                  className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
+                  style={{ fontSize: '15px' }}
                 >
-                  <span className="btn-text">
-                    {prettyApprove(action) || 'Proceed'}
-                  </span>
-                  <CheckCircle className="btn-icon w-4 h-4 absolute" />
+                  <span>{prettyApprove(action) || 'Proceed'}</span>
                 </button>
               );
             })()}
@@ -5120,11 +5573,10 @@ const resolveApproveAction = () => {
             {shouldShowBackToPrevious && (
               <button 
                 onClick={() => handleSubmitClick('BackToPrevious')}
-                className="group inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-yellow-700 hover:text-yellow-900 transition-all duration-200 hover:bg-yellow-50 border-2 border-yellow-300 shadow-sm hover:shadow-md"
-                style={{ fontSize: '0.875rem' }}
+                className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#ffc107] border-[#ffc107] hover:bg-[#e0a800] hover:border-[#e0a800] hover:shadow-md transition-all duration-200 me-1"
+                style={{ fontSize: '15px' }}
               >
-                <CornerUpLeft className="w-4 h-4 transition-transform duration-300 group-hover:rotate-[360deg]" />
-                <span className="transition-transform duration-200 group-hover:scale-[1.1]">Back To Previous</span>
+                Back To previous
               </button>
             )}
             
@@ -5133,11 +5585,10 @@ const resolveApproveAction = () => {
             {shouldShowCancel && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
-                className="btn-with-icon btn-cancel inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 border-2 border-red-600 bg-red-600 hover:bg-red-700 shadow-sm hover:shadow-md" 
-                style={{ fontSize: '0.875rem' }}
+                className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white border-[#dc3545] bg-[#dc3545] me-1" 
+                style={{ fontSize: '15px' }}
               >
-                <span className="btn-text">Cancel</span>
-                <XCircle className="btn-icon w-4 h-4 absolute" />
+                Cancel
               </button>
             )}
             </>

@@ -264,35 +264,92 @@ const EmptyState = () => {
 
 const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   const totalPages = Math.max(1, Math.ceil((totalRows || 0) / (rowsPerPage || 1)));
-  const pages = [];
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, start + 4);
-  for (let i = start; i <= end; i++) pages.push(i);
+  
+  // Generate page numbers to display
+  const getPageNumbers = () => {
+    const pages = [];
+    
+    if (totalPages <= 12) {
+      // If total pages is small, show all pages
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
+    
+    // Always show first page
+    pages.push(1);
+    
+    // Show pages 2-10 if current page is in early range (1-6)
+    if (currentPage <= 6) {
+      for (let i = 2; i <= 10; i++) {
+        pages.push(i);
+      }
+      // Add ellipsis and last two pages
+      pages.push('ellipsis');
+      pages.push(totalPages - 1);
+      pages.push(totalPages);
+    }
+    // Show pages around current if in middle range
+    else if (currentPage > 6 && currentPage < totalPages - 5) {
+      // Show first page, ellipsis, then pages around current
+      pages.push('ellipsis-start');
+      for (let i = currentPage - 2; i <= currentPage + 2; i++) {
+        pages.push(i);
+      }
+      // Add ellipsis and last two pages
+      pages.push('ellipsis-end');
+      pages.push(totalPages - 1);
+      pages.push(totalPages);
+    }
+    // Show last pages if current is near the end
+    else {
+      // Show first page, ellipsis, then last 10 pages
+      pages.push('ellipsis');
+      for (let i = totalPages - 9; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    }
+    
+    return pages;
+  };
+
+  const pageNumbers = getPageNumbers();
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center space-x-1">
       <button
-        className="p-2 text-gray-400 border border-gray-200 rounded-lg hover:bg-gray-50"
+        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
         disabled={currentPage <= 1}
       >
         &lt;
       </button>
-      {pages.map(number => (
-        <button
-          key={number}
-          className={`px-4 py-2 text-sm font-semibold rounded-lg ${
-            number === currentPage
-              ? 'bg-blue-500 text-white shadow-md'
-              : 'text-gray-700 hover:bg-gray-100 border border-gray-200'
-          }`}
-          onClick={() => onPageChange?.(number)}
-        >
-          {number}
-        </button>
-      ))}
+      {pageNumbers.map((page, index) => {
+        if (page === 'ellipsis' || page === 'ellipsis-start' || page === 'ellipsis-end') {
+          return (
+            <span key={`ellipsis-${index}`} className="px-2 py-2 text-blue-600">
+              ...
+            </span>
+          );
+        }
+        
+        return (
+          <button
+            key={page}
+            className={`px-4 py-2 text-sm font-semibold rounded ${
+              page === currentPage
+                ? 'bg-blue-600 text-white'
+                : 'text-blue-600 hover:bg-blue-50'
+            }`}
+            onClick={() => onPageChange?.(page)}
+          >
+            {page}
+          </button>
+        );
+      })}
       <button
-        className="p-2 text-gray-400 border border-gray-200 rounded-lg hover:bg-gray-50"
+        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.min(totalPages, currentPage + 1))}
         disabled={currentPage >= totalPages}
       >
@@ -305,6 +362,96 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
 function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {}, productFilter = '', notificationCounts = new Map() }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams(); // Use React Router's searchParams to react to URL changes
+  
+  // Get current user to check if they've completed their action
+  const currentUser = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }, []);
+  
+  // Helper function to normalize text (case-insensitive, trim whitespace)
+  const normalizeText = (text) => {
+    if (!text) return '';
+    return String(text).trim().replace(/\s+/g, ' ').toLowerCase();
+  };
+  
+  // Helper function to check if current user has completed their required action
+  // Badge should disappear when the user completes their action for their role
+  const hasUserCompletedAction = (row, gf) => {
+    if (!currentUser) {
+      // If we can't determine user, default to showing badge
+      return false;
+    }
+    
+    const userType = normalizeText(currentUser.user_type || currentUser.role || '');
+    const formStatus = normalizeText(gf.status || '');
+    const totalAmount = parseFloat(gf.total_amount || row.total_amount || 0);
+    
+    // Define status progression order
+    const statusOrder = {
+      'ongoing': 1,
+      'checked': 2,
+      'bm approved': 3,
+      'bmapproved': 3,
+      'opapproved': 4,
+      'op approved': 4,
+      'ac_acknowledged': 5,
+      'acknowledged': 5,
+      'completed': 6,
+      'issued': 6,
+      'supervisorissued': 6
+    };
+    
+    const currentStatusOrder = statusOrder[formStatus] || 0;
+    
+    // Checker (C/CS) - action is to check (move from Ongoing to Checked)
+    if (['c', 'cs'].includes(userType)) {
+      // If status is Checked or beyond, checker has completed their action
+      return currentStatusOrder >= 2;
+    }
+    
+    // BM (A1) - action is to approve (move from Checked to BM Approved)
+    if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+      // If status is BM Approved or beyond, BM has completed their action
+      return currentStatusOrder >= 3;
+    }
+    
+    // OP Manager (A2) - action is to approve (move from BM Approved to OP Approved, only if amount > 500k)
+    if (userType === 'a2') {
+      if (totalAmount > 500000) {
+        // If amount > 500k, OP Manager needs to approve
+        // If status is OP Approved or beyond, OP Manager has completed their action
+        return currentStatusOrder >= 4;
+      } else {
+        // If amount <= 500k, OP Manager doesn't need to approve, so they've "completed" (no action needed)
+        return true;
+      }
+    }
+    
+    // Account (AC) - action is to acknowledge (move from BM/OP Approved to Acknowledged), then issue (move to Completed/Issued)
+    if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
+      // Account needs to acknowledge first (if status is BM/OP Approved)
+      if (currentStatusOrder >= 3 && currentStatusOrder < 5) {
+        // Status is BM Approved or OP Approved, Account needs to acknowledge
+        // If status is Acknowledged or beyond, Account has acknowledged
+        return currentStatusOrder >= 5;
+      }
+      // If status is Acknowledged, Account needs to issue/complete
+      if (currentStatusOrder === 5) {
+        // Status is Acknowledged, Account needs to issue
+        // If status is Completed/Issued, Account has issued
+        return currentStatusOrder >= 6;
+      }
+      // If already Completed/Issued, Account has completed their action
+      return currentStatusOrder >= 6;
+    }
+    
+    // For other user types or unknown roles, default to showing badge
+    return false;
+  };
 
   // Get filter parameters from URL - use searchParams from React Router
   // Also check window.location as fallback in case searchParams hasn't updated yet
@@ -741,7 +888,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   };
 
   return (
-    <div className="mx-auto font-sans">
+    <div className="mx-auto font-sans px-6">
       <div className="hidden md:block bg-white rounded-xl shadow-lg">
         <div className="overflow-x-auto">
           <div className="overflow-hidden rounded-t-xl border border-gray-200">
@@ -759,8 +906,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       <th
                         key={index}
                         scope="col"
-                        className={`px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          index === 0 ? 'w-12' : ''
+                        className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                          index === 0 ? 'w-12 text-left' : index === 7 ? 'text-right' : 'text-left'
                         }`}
                       >
                         {header}
@@ -808,24 +955,75 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {(() => {
-                            const formId = String(gf?.id || '');
-                            const notiCount = notificationCounts.get(formId) || 0;
+                            // Try multiple possible ID fields to match with notification counts
+                            const possibleFormIds = [
+                              String(gf?.id || ''),
+                              String(row?.general_form_id || ''),
+                              String(gf?.general_form_id || ''),
+                              String(row?.id || '')
+                            ].filter(id => id && id !== 'undefined' && id !== 'null');
+                            
+                            // Check each possible form ID against notification counts
+                            let notiCount = 0;
+                            let matchedFormId = null;
+                            
+                            for (const formId of possibleFormIds) {
+                              const count = notificationCounts.get(formId);
+                              if (count !== undefined && count > 0) {
+                                notiCount = count;
+                                matchedFormId = formId;
+                                break;
+                              }
+                            }
                             
                             // Debug logging for first row
                             if (idx === 0 && process.env.NODE_ENV !== 'production') {
                               console.log('[DamageIssueList] Notification badge check:', {
-                                formId,
-                                gfId: gf?.id,
+                                possibleFormIds,
+                                matchedFormId,
                                 notiCount,
                                 notificationCountsSize: notificationCounts.size,
                                 notificationCountsKeys: Array.from(notificationCounts.keys()),
-                                hasNotificationCount: notificationCounts.has(formId),
+                                gfId: gf?.id,
+                                rowGeneralFormId: row?.general_form_id,
                                 formDocNo: gf?.form_doc_no
                               });
                             }
                             
-                            // Only show notification count badge in this column
-                            if (notiCount > 0) {
+                            // Only show notification count badge if form status matches user role requirements
+                            const shouldShowForRole = (() => {
+                              if (!currentUser || !gf) return false;
+                              
+                              const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                              const userType = normalizeText(currentUser.user_type || currentUser.role || '');
+                              const formStatus = normalizeText(gf.status || '');
+                              
+                              // Checker (C/CS) - only show for "Ongoing" forms
+                              if (['c', 'cs'].includes(userType)) {
+                                return formStatus === 'ongoing';
+                              }
+                              
+                              // Approver/BM (A1) - only show for "Checked" forms
+                              if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+                                return formStatus === 'checked';
+                              }
+                              
+                              // Operation Manager (A2) - only show for "BM Approved" forms
+                              if (userType === 'a2') {
+                                return formStatus === 'bm approved' || formStatus === 'bmapproved';
+                              }
+                              
+                              // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
+                              if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
+                                return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
+                                       formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
+                              }
+                              
+                              return false;
+                            })();
+                            
+                            // Only show notification count badge in this column if it matches role requirements
+                            if (notiCount > 0 && shouldShowForRole) {
                               return (
                                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
                                                 bg-gradient-to-br from-red-500 to-red-600 rounded-full 
@@ -844,13 +1042,70 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           <div className="flex items-center gap-2">
                             <span>{gf.form_doc_no || '-'}</span>
                             {(() => {
-                              const formId = String(gf?.id || '');
-                              const notiCount = notificationCounts.get(formId) || 0;
-                              const isUnread = (row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
-                                             !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                              // Try multiple possible ID fields to match with notification counts
+                              const possibleFormIds = [
+                                String(gf?.id || ''),
+                                String(row?.general_form_id || ''),
+                                String(gf?.general_form_id || ''),
+                                String(row?.id || '')
+                              ].filter(id => id && id !== 'undefined' && id !== 'null');
                               
-                              // Show red speech bubble icon if unread and no notification count
-                              if (isUnread && notiCount === 0) {
+                              // Check each possible form ID against notification counts
+                              let notiCount = 0;
+                              for (const formId of possibleFormIds) {
+                                const count = notificationCounts.get(formId);
+                                if (count !== undefined && count > 0) {
+                                  notiCount = count;
+                                  break;
+                                }
+                              }
+                              
+                              // Check if current user has completed their required action
+                              const userCompletedAction = hasUserCompletedAction(row, gf);
+                              
+                              // Check if form status matches user role requirements
+                              const shouldShowForRole = (() => {
+                                if (!currentUser || !gf) return false;
+                                
+                                const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                                const userType = normalizeText(currentUser.user_type || currentUser.role || '');
+                                const formStatus = normalizeText(gf.status || '');
+                                
+                                // Checker (C/CS) - only show for "Ongoing" forms
+                                if (['c', 'cs'].includes(userType)) {
+                                  return formStatus === 'ongoing';
+                                }
+                                
+                                // Approver/BM (A1) - only show for "Checked" forms
+                                if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+                                  return formStatus === 'checked';
+                                }
+                                
+                                // Operation Manager (A2) - only show for "BM Approved" forms
+                                if (userType === 'a2') {
+                                  return formStatus === 'bm approved' || formStatus === 'bmapproved';
+                                }
+                                
+                                // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
+                                if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
+                                  return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
+                                         formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
+                                }
+                                
+                                return false;
+                              })();
+                              
+                              // Speech icon should disappear when:
+                              // 1. User has completed their action, OR
+                              // 2. Form is marked as viewed, OR
+                              // 3. Form reaches final completed state, OR
+                              // 4. Form status doesn't match role requirements
+                              const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                              const isViewed = row.is_viewed === true;
+                              const shouldHideIcon = userCompletedAction || isViewed || isCompleted || !shouldShowForRole;
+                              
+                              // Show red speech bubble icon if unread, user hasn't completed action, no notification count, and status matches role
+                              if (!shouldHideIcon && notiCount === 0 && shouldShowForRole) {
                                 return (
                                   <span className="inline-flex items-center justify-center">
                                     <RedSpeechBubbleIcon className="h-4 w-4" />
@@ -881,8 +1136,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                          <div className="flex items-center gap-1">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">
+                          <div className="flex items-center justify-end gap-1">
                             {exceedsThreshold ? (
                               <ArrowUpIcon className="h-5 w-5 text-green-600" />
                             ) : (
@@ -970,24 +1225,75 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 <div className="flex items-start justify-between gap-2 min-w-0">
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {(() => {
-                      const formId = String(gf?.id || '');
-                      const notiCount = notificationCounts.get(formId) || 0;
+                      // Try multiple possible ID fields to match with notification counts
+                      const possibleFormIds = [
+                        String(gf?.id || ''),
+                        String(row?.general_form_id || ''),
+                        String(gf?.general_form_id || ''),
+                        String(row?.id || '')
+                      ].filter(id => id && id !== 'undefined' && id !== 'null');
+                      
+                      // Check each possible form ID against notification counts
+                      let notiCount = 0;
+                      let matchedFormId = null;
+                      
+                      for (const formId of possibleFormIds) {
+                        const count = notificationCounts.get(formId);
+                        if (count !== undefined && count > 0) {
+                          notiCount = count;
+                          matchedFormId = formId;
+                          break;
+                        }
+                      }
                       
                       // Debug logging for first row
                       if (idx === 0 && process.env.NODE_ENV !== 'production') {
                         console.log('[DamageIssueList] Mobile notification badge check:', {
-                          formId,
-                          gfId: gf?.id,
+                          possibleFormIds,
+                          matchedFormId,
                           notiCount,
                           notificationCountsSize: notificationCounts.size,
                           notificationCountsKeys: Array.from(notificationCounts.keys()),
-                          hasNotificationCount: notificationCounts.has(formId),
+                          gfId: gf?.id,
+                          rowGeneralFormId: row?.general_form_id,
                           formDocNo: gf?.form_doc_no
                         });
                       }
                       
-                      // Only show notification count badge in this position
-                      if (notiCount > 0) {
+                      // Check if form status matches user role requirements
+                      const shouldShowForRoleMobile = (() => {
+                        if (!currentUser || !gf) return false;
+                        
+                        const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                        const userType = normalizeText(currentUser.user_type || currentUser.role || '');
+                        const formStatus = normalizeText(gf.status || '');
+                        
+                        // Checker (C/CS) - only show for "Ongoing" forms
+                        if (['c', 'cs'].includes(userType)) {
+                          return formStatus === 'ongoing';
+                        }
+                        
+                        // Approver/BM (A1) - only show for "Checked" forms
+                        if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+                          return formStatus === 'checked';
+                        }
+                        
+                        // Operation Manager (A2) - only show for "BM Approved" forms
+                        if (userType === 'a2') {
+                          return formStatus === 'bm approved' || formStatus === 'bmapproved';
+                        }
+                        
+                        // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
+                        if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
+                          return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
+                                 formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
+                        }
+                        
+                        return false;
+                      })();
+                      
+                      // Only show notification count badge in this position if it matches role requirements
+                      if (notiCount > 0 && shouldShowForRoleMobile) {
                         return (
                           <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
                                           bg-gradient-to-br from-red-500 to-red-600 rounded-full 
@@ -1005,13 +1311,70 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           {gf.form_doc_no || 'Untitled'}
                         </p>
                         {(() => {
-                          const formId = String(gf?.id || '');
-                          const notiCount = notificationCounts.get(formId) || 0;
-                          const isUnread = (row.is_viewed === false || row.is_viewed === null || row.is_viewed === undefined) &&
-                                         !['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                          // Try multiple possible ID fields to match with notification counts
+                          const possibleFormIds = [
+                            String(gf?.id || ''),
+                            String(row?.general_form_id || ''),
+                            String(gf?.general_form_id || ''),
+                            String(row?.id || '')
+                          ].filter(id => id && id !== 'undefined' && id !== 'null');
                           
-                          // Show red speech bubble icon if unread and no notification count
-                          if (isUnread && notiCount === 0) {
+                          // Check each possible form ID against notification counts
+                          let notiCount = 0;
+                          for (const formId of possibleFormIds) {
+                            const count = notificationCounts.get(formId);
+                            if (count !== undefined && count > 0) {
+                              notiCount = count;
+                              break;
+                            }
+                          }
+                          
+                          // Check if current user has completed their required action
+                          const userCompletedAction = hasUserCompletedAction(row, gf);
+                          
+                          // Check if form status matches user role requirements
+                          const shouldShowForRoleMobileIcon = (() => {
+                            if (!currentUser || !gf) return false;
+                            
+                            const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                            const userType = normalizeText(currentUser.user_type || currentUser.role || '');
+                            const formStatus = normalizeText(gf.status || '');
+                            
+                            // Checker (C/CS) - only show for "Ongoing" forms
+                            if (['c', 'cs'].includes(userType)) {
+                              return formStatus === 'ongoing';
+                            }
+                            
+                            // Approver/BM (A1) - only show for "Checked" forms
+                            if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+                              return formStatus === 'checked';
+                            }
+                            
+                            // Operation Manager (A2) - only show for "BM Approved" forms
+                            if (userType === 'a2') {
+                              return formStatus === 'bm approved' || formStatus === 'bmapproved';
+                            }
+                            
+                            // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
+                            if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
+                              return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
+                                     formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
+                            }
+                            
+                            return false;
+                          })();
+                          
+                          // Speech icon should disappear when:
+                          // 1. User has completed their action, OR
+                          // 2. Form is marked as viewed, OR
+                          // 3. Form reaches final completed state, OR
+                          // 4. Form status doesn't match role requirements
+                          const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                          const isViewed = row.is_viewed === true;
+                          const shouldHideIcon = userCompletedAction || isViewed || isCompleted || !shouldShowForRoleMobileIcon;
+                          
+                          // Show red speech bubble icon if unread, user hasn't completed action, no notification count, and status matches role
+                          if (!shouldHideIcon && notiCount === 0 && shouldShowForRoleMobileIcon) {
                             return (
                               <span className="inline-flex items-center justify-center flex-shrink-0">
                                 <RedSpeechBubbleIcon className="h-4 w-4" />
@@ -1065,7 +1428,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       ) : (
                         <ArrowDownIcon className="h-4 w-4 text-red-600" />
                       )}
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-gray-900 text-right">
                         {Math.round(totalAmount).toLocaleString('en-US')}
                       </span>
                     </div>
@@ -1090,20 +1453,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       </div>
 
       <div className="mt-4 md:mt-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:border-t md:pt-4 border-gray-100">
-        <div className="text-sm text-gray-600 text-center md:text-left">
-          {(() => {
-            const pageStart = (currentPage - 1) * perPage + 1;
-            const start = effectiveTotalRows === 0 ? 0 : pageStart;
-            const endRaw = (currentPage - 1) * perPage + (issues.length || 0);
-            const end = Math.min(effectiveTotalRows || 0, endRaw);
-            return (
-              <span>
-                Showing <span className="font-semibold">{start}</span> - <span className="font-semibold">{end}</span> of <span className="font-semibold">{effectiveTotalRows}</span> rows
-              </span>
-            );
-          })()}
-        </div>
-        <div className="flex justify-center md:justify-end">
+        <div className="flex justify-center md:justify-start w-full md:w-auto">
           <Pagination
             totalRows={effectiveTotalRows}
             rowsPerPage={perPage}
@@ -1111,6 +1461,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             onPageChange={onPageChange}
           />
         </div>
+      </div>
+      
+      {/* Total rows display - centered at bottom with red number */}
+      <div className="mt-2 text-center">
+        <span className="text-sm text-gray-600">
+          Total <span className="text-red-600 font-semibold">{effectiveTotalRows}</span> Rows
+        </span>
       </div>
     </div>
   );

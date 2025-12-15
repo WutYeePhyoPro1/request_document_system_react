@@ -999,6 +999,14 @@ const InvestigationFormModal = ({
                             step="0.1"
                             inputMode="decimal"
                             value={value ?? "0"}
+                            onFocus={(e) => {
+                              if (baseFieldsDisabled) return;
+                              // Clear the value if it's "0" when focused, so user can type directly
+                              if (e.target.value === "0" || e.target.value === 0) {
+                                e.target.value = "";
+                                set("");
+                              }
+                            }}
                             onChange={(e) => {
                               if (baseFieldsDisabled) return;
                               set(e.target.value);
@@ -1040,6 +1048,14 @@ const InvestigationFormModal = ({
                               step="0.1"
                               inputMode="decimal"
                               value={value ?? "0"}
+                              onFocus={(e) => {
+                                if (operationFieldsDisabled) return;
+                                // Clear the value if it's "0" when focused, so user can type directly
+                                if (e.target.value === "0" || e.target.value === 0) {
+                                  e.target.value = "";
+                                  set("");
+                                }
+                              }}
                               onChange={(e) => {
                                 if (operationFieldsDisabled) return;
                                 set(e.target.value);
@@ -1082,6 +1098,14 @@ const InvestigationFormModal = ({
                               step="0.1"
                               inputMode="decimal"
                               value={value ?? "0"}
+                              onFocus={(e) => {
+                                if (accountFieldsDisabled) return;
+                                // Clear the value if it's "0" when focused, so user can type directly
+                                if (e.target.value === "0" || e.target.value === 0) {
+                                  e.target.value = "";
+                                  set("");
+                                }
+                              }}
                               onChange={(e) => {
                                 if (accountFieldsDisabled) return;
                                 set(e.target.value);
