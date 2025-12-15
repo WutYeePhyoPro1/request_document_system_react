@@ -375,7 +375,7 @@ export default function Navbar({ toggleSidebar }) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-gray-900 truncate">
-                                            {user?.name || t('navbar.user')}
+                                            {user?.name || t('navbar.user')}ewr
                                         </p>
                                         {user?.emp_id && (
                                             <p className="text-xs text-gray-500 truncate">
@@ -401,7 +401,7 @@ export default function Navbar({ toggleSidebar }) {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Role</p>
                                             <p className="text-sm font-semibold text-gray-900 truncate">
-                                                {roleName || user?.role?.name || user?.role_name || user?.roleName || user?.role?.user_type || (user?.role_id && roleIdToNameMap[user.role_id]) || (user?.role_id ? `Role ID: ${user.role_id}` : 'N/A')}
+                                                {roleName || user?.role?.name || user?.role_name || user?.roleName || user?.role?.user_type || (user?.role_id && roleIdToNameMap[user.role_id]) || (user?.role_id ? `Role ID: ${user.role_id}` : 'N/A')} {user?.from_branch?.branch_name}
                                             </p>
                                         </div>
                                     </div>

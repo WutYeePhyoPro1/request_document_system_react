@@ -25,6 +25,9 @@ import DamageView from "../pages/BigDamageIssue/DamageView.jsx";
 import ProtectedRoute from "../routes/ProtectedRoute.jsx";
 import DamageIssueList from "../pages/BigDamageIssue/DamageIssueList.jsx";
 import Detail from "../pages/requestDiscount/detail.js";
+import MAndE from "../pages/MAndE/MAndE.jsx";
+import Index from "../pages/MAndE/Generator/index.js";
+import GeneratorCreate from "../pages/MAndE/Generator/generatorCreate.js";
 const LoginRoute = () => {
     const token = localStorage.getItem('token');
     return token ? <Navigate to="/dashboard" /> : <Login />;
@@ -119,6 +122,18 @@ const router = createBrowserRouter([
             {
                 path: "request_discount_detail/:id" ,
                 element: <Detail/>
+            },
+            {
+                path:"m_and_e" ,
+                element: <MAndE/>
+            } ,
+            {
+                path:"generator" ,
+                element: <Index/>
+            },
+            {
+                path: "generator_create" ,
+                element: <GeneratorCreate/>
             }
         ]
     }

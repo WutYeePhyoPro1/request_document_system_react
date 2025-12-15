@@ -432,14 +432,19 @@ export default function Demo() {
           </Table>
         </div>
       </div>
-      <div className="mx-auto mt-6">
-        <Pagination
-          total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
-          value={activePage}
-          onChange={setActivePage}
-          boundaries={1}
-        />
-      </div>
+      <div className="mx-auto mt-6 flex items-center justify-between px-4">
+  <p className="text-sm text-gray-600 font-bold">
+    Total Records: {discountData?.data?.length ?? 0}
+  </p>
+
+  <Pagination
+    total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
+    value={activePage}
+    onChange={setActivePage}
+    boundaries={1}
+  />
+</div>
+
     </div>
   );
 }

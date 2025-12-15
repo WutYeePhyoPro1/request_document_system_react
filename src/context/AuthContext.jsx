@@ -18,7 +18,7 @@ const getUserFromStorage = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(getUserFromStorage());
-
+console.log("USer Data>>" , user) ;
     const login = async (employee_number, password, remember = false) => {
         try {
             const response = await fetch("/api/login", {
