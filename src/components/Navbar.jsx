@@ -712,7 +712,7 @@ export default function Navbar({ toggleSidebar }) {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-semibold text-gray-900 truncate">
-                                            {user?.name || t('navbar.user')}ewr
+                                            {user?.name || t('navbar.user')} 
                                         </p>
                                         {user?.emp_id && (
                                             <p className="text-[10px] sm:text-xs text-blue-100 truncate mt-0.5">
@@ -741,10 +741,16 @@ export default function Navbar({ toggleSidebar }) {
                                                 {roleName || user?.role?.name || user?.role_name || user?.roleName || user?.role?.user_type || (user?.role_id && roleIdToNameMap[user.role_id]) || (user?.role_id ? `Role ID: ${user.role_id}` : 'N/A')} {user?.from_branch?.branch_name}
                                             </p>
                                         </div>
+                                        {/* <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Branch</p>
+                                            <p className="text-sm font-semibold text-gray-900 truncate">
+                                               {user?.user_branch_name || "HEllo"}
+                                            </p>
+                                        </div> */}
                                     </div>
 
                                     {/* Branch */}
-                                    {(branchName || user?.from_branch_name || user?.branch_name || user?.from_branch?.branch_name || user?.branch?.branch_name) && (
+                                    {/* {(branchName || user?.from_branch_name || user?.branch_name || user?.from_branch?.branch_name || user?.branch?.branch_name) && ( */}
                                         <div className="flex items-start space-x-2 sm:space-x-3 p-1.5 sm:p-2 rounded-md sm:rounded-lg hover:bg-white/60 transition-colors">
                                             <div className="flex-shrink-0 mt-0.5">
                                                 <div className="w-7 h-7 sm:w-9 sm:h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg sm:rounded-xl flex items-center justify-center shadow-sm">
@@ -756,11 +762,12 @@ export default function Navbar({ toggleSidebar }) {
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Branch</p>
                                                 <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                                                    {branchName || user?.from_branch_name || user?.branch_name || user?.from_branch?.branch_name || user?.branch?.branch_name || 'N/A'}
+                                                    {/* {branchName || user?.from_branch_name || user?.branch_name || user?.from_branch?.branch_name || user?.branch?.branch_name || 'N/A'} */}
+                                                    {user?.user_branch_name || user?.from_branch_name || 'N/A'}
                                                 </p>
                                             </div>
                                         </div>
-                                    )}
+                                    {/* )} */}
 
                                     {/* Department */}
                                     {(departmentName || user?.department?.name || user?.departments?.name || user?.department_name || (user?.department_id && departmentIdToNameMap[user.department_id])) && (

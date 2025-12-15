@@ -16,7 +16,8 @@ import {
   searchDiscountProduct,
 } from "../../api/requestDiscount/requestDiscountData";
 import { parse } from "uuid";
-import { FiCopy } from "react-icons/fi";
+import { FiCopy, FiMessageCircle } from "react-icons/fi";
+import { AiFillMessage, AiTwotoneMessage, AiTwotoneMinusSquare } from "react-icons/ai";
 
 export default function Demo() {
   const [discountData, setDiscountData] = useState<IndexData[]>([]);
@@ -142,6 +143,12 @@ export default function Demo() {
   const rows = useMemo(() => {
   return paginateData?.map((element, index) => {
     const isCopied = copied === element.id;
+     const hasUnreadNotification = discountData?.noti_data?.some(
+      (item: any) =>
+        element.id === item.specific_form_id &&
+        element.form_id === item.form_id &&
+        element.form_doc_no === item.form_doc_no
+    );
 
     return (
       <Table.Tr
@@ -158,8 +165,12 @@ export default function Demo() {
         </Table.Td>
 
         {/* Copy Button Section */}
-        <Table.Td>
-          {element.form_doc_no}
+        <Table.Td className="flex flex-justify gap-3 items-center">
+          <Link to={`/request_discount_detail/${element.id}`} className="contents">
+            {element.form_doc_no}
+           
+          </Link>
+         
           <button
             onClick={() => {
               handleCopy(
@@ -181,6 +192,9 @@ export default function Demo() {
           >
             {isCopied ? "Copied!" : <FiCopy className="w-4 h-4" />}
           </button>
+           {hasUnreadNotification && (
+            <AiFillMessage className="text-red-400 w-4 h-4" />
+          )}
         </Table.Td>
 
         <Link to={`/request_discount_detail/${element.id}`} className="contents">

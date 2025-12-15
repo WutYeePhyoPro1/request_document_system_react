@@ -40,11 +40,11 @@ const Detail: React.FC = () => {
     }
   }, [dispatch, id]);
 
-  useEffect(() => {
-    if (fileOpened && token && id) {
-      dispatch(refreshFiles({ token, id }));
-    }
-  }, [fileOpened, dispatch, id]);
+  // useEffect(() => {
+  //   if (fileOpened && token && id) {
+  //     dispatch(refreshFiles({ token, id }));
+  //   }
+  // }, [fileOpened, dispatch, id]);
 
   const formDocNo = detailData?.form?.form_doc_no || "";
   const formId = detailData?.form?.id || null;
@@ -261,7 +261,7 @@ const Detail: React.FC = () => {
                           </div>
                         </Modal>
 
-                        {detailData?.files?.[0] && (
+                        {detailData?.files?.length > 0 && (
                           <>
                             <a
                               href={detailData.files[0].file_url}
@@ -285,7 +285,17 @@ const Detail: React.FC = () => {
                         )}
                         {["Ongoing", "BM Approved"].includes(
                           detailData?.form?.status
-                        ) && <AddAttachFile generalFormId={id} />}
+                        ) && (
+                          <AddAttachFile
+  generalFormId={id}
+  onUploaded={() => {
+    if (token && id) {
+      dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
+    }
+  }}
+/>
+
+                        )}
                       </div>
                     </div>
                   </div>
@@ -299,9 +309,7 @@ const Detail: React.FC = () => {
                   <div className="userData grid lg:grid-cols-6 md:grid-cols-6 grid-cols-3 items-start text-sm">
                     {/* Prepared By */}
                     <div className="flex flex-col">
-                      <span className="font-medium ">
-                        Prepared By
-                      </span>
+                      <span className="font-medium ">Prepared By</span>
                       <span className="font-semibold text-blue-400 mt-1">
                         Miss. {detailData?.form?.originators?.name}
                       </span>
@@ -498,10 +506,7 @@ const Detail: React.FC = () => {
                   <div className="mt-6">
                     {detailData?.form?.status === "Cancel" && (
                       <div className="col-12">
-                        <div
-                          className="bg-red-300 p-4 rounded-lg"
-                          role="alert"
-                        >
+                        <div className="bg-red-300 p-4 rounded-lg" role="alert">
                           This form was rejected by{" "}
                           <span className="fw-bold">
                             {detailData?.form_rejected?.approval_users?.title}{" "}

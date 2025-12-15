@@ -1,107 +1,114 @@
-import { FileInput, Button , Modal } from "@mantine/core";
+import { FileInput, Button, Modal } from "@mantine/core";
 import { IconFile, IconX } from "@tabler/icons-react";
 import React, { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { reUploadFile } from "../../api/requestDiscount/requestDiscountData";
-import { useNavigate } from "react-router-dom";
 import { useDisclosure } from "@mantine/hooks";
 
 interface InvoiceFile {
-id: string;
-file: File | null;
+  id: string;
+  file: File | null;
 }
 
-const AddAttachFile: React.FC<{ generalFormId: number }> = ({ generalFormId }) => {
-    const [invoiceFile, setInvoiceFile] = useState<InvoiceFile[]>([
-        { id: uuidv4(), file: null },
-        ]);
-        const [opened, { open, close }] = useDisclosure(false);
+const AddAttachFile: React.FC<{
+  generalFormId: number;
+  onUploaded: () => void;
+}> = ({ generalFormId, onUploaded }) => {
+  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile[]>([
+    { id: uuidv4(), file: null },
+  ]);
+  const [submitting, setSubmitting] = useState(false);
+  const [opened, { open, close }] = useDisclosure(false);
 
-        const fileIcon =
-        <IconFile size={18} stroke={1.5} />;
+  const fileIcon = <IconFile size={18} stroke={1.5} />;
 
-        const addInvoiceFile = () => {
-        setInvoiceFile([...invoiceFile, { id: uuidv4(), file: null }]);
-        };
+  const updateInvoiceFile = (id: string, file: File | null) => {
+    setInvoiceFile((prev) =>
+      prev.map((f) => (f.id === id ? { ...f, file } : f))
+    );
+  };
 
-        const removeInvoiceFile = (id: string) => {
-        if (invoiceFile.length > 1) {
-        setInvoiceFile(invoiceFile.filter((f) => f.id !== id));
-        }
-        };
+  const addInvoiceFile = () => {
+    setInvoiceFile([...invoiceFile, { id: uuidv4(), file: null }]);
+  };
 
-        const updateInvoiceFile = (id: string, file: File | null) => {
-        setInvoiceFile((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, file } : f))
-        );
-        };
-        const navigate = useNavigate();
+  const removeInvoiceFile = (id: string) => {
+    if (invoiceFile.length > 1) {
+      setInvoiceFile(invoiceFile.filter((f) => f.id !== id));
+    }
+  };
 
-        const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (submitting) return;
 
-        const token = localStorage.getItem("token");
-        if (!token) return;
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-        const formData = new FormData();
-        formData.append("general_form_id", String(generalFormId));
+    const formData = new FormData();
+    formData.append("general_form_id", String(generalFormId));
 
-        invoiceFile.forEach((f) => {
-        if (f.file) {
-        formData.append("file[]", f.file); // Laravel expects file[]
-        }
-        });
+    invoiceFile.forEach((f) => {
+      if (f.file) {
+        formData.append("file[]", f.file);
+      }
+    });
 
-        try {
-        const response = await reUploadFile(token, formData);
-        close();
-        
-        setInvoiceFile([{ id: uuidv4(), file: null }]);
-         window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      setSubmitting(true);
+      await reUploadFile(token, formData);
 
-        console.log("Upload success:", response.data);
-        } catch (err) {
-        console.error("Upload failed:", err);
-        }
-        };
+      close();
+      setInvoiceFile([{ id: uuidv4(), file: null }]);
 
-        return (
-        <>
-            <Modal opened={opened} onClose={close} title="Authentication" centered>
-                <div className="flex flex-justify flex-col gap-2 ">
-                    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                        {invoiceFile.map((fileField, index) => (
-                        <div key={fileField.id} className="flex flex-row items-end gap-2 w-full">
-                            <FileInput withAsterisk leftSection={fileIcon} label={index===0 ? "Upload Invoice or Slip" :
-                                undefined} placeholder="Upload file" leftSectionPointerEvents="none" className="w-3/4"
-                                value={fileField.file} onChange={(file)=> updateInvoiceFile(fileField.id, file)}
-                                />
-                                {index === 0 ? (
-                                <Button type="button" onClick={addInvoiceFile}>
-                                    Add
-                                </Button>
-                                ) : (
-                                <Button type="button" color="red" onClick={()=> removeInvoiceFile(fileField.id)}
-                                    >
-                                    <IconX size={16} />
-                                </Button>
-                                )}
-                        </div>
-                        ))}
+      onUploaded(); // 🔥 reload Detail
+    } catch (err) {
+      console.error("Upload failed:", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-                        <div className="flex justify-end mt-4">
-                            <Button type="submit">Save</Button>
-                        </div>
-                    </form>
+  return (
+    <>
+      <Modal opened={opened} onClose={close} title="Attach File" centered>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          {invoiceFile.map((fileField, index) => (
+            <div key={fileField.id} className="flex gap-2">
+              <FileInput
+                leftSection={fileIcon}
+                placeholder="Upload file"
+                value={fileField.file}
+                onChange={(file) => updateInvoiceFile(fileField.id, file)}
+                disabled={submitting}
+                className="flex-1"
+              />
 
-                </div>
-            </Modal>
-            <Button className="text-gray-600 text-sm flex items-center gap-1" onClick={open}>
-                <span>ℹ️</span> Upload Your File
-            </Button>
+              {index === 0 ? (
+                <Button type="button" onClick={addInvoiceFile}>
+                  Add
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  color="red"
+                  onClick={() => removeInvoiceFile(fileField.id)}
+                >
+                  <IconX size={16} />
+                </Button>
+              )}
+            </div>
+          ))}
 
-        </>
-        );
-        };
+          <Button type="submit" loading={submitting}>
+            Save
+          </Button>
+        </form>
+      </Modal>
 
-        export default AddAttachFile;
+      <Button onClick={open}>📎 Upload Your File</Button>
+    </>
+  );
+};
+
+export default AddAttachFile;
