@@ -3977,7 +3977,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
 
         // Handle successful response
+        // Extract general_form_id from response early so it's accessible throughout the function
+        let responseGeneralFormId = null;
         if (response && typeof response === 'object') {
+          // Preserve general_form_id from response if available
+          responseGeneralFormId = response?.general_form_id 
+            ?? response?.generalFormId 
+            ?? response?.general_form?.id
+            ?? response?.id
+            ?? response?.data?.general_form_id
+            ?? response?.data?.generalFormId
+            ?? response?.data?.id
+            ?? response?.data?.general_form?.id
+            ?? null;
+          
           // Get form status from response - avoid response.status (HTTP status code)
           // Check form status fields first, then fallback to current formData.status
           const nextStatus = response?.form_status
@@ -4101,15 +4114,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           // Resolve attachments from response - these are the files that were uploaded and saved by the backend
           const responseAttachments = resolveInitialAttachments(response, []);
           console.log('[Form Submission] Attachments in response:', responseAttachments.length, responseAttachments);
-          
-          // Preserve general_form_id from response if available
-          const responseGeneralFormId = response?.general_form_id 
-            ?? response?.generalFormId 
-            ?? response?.general_form?.id
-            ?? response?.id
-            ?? response?.data?.general_form_id
-            ?? response?.data?.generalFormId
-            ?? response?.data?.general_form?.id;
           
           console.log('[Form Submission] General Form ID:', responseGeneralFormId);
           console.log('[Form Submission] Response structure:', {
@@ -5485,20 +5489,14 @@ const resolveApproveAction = () => {
       />
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
-        <div className="hidden md:flex items-center order-2 md:order-1">
-          <AnimatedBackButton status={formData.status || statusText} />
-        </div>
+        {mode !== 'add' && (
+          <div className="hidden md:flex items-center order-2 md:order-1">
+            <AnimatedBackButton status={formData.status || statusText} />
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 w-full md:w-auto order-1 md:order-2">
         {mode === 'add' ? (
           <>
-            <button 
-              onClick={handleBack}
-              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-gray-900 bg-white hover:bg-gray-50 border-2 border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 shadow-sm hover:shadow-md"
-              style={{ fontSize: '0.9375rem' }}
-            >
-              <span className="btn-text">Cancel</span>
-              <XCircle className="btn-icon w-4 h-4 absolute" />
-            </button>
             <button 
               onClick={() => handleSubmitClick('Submit')}
               disabled={isSubmitting}
@@ -5507,6 +5505,14 @@ const resolveApproveAction = () => {
             >
               <span className="btn-text">Submit</span>
               <Send className="btn-icon w-4 h-4 absolute" />
+            </button>
+            <button 
+              onClick={handleBack}
+              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-gray-900 bg-white hover:bg-gray-50 border-2 border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 shadow-sm hover:shadow-md"
+              style={{ fontSize: '0.9375rem' }}
+            >
+              <span className="btn-text">Cancel</span>
+              <XCircle className="btn-icon w-4 h-4 absolute" />
             </button>
           </>
         ) : (

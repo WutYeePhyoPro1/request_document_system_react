@@ -534,7 +534,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           </div>
 
           {/* Search and Reset Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full justify-end">
             <button
               type="submit"
               className="px-5 bg-[#0dcaf0] text-black rounded-[8px] text-[13px] font-bold hover:bg-[#0bb8d9] transition-colors"

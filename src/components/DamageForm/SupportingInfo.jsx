@@ -235,7 +235,7 @@ export default function SupportingInfo({
           {shouldShowRemark && (
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
-              
+              {t('supportingInfo.remarks')}
               </label>
               {readOnly ? (
                 <div className="w-full border border-transparent rounded-md px-2 py-2 text-sm bg-transparent text-gray-800 min-h-[3rem] whitespace-pre-wrap">

@@ -193,11 +193,26 @@ const Dashboard = () => {
   const { notifications } = useContext(NotificationContext);
   
   // Get current user from localStorage
+  // This should match the user structure from AuthContext
   const currentUser = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || '{}');
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        console.warn('[Dashboard] No user found in localStorage');
+        return null;
+      }
+      const user = JSON.parse(userStr);
+      console.log('[Dashboard] Current user loaded:', {
+        id: user?.id,
+        role: user?.role,
+        user_type: user?.user_type,
+        from_branch_id: user?.from_branch_id,
+        fullUser: user
+      });
+      return user;
     } catch (e) {
-      return {};
+      console.error('[Dashboard] Error parsing user from localStorage:', e);
+      return null;
     }
   }, []);
 
@@ -228,32 +243,83 @@ const Dashboard = () => {
 
   // Create a map of notification counts per form (by general_form_id)
   // Helper function to check if notification should be shown based on user role and form status
+  // Logic: Show notifications until form moves to next status
+  // - Checker: Show "Ongoing" until it becomes "Checked" or beyond
+  // - Branch Manager: Show "Checked" until it becomes "BM Approved" or beyond
+  // - Branch Account: Show "BM Approved" and "Acknowledged" until it becomes "Completed" or beyond
   const shouldShowNotificationForRole = (user, formStatus) => {
-    if (!user || !formStatus) return false;
+    if (!user || !formStatus) {
+      console.warn('[Dashboard] shouldShowNotificationForRole: Missing user or status', { user, formStatus });
+      return false;
+    }
     
     const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-    const userType = normalizeText(user.user_type || user.role || '');
+    const userType = normalizeText(user.user_type || '');
+    const userRole = normalizeText(user.role || '');
     const status = normalizeText(formStatus);
     
-    // Checker (C/CS) - only show notifications for "Ongoing" forms
+    console.log('[Dashboard] shouldShowNotificationForRole check:', {
+      userType,
+      userRole,
+      status,
+      originalStatus: formStatus,
+      userObject: user
+    });
+    
+    // Checker (C/CS) - show notifications for "Ongoing" forms only
+    // Hide when status changes to "Checked" or beyond
     if (['c', 'cs'].includes(userType)) {
       return status === 'ongoing';
     }
     
-    // Approver/BM (A1) - only show notifications for "Checked" forms
-    if (userType === 'a1' || normalizeText(user.role) === 'bm' || normalizeText(user.role) === 'abm') {
+    // Approver/BM (A1) - show notifications for "Checked" forms only
+    // Hide when status changes to "BM Approved" or beyond
+    // Check both user_type (A1) and role name (bm, abm, approver)
+    const isBM = userType === 'a1' || 
+                 userRole === 'bm' || 
+                 userRole === 'abm' || 
+                 userRole === 'approver' ||
+                 userRole.includes('approver') ||
+                 userRole.includes('branch manager');
+    
+    if (isBM) {
+      // BM should ONLY see "Checked" forms
+      // Hide if status is "BM Approved", "OP Approved", "Acknowledged", "Completed", etc.
       return status === 'checked';
     }
     
-    // Operation Manager (A2) - only show notifications for "BM Approved" forms
+    // Operation Manager (A2) - show notifications for "BM Approved" forms only
     if (userType === 'a2') {
       return status === 'bm approved' || status === 'bmapproved';
     }
     
-    // Branch Account (AC) - only show notifications for "BM Approved" and "Acknowledged" forms
-    if (userType === 'ac' || normalizeText(user.role) === 'account') {
-      return status === 'bm approved' || status === 'bmapproved' || 
-             status === 'ac_acknowledged' || status === 'acknowledged';
+    // Branch Account (AC) - show notifications for "BM Approved" and "Acknowledged" forms only
+    // Hide when status changes to "Completed" or beyond
+    // Check both user_type (AC) and role name (account, branch account)
+    const isAccount = userType === 'ac' || 
+                      userRole === 'account' ||
+                      userRole === 'branch account' ||
+                      userRole.includes('account') ||
+                      userRole.includes('branch account');
+    
+    if (isAccount) {
+      // Account should see "BM Approved" and "Acknowledged" forms
+      // Hide if status is "Completed", "Issued", "SupervisorIssued", etc.
+      // Explicitly exclude "Ongoing", "Checked", and completed statuses
+      if (status === 'ongoing' || status === 'checked') {
+        return false;
+      }
+      // Hide completed statuses
+      if (status === 'completed' || status === 'issued' || status === 'supervisorissued') {
+        return false;
+      }
+      // Show only "BM Approved", "OP Approved", and "Acknowledged"
+      return status === 'bm approved' || 
+             status === 'bmapproved' || 
+             status === 'op approved' ||
+             status === 'opapproved' ||
+             status === 'ac_acknowledged' || 
+             status === 'acknowledged';
     }
     
     // For other roles, don't show notifications
@@ -262,61 +328,113 @@ const Dashboard = () => {
 
   // Use a ref to store the previous count to prevent flickering during filter changes
   const notificationCountsByFormRef = useRef(new Map());
+  
+  // Count forms directly from the form list based on status and user role
+  // This is the source of truth - no dependency on notifications API
   const notificationCountsByForm = useMemo(() => {
-    if (!currentUser || !notifications) {
-      // Return previous count if filtering to prevent flickering
-      if (isFilteringRef.current) {
-        return notificationCountsByFormRef.current;
-      }
-      return new Map();
-    }
-    
     // Don't update notification counts while filtering to prevent glitches
     if (isFilteringRef.current) {
       return notificationCountsByFormRef.current;
     }
     
-    const counts = new Map();
-    
-    // Create a map of form IDs to their status from listPayload for quick lookup
-    const formStatusMap = new Map();
-    if (listPayload?.data && Array.isArray(listPayload.data)) {
-      listPayload.data.forEach(row => {
-        const gf = row?.general_form || row;
-        const formId = gf?.id || row?.general_form_id || row?.id;
-        const status = gf?.status || row?.status;
-        if (formId && status) {
-          formStatusMap.set(String(formId), status);
-        }
-      });
+    if (!listPayload) {
+      return new Map();
     }
     
-    notifications.forEach(noti => {
-      // Only count unread notifications for Big Damage Issue Form
-      const isUnread = noti.is_viewed === false || noti.is_viewed === null || noti.is_viewed === undefined;
-      const matchesForm = noti.form_name === 'Big Damage Issue Form';
-      const matchesBranch = !noti.from_branch_id || noti.from_branch_id === currentUser.from_branch_id;
+    // If currentUser is not loaded yet, try to get it from localStorage directly
+    let user = currentUser;
+    if (!user) {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          user = JSON.parse(userStr);
+          console.log('[Dashboard] Loaded user from localStorage for notification counting:', {
+            role: user?.role,
+            user_type: user?.user_type
+          });
+        }
+      } catch (e) {
+        console.error('[Dashboard] Error loading user from localStorage:', e);
+      }
+    }
+    
+    if (!user) {
+      console.warn('[Dashboard] No user available for notification counting');
+      return new Map();
+    }
+    
+    const counts = new Map();
+    
+    // Try multiple possible structures for listPayload
+    let formListData = null;
+    if (listPayload?.data && Array.isArray(listPayload.data)) {
+      formListData = listPayload.data;
+    } else if (Array.isArray(listPayload)) {
+      formListData = listPayload;
+    } else if (listPayload?.data?.data && Array.isArray(listPayload.data.data)) {
+      formListData = listPayload.data.data;
+    }
+    
+    if (!formListData || !Array.isArray(formListData) || formListData.length === 0) {
+      console.warn('[Dashboard] No form list data available for notification counting');
+      return new Map();
+    }
+    
+    // Count forms based on status and user role
+    // Logic:
+    // - Checker: Count "Ongoing" forms
+    // - Branch Manager: Count "Checked" forms
+    // - Branch Account: Count "BM Approved" and "Acknowledged" forms
+    let matchedCount = 0;
+    let checkedForms = [];
+    let ongoingForms = [];
+    
+    formListData.forEach(row => {
+      const gf = row?.general_form || row;
+      const status = gf?.status || row?.status;
       
-      if (matchesForm && matchesBranch && isUnread) {
-        // Use specific_form_id (which is general_form_id) as the key
-        // Check multiple possible locations for the form ID
-        const formId = noti.specific_form_id 
-          || noti.data?.specific_form_id 
-          || noti.data?.general_form_id
-          || noti.general_form_id;
+      if (!status) return;
+      
+      // Track statuses for debugging
+      const normalizedStatus = (status || '').toString().toLowerCase().trim();
+      if (normalizedStatus === 'checked') {
+        checkedForms.push({
+          formId: row?.general_form_id || gf?.general_form_id || gf?.id || row?.id,
+          formDocNo: gf?.form_doc_no || row?.form_doc_no
+        });
+      }
+      if (normalizedStatus === 'ongoing') {
+        ongoingForms.push({
+          formId: row?.general_form_id || gf?.general_form_id || gf?.id || row?.id,
+          formDocNo: gf?.form_doc_no || row?.form_doc_no
+        });
+      }
+      
+      // Check if this form should be counted for the current user's role
+      if (shouldShowNotificationForRole(user, status)) {
+        // Get form ID - try multiple possible fields
+        // IMPORTANT: Store with ALL possible ID variations to ensure matching works
+        const generalFormId = row?.general_form_id || gf?.general_form_id;
+        const gfId = gf?.id;
+        const rowId = row?.id;
         
-        if (formId) {
-          const formIdStr = String(formId);
-          
-          // Get form status from notification data or from formStatusMap
-          const formStatus = noti.data?.status || 
-                           noti.status || 
-                           formStatusMap.get(formIdStr) || 
-                           '';
-          
-          // Only count if this notification should be shown for the current user's role
-          if (shouldShowNotificationForRole(currentUser, formStatus)) {
-            counts.set(formIdStr, (counts.get(formIdStr) || 0) + 1);
+        // Store count with all possible ID keys to ensure we can match it later
+        if (generalFormId) {
+          counts.set(String(generalFormId), 1);
+          matchedCount++;
+        }
+        if (gfId && String(gfId) !== String(generalFormId)) {
+          counts.set(String(gfId), 1);
+        }
+        if (rowId && String(rowId) !== String(generalFormId) && String(rowId) !== String(gfId)) {
+          counts.set(String(rowId), 1);
+        }
+        
+        // Also store a combined key for extra matching
+        if (generalFormId || gfId || rowId) {
+          const primaryId = generalFormId || gfId || rowId;
+          if (primaryId) {
+            counts.set(String(primaryId), 1);
           }
         }
       }
@@ -325,26 +443,76 @@ const Dashboard = () => {
     // Update the ref with the new counts
     notificationCountsByFormRef.current = counts;
     
-    // Debug logging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[Dashboard] Notification counts by form:', {
-        totalNotifications: notifications.length,
-        bigDamageNotifications: notifications.filter(n => n.form_name === 'Big Damage Issue Form').length,
-        unreadBigDamageNotifications: notifications.filter(n => 
-          (n.form_name === 'Big Damage Issue Form') && 
-          (n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined)
-        ).length,
-        countsMap: Array.from(counts.entries()),
-        sampleNotification: notifications.find(n => n.form_name === 'Big Damage Issue Form'),
-        isFiltering: isFilteringRef.current
-      });
-    }
+    // Debug logging - always log to help diagnose
+    // Show status distribution to understand what statuses exist
+    const statusDistribution = {};
+    formListData.forEach(row => {
+      const gf = row?.general_form || row;
+      const status = gf?.status || row?.status;
+      if (status) {
+        statusDistribution[status] = (statusDistribution[status] || 0) + 1;
+      }
+    });
+    
+    // Check user role detection
+    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+    const userType = normalizeText(user?.user_type || '');
+    const userRole = normalizeText(user?.role || '');
+    const isBM = userType === 'a1' || 
+                 userRole === 'bm' || 
+                 userRole === 'abm' || 
+                 userRole === 'approver' ||
+                 userRole.includes('approver') ||
+                 userRole.includes('branch manager');
+    
+    console.log('[Dashboard] Notification counts by form (from form list):', {
+      totalForms: formListData.length,
+      matchedForms: matchedCount,
+      countsMapSize: counts.size,
+      countsMap: Array.from(counts.entries()).slice(0, 10), // First 10 entries
+      currentUserRole: user?.role,
+      currentUserType: user?.user_type,
+      userTypeNormalized: userType,
+      userRoleNormalized: userRole,
+      isBM: isBM,
+      userObject: { role: user?.role, user_type: user?.user_type, id: user?.id },
+      isFiltering: isFilteringRef.current,
+      statusDistribution, // Show how many forms have each status
+      checkedFormsCount: checkedForms.length,
+      checkedForms: checkedForms.slice(0, 5), // First 5 checked forms
+      ongoingFormsCount: ongoingForms.length,
+      sampleForms: formListData.slice(0, 5).map(row => {
+        const gf = row?.general_form || row;
+        const status = gf?.status || row?.status;
+        const formId = row?.general_form_id || gf?.general_form_id || gf?.id || row?.id;
+        const normalizedStatus = (status || '').toString().toLowerCase().trim();
+        const shouldShow = shouldShowNotificationForRole(user, status);
+        return {
+          formId,
+          status,
+          normalizedStatus,
+          formDocNo: gf?.form_doc_no || row?.form_doc_no,
+          shouldShow,
+          inCountsMap: counts.has(String(formId)),
+          // Show why it should or shouldn't show
+          reason: normalizedStatus === 'checked' && isBM ? 'BM should see Checked' : 
+                  normalizedStatus === 'ongoing' && ['c', 'cs'].includes(userType) ? 'Checker should see Ongoing' :
+                  'Not matching criteria'
+        };
+      })
+    });
     
     return counts;
-  }, [notifications, currentUser, listPayload]);
+  }, [currentUser, listPayload]);
 
-  // Check if there are any unread notifications
-  const hasUnreadNotifications = bigDamageNotificationIds.length > 0;
+  // Calculate total notification count from form list (not from notifications API)
+  // This is the count that should appear in the notification bell
+  const totalNotificationCount = useMemo(() => {
+    return notificationCountsByForm.size;
+  }, [notificationCountsByForm]);
+  
+  // Check if there are any unread notifications (for backward compatibility)
+  const hasUnreadNotifications = totalNotificationCount > 0;
 
   const listData = useMemo(() => {
     try {

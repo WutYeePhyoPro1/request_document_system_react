@@ -1,14 +1,116 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FaBell, FaCheckDouble, FaEnvelope } from 'react-icons/fa';
 import finalLogo from "../assets/images/finallogo.png";
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-export default function Notification({ notifications }) {
+export default function Notification({ notifications, formBasedCount = null }) {
+    const { user } = useAuth();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
     const [isMarkingAllAsRead, setIsMarkingAllAsRead] = useState(false);
-    const hasNotifications = notifications && notifications.length > 0;
     const navigate = useNavigate();
+
+    // Helper function to check if notification should be shown based on user role and form status
+    // This matches the logic in Navbar.jsx to ensure consistency
+    const shouldShowNotificationForRole = (notification, currentUser) => {
+        if (!currentUser || !notification) return false;
+        
+        const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+        const userType = normalizeText(currentUser.user_type || '');
+        const userRole = normalizeText(currentUser.role || '');
+        // Fallback to action when status is missing so approver/BM sees "Checked" alerts
+        const formStatus = normalizeText(
+          notification.status ||
+          notification.data?.status ||
+          notification.action ||
+          notification.data?.action ||
+          ''
+        );
+        
+        // Checker (C/CS) - show notifications for "Ongoing" forms only
+        // Hide when status changes to "Checked" or beyond
+        if (['c', 'cs'].includes(userType)) {
+            return formStatus === 'ongoing';
+        }
+        
+        // Approver/BM (A1) - show notifications for "Checked" forms only
+        // Hide when status changes to "BM Approved" or beyond
+        // Check both user_type (A1) and role name (bm, abm, approver)
+        const isBM = userType === 'a1' || 
+                     userRole === 'bm' || 
+                     userRole === 'abm' || 
+                     userRole === 'approver' ||
+                     userRole.includes('approver') ||
+                     userRole.includes('branch manager');
+        
+        if (isBM) {
+            // BM should ONLY see "Checked" forms
+            // Hide if status is "BM Approved" or beyond
+            return formStatus === 'checked';
+        }
+        
+        // Operation Manager (A2) - show notifications for "BM Approved" forms only
+        if (userType === 'a2') {
+            return formStatus === 'bm approved' || formStatus === 'bmapproved';
+        }
+        
+        // Branch Account (AC) - show notifications for "BM Approved" and "Acknowledged" forms only
+        // Hide when status changes to "Completed" or beyond
+        // Check both user_type (AC) and role name (account, branch account)
+        const isAccount = userType === 'ac' || 
+                          userRole === 'account' ||
+                          userRole === 'branch account' ||
+                          userRole.includes('account') ||
+                          userRole.includes('branch account');
+        
+        if (isAccount) {
+            // Account should see "BM Approved" and "Acknowledged" forms
+            // Hide if status is "Completed", "Issued", "SupervisorIssued", etc.
+            // Explicitly exclude "Ongoing", "Checked", and completed statuses
+            if (formStatus === 'ongoing' || formStatus === 'checked') {
+                return false;
+            }
+            // Hide completed statuses
+            if (formStatus === 'completed' || formStatus === 'issued' || formStatus === 'supervisorissued') {
+                return false;
+            }
+            // Show only "BM Approved", "OP Approved", and "Acknowledged"
+            return formStatus === 'bm approved' || 
+                   formStatus === 'bmapproved' || 
+                   formStatus === 'op approved' ||
+                   formStatus === 'opapproved' ||
+                   formStatus === 'ac_acknowledged' || 
+                   formStatus === 'acknowledged';
+        }
+        
+        // For other roles, don't show notifications
+        return false;
+    };
+
+    // Filter notifications to only show unread ones that match the user's role and form status
+    // This ensures the dropdown only shows the same notifications counted in the badge
+    const filteredNotifications = useMemo(() => {
+        if (!notifications || !Array.isArray(notifications)) return [];
+        
+        return notifications.filter(n => {
+            // Only show unread notifications
+            const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
+            
+            // Only show Big Damage Issue forms
+            const matchesForm = n.form_name === 'Big Damage Issue Form' || 
+                               (n.form_doc_no && (n.form_doc_no.startsWith('BDI') || n.form_doc_no.startsWith('ASDLAN')));
+            
+            // Only show notifications relevant to the user's role
+            const shouldShow = shouldShowNotificationForRole(n, user);
+            
+            return isUnread && matchesForm && shouldShow;
+        });
+    }, [notifications, user]);
+
+    // Use form-based count if provided (source of truth), otherwise use filtered notifications
+    const notificationCount = formBasedCount !== null ? formBasedCount : (filteredNotifications?.length || 0);
+    const hasNotifications = notificationCount > 0;
 
     useEffect(() => {
         // Component mounted or notifications changed
@@ -72,8 +174,9 @@ export default function Notification({ notifications }) {
 
     try {
       // Try to mark all notifications at once by sending all notification IDs
+      // Use filteredNotifications to only mark the visible unread notifications
       // First, try a bulk endpoint if available
-      const notificationIds = notifications
+      const notificationIds = filteredNotifications
         .map(noti => noti.notification_id || noti.id)
         .filter(id => id);
 
@@ -106,7 +209,8 @@ export default function Notification({ notifications }) {
       }
 
       // Fallback: Mark each notification individually
-      const markPromises = notifications.map(noti => {
+      // Use filteredNotifications to only mark the visible unread notifications
+      const markPromises = filteredNotifications.map(noti => {
         const formId = typeof noti.form_id === 'string' ? parseInt(noti.form_id, 10) : noti.form_id;
         const specificFormId = typeof noti.specific_form_id === 'string' ? parseInt(noti.specific_form_id, 10) : noti.specific_form_id;
         const formDocNo = noti.form_doc_no ?? noti.data?.form_doc_no;
@@ -132,7 +236,7 @@ export default function Notification({ notifications }) {
       const results = await Promise.allSettled(markPromises);
       const successCount = results.filter(r => r.status === 'fulfilled' && r.value.ok).length;
       
-      console.log(`[Notification] Marked ${successCount} of ${notifications.length} notifications as read`);
+      console.log(`[Notification] Marked ${successCount} of ${filteredNotifications.length} notifications as read`);
 
       // Trigger immediate refresh for other listeners (Navbar) to update badge
       window.dispatchEvent(new CustomEvent('notificationsUpdated', { detail: { forceRefresh: true } }));
@@ -364,7 +468,7 @@ export default function Notification({ notifications }) {
                     <span className="absolute -top-1 -right-1 flex items-center justify-center 
                                     min-w-[20px] h-5 px-1.5 bg-gradient-to-br from-red-500 to-red-600 
                                     rounded-full border-2 border-white shadow-lg animate-pulse text-white text-xs font-bold">
-                        {notifications.length > 99 ? '99+' : notifications.length}
+                        {notificationCount > 99 ? '99+' : notificationCount}
                     </span>
                 )}
             </div>
@@ -408,7 +512,7 @@ export default function Notification({ notifications }) {
                     {/* Notifications List or Empty State */}
                     {hasNotifications ? (
                         <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                            {notifications.map((noti, index) => (
+                            {filteredNotifications.map((noti, index) => (
                             <div
                                 key={index}
                                 role="button"

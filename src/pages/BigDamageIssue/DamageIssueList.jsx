@@ -366,9 +366,21 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   // Get current user to check if they've completed their action
   const currentUser = React.useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem('user') || '{}');
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        console.warn('[DamageIssueList] No user found in localStorage');
+        return null;
+      }
+      const user = JSON.parse(userStr);
+      console.log('[DamageIssueList] Current user loaded:', {
+        id: user?.id,
+        role: user?.role,
+        user_type: user?.user_type
+      });
+      return user;
     } catch (e) {
-      return {};
+      console.error('[DamageIssueList] Error parsing user from localStorage:', e);
+      return null;
     }
   }, []);
   
@@ -378,6 +390,106 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     return String(text).trim().replace(/\s+/g, ' ').toLowerCase();
   };
   
+  // Helper function to check if form is relevant to current user's role
+  // Returns true only if the form status matches what the user should see notifications for
+  const isFormRelevantToUser = (gf) => {
+    if (!gf) return false;
+    
+    // Try to get user from currentUser, or fallback to localStorage
+    let user = currentUser;
+    if (!user) {
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          user = JSON.parse(userStr);
+        }
+      } catch (e) {
+        console.error('[DamageIssueList] Error loading user from localStorage:', e);
+      }
+    }
+    
+    if (!user) {
+      console.warn('[DamageIssueList] No user available for isFormRelevantToUser');
+      return false;
+    }
+    
+    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+    const userType = normalizeText(user.user_type || '');
+    const userRole = normalizeText(user.role || '');
+    const formStatus = normalizeText(gf.status || '');
+    
+    // Debug logging for first few calls
+    if (typeof window._isFormRelevantDebugCount === 'undefined') {
+      window._isFormRelevantDebugCount = 0;
+    }
+    if (window._isFormRelevantDebugCount < 3) {
+      console.log('[DamageIssueList] isFormRelevantToUser check:', {
+        userType,
+        userRole,
+        formStatus,
+        originalStatus: gf.status,
+        userObject: { role: user.role, user_type: user.user_type }
+      });
+      window._isFormRelevantDebugCount++;
+    }
+    
+    // Checker (C/CS) - only relevant for "Ongoing" forms
+    if (['c', 'cs'].includes(userType)) {
+      return formStatus === 'ongoing';
+    }
+    
+    // Approver/BM (A1) - only relevant for "Checked" forms (NOT Ongoing)
+    // Check both user_type (A1) and role name (bm, abm, approver)
+    const isBM = userType === 'a1' || 
+                 userRole === 'bm' || 
+                 userRole === 'abm' || 
+                 userRole === 'approver' ||
+                 userRole.includes('approver') ||
+                 userRole.includes('branch manager');
+    
+    if (isBM) {
+      // BM should ONLY see "Checked" forms, NOT "Ongoing" forms
+      return formStatus === 'checked';
+    }
+    
+    // Operation Manager (A2) - only relevant for "BM Approved" forms
+    if (userType === 'a2') {
+      return formStatus === 'bm approved' || formStatus === 'bmapproved';
+    }
+    
+    // Branch Account (AC) - only relevant for "BM Approved" and "Acknowledged" forms
+    // Hide when status changes to "Completed" or beyond
+    // Check both user_type (AC) and role name (account, branch account)
+    const isAccount = userType === 'ac' || 
+                      userRole === 'account' ||
+                      userRole === 'branch account' ||
+                      userRole.includes('account') ||
+                      userRole.includes('branch account');
+    
+    if (isAccount) {
+      // Account should see "BM Approved" and "Acknowledged" forms
+      // Hide if status is "Completed", "Issued", "SupervisorIssued", etc.
+      // Explicitly exclude "Ongoing", "Checked", and completed statuses
+      if (formStatus === 'ongoing' || formStatus === 'checked') {
+        return false;
+      }
+      // Hide completed statuses
+      if (formStatus === 'completed' || formStatus === 'issued' || formStatus === 'supervisorissued') {
+        return false;
+      }
+      // Show only "BM Approved", "OP Approved", and "Acknowledged"
+      return formStatus === 'bm approved' || 
+             formStatus === 'bmapproved' || 
+             formStatus === 'op approved' ||
+             formStatus === 'opapproved' ||
+             formStatus === 'ac_acknowledged' || 
+             formStatus === 'acknowledged';
+    }
+    
+    // For other roles, form is not relevant
+    return false;
+  };
+
   // Helper function to check if current user has completed their required action
   // Badge should disappear when the user completes their action for their role
   const hasUserCompletedAction = (row, gf) => {
@@ -976,54 +1088,30 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               }
                             }
                             
-                            // Debug logging for first row
-                            if (idx === 0 && process.env.NODE_ENV !== 'production') {
+                            // Debug logging for first few rows to help diagnose
+                            if (idx < 3) {
                               console.log('[DamageIssueList] Notification badge check:', {
+                                rowIndex: idx,
                                 possibleFormIds,
                                 matchedFormId,
                                 notiCount,
                                 notificationCountsSize: notificationCounts.size,
-                                notificationCountsKeys: Array.from(notificationCounts.keys()),
+                                notificationCountsKeys: Array.from(notificationCounts.keys()).slice(0, 10),
                                 gfId: gf?.id,
+                                gfGeneralFormId: gf?.general_form_id,
                                 rowGeneralFormId: row?.general_form_id,
-                                formDocNo: gf?.form_doc_no
+                                rowId: row?.id,
+                                formDocNo: gf?.form_doc_no,
+                                formStatus: gf?.status,
+                                isRelevant: isFormRelevantToUser(gf)
                               });
                             }
                             
-                            // Only show notification count badge if form status matches user role requirements
-                            const shouldShowForRole = (() => {
-                              if (!currentUser || !gf) return false;
-                              
-                              const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-                              const userType = normalizeText(currentUser.user_type || currentUser.role || '');
-                              const formStatus = normalizeText(gf.status || '');
-                              
-                              // Checker (C/CS) - only show for "Ongoing" forms
-                              if (['c', 'cs'].includes(userType)) {
-                                return formStatus === 'ongoing';
-                              }
-                              
-                              // Approver/BM (A1) - only show for "Checked" forms
-                              if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
-                                return formStatus === 'checked';
-                              }
-                              
-                              // Operation Manager (A2) - only show for "BM Approved" forms
-                              if (userType === 'a2') {
-                                return formStatus === 'bm approved' || formStatus === 'bmapproved';
-                              }
-                              
-                              // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
-                              if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
-                                return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
-                                       formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
-                              }
-                              
-                              return false;
-                            })();
+                            // Only show notification count badge if form is relevant to user's role
+                            const isRelevant = isFormRelevantToUser(gf);
                             
-                            // Only show notification count badge in this column if it matches role requirements
-                            if (notiCount > 0 && shouldShowForRole) {
+                            // Only show notification count badge if form is relevant to user's role
+                            if (notiCount > 0 && isRelevant) {
                               return (
                                 <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
                                                 bg-gradient-to-br from-red-500 to-red-600 rounded-full 
@@ -1063,49 +1151,28 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               // Check if current user has completed their required action
                               const userCompletedAction = hasUserCompletedAction(row, gf);
                               
-                              // Check if form status matches user role requirements
-                              const shouldShowForRole = (() => {
-                                if (!currentUser || !gf) return false;
-                                
-                                const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-                                const userType = normalizeText(currentUser.user_type || currentUser.role || '');
-                                const formStatus = normalizeText(gf.status || '');
-                                
-                                // Checker (C/CS) - only show for "Ongoing" forms
-                                if (['c', 'cs'].includes(userType)) {
-                                  return formStatus === 'ongoing';
-                                }
-                                
-                                // Approver/BM (A1) - only show for "Checked" forms
-                                if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
-                                  return formStatus === 'checked';
-                                }
-                                
-                                // Operation Manager (A2) - only show for "BM Approved" forms
-                                if (userType === 'a2') {
-                                  return formStatus === 'bm approved' || formStatus === 'bmapproved';
-                                }
-                                
-                                // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
-                                if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
-                                  return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
-                                         formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
-                                }
-                                
-                                return false;
-                              })();
+                              // Check if form is relevant to user's role (using helper function)
+                              const isRelevant = isFormRelevantToUser(gf);
                               
                               // Speech icon should disappear when:
-                              // 1. User has completed their action, OR
-                              // 2. Form is marked as viewed, OR
-                              // 3. Form reaches final completed state, OR
-                              // 4. Form status doesn't match role requirements
+                              // 1. Form is NOT relevant to user's role, OR
+                              // 2. User has completed their action, OR
+                              // 3. Form has unread notifications (notiCount > 0) - use notificationCounts as source of truth, OR
+                              // 4. Form reaches final completed state
+                              // NOTE: We use notificationCounts as the single source of truth (like Laravel Blade server-side logic)
+                              // If notiCount > 0, there are unread notifications, so don't show speech bubble
+                              // If notiCount === 0 or undefined, there are no unread notifications, so we can show speech bubble
                               const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
-                              const isViewed = row.is_viewed === true;
-                              const shouldHideIcon = userCompletedAction || isViewed || isCompleted || !shouldShowForRole;
+                              const hasUnreadNotifications = notiCount > 0; // Use notificationCounts as source of truth
+                              const shouldHideIcon = !isRelevant || userCompletedAction || hasUnreadNotifications || isCompleted;
                               
-                              // Show red speech bubble icon if unread, user hasn't completed action, no notification count, and status matches role
-                              if (!shouldHideIcon && notiCount === 0 && shouldShowForRole) {
+                              // Show red speech bubble icon ONLY if:
+                              // - Form is relevant to user's role
+                              // - User hasn't completed their action
+                              // - Form has NO unread notifications (notiCount === 0) - determined by notificationCounts
+                              // - Form is not completed
+                              // - No notification count badge (notiCount === 0)
+                              if (!shouldHideIcon && notiCount === 0 && isRelevant) {
                                 return (
                                   <span className="inline-flex items-center justify-center">
                                     <RedSpeechBubbleIcon className="h-4 w-4" />
@@ -1260,40 +1327,11 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         });
                       }
                       
-                      // Check if form status matches user role requirements
-                      const shouldShowForRoleMobile = (() => {
-                        if (!currentUser || !gf) return false;
-                        
-                        const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-                        const userType = normalizeText(currentUser.user_type || currentUser.role || '');
-                        const formStatus = normalizeText(gf.status || '');
-                        
-                        // Checker (C/CS) - only show for "Ongoing" forms
-                        if (['c', 'cs'].includes(userType)) {
-                          return formStatus === 'ongoing';
-                        }
-                        
-                        // Approver/BM (A1) - only show for "Checked" forms
-                        if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
-                          return formStatus === 'checked';
-                        }
-                        
-                        // Operation Manager (A2) - only show for "BM Approved" forms
-                        if (userType === 'a2') {
-                          return formStatus === 'bm approved' || formStatus === 'bmapproved';
-                        }
-                        
-                        // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
-                        if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
-                          return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
-                                 formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
-                        }
-                        
-                        return false;
-                      })();
+                      // Check if form is relevant to user's role
+                      const isRelevantMobile = isFormRelevantToUser(gf);
                       
-                      // Only show notification count badge in this position if it matches role requirements
-                      if (notiCount > 0 && shouldShowForRoleMobile) {
+                      // Only show notification count badge if form is relevant to user's role
+                      if (notiCount > 0 && isRelevantMobile) {
                         return (
                           <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
                                           bg-gradient-to-br from-red-500 to-red-600 rounded-full 
@@ -1332,49 +1370,28 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           // Check if current user has completed their required action
                           const userCompletedAction = hasUserCompletedAction(row, gf);
                           
-                          // Check if form status matches user role requirements
-                          const shouldShowForRoleMobileIcon = (() => {
-                            if (!currentUser || !gf) return false;
-                            
-                            const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-                            const userType = normalizeText(currentUser.user_type || currentUser.role || '');
-                            const formStatus = normalizeText(gf.status || '');
-                            
-                            // Checker (C/CS) - only show for "Ongoing" forms
-                            if (['c', 'cs'].includes(userType)) {
-                              return formStatus === 'ongoing';
-                            }
-                            
-                            // Approver/BM (A1) - only show for "Checked" forms
-                            if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
-                              return formStatus === 'checked';
-                            }
-                            
-                            // Operation Manager (A2) - only show for "BM Approved" forms
-                            if (userType === 'a2') {
-                              return formStatus === 'bm approved' || formStatus === 'bmapproved';
-                            }
-                            
-                            // Branch Account (AC) - only show for "BM Approved" and "Acknowledged" forms
-                            if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
-                              return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
-                                     formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
-                            }
-                            
-                            return false;
-                          })();
+                          // Check if form is relevant to user's role
+                          const isRelevantMobileIcon = isFormRelevantToUser(gf);
                           
                           // Speech icon should disappear when:
-                          // 1. User has completed their action, OR
-                          // 2. Form is marked as viewed, OR
-                          // 3. Form reaches final completed state, OR
-                          // 4. Form status doesn't match role requirements
+                          // 1. Form is NOT relevant to user's role, OR
+                          // 2. User has completed their action, OR
+                          // 3. Form has unread notifications (notiCount > 0) - use notificationCounts as source of truth, OR
+                          // 4. Form reaches final completed state
+                          // NOTE: We use notificationCounts as the single source of truth (like Laravel Blade server-side logic)
+                          // If notiCount > 0, there are unread notifications, so don't show speech bubble
+                          // If notiCount === 0 or undefined, there are no unread notifications, so we can show speech bubble
                           const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
-                          const isViewed = row.is_viewed === true;
-                          const shouldHideIcon = userCompletedAction || isViewed || isCompleted || !shouldShowForRoleMobileIcon;
+                          const hasUnreadNotifications = notiCount > 0; // Use notificationCounts as source of truth
+                          const shouldHideIcon = !isRelevantMobileIcon || userCompletedAction || hasUnreadNotifications || isCompleted;
                           
-                          // Show red speech bubble icon if unread, user hasn't completed action, no notification count, and status matches role
-                          if (!shouldHideIcon && notiCount === 0 && shouldShowForRoleMobileIcon) {
+                          // Show red speech bubble icon ONLY if:
+                          // - Form is relevant to user's role
+                          // - User hasn't completed their action
+                          // - Form has NO unread notifications (notiCount === 0) - determined by notificationCounts
+                          // - Form is not completed
+                          // - No notification count badge (notiCount === 0)
+                          if (!shouldHideIcon && notiCount === 0 && isRelevantMobileIcon) {
                             return (
                               <span className="inline-flex items-center justify-center flex-shrink-0">
                                 <RedSpeechBubbleIcon className="h-4 w-4" />

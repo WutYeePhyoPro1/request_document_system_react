@@ -46,6 +46,7 @@ export default function Navbar({ toggleSidebar }) {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
     const { notifications, setNotifications } = useContext(NotificationContext); // ✅
+    const [formBasedNotificationCount, setFormBasedNotificationCount] = useState(0);
     const token = localStorage.getItem("token");
     const userRoleId = user?.id;
     const location = useLocation();
@@ -322,39 +323,91 @@ export default function Navbar({ toggleSidebar }) {
                     if (!currentUser || !notification) return false;
                     
                     const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-                    const userType = normalizeText(currentUser.user_type || currentUser.role || '');
-                    const formStatus = normalizeText(notification.status || notification.data?.status || '');
+                    const userType = normalizeText(currentUser.user_type || '');
+                    const userRole = normalizeText(currentUser.role || '');
+                    // Some notifications may only include an action (e.g., "checked") but not a status.
+                    // Fallback to action when status is missing so BM sees "Checked" alerts.
+                    const formStatus = normalizeText(
+                      notification.status ||
+                      notification.data?.status ||
+                      notification.action ||
+                      notification.data?.action ||
+                      ''
+                    );
                     
-                    // Checker (C/CS) - only show notifications for "Ongoing" forms
+                    // Checker (C/CS) - show notifications for "Ongoing" forms only
+                    // Hide when status changes to "Checked" or beyond
                     if (['c', 'cs'].includes(userType)) {
                         return formStatus === 'ongoing';
                     }
                     
-                    // Approver/BM (A1) - only show notifications for "Checked" forms
-                    if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+                    // Approver/BM (A1) - show notifications for "Checked" forms only
+                    // Hide when status changes to "BM Approved" or beyond
+                    // Check both user_type (A1) and role name (bm, abm, approver)
+                    const isBM = userType === 'a1' || 
+                                 userRole === 'bm' || 
+                                 userRole === 'abm' || 
+                                 userRole === 'approver' ||
+                                 userRole.includes('approver') ||
+                                 userRole.includes('branch manager');
+                    
+                    if (isBM) {
+                        // BM should ONLY see "Checked" forms
+                        // Hide if status is "BM Approved" or beyond
                         return formStatus === 'checked';
                     }
                     
-                    // Operation Manager (A2) - only show notifications for "BM Approved" forms
+                    // Operation Manager (A2) - show notifications for "BM Approved" forms only
                     if (userType === 'a2') {
                         return formStatus === 'bm approved' || formStatus === 'bmapproved';
                     }
                     
-                    // Branch Account (AC) - only show notifications for "BM Approved" and "Acknowledged" forms
-                    if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
-                        return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
-                               formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
+                    // Branch Account (AC) - show notifications for "BM Approved" and "Acknowledged" forms only
+                    // Hide when status changes to "Completed" or beyond
+                    // Check both user_type (AC) and role name (account, branch account)
+                    const isAccount = userType === 'ac' || 
+                                      userRole === 'account' ||
+                                      userRole === 'branch account' ||
+                                      userRole.includes('account') ||
+                                      userRole.includes('branch account');
+                    
+                    if (isAccount) {
+                        // Account should see "BM Approved" and "Acknowledged" forms
+                        // Hide if status is "Completed", "Issued", "SupervisorIssued", etc.
+                        // Explicitly exclude "Ongoing", "Checked", and completed statuses
+                        if (formStatus === 'ongoing' || formStatus === 'checked') {
+                            return false;
+                        }
+                        // Hide completed statuses
+                        if (formStatus === 'completed' || formStatus === 'issued' || formStatus === 'supervisorissued') {
+                            return false;
+                        }
+                        // Show only "BM Approved", "OP Approved", and "Acknowledged"
+                        return formStatus === 'bm approved' || 
+                               formStatus === 'bmapproved' || 
+                               formStatus === 'op approved' ||
+                               formStatus === 'opapproved' ||
+                               formStatus === 'ac_acknowledged' || 
+                               formStatus === 'acknowledged';
                     }
                     
                     // For other roles, don't show notifications
                     return false;
                 };
 
-                // Filter to only show unread notifications (is_viewed is false, null, or undefined)
-                // AND filter by role and form status
+                // Laravel Blade approach: Filter notifications based on:
+                // 1. Unread status (is_viewed === false/null/undefined)
+                // 2. Form type match
+                // 3. Role-based relevance (using notification's status/action)
+                // NOTE: The backend should ideally filter by actual form status, but we do it here as fallback
+                // The notification's status/action should reflect the form's current state
                 const unreadNotifications = parsed.filter(n => {
                     const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
                     const matchesForm = n.form_name === 'Big Damage Issue Form';
+                    
+                    // Only show if unread, matches form, and is relevant to user's role
+                    // The shouldShowNotificationForRole checks the notification's status/action
+                    // which should match the form's current status when the notification was created
                     const shouldShow = shouldShowNotificationForRole(n, user);
                     
                     return isUnread && matchesForm && shouldShow;
@@ -617,6 +670,7 @@ export default function Navbar({ toggleSidebar }) {
                     );
                 }
 
+                // Store notifications for backward compatibility
                 setNotifications(unreadNotifications);
                 localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
             } catch (err) {
@@ -674,6 +728,147 @@ export default function Navbar({ toggleSidebar }) {
         };
     }, [userRoleId, token, setNotifications]);
 
+    // Fetch form list and count forms that need action based on user role
+    // This is the source of truth for notification counts (not the notifications API)
+    useEffect(() => {
+        const fetchFormBasedNotificationCount = async () => {
+            if (!user || !token) {
+                setFormBasedNotificationCount(0);
+                return;
+            }
+
+            try {
+                // Fetch form list with minimal data (just status and IDs)
+                const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                });
+
+                if (!res.ok) {
+                    console.warn('[Navbar] Failed to fetch form list for notification count');
+                    return;
+                }
+
+                const data = await res.json();
+                // Handle different response structures
+                let formListData = null;
+                if (data?.data && Array.isArray(data.data)) {
+                    formListData = data.data;
+                } else if (Array.isArray(data)) {
+                    formListData = data;
+                } else if (data?.data?.data && Array.isArray(data.data.data)) {
+                    formListData = data.data.data;
+                }
+
+                if (!formListData || !Array.isArray(formListData)) {
+                    console.warn('[Navbar] Invalid form list data structure:', { data });
+                    return;
+                }
+
+                // Helper function to check if form should be counted
+                const shouldCountForm = (formStatus) => {
+                    if (!formStatus) return false;
+                    
+                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                    const userType = normalizeText(user.user_type || '');
+                    const userRole = normalizeText(user.role || '');
+                    const status = normalizeText(formStatus);
+
+                    // Checker: Count "Ongoing" forms
+                    if (['c', 'cs'].includes(userType)) {
+                        return status === 'ongoing';
+                    }
+
+                    // Branch Manager: Count "Checked" forms
+                    const isBM = userType === 'a1' || 
+                                userRole === 'bm' || 
+                                userRole === 'abm' || 
+                                userRole === 'approver' ||
+                                userRole.includes('approver') ||
+                                userRole.includes('branch manager');
+                    if (isBM) {
+                        return status === 'checked';
+                    }
+
+                    // Branch Account: Count "BM Approved" and "Acknowledged" forms
+                    const isAccount = userType === 'ac' || 
+                                     userRole === 'account' ||
+                                     userRole === 'branch account' ||
+                                     userRole.includes('account') ||
+                                     userRole.includes('branch account');
+                    if (isAccount) {
+                        if (status === 'ongoing' || status === 'checked' || 
+                            status === 'completed' || status === 'issued' || status === 'supervisorissued') {
+                            return false;
+                        }
+                        return status === 'bm approved' || 
+                               status === 'bmapproved' || 
+                               status === 'op approved' ||
+                               status === 'opapproved' ||
+                               status === 'ac_acknowledged' || 
+                               status === 'acknowledged';
+                    }
+
+                    return false;
+                };
+
+                // Count forms that match the criteria
+                let count = 0;
+                const matchedForms = [];
+                
+                formListData.forEach(row => {
+                    const gf = row?.general_form || row;
+                    const status = gf?.status || row?.status;
+                    
+                    if (!status) return;
+                    
+                    // Check branch match if user has a branch
+                    if (user.from_branch_id) {
+                        const formBranchId = gf?.from_branch_id || row?.from_branch_id;
+                        if (formBranchId && formBranchId !== user.from_branch_id) {
+                            return; // Skip forms from other branches
+                        }
+                    }
+                    
+                    if (shouldCountForm(status)) {
+                        count++;
+                        matchedForms.push({
+                            formId: row?.general_form_id || gf?.general_form_id || gf?.id || row?.id,
+                            status: status,
+                            formDocNo: gf?.form_doc_no || row?.form_doc_no
+                        });
+                    }
+                });
+
+                setFormBasedNotificationCount(count);
+                console.log('[Navbar] Form-based notification count:', {
+                    count,
+                    userRole: user.role,
+                    userType: user.user_type,
+                    totalForms: formListData.length,
+                    matchedForms: matchedForms.slice(0, 5), // First 5 matched forms
+                    sampleForm: formListData[0] ? {
+                        hasGeneralForm: !!formListData[0].general_form,
+                        status: formListData[0].general_form?.status || formListData[0].status,
+                        structure: Object.keys(formListData[0])
+                    } : null
+                });
+            } catch (err) {
+                console.error('[Navbar] Error fetching form-based notification count:', err);
+            }
+        };
+
+        fetchFormBasedNotificationCount();
+        
+        // Refresh count periodically
+        const interval = setInterval(fetchFormBasedNotificationCount, 30000); // Every 30 seconds
+        return () => clearInterval(interval);
+    }, [user, token]);
+
     const handleLogout = () => {
         logout();
         navigate('/login');
@@ -723,7 +918,7 @@ export default function Navbar({ toggleSidebar }) {
             {/* Right Side Actions */}
             <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-shrink-0 ml-auto">
                 <LanguageSwitcher />
-                <NotificationIcon notifications={notifications} />
+                <NotificationIcon notifications={notifications} formBasedCount={formBasedNotificationCount} />
                 <div className="relative z-50" ref={dropdownRef}>
                     <button
                         onClick={() => setMenuOpen(!menuOpen)}
