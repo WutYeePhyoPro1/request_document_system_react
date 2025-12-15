@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom'
 import { AuthProvider } from '../../context/AuthContext'
 import Sidebar from '../../components/Siderbar'
 import Navbar from '../../components/Navbar'
+import PushNotificationManager from '../../components/common/PushNotificationManager'
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
@@ -63,6 +64,9 @@ export default function Layout() {
                         &copy; {new Date().getFullYear()} Pro1 Global Home Center. All rights reserved.
                     </p>
                 </footer>
+                
+                {/* Push Notification Manager */}
+                <PushNotificationManager />
             </div>
         </AuthProvider>
     )

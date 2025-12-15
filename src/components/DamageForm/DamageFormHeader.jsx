@@ -246,32 +246,34 @@ export default function DamageFormHeader({
     <div className="relative"> 
          {formData.status && (
   <span
-    className={`text-sm px-2.5 py-0.5 border font-semibold text-center rounded block w-full sm:hidden sm:w-auto sm:rounded-full ${
-      (() => {
+    className="text-sm px-2.5 py-0.5 border font-semibold text-center rounded block w-full sm:hidden sm:w-auto sm:rounded-full border-gray-300"
+    style={(() => {
         switch (formData.status) {
           case 'Ongoing':
-            return 'bg-orange-100 text-orange-700 border-orange-300';
+          return { backgroundColor: '#fbb193', color: '#e1341e' };
           case 'Checked':
-            return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+          return { backgroundColor: '#fedec3', color: '#fb923c' };
           case 'BM Approved':
-            return 'bg-blue-600 text-white border-blue-700';
+        case 'BMApproved':
+          return { backgroundColor: '#ffeaab', color: '#e6ac00' };
           case 'OPApproved':
-            return 'op-approved-status-badge';
+        case 'OP Approved':
+        case 'Approved':
+          return { backgroundColor: '#e9f9cf', color: '#a3e635' };
           case 'Ac_Acknowledged':
           case 'Acknowledged':
-            return 'acknowledge-status-badge';
-          case 'Approved':
-            return 'bg-green-100 text-green-700 border-green-300';
+          return { backgroundColor: '#aff1d7', color: '#20be7f' };
           case 'Completed':
-            return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+        case 'Issued':
+        case 'SupervisorIssued':
+          return { backgroundColor: '#adebbb', color: '#28a745' };
           case 'Cancel':
           case 'Cancelled':
-            return 'bg-red-100 text-red-700 border-red-300';
+          return { backgroundColor: '#fda19d', color: '#f91206' };
           default:
-            return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+          return { backgroundColor: '#fef3c7', color: '#d97706' };
         }
-      })()
-    }`}
+    })()}
   >
     {formData.status}
   </span>
@@ -283,125 +285,149 @@ export default function DamageFormHeader({
             Dashboard / Big Damage Issue Form
           </span>
         </div>
-        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex items-start justify-between mt-2 relative overflow-hidden">
+        <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mt-2 relative overflow-hidden">
           {(() => {
             const status = formData.status;
             if (!status) return null;
 
-            // Determine shadow colors based on status
-            let gradientFrom, gradientVia, blurColor;
+            // Determine shadow colors based on status (matching DamageIssueList colors)
+            let shadowColor;
             
             switch (status) {
               case 'Ongoing':
-                gradientFrom = 'from-orange-300/60';
-                gradientVia = 'via-orange-200/40';
-                blurColor = 'bg-orange-300/50';
+                shadowColor = '#fbb193'; // Ongoing color
                 break;
               case 'Checked':
-                gradientFrom = 'from-yellow-300/60';
-                gradientVia = 'via-yellow-200/40';
-                blurColor = 'bg-yellow-300/50';
+                shadowColor = '#fedec3'; // Checked color
                 break;
               case 'BM Approved':
-                gradientFrom = 'from-blue-300/60';
-                gradientVia = 'via-blue-200/40';
-                blurColor = 'bg-blue-300/50';
-                break;
-              case 'Completed':
-                gradientFrom = 'from-green-300/60';
-                gradientVia = 'via-green-200/40';
-                blurColor = 'bg-green-300/50';
+              case 'BMApproved':
+                shadowColor = '#ffeaab'; // BM Approved color
                 break;
               case 'OPApproved':
-                // OP Approved badge color (blue/purple) - using indigo for shadow
-                gradientFrom = 'from-indigo-300/60';
-                gradientVia = 'via-indigo-200/40';
-                blurColor = 'bg-indigo-300/50';
+              case 'OP Approved':
+              case 'Approved':
+                shadowColor = '#e9f9cf'; // OP Approved color
                 break;
               case 'Ac_Acknowledged':
               case 'Acknowledged':
-                // Acknowledge badge color (#aff1d7 - light mint green, text #20be7f)
-                // Using custom colors that match the badge better
-                return (
-                  <>
-                    <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-[#aff1d7]/60 via-[#aff1d7]/40 to-transparent pointer-events-none blur-sm"></div>
-                    <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-24 bg-[#aff1d7]/50 blur-2xl pointer-events-none" style={{ transform: 'translateX(-50%) translateY(-10px)' }}></div>
-                  </>
-                );
+                shadowColor = '#aff1d7'; // Acknowledged color
+                break;
+              case 'Completed':
+              case 'Issued':
+              case 'SupervisorIssued':
+                shadowColor = '#adebbb'; // Completed color
+                break;
+              case 'Cancel':
+              case 'Cancelled':
+                shadowColor = '#fda19d'; // Cancelled color
+                break;
               default:
                 return null;
             }
 
+            // Convert hex to rgba for shadow effects
+            const hexToRgba = (hex, alpha) => {
+              const r = parseInt(hex.slice(1, 3), 16);
+              const g = parseInt(hex.slice(3, 5), 16);
+              const b = parseInt(hex.slice(5, 7), 16);
+              return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            };
+
             return (
               <>
-                <div className={`absolute top-0 left-0 right-0 h-20 bg-gradient-to-b ${gradientFrom} ${gradientVia} to-transparent pointer-events-none blur-sm`}></div>
-                <div className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-24 ${blurColor} blur-2xl pointer-events-none`} style={{ transform: 'translateX(-50%) translateY(-10px)' }}></div>
+                <div 
+                  className="absolute top-0 left-0 right-0 h-20 pointer-events-none blur-sm"
+                  style={{
+                    background: `linear-gradient(to bottom, ${hexToRgba(shadowColor, 0.6)}, ${hexToRgba(shadowColor, 0.4)}, transparent)`
+                  }}
+                ></div>
+                <div 
+                  className="absolute top-0 left-1/2 w-full h-24 pointer-events-none blur-2xl"
+                  style={{ 
+                    backgroundColor: hexToRgba(shadowColor, 0.5),
+                    transform: 'translateX(-50%) translateY(-10px)'
+                  }}
+                ></div>
               </>
             );
           })()}
-          <div className="min-w-0 relative z-10">
-       <div className="flex items-center gap-2 mb-1">
+          <div className="min-w-0 flex-1 relative z-10">
+       <div className="flex items-start gap-2 mb-1">
           <img
                 src={BigDamageIsuueLogo}
                 alt="Big Damage Issue Logo"
                 className="h-7 w-7 sm:h-8 sm:w-8 hidden sm:inline-block"
               />
-              <div className="flex flex-col">
-                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <span>{t('damageFormHeader.bigDamageIssueForm', { defaultValue: 'Big Damage Form' })}</span>
-                  {docNumber && (
-                    <span className="text-gray-500 text-[0.8rem] sm:text-sm md:ml-2 md:inline-block flex items-center gap-1">
-                      ({docNumber})
-                      <button
-                        onClick={handleCopyDocumentNumber}
-                        className="inline-flex items-center justify-center p-1 rounded transition-colors duration-200 bg-transparent hover:bg-gray-100"
-                        title="Copy document number"
-                        aria-label="Copy document number"
-                        style={{ backgroundColor: 'transparent' }}
-                      >
-                        <Copy className="w-3 h-3 text-gray-500 hover:text-gray-700" />
-                      </button>
-                    </span>
-                  )}
+              <div className="flex flex-col flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  {t('damageFormHeader.bigDamageIssueForm', { defaultValue: 'Big Damage Form' })}
                 </h2>
+                {docNumber && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-gray-500 text-xs sm:text-sm flex items-center gap-1">
+                      ({docNumber})
+                    </span>
+                    <button
+                      onClick={handleCopyDocumentNumber}
+                      className="inline-flex items-center justify-center p-1 rounded transition-colors duration-200 bg-transparent hover:bg-gray-100"
+                      title="Copy document number"
+                      aria-label="Copy document number"
+                      style={{ backgroundColor: 'transparent' }}
+                    >
+                      <Copy className="w-3 h-3 text-gray-500 hover:text-gray-700" />
+                    </button>
+                  </div>
+                )}
+                <span className={`inline-block text-sm mt-1 font-medium px-2.5 py-0.5 rounded-md border w-fit ${
+                  (formData.caseType || '').toLowerCase().includes('not sell') 
+                    ? 'bg-red-50 border-red-200 text-red-700' 
+                    : 'bg-green-50 border-green-200 text-green-700'
+                }`}>
+                  {formData.caseType || t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
+                </span>
               </div>
             </div>
-
-            <p className="text-sm text-gray-500 mt-0.5">
-              {formData.caseType || t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
-            </p>
           </div>
-          <div className="flex flex-col items-end gap-3 ml-3 relative z-10">
+          <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-start gap-2 sm:gap-3 sm:ml-3 relative z-10 flex-shrink-0">
             {formData.status && (
-              <span className={`text-sm px-2.5 py-0.5 rounded-full border font-semibold hidden sm:inline-block ${(() => {
+              <span 
+                className="text-sm px-2.5 py-0.5 rounded-full border font-semibold hidden sm:inline-block border-gray-300"
+                style={(() => {
                 switch (formData.status) {
                   case 'Ongoing':
-                    return 'bg-orange-100 text-orange-700 border-orange-300';
+                      return { backgroundColor: '#fbb193', color: '#e1341e' };
                   case 'Checked':
-                    return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+                      return { backgroundColor: '#fedec3', color: '#fb923c' };
                   case 'BM Approved':
-                    return 'bg-blue-600 text-white border-blue-700';
-
+                    case 'BMApproved':
+                      return { backgroundColor: '#ffeaab', color: '#e6ac00' };
                   case 'OPApproved':
-                    return 'op-approved-status-badge';
+                    case 'OP Approved':
+                    case 'Approved':
+                      return { backgroundColor: '#e9f9cf', color: '#a3e635' };
                   case 'Ac_Acknowledged':
                   case 'Acknowledged':
-                    return 'acknowledge-status-badge';
-                  case 'Approved':
-                    return 'bg-green-100 text-green-700 border-green-300';
+                      return { backgroundColor: '#aff1d7', color: '#20be7f' };
                   case 'Completed':
-                    return 'bg-emerald-100 text-emerald-700 border-emerald-300';
+                    case 'Issued':
+                    case 'SupervisorIssued':
+                      return { backgroundColor: '#adebbb', color: '#28a745' };
                   case 'Cancel':
                   case 'Cancelled':
-                    return 'bg-red-100 text-red-700 border-red-300';
+                      return { backgroundColor: '#fda19d', color: '#f91206' };
                   default:
-                    return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+                      return { backgroundColor: '#fef3c7', color: '#d97706' };
                 }
-              })()}`}>
+                })()}
+              >
                 {formData.status}
               </span>
           )}
-            <span className="text-sm text-gray-700 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">
+          </div>
+          {/* Branch name in top-right corner - adjusted to avoid overlap with status */}
+          <div className="absolute top-4 right-4 z-10 sm:top-12 sm:right-4">
+            <span className="text-sm text-gray-700 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md whitespace-nowrap">
               {branchDisplay}
             </span>
           </div>

@@ -1,109 +1,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
-import './AnimatedBackButton.css';
+import '../DamageForm/ButtonHoverEffects.css';
 
-const getStatusColorClasses = (status) => {
-  if (!status) {
-    return {
-      bg: 'bg-white',
-      text: 'text-gray-700',
-      border: 'border-gray-300',
-      hoverBg: 'hover:bg-gray-50',
-      hoverText: 'hover:text-gray-800',
-      hoverBorder: 'hover:border-gray-400'
-    };
-  }
-
-  const normalizedStatus = (status || '').toString().trim();
-
-  switch (normalizedStatus) {
-    case 'Ongoing':
-      return {
-        bg: 'bg-orange-100',
-        text: 'text-orange-700',
-        border: 'border-orange-300',
-        hoverBg: 'hover:bg-orange-200',
-        hoverText: 'hover:text-orange-800',
-        hoverBorder: 'hover:border-orange-400'
-      };
-    case 'Checked':
-      return {
-        bg: 'bg-yellow-100',
-        text: 'text-yellow-700',
-        border: 'border-yellow-300',
-        hoverBg: 'hover:bg-yellow-200',
-        hoverText: 'hover:text-yellow-800',
-        hoverBorder: 'hover:border-yellow-400'
-      };
-    case 'BM Approved':
-    case 'BMApproved':
-      return {
-        bg: 'bg-blue-600',
-        text: 'text-white',
-        border: 'border-blue-700',
-        hoverBg: 'hover:bg-blue-700',
-        hoverText: 'hover:text-white',
-        hoverBorder: 'hover:border-blue-800'
-      };
-    case 'OPApproved':
-    case 'OP Approved':
-      return {
-        bg: 'op-approved-status-badge',
-        text: 'text-white',
-        border: 'border-transparent',
-        hoverBg: 'hover:opacity-90',
-        hoverText: 'hover:text-white',
-        hoverBorder: 'hover:border-transparent'
-      };
-    case 'Ac_Acknowledged':
-    case 'Acknowledged':
-      return {
-        bg: 'acknowledge-status-badge',
-        text: 'text-white',
-        border: 'border-transparent',
-        hoverBg: 'hover:opacity-90',
-        hoverText: 'hover:text-white',
-        hoverBorder: 'hover:border-transparent'
-      };
-    case 'Approved':
-      return {
-        bg: 'bg-green-100',
-        text: 'text-green-700',
-        border: 'border-green-300',
-        hoverBg: 'hover:bg-green-200',
-        hoverText: 'hover:text-green-800',
-        hoverBorder: 'hover:border-green-400'
-      };
-    case 'Completed':
-      return {
-        bg: 'bg-emerald-100',
-        text: 'text-emerald-700',
-        border: 'border-emerald-300',
-        hoverBg: 'hover:bg-emerald-200',
-        hoverText: 'hover:text-emerald-800',
-        hoverBorder: 'hover:border-emerald-400'
-      };
-    case 'Cancel':
-    case 'Cancelled':
-      return {
-        bg: 'bg-red-100',
-        text: 'text-red-700',
-        border: 'border-red-300',
-        hoverBg: 'hover:bg-red-200',
-        hoverText: 'hover:text-red-800',
-        hoverBorder: 'hover:border-red-400'
-      };
-    default:
-      return {
-        bg: 'bg-yellow-100',
-        text: 'text-yellow-700',
-        border: 'border-yellow-300',
-        hoverBg: 'hover:bg-yellow-200',
-        hoverText: 'hover:text-yellow-800',
-        hoverBorder: 'hover:border-yellow-400'
-      };
-  }
+const getStatusColorStyles = (status) => {
+  // Back button always uses dark blue color regardless of status
+  return {
+    backgroundColor: '#1e40af', // dark blue-800
+    color: '#ffffff',
+    borderColor: '#1e3a8a' // dark blue-900
+  };
 };
 
 const AnimatedBackButton = ({ 
@@ -114,7 +20,7 @@ const AnimatedBackButton = ({
   status = null
 }) => {
   const navigate = useNavigate();
-  const colorClasses = getStatusColorClasses(status);
+  const colorStyles = getStatusColorStyles(status);
 
   const handleClick = () => {
     if (onClick) {
@@ -127,11 +33,17 @@ const AnimatedBackButton = ({
   return (
     <button
       onClick={handleClick}
-      className={`animated-back-button ${colorClasses.bg} ${colorClasses.text} ${colorClasses.border} ${colorClasses.hoverBg} ${colorClasses.hoverText} ${colorClasses.hoverBorder} ${className}`}
+      className={`btn-with-icon inline-flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-md hover:shadow-lg border ${className}`}
+      style={{
+        backgroundColor: colorStyles.backgroundColor,
+        color: colorStyles.color,
+        borderColor: colorStyles.borderColor,
+        fontSize: '0.875rem'
+      }}
       aria-label={label}
     >
-      <ArrowLeft className="animated-back-icon" />
-      <span className="animated-back-text">{label}</span>
+      <span className="btn-text">{label}</span>
+      <ArrowLeft className="btn-icon w-4 h-4 absolute" />
     </button>
   );
 };

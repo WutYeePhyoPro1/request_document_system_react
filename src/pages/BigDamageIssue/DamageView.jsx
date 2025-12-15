@@ -837,24 +837,82 @@ export default function DamageView() {
   // IMPORTANT: This hook must be called before any conditional returns to follow Rules of Hooks
   useEffect(() => {
     const markNotificationAsRead = async () => {
-      if (!viewData?.record || !token || hasMarkedNotificationRef.current) return;
-      
-      // Get generalFormId from viewData directly to avoid dependency issues
-      const generalFormId = viewData?.record?.general_form?.id 
-        || viewData?.record?.general_form_id 
-        || location?.state?.generalFormId;
-      if (!generalFormId) {
+      if (!token) {
+        console.log('[DamageView] No token available, skipping notification marking');
         return;
       }
 
-      // Get actual form_id from the record (should be 8 for Big Damage Issue)
+      // Get generalFormId from multiple sources - prioritize route param id first
+      // The route param id is the big_damage_issue id, which we need to convert to general_form_id
+      let generalFormId = null;
+      
+      // First try to get from viewData (most reliable)
+      if (viewData?.record?.general_form?.id) {
+        generalFormId = viewData.record.general_form.id;
+      } else if (viewData?.record?.general_form_id) {
+        generalFormId = viewData.record.general_form_id;
+      } else if (location?.state?.generalFormId) {
+        generalFormId = location.state.generalFormId;
+      } else if (gf?.id) {
+        generalFormId = gf.id;
+      } else if (id) {
+        // If we only have the route param id (big_damage_issue id), try to use it directly
+        // The backend should handle matching by specific_form_id or general_form_id
+        const routeId = parseInt(id, 10);
+        if (!isNaN(routeId)) {
+          generalFormId = routeId;
+          console.log('[DamageView] Using route param id as generalFormId:', routeId);
+        }
+      }
+      
+      console.log('[DamageView] Attempting to mark notifications as read:', {
+        generalFormId,
+        id,
+        routeId: id ? parseInt(id, 10) : null,
+        hasViewData: !!viewData?.record,
+        viewDataGeneralFormId: viewData?.record?.general_form?.id,
+        isLoading,
+        hasMarked: hasMarkedNotificationRef.current
+      });
+
+      if (!generalFormId) {
+        // If we don't have the required data yet, return but don't mark as attempted
+        // This allows it to retry when data becomes available
+        console.log('[DamageView] No generalFormId available yet, will retry when data loads');
+        return;
+      }
+
+      // Prevent duplicate calls for the same form
+      const notificationKey = `notification_marked_${generalFormId}`;
+      if (hasMarkedNotificationRef.current || sessionStorage.getItem(notificationKey)) {
+        console.log('[DamageView] Already marked notifications for this form, skipping');
+        return;
+      }
+
+      // Get actual form_id from the record (should be 8 for Big Damage Issue, but some may have 1)
       const actualFormId = viewData?.record?.general_form?.form_id 
         || viewData?.record?.form_id 
+        || gf?.form_id
         || 8; // Default to 8 for Big Damage Issue
 
+      // Get form_doc_no for fallback matching
+      const formDocNo = viewData?.record?.general_form?.form_doc_no 
+        || viewData?.record?.form_doc_no
+        || gf?.form_doc_no;
+
+      // Check if this is a Big Damage Issue form by form_doc_no prefix
+      const isBigDamageIssue = formDocNo && (formDocNo.toUpperCase().startsWith('BDI') || formDocNo.toUpperCase().startsWith('BDILAN'));
+
+      console.log('[DamageView] Marking notifications with:', {
+        generalFormId,
+        actualFormId,
+        formDocNo,
+        isBigDamageIssue
+      });
 
       // Mark that we've attempted to mark notifications to prevent duplicate calls
       hasMarkedNotificationRef.current = true;
+      sessionStorage.setItem(notificationKey, 'true');
 
       try {
         // Mark form as viewed
@@ -871,50 +929,138 @@ export default function DamageView() {
           })
         });
 
-        // Get form_doc_no for fallback matching
-        const formDocNo = viewData?.record?.general_form?.form_doc_no 
-          || viewData?.record?.form_doc_no;
-
         // Mark notifications as read
-        const response = await fetch('/api/notifications/mark-as-read', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            form_id: actualFormId, // Use actual form_id from record
+        // For Big Damage Issue forms, try both form_id = 1 and form_id = 8
+        // because some forms may have been created with form_id = 1
+        const markAsReadRequests = [];
+        
+        if (isBigDamageIssue) {
+          // Try with both form_id values for Big Damage Issue
+          markAsReadRequests.push({
+            form_id: 1,
             general_form_id: generalFormId,
             specific_form_id: generalFormId,
-            form_doc_no: formDocNo // Include for fallback matching
-          })
-        });
-
-        // Check mark-as-read response
-        if (!response.ok) {
-          await response.json().catch(() => ({}));
-          return;
+            form_doc_no: formDocNo
+          });
+          markAsReadRequests.push({
+            form_id: 8,
+            general_form_id: generalFormId,
+            specific_form_id: generalFormId,
+            form_doc_no: formDocNo
+          });
+        } else {
+          // For other forms, use the actual form_id
+          markAsReadRequests.push({
+            form_id: actualFormId,
+            general_form_id: generalFormId,
+            specific_form_id: generalFormId,
+            form_doc_no: formDocNo
+          });
         }
+        
+        // Try all mark-as-read requests and use the first successful one
+        let markedCount = 0;
+        let lastError = null;
+        
+        for (const payload of markAsReadRequests) {
+          try {
+            console.log('[DamageView] Sending mark-as-read request:', payload);
+            
+            const response = await fetch('/api/notifications/mark-as-read', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify(payload)
+            });
 
-        await response.json();
+            if (response.ok) {
+              const result = await response.json();
+              markedCount = result.marked_count || 0;
+              console.log('[DamageView] Mark-as-read API response:', result);
+              
+              // If we successfully marked notifications, break out of the loop
+              if (markedCount > 0) {
+                console.log('[DamageView] Successfully marked', markedCount, 'notifications with form_id:', payload.form_id);
+                break;
+              }
+            } else {
+              const errorData = await response.json().catch(() => ({}));
+              lastError = errorData;
+              console.warn('[DamageView] Mark-as-read failed for form_id', payload.form_id, ':', errorData);
+            }
+          } catch (error) {
+            lastError = error;
+            console.warn('[DamageView] Error marking notifications with form_id', payload.form_id, ':', error);
+          }
+        }
+        
+        // If no notifications were marked, log a warning
+        if (markedCount === 0) {
+          console.warn('[DamageView] No notifications were marked as read. Last error:', lastError);
+          // Don't return early - still dispatch events to refresh the UI
+        }
 
         // Set flag to trigger list refresh when user returns to dashboard
         sessionStorage.setItem('bigDamageFormViewed', 'true');
         
-        // Immediately refresh notifications to update the UI
+        // Dispatch events multiple times with delays to ensure backend has processed
+        // Immediate dispatch
+        window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+          detail: { forceRefresh: true, generalFormId: generalFormId } 
+        }));
+        
+        // Also trigger a specific event for list refresh
+        window.dispatchEvent(new CustomEvent('formViewed', { 
+          detail: { generalFormId: generalFormId } 
+        }));
+        
+        // Dispatch again after short delay (300ms) to catch quick backend updates
+        setTimeout(() => {
+          console.log('[DamageView] Dispatching notificationsUpdated (300ms delay)');
+          window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+            detail: { forceRefresh: true, generalFormId: generalFormId } 
+          }));
+        }, 300);
+        
+        // Dispatch again after medium delay (800ms) to ensure backend has processed
+        setTimeout(() => {
+          console.log('[DamageView] Dispatching notificationsUpdated (800ms delay)');
+          window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+            detail: { forceRefresh: true, generalFormId: generalFormId } 
+          }));
+        }, 800);
+        
+        // Dispatch again after longer delay (1500ms) to catch any delayed backend updates
+        setTimeout(() => {
+          console.log('[DamageView] Dispatching notificationsUpdated (1500ms delay)');
+          window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+            detail: { forceRefresh: true, generalFormId: generalFormId } 
+          }));
+        }, 1500);
+        
+        // Also try to refresh locally for immediate UI update
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (user?.id) {
-          try {
-            const notiResponse = await fetch(`/api/notifications/${user.id}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Accept': 'application/json',
-              },
-              credentials: 'include'
-            });
-            
+          // Refresh immediately
+          const refreshNotifications = async (delay = 0) => {
+            await new Promise(resolve => setTimeout(resolve, delay));
+            try {
+              // Add cache-busting parameter to ensure we get fresh data
+              const cacheBuster = `?t=${Date.now()}`;
+              const notiResponse = await fetch(`/api/notifications/${user.id}${cacheBuster}`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Accept': 'application/json',
+                  'Cache-Control': 'no-cache'
+                },
+                credentials: 'include',
+                cache: 'no-store'
+              });
+              
               if (notiResponse.ok) {
                 const notiData = await notiResponse.json();
                 if (Array.isArray(notiData)) {
@@ -926,6 +1072,13 @@ export default function DamageView() {
                     form_name: n.form_name || 'Unknown Form',
                     status: n.status || 'pending',
                     is_viewed: n.is_viewed !== undefined ? n.is_viewed : (n.data?.is_viewed !== undefined ? n.data.is_viewed : null),
+                    actor_name: n.actor_name ?? n.data?.actor_name ?? null,
+                    actor_role: n.actor_role ?? n.data?.actor_role ?? null,
+                    action: n.action ?? n.data?.action ?? null,
+                    data: n.data || {},
+                    notification_id: n.id || 
+                                    n.notification_id || 
+                                    `${n.data?.form_id || 'unknown'}-${n.data?.specific_form_id || 'unknown'}-${n.created_at || Date.now()}`,
                   }));
                   
                   // Filter to only show unread notifications (is_viewed is false, null, or undefined)
@@ -937,35 +1090,93 @@ export default function DamageView() {
                   setNotifications(unreadNotifications);
                   localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
                   
-                  // Trigger a custom event to notify Navbar and Dashboard to refresh immediately
+                  console.log('[DamageView] Local notifications refreshed. Total:', parsed.length, 'Unread:', unreadNotifications.length);
+                  
+                  // Dispatch event after local refresh to ensure Navbar also updates
                   window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
                     detail: { forceRefresh: true, generalFormId: generalFormId } 
                   }));
-                  
-                  // Also trigger a specific event for list refresh
-                  window.dispatchEvent(new CustomEvent('formViewed', { 
-                    detail: { generalFormId: generalFormId } 
-                  }));
                 }
               }
-          } catch (refreshError) {
-            // Error refreshing notifications
-          }
+            } catch (refreshError) {
+              console.warn('[DamageView] Error refreshing notifications locally:', refreshError);
+            }
+          };
+          
+          // Refresh at multiple intervals to ensure we catch the backend update
+          refreshNotifications(500).catch(err => console.warn('[DamageView] Refresh error (500ms):', err));  // After 500ms
+          refreshNotifications(1000).catch(err => console.warn('[DamageView] Refresh error (1000ms):', err)); // After 1000ms
+          refreshNotifications(2000).catch(err => console.warn('[DamageView] Refresh error (2000ms):', err)); // After 2000ms
         }
       } catch (error) {
-        // Silently handle errors - don't break the UI if notification marking fails
+        console.error('[DamageView] Error marking notifications as read:', error);
+        // Reset the flag so it can retry
+        hasMarkedNotificationRef.current = false;
+        sessionStorage.removeItem(notificationKey);
       }
     };
 
-    // Only mark as read if we have the form data loaded and haven't marked it yet
-    if (viewData?.record && !isLoading && !hasMarkedNotificationRef.current) {
-      markNotificationAsRead();
+    // Mark as read when we have the ID from route params (even if viewData isn't loaded yet)
+    // This ensures it works even if accessed directly via URL
+    // Also retry when viewData becomes available in case the first attempt failed
+    if (!token) {
+      return; // Can't mark without token
     }
-  }, [viewData?.record, token, isLoading, setNotifications, location?.state?.generalFormId]);
+    
+    // Try to mark if we have id OR if we have viewData and it's loaded
+    const hasId = !!id;
+    const hasViewData = !!viewData?.record;
+    const isDataLoaded = !isLoading;
+    
+    const shouldTryMark = (hasId || (hasViewData && isDataLoaded)) && !hasMarkedNotificationRef.current;
+    
+    if (shouldTryMark) {
+      console.log('[DamageView] Triggering notification marking', {
+        hasId,
+        hasViewData,
+        isDataLoaded,
+        isLoading,
+        hasToken: !!token,
+        hasMarked: hasMarkedNotificationRef.current
+      });
+      markNotificationAsRead();
+    } else {
+      console.log('[DamageView] Not ready to mark notifications yet', {
+        hasId,
+        hasViewData,
+        isDataLoaded,
+        isLoading,
+        hasToken: !!token,
+        hasMarked: hasMarkedNotificationRef.current
+      });
+    }
+  }, [id, viewData?.record, token, isLoading, setNotifications, location?.state?.generalFormId, gf?.id]);
   
   // Reset the ref when the form ID changes (user navigates to a different form)
   useEffect(() => {
+    const currentFormId = id ? parseInt(id, 10) : null
+      || viewData?.record?.general_form?.id 
+      || viewData?.record?.general_form_id 
+      || location?.state?.generalFormId;
+    
+    // Always reset the ref when id changes to allow marking for the new form
     hasMarkedNotificationRef.current = false;
+    
+    if (currentFormId) {
+      // Clear flags for other forms
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('notification_marked_') && key !== `notification_marked_${currentFormId}`) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    } else {
+      // If we don't have a current form ID, clear all flags to allow retry
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.startsWith('notification_marked_')) {
+          sessionStorage.removeItem(key);
+        }
+      });
+    }
   }, [id]);
 
   // Now safe to have conditional returns after all hooks

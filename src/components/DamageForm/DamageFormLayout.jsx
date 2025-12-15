@@ -10,10 +10,10 @@ import ApprovalSection from "./ApprovalSection";
 import DamageAddProduct from "./DamageAddProduct";
 import ActionConfirmationModal from "./ActionConfirmationModal";
 import ValidationErrorModal from "./ValidationErrorModal";
+import SuccessModal from "./SuccessModal";
+import ErrorModal from "./ErrorModal";
 import AnimatedBackButton from "../common/AnimatedBackButton";
 import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
-import { ToastContainer, toast } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 import './ButtonHoverEffects.css';
 import './BoxesLoader.css';
 
@@ -295,7 +295,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Default fallback
       return 'Not sell';
     };
-
+    
     return {
       branch: "",
       // Preserve caseType from initialData if it exists, otherwise default to "Not sell"
@@ -381,6 +381,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [successModalAction, setSuccessModalAction] = useState('');
+  const [successModalMessage, setSuccessModalMessage] = useState('');
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
   // Use ref for synchronous duplicate submission prevention
   const isSubmittingRef = useRef(false);
   // Track submission ID to detect duplicate submissions
@@ -938,6 +943,55 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
   // Laravel Ac_Manager() checks: ApprovalProcessUser where user_type='AC', admin_id=current_user_id, status='OPApproved'
+  // Check if Branch Manager is viewing a form they already approved - hide buttons in this case
+  const isBMViewingOwnApprovedForm = useMemo(() => {
+    const role = getUserRole();
+    const isBMOrABM = role === 'bm' || role === 'abm';
+    if (!isBMOrABM) return false;
+    
+    const normalizedStatus = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+    if (normalizedStatus !== 'BM Approved' && normalizedStatus !== 'BMApproved') {
+      return false;
+    }
+    
+    const currentUserName = currentUser?.name || '';
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId || null;
+    const approvals = formData?.approvals || [];
+    
+    // Find if current user is the one who approved (BM Approved status)
+    const approvedByApproval = approvals.find(a => {
+      const label = (a.label || '').toLowerCase();
+      const isBMApprovalLabel = label.includes('bm approved') || 
+                                (label.includes('approved by') && !label.includes('operation'));
+      
+      if (!isBMApprovalLabel) return false;
+      
+      // Check name fields - extract name from text that might include role in parentheses
+      const approvalNameRaw = a.name || a.actual_user_name || a.assigned_name || 
+                          a.approver_name || a.user?.name || a.user_name || '';
+      // Remove role information in parentheses (e.g., "Kyaw Swar Win (BM/ABM)" -> "Kyaw Swar Win")
+      const approvalName = approvalNameRaw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      const currentUserNameClean = currentUserName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      
+      const nameMatches = approvalName && currentUserNameClean && 
+                         (approvalName.toLowerCase() === currentUserNameClean.toLowerCase() ||
+                          approvalName.toLowerCase().includes(currentUserNameClean.toLowerCase()) ||
+                          currentUserNameClean.toLowerCase().includes(approvalName.toLowerCase()));
+      
+      // Check user ID if available
+      const approvalUserId = a.admin_id || a.actual_user_id || a.user_id || a.user?.id || null;
+      const idMatches = currentUserId && approvalUserId && 
+                       (Number(approvalUserId) === Number(currentUserId));
+      
+      return nameMatches || idMatches;
+    });
+    
+    // Debug logging
+    // Removed console.log for BM Viewing Own Approved Form Check
+    
+    return !!approvedByApproval;
+  }, [currentUser, formData.status, formData.approvals]);
+
   const isAccountByApproval = useMemo(() => {
     const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
     if (!currentUserId) return false;
@@ -1031,8 +1085,42 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'SupervisorIssued':
         return 'Completed'; // Supervisor step removed - map to Completed
       case 'BackToPrevious':
-        // Return the actual btp value from API (op_btp, bm_btp, bracc_btp) or default to BackToPrevious
-        return apiActions?.btp || 'BackToPrevious';
+        // Send the btp value directly to backend (op_btp, bm_btp, bracc_btp)
+        // Backend will handle the status change based on the btp value:
+        // - op_btp: goes back to 'Checked' (OP Manager sending back from OPApproved)
+        // - bm_btp: goes back to 'Ongoing' (BM sending back from Checked)
+        // - bracc_btp: goes back to 'BM Approved' or 'Checked' (Account sending back)
+        if (apiActions?.btp) {
+          return apiActions.btp; // Send btp value directly (op_btp, bm_btp, bracc_btp)
+        }
+        // Fallback: determine based on current status
+        // This fallback logic matches the backend's api_actions method
+        const currentStatus = formData.status || '';
+        const normalizedStatus = currentStatus.trim();
+        
+        // OP Manager clicking back from 'OP Approved' → op_btp
+        if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
+          return 'op_btp';
+        } 
+        // Account/Branch Account clicking back from 'Acknowledged' or similar statuses → bracc_btp
+        else if (normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
+          return 'bracc_btp';
+        }
+        // BM or Account clicking back from 'BM Approved' → bracc_btp (Account user)
+        else if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') {
+          return 'bracc_btp';
+        }
+        // BM clicking back from 'Checked' → bm_btp (goes back to Ongoing)
+        else if (normalizedStatus === 'Checked') {
+          return 'bm_btp';
+        }
+        return 'Checked'; // Default fallback
+      case 'backtoprevious':
+        // Handle lowercase variant - use apiActions.btp if available
+        if (apiActions?.btp) {
+          return apiActions.btp;
+        }
+        return 'Checked'; // Default fallback
       case 'Cancel':
         return 'Cancel';
       default:
@@ -1264,25 +1352,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       const hasInvestigationData = Boolean(investigationData);
       
-      console.log('[DamageFormLayout] Initializing with investigation data:', {
-        hasInvestigationData,
-        investigationSource: investigationData ? (
-          initialData.investigation ? 'initialData.investigation' :
-          initialData.investigate ? 'initialData.investigate' :
-          initialData.general_form?.investigation ? 'initialData.general_form.investigation' :
-          initialData.general_form?.investigate ? 'initialData.general_form.investigate' :
-          'unknown'
-        ) : 'none',
-        investigationId: investigationData?.id,
-        investigationData: investigationData ? {
-          id: investigationData.id,
-          bdi_reason: investigationData.bdi_reason,
-          bm_reason: investigationData.bm_reason,
-          bm_company: investigationData.bm_company,
-          op_company: investigationData.op_company,
-          acc_company: investigationData.acc_company
-        } : null
-      });
+      // Removed console.log for investigation data initialization
       
       setHasInvestigation(hasInvestigationData);
       
@@ -1792,6 +1862,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         };
       });
 
+      // Auto-focus on request_qty field for the newly added product
+      setTimeout(() => {
+        const requestQtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+        if (requestQtyInput) {
+          requestQtyInput.focus();
+          requestQtyInput.select(); // Select the text so user can type immediately
+        }
+      }, 100);
+
+      // Show success modal
+      setSuccessModalMessage(t('messages.productAdded', { defaultValue: 'Product added successfully' }));
+      setSuccessModalAction('submit');
+      setIsSuccessModalOpen(true);
+
       // Call success callback if provided (to close modal, etc.)
       if (onSuccess) {
         setTimeout(() => {
@@ -1848,58 +1932,88 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     }
   };
 
-  // Get button color classes based on action type - matching status colors
+  // Get button color classes based on action type - all action buttons are green
   const getButtonColorClass = (action) => {
     const a = normalize(action);
-    if (!a) return 'bg-orange-600 hover:bg-orange-700 border-orange-700';
+    if (!a) return 'bg-green-600 hover:bg-green-700 border-green-700';
 
     switch (a) {
       case 'BMApprovedMem':
       case 'Checked':
-        // Yellow for Check action (matches Checked status)
-        return 'bg-yellow-500 hover:bg-yellow-600 border-yellow-600';
       case 'BMApproved':
-        // Blue for BM Approve action (matches BM Approved status)
-        return 'bg-blue-600 hover:bg-blue-700 border-blue-700';
       case 'OPApproved':
-        // Custom OKLCH color for OP Approve action (matches OP Approved status)
-        return 'op-approved-btn-custom';
       case 'Ac_Acknowledged':
-        // Custom OKLCH color for Acknowledge action (matches Acknowledged status)
-        return 'acknowledge-btn-custom';
       case 'Completed':
       case 'Issue':
       case 'SupervisorIssued':
-        // Green for Issue action (matches Completed status)
+      case 'Submit':
+        // All action buttons are green
         return 'bg-green-600 hover:bg-green-700 border-green-700';
       default:
-        // Default orange for Submit (matches Ongoing status)
-        return 'bg-orange-600 hover:bg-orange-700 border-orange-700';
+        // Default green for all actions
+        return 'bg-green-600 hover:bg-green-700 border-green-700';
     }
   };
 
   const deriveActions = () => {
     const act = { ...apiActions };
     const currentStatus = formData.status || 'Ongoing';
-    const normalizedStatus = (currentStatus || '').toString().trim();
+    // Normalize status the same way as in useMemo
+    const normalizedStatus = (currentStatus || '').toString().trim().replace(/\s+/g, ' ');
     
-    // Map btp value to backToPrevious (matching Laravel logic)
-    // Laravel returns btp values: 'op_btp', 'bm_btp', 'bracc_btp' when back to previous is available
-    if (act.btp && (act.btp === 'op_btp' || act.btp === 'bm_btp' || act.btp === 'bracc_btp')) {
-      act.backToPrevious = true;
-    }
+    // FIRST: Check if Branch Manager is viewing a form they already approved - this takes priority
+    // If true, explicitly disable both buttons regardless of other conditions
+    const shouldHideButtonsForBM = isBMViewingOwnApprovedForm && 
+                                   (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved');
     
-    // Add backToPrevious and cancel for BM Approved and Acknowledge statuses
-    if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || 
-        normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
-      // Enable back to previous button for these statuses
-      if (!act.backToPrevious) {
+    
+    if (shouldHideButtonsForBM) {
+      // Force disable both buttons - this takes absolute priority
+      act.backToPrevious = false;
+      act.cancel = false;
+    } else {
+      // Map btp value to backToPrevious (matching Laravel logic)
+      // Laravel returns btp values: 'op_btp', 'bm_btp', 'bracc_btp' when back to previous is available
+      if (act.btp && (act.btp === 'op_btp' || act.btp === 'bm_btp' || act.btp === 'bracc_btp')) {
         act.backToPrevious = true;
       }
-      // Enable cancel button for these statuses
-      if (!act.cancel) {
-        act.cancel = true;
+      
+      // Add backToPrevious and cancel for BM Approved and Acknowledge statuses
+      // Also enable for branch account at branch account stage
+      const role = getUserRole();
+      const isBranchAccountUser = role === 'account' || 
+                                  role === 'branch_account' ||
+                                  currentUser?.role_id === 7 ||
+                                  (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
+                                  (currentUser?.role_name || '').toLowerCase().includes('branch account');
+      
+      const isAtBranchAccountStage = normalizedStatus === 'Ac_Acknowledged' || 
+                                     normalizedStatus === 'Acknowledged' ||
+                                     normalizedStatus === 'OPApproved' ||
+                                     normalizedStatus === 'OP Approved' ||
+                                     normalizedStatus === 'BM Approved' ||
+                                     normalizedStatus === 'BMApproved';
+      
+      if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || 
+          normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged' ||
+          (isBranchAccountUser && isAtBranchAccountStage)) {
+        
+        // Enable back to previous button for these statuses
+        if (!act.backToPrevious) {
+          act.backToPrevious = true;
+        }
+        
+        // Enable cancel button for these statuses
+        if (!act.cancel) {
+          act.cancel = true;
+        }
       }
+    }
+    
+    // FINAL CHECK: If BM is viewing own approved form, force disable buttons again (safety check)
+    if (shouldHideButtonsForBM) {
+      act.backToPrevious = false;
+      act.cancel = false;
     }
     
     if (!normalize(act.approve)) {
@@ -1950,10 +2064,69 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       }
     }
     
+    // ABSOLUTE FINAL CHECK: If BM is viewing own approved form, force disable buttons (must be last)
+    // This ensures nothing can override our decision to hide the buttons
+    const finalNormalizedStatus = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+    if (isBMViewingOwnApprovedForm && (finalNormalizedStatus === 'BM Approved' || finalNormalizedStatus === 'BMApproved')) {
+      act.backToPrevious = false;
+      act.cancel = false;
+    }
+    
     return act;
   };
 
   const actions = deriveActions();
+
+  // Compute button visibility - explicitly hide for BM viewing own approved form
+  // Also hide when form is BM Approved (after BM approval, these buttons should not be visible)
+  const normalizedStatusForButtons = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+  const isBMApproved = normalizedStatusForButtons === 'BM Approved' || normalizedStatusForButtons === 'BMApproved';
+  
+  // Check if user is branch account
+  const isBranchAccount = userRole === 'account' || 
+                          userRole === 'branch_account' ||
+                          currentUser?.role_id === 7 || // Branch Account role ID
+                          (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
+                          (currentUser?.role_name || '').toLowerCase().includes('branch account');
+  
+  // Check if form is at branch account stage (BM Approved, Ac_Acknowledged, or Acknowledged)
+  const isBranchAccountStage = (formData.status === 'BM Approved' || 
+                                formData.status === 'BMApproved' ||
+                                formData.status === 'Ac_Acknowledged' || 
+                                formData.status === 'Acknowledged' ||
+                                formData.status === 'OPApproved' ||
+                                formData.status === 'OP Approved');
+  
+  // Check if user is Branch Manager and form status is Ongoing
+  // Hide buttons for Branch Manager when status is Ongoing (BM should only act after Checker has checked)
+  // Use case-insensitive comparison to be safe
+  const userRoleLower = (userRole || '').toLowerCase();
+  const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm';
+  const isOngoingStatus = (formData.status === 'Ongoing' || formData.status === 'ongoing');
+  const shouldHideButtonsForBMInOngoing = isBranchManager && isOngoingStatus;
+
+  // Show buttons for branch account at branch account stage, or use existing logic for others
+  // Branch account should see buttons even when status is BM Approved
+  // Hide Back To Previous for BM in Ongoing status
+  const shouldShowBackToPrevious = !isBMViewingOwnApprovedForm && 
+                                   !shouldHideButtonsForBMInOngoing &&
+                                   !!actions.backToPrevious && 
+                                   (isBranchAccount && isBranchAccountStage ? 
+                                     // Branch account at branch account stage (including BM Approved) - always show
+                                     true :
+                                     // Existing logic for other cases - hide if BM Approved
+                                     (!isBMApproved && formData.status !== 'Checked' && formData.status !== 'checked'));
+  
+  // Hide Cancel for BM in Ongoing status
+  const shouldShowCancel = !isBMViewingOwnApprovedForm && 
+                          !shouldHideButtonsForBMInOngoing &&
+                          !!actions.cancel && 
+                          (isBranchAccount && isBranchAccountStage ? 
+                            // Branch account at branch account stage (including BM Approved) - always show
+                            true :
+                            // Existing logic for other cases - hide if BM Approved
+                            (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
+
 
   // Handle back button click - preserve pagination and filters
   const handleBack = () => {
@@ -2002,14 +2175,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId;
       
       if (!generalFormId) {
-        toast.error(t('messages.pdfFormIdNotFound'));
+        setErrorModalMessage(t('messages.pdfFormIdNotFound'));
+        setIsErrorModalOpen(true);
         return;
       }
 
       // Get the token for authentication
       const token = localStorage.getItem('token');
       if (!token) {
-        toast.error(t('messages.authRequired'));
+        setErrorModalMessage(t('messages.authRequired'));
+        setIsErrorModalOpen(true);
         return;
       }
 
@@ -2020,9 +2195,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Construct the PDF URL - using the API route for print
       // The route is /api/big-damage-issues/{general_form_id}/print
       const pdfUrl = `${API_BASE_URL}/big-damage-issues/${generalFormId}/print`;
-      
-      // Show loading toast
-      const loadingToast = toast.loading(t('messages.pdfGenerating'));
       
       console.log('[PDF Download] Starting PDF download', { pdfUrl, generalFormId });
       
@@ -2141,11 +2313,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         window.URL.revokeObjectURL(blobUrl);
         
         console.log('[PDF Download] PDF download completed successfully');
-        toast.dismiss(loadingToast);
-        toast.success(t('messages.pdfGenerated'));
+        setSuccessModalMessage(t('messages.pdfGenerated'));
+        setSuccessModalAction('submit');
+        setIsSuccessModalOpen(true);
       } catch (fetchError) {
         if (timeoutId) clearTimeout(timeoutId);
-        toast.dismiss(loadingToast);
         // Handle abort/timeout
         if (fetchError.name === 'AbortError') {
           throw new Error(t('messages.errors.timeout'));
@@ -2153,10 +2325,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         throw fetchError;
       }
     } catch (error) {
-      // Ensure loading toast is dismissed
-      toast.dismiss(loadingToast);
       const errorMessage = error.message || t('messages.pdfGenerateFailed');
-      toast.error(errorMessage);
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
       console.error('PDF download error:', error);
     }
   };
@@ -2174,6 +2345,37 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if (isSubmittingRef.current || isSubmitting) {
       console.warn('Form submission already in progress, ignoring duplicate click');
       return;
+    }
+    
+    // Validate cancel action - require reason/remark
+    if (action === 'Cancel' || action === 'cancel') {
+      if (!formData.reason || formData.reason.trim() === '') {
+        const errorMessage = t('messages.cancelReasonRequired', { 
+          defaultValue: 'Please provide a reason for canceling the form. The remark field in Supporting Info is required.' 
+        });
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [errorMessage]
+        });
+        return;
+      }
+    }
+    
+    // Validate back to previous action - require reason/remark/comment
+    if (action === 'BackToPrevious' || action === 'backtoprevious') {
+      const hasComment = (formData.comment && formData.comment.trim() !== '') ||
+                         (formData.reason && formData.reason.trim() !== '') ||
+                         (formData.remark && formData.remark.trim() !== '');
+      if (!hasComment) {
+        const errorMessage = t('messages.backToPreviousReasonRequired', { 
+          defaultValue: 'Please provide a remark in Supporting Info for back to previous action.' 
+        });
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [errorMessage]
+        });
+        return;
+      }
     }
     
     // Validate that all items have quantity > 0
@@ -2194,7 +2396,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const errorMessage = t('messages.itemsWithZeroQuantity', { 
         defaultValue: 'Please ensure all products have a quantity greater than 0. Products with 0 quantity cannot be submitted.' 
       });
-      toast.error(errorMessage);
       setValidationErrorModal({
         isOpen: true,
         errors: [errorMessage]
@@ -2227,63 +2428,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       const checkErrors = [];
       
-      // Check if remark is filled
-      if (!formData.reason || formData.reason.trim() === '') {
-        checkErrors.push(t('messages.remarkRequired', { 
-          defaultValue: 'Remark is required when checking the form.' 
-        }));
-      }
-      
-      // Check if each item has images and remark
-      const items = Array.isArray(formData.items) ? formData.items : [];
-      const itemsWithoutImages = [];
-      const itemsWithoutRemarks = [];
-      
-      items.forEach((item, index) => {
-        console.log(`[Validation] Checking item ${index + 1}:`, {
-          productName: item.product_name || item.name,
-          images: item.images,
-          damage_files: item.damage_files,
-          remark: item.remark,
-          damage_remark: item.damage_remark,
-          fullItem: item
-        });
-        
-        const images = item.images || item.damage_files || [];
-        const itemRemark = item.remark || item.damage_remark || '';
-        
-        // Check if item has no images
-        if (!Array.isArray(images) || images.length === 0) {
-          const productName = item.product_name || item.name || `Product ${index + 1}`;
-          itemsWithoutImages.push(productName);
-          console.log(`[Validation] Item "${productName}" has no images`);
-        }
-        
-        // Check if item has no remark
-        if (!itemRemark || itemRemark.trim() === '') {
-          const productName = item.product_name || item.name || `Product ${index + 1}`;
-          itemsWithoutRemarks.push(productName);
-          console.log(`[Validation] Item "${productName}" has no remark`);
-        }
-      });
-      
-      if (itemsWithoutImages.length > 0) {
-        const errorMsg = t('messages.productsNeedImages', { 
-          defaultValue: 'The following products need images: {{products}}',
-          products: itemsWithoutImages.join(', ')
-        });
-        checkErrors.push(errorMsg);
-        console.log('[Validation] Products without images:', itemsWithoutImages);
-      }
-      
-      if (itemsWithoutRemarks.length > 0) {
-        const errorMsg = t('messages.productsNeedRemarks', { 
-          defaultValue: 'The following products need remarks: {{products}}',
-          products: itemsWithoutRemarks.join(', ')
-        });
-        checkErrors.push(errorMsg);
-        console.log('[Validation] Products without remarks:', itemsWithoutRemarks);
-      }
+      // Validation for supporting info remark, product images, and remarks removed
+      // Users can now check/submit forms without these fields
       
       // If there are validation errors, show modal and return
       if (checkErrors.length > 0) {
@@ -2292,7 +2438,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           isOpen: true,
           errors: checkErrors
         });
-        toast.error(checkErrors.join(' '));
         return;
       }
       
@@ -2305,7 +2450,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     
     // If status is Checked and user is BM/ABM trying to approve, check if investigation is filled
     if (isCheckedStatus && isApprovalAction && isBMOrABM && !isInvestigationFilled) {
-      toast.error(t('messages.investigationRequired'));
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
       return;
     }
 
@@ -2314,7 +2462,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if ((role === 'account' || isAccount) && isIssueAction) {
       // Require BM investigation to be filled first
       if (!isInvestigationFilled) {
-        toast.error(t('messages.investigationRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
         return;
       }
 
@@ -2334,7 +2485,49 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           isOpen: true,
           errors: [accountError]
         });
-        toast.error(accountError);
+        return;
+      }
+
+      // Validate ISS remark and account codes before issuing
+      const hasIssRemark = formData.iss_remark && formData.iss_remark.trim() !== '';
+      const items = Array.isArray(formData.items) ? formData.items : [];
+      const itemsWithoutAccountCode = items.filter(item => {
+        const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
+        return !accountCode || accountCode.trim() === '';
+      });
+      
+      const missingIssRemark = !hasIssRemark;
+      const missingAccountCodes = itemsWithoutAccountCode.length > 0;
+
+      if (missingIssRemark && missingAccountCodes) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.issRemarkAndAccountCodesRequired', { 
+            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.' 
+          })]
+        });
+        return;
+      } else if (missingIssRemark) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.issRemarkRequired', { 
+            defaultValue: 'Please select ISS remark type before issuing the form.' 
+          })]
+        });
+        return;
+      } else if (missingAccountCodes) {
+        const productNames = itemsWithoutAccountCode
+          .map(item => item.name || item.product_name || item.code || 'Unknown')
+          .join(', ');
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [
+            t('messages.accountCodesRequired', { 
+              defaultValue: 'Please assign account codes to all products before issuing the form.' 
+            }),
+            `Products missing account codes: ${productNames}`
+          ]
+        });
         return;
       }
     }
@@ -2343,7 +2536,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const isOpAckAction = action === 'Ac_Acknowledged' || action === 'OPApproved' || action === 'Acknowledged';
     const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
     if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction && !isInvestigationFilled) {
-      toast.error(t('messages.investigationRequired'));
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
       return;
     }
     
@@ -2363,77 +2559,18 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       emptyFields.push(t('messages.errors.validation.requesterName', { defaultValue: 'Requester Name' }));
     }
     
-    // In "add" mode, validate required fields: remark, product images, and attachments
+    // Check if any products are added (applies to all modes)
+    const items = Array.isArray(formData.items) ? formData.items : [];
+    if (items.length === 0) {
+      emptyFields.push(t('messages.errors.validation.noProducts', { defaultValue: 'Please add at least one product before submitting.' }));
+    }
+    
+    // Validation for product images, remarks, and supporting info attachments removed
+    // Users can now submit forms without these fields
     const isAddMode = mode === 'add';
     
-    // Check product items for missing images and remarks (only in "add" mode)
-    const items = Array.isArray(formData.items) ? formData.items : [];
-    let itemsWithoutImagesCount = 0;
-    let itemsWithoutRemarksCount = 0;
-    const itemsWithoutImages = [];
-    const itemsWithoutRemarks = [];
-    
-    if (isAddMode) {
-      items.forEach((item, index) => {
-        const productCode = (item?.product_code || item?.code || '').toString().trim();
-        if (!productCode) return; // Skip items without product code
-        
-        // Check if item has images
-        const itemImages = extractImageArray(item);
-        if (itemImages.length === 0) {
-          itemsWithoutImagesCount++;
-          const productName = `${t('common.product', { defaultValue: 'Product' })} ${index + 1} (${productCode})`;
-          itemsWithoutImages.push(productName);
-        }
-        
-        // Check if item has remark
-        const remark = (item?.remark || '').toString().trim();
-        if (!remark) {
-          itemsWithoutRemarksCount++;
-          const productName = `${t('common.product', { defaultValue: 'Product' })} ${index + 1} (${productCode})`;
-          itemsWithoutRemarks.push(productName);
-        }
-      });
-      
-      if (itemsWithoutImagesCount > 0) {
-        if (itemsWithoutImagesCount === 1) {
-          const productName = itemsWithoutImages[0];
-          emptyFields.push(t('messages.errors.validation.productMissingImage', {
-            productName: productName,
-            defaultValue: `${t('messages.errors.validation.productImage', { defaultValue: 'Product Image' })}: ${productName}`
-          }));
-        } else {
-          emptyFields.push(t('messages.errors.validation.productsMissingImages', {
-            count: itemsWithoutImagesCount,
-            defaultValue: `${t('messages.errors.validation.productImages', { defaultValue: 'Product Images' })}: ${itemsWithoutImagesCount} products missing images`
-          }));
-        }
-      }
-      
-      if (itemsWithoutRemarksCount > 0) {
-        if (itemsWithoutRemarksCount === 1) {
-          const productName = itemsWithoutRemarks[0];
-          emptyFields.push(t('messages.errors.validation.productMissingRemark', {
-            productName: productName,
-            defaultValue: `${t('messages.errors.validation.productRemark', { defaultValue: 'Product Remark' })}: ${productName}`
-          }));
-        } else {
-          emptyFields.push(t('messages.errors.validation.productsMissingRemarks', {
-            count: itemsWithoutRemarksCount,
-            defaultValue: `${t('messages.errors.validation.productRemarks', { defaultValue: 'Product Remarks' })}: ${itemsWithoutRemarksCount} products missing remarks`
-          }));
-        }
-      }
-    }
-    
-    // Check supporting info attachments (only in "add" mode)
-    const attachments = Array.isArray(formData.attachments) ? formData.attachments : [];
-    if (isAddMode && attachments.length === 0) {
-      emptyFields.push(t('messages.errors.validation.supportingInfoAttachments', { defaultValue: 'Supporting Info Attachments' }));
-    }
-    
-    // In "add" mode, prevent submission if required fields are missing
-    if (isAddMode && emptyFields.length > 0) {
+    // Prevent submission if required fields are missing
+    if (emptyFields.length > 0) {
       // Show validation error modal instead of toast
       setValidationErrorModal({
         isOpen: true,
@@ -2498,7 +2635,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       const items = Array.isArray(formData.items) ? formData.items : [];
       if (!items.length) {
-        toast.error(t('messages.addProductRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.addProductRequired')]
+        });
         isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
@@ -2506,7 +2646,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       const hasValidProduct = items.some((item) => (item?.code || item?.product_code || '').toString().trim());
       if (!hasValidProduct) {
-        toast.error(t('messages.productCodeRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.productCodeRequired')]
+        });
         isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
@@ -2582,7 +2725,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       // Critical validation - items are still required (blocking error)
       if (validItems.length === 0) {
-        toast.error(t('messages.addProductRequired'));
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.addProductRequired')]
+        });
         isSubmittingRef.current = false;
         setIsSubmitting(false);
         return;
@@ -3316,6 +3462,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           formDataToSend.append('status', backendStatus);
         }
 
+        // Explicitly ensure reason is sent for Cancel action
+        if ((action === 'Cancel' || action === 'cancel') && formData.reason) {
+          formDataToSend.append('reason', formData.reason);
+        }
+
         const user = currentUser || getCurrentUser() || {};
         
         const resolvedUserId = user?.id
@@ -3656,17 +3807,62 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
         }
 
-        setSuccessMessage(t('messages.formSubmitted'));
+        // Check if this is a "Back to Previous" action - navigate to list instead of reloading
+        const isBackToPreviousAction = action === 'BackToPrevious' || action === 'backtoprevious';
         
-        // Show success toast
-        toast.success(t('messages.formSubmitted'), {
-          position: 'top-right',
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
+        if (isBackToPreviousAction) {
+          // For back to previous, navigate to list to avoid stale data issues
+          const message = t('messages.formSentBackToPrevious', { defaultValue: 'Form sent back to previous successfully' });
+          setSuccessMessage(message);
+          setSuccessModalMessage(message);
+          setSuccessModalAction('BackToPrevious');
+          setIsSuccessModalOpen(true);
+        
+          // Navigate to list page after modal closes (1 second)
+          setTimeout(() => {
+            const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+            if (storedReturnUrl) {
+              sessionStorage.removeItem('bigDamageIssueReturnUrl');
+              const urlParts = storedReturnUrl.split('?');
+              const pathname = urlParts[0] || '/big_damage_issue';
+              const search = urlParts[1] ? `?${urlParts[1]}` : '';
+              navigate(pathname + search, { replace: true });
+            } else {
+              navigate('/big_damage_issue', { replace: true });
+            }
+          }, 1500);
+          
+          return response;
+        }
+        
+        // Get the success message based on the action
+        let message = t('messages.formSubmitted');
+        let actionType = 'submit';
+        
+        if (action === 'Check' || action === 'CheckMem') {
+          message = t('messages.formChecked', { defaultValue: 'Form checked successfully' });
+          actionType = 'check';
+        } else if (action === 'Approve' || action === 'BMApproved' || action === 'BMApprovedMem') {
+          message = t('messages.formApproved', { defaultValue: 'Form approved successfully' });
+          actionType = 'approve';
+        } else if (action === 'Acknowledge' || action === 'AcAcknowledge') {
+          message = t('messages.formAcknowledged', { defaultValue: 'Form acknowledged successfully' });
+          actionType = 'acknowledge';
+        } else if (action === 'Issue' || action === 'SupervisorIssue') {
+          message = t('messages.formIssued', { defaultValue: 'Form issued successfully' });
+          actionType = 'issue';
+        } else if (action === 'Cancel' || action === 'cancel') {
+          message = t('messages.formCanceled', { defaultValue: 'Form canceled successfully' });
+          actionType = 'cancel';
+        } else if (action === 'Submit') {
+          message = t('messages.formSubmitted', { defaultValue: 'Form submitted successfully' });
+          actionType = 'submit';
+        }
+        
+        setSuccessMessage(message);
+        setSuccessModalMessage(message);
+        setSuccessModalAction(actionType);
+        setIsSuccessModalOpen(true);
         
         // If this was a save as draft, update the URL with the new form ID
         if (response && response.id && !isEditMode) {
@@ -3738,15 +3934,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         setError(errorMessage);
         setSuccessMessage('');
         
-        // Show error toast
-        toast.error(errorMessage, {
-          position: 'top-right',
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
+        // Show error modal
+        setErrorModalMessage(errorMessage);
+        setIsErrorModalOpen(true);
         
         throw apiError; // Re-throw to be caught by the outer catch
       }
@@ -3772,15 +3962,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       setError(errorMessage);
       setSuccessMessage('');
       
-      // Show error toast
-      toast.error(errorMessage, {
-        position: 'top-right',
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
+      // Show error modal
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
       
       throw error;
     } finally {
@@ -3813,24 +3997,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
       );
       
-      if (userTypeMatches) {
-        console.log('[showApproveButton] Found OP/A2 approval entry:', {
-          userType,
-          adminId,
-          actualUserId,
-          userId,
-          allUserIds,
-          currentUserId,
-          userIdMatches
-        });
-      }
       
       return userTypeMatches && userIdMatches;
     });
     
     // If user has OP approval assignment but no status yet, wait for form data to load
     if (hasOpApprovalAssignment && !formData.status) {
-      console.log('[showApproveButton] User has OP approval assignment but form status not loaded yet - waiting');
       return false;
     }
     
@@ -3877,29 +4049,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // 4. user has OP approval entry assigned to them
     const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
     
-    console.log('[showApproveButton] Starting:', {
-      role,
-      userRoleId,
-      isOpManagerByRoleId,
-      hasOpApprovalAssignment,
-      isOpManager,
-      isOpManagerByApproval,
-      isOpManagerFinal,
-      status,
-      normalizedStatus,
-      totalAmount,
-      requiresOpManagerApproval,
-      isAccount,
-      currentUserId,
-      approvalsCount: approvals.length
-    });
-    
-    // Debug: Log the OP approval assignment check result
-    if (hasOpApprovalAssignment) {
-      console.log('[showApproveButton] ✅ User has OP approval assignment - isOpManagerFinal should be true');
-    } else {
-      console.log('[showApproveButton] ❌ User does NOT have OP approval assignment');
-    }
     
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
     // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
@@ -3937,11 +4086,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
       // If status is Ac_Acknowledged, allow button to show (OP has acknowledged)
       if (isAcknowledged) {
-        console.log('[showApproveButton] Status is Ac_Acknowledged - allowing button to show');
         // Status indicates acknowledgment - allow button to show
         // Continue to normal flow below
       } else if (!opManagerHasApprovedOrAcknowledged) {
-        console.log('[showApproveButton] Status does not indicate OP approval - returning false');
         return false; // Status doesn't indicate OP approval/acknowledgment
       }
       
@@ -3951,7 +4098,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     let result = false;
 
-    if ((role === 'bm' || role === 'abm') && (status === 'Ongoing' || status === 'Checked')) {
+    // Hide approve button for Branch Manager when status is Ongoing
+    // BM should only see approve button when status is Checked (after checker has checked)
+    if ((role === 'bm' || role === 'abm') && status === 'Ongoing') {
+      return false; // Hide approve button for BM in Ongoing status
+    }
+
+    if ((role === 'bm' || role === 'abm') && status === 'Checked') {
       result = true;
     } else if (['branch_lp', 'checker', 'cs', 'loss prevention'].includes(role) && status === 'Ongoing') {
       result = true;
@@ -3959,44 +4112,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Operation Manager should see approve button when:
       // 1. Form status is "BM Approved" or "Checked"
       // 2. AND (amount > 500000 OR user has OP approval assignment)
-      // If user is assigned as OP Manager in approval process, they should see the button
-      // even if amount isn't loaded yet (amount might be 0 during initial load)
-      console.log('[showApproveButton] ✅ Operation Manager check passed:', {
-        isOpManager,
-        isOpManagerByRoleId,
-        hasOpApprovalAssignment,
-        isOpManagerFinal,
-        role,
-        userRoleId,
-        status,
-        normalizedStatus,
-        requiresOpManagerApproval,
-        totalAmount,
-        statusMatches: normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked' || status === 'BM Approved' || status === 'BMApproved' || status === 'Checked'
-      });
       // Show button if:
       // 1. Amount > 500000 (requires OP Manager approval), OR
       // 2. User has OP approval assignment (they're assigned to approve this form)
       // The second condition handles cases where amount isn't loaded yet or user is assigned regardless of amount
       if (requiresOpManagerApproval || hasOpApprovalAssignment) {
         result = true; // Show approve button for OP Manager
-        console.log('[showApproveButton] ✅ Operation Manager - SHOWING BUTTON', {
-          reason: requiresOpManagerApproval ? 'amount > 500000' : 'user has OP approval assignment',
-          hasOpApprovalAssignment,
-          requiresOpManagerApproval,
-          totalAmount
-        });
-      } else {
-        console.log('[showApproveButton] ❌ Operation Manager - amount <= 500000 and no OP assignment, not showing button');
       }
-    } else if (isOpManagerFinal) {
-      // Log why the button is not showing even though isOpManagerFinal is true
-      console.log('[showApproveButton] ⚠️ Operation Manager detected but status does not match:', {
-        isOpManagerFinal,
-        status,
-        normalizedStatus,
-        expectedStatuses: ['BM Approved', 'BMApproved', 'Checked']
-      });
     } else if ((role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
       // BM/ABM can also see approve button at BM Approved status (for re-approval or other actions)
       result = true;
@@ -4076,21 +4198,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         result = !!(isBMApproved && systemQtyUpdated);
       }
       
-      // Debug logging for account button visibility
-      console.log('[showApproveButton] Account user final result:', {
-        result,
-        isBMApproved,
-        isOPApproved,
-        isAcknowledged,
-        isOpApprovalPending,
-        opManagerHasApproved,
-        requiresOpManagerApproval,
-        normalizedStatus,
-        systemQtyUpdated: Boolean(formData.systemQtyUpdated)
-      });
     }
     // Supervisor should NOT see approve button - they have a separate Issue button
-    console.log('[showApproveButton] Final result:', result);
     return !!result; // Ensure boolean return value
   };
 
@@ -4167,19 +4276,6 @@ const resolveApproveAction = () => {
   // 5. user has OP approval entry assigned to them
   const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
   
-  console.log('[resolveApproveAction] Starting:', {
-    role,
-    status,
-    normalizedStatus,
-    totalAmount,
-    requiresOpManagerApproval,
-    isAccount,
-    actionsApprove: actions?.approve,
-    isOpManagerFinal,
-    hasOpApprovalAssignment,
-    userRoleId
-  });
-  
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
     return 'BMApprovedMem';
@@ -4248,10 +4344,8 @@ const resolveApproveAction = () => {
           // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
           const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
           if (!systemQtyUpdated) {
-            console.log('[resolveApproveAction] Status is Ac_Acknowledged but systemQtyUpdated is false - not showing Issue button');
             return null; // Don't show Issue button until system quantity is updated
           }
-          console.log('[resolveApproveAction] Status is Ac_Acknowledged and systemQtyUpdated is true - returning Completed');
           return 'Completed'; // Return Completed to show Issue button
         }
         
@@ -4261,7 +4355,6 @@ const resolveApproveAction = () => {
           // Check if system quantity has been updated
           const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
           if (!systemQtyUpdated) {
-            console.log('[resolveApproveAction] OP Manager has acknowledged but systemQtyUpdated is false - not showing Issue button');
             return null; // Don't show Issue button until system quantity is updated
           }
           return actions.approve;
@@ -4278,7 +4371,6 @@ const resolveApproveAction = () => {
           // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
           const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
           if (!systemQtyUpdated) {
-            console.log('[resolveApproveAction] BM Approved but systemQtyUpdated is false - not showing Issue button');
             return null; // Don't show Issue button until system quantity is updated
           }
           return actions.approve;
@@ -4380,26 +4472,15 @@ const resolveApproveAction = () => {
                             normalizedStatus === 'OP Approved';
       const opManagerHasAcknowledged = isAcknowledged || (opManagerHasApproved && !isOpApprovalPending);
       
-      console.log('[resolveApproveAction] Account user fallback check:', {
-        isAcknowledged,
-        opManagerHasApproved,
-        isOpApprovalPending,
-        opManagerHasAcknowledged,
-        normalizedStatus
-      });
-      
       if (opManagerHasAcknowledged) {
         // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
         const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
         if (!systemQtyUpdated) {
-          console.log('[resolveApproveAction] OP Manager has acknowledged but systemQtyUpdated is false - not showing Issue button');
           return null; // Don't show Issue button until system quantity is updated
         }
-        console.log('[resolveApproveAction] Returning Completed from fallback logic');
         return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
       }
       // Return null if Operation Manager hasn't acknowledged or is still pending
-      console.log('[resolveApproveAction] Returning null - OP Manager has not acknowledged');
       return null;
     } else {
       // Amount <= 500000 - can issue at BM Approved only if systemQtyUpdated is true
@@ -4407,7 +4488,6 @@ const resolveApproveAction = () => {
         // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
         const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
         if (!systemQtyUpdated) {
-          console.log('[resolveApproveAction] BM Approved but systemQtyUpdated is false - not showing Issue button');
           return null; // Don't show Issue button until system quantity is updated
         }
         return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
@@ -4447,15 +4527,13 @@ const resolveApproveAction = () => {
         <span></span>
         <span></span>
         <span></span>
-      </div>a
+      </div>
       <div className="loading-text">Loading</div>
     </div>
   );
 
   return (
-    <div className="mx-auto p-0 sm:p-4 bg-gray-50 min-h-screen space-y-4 sm:space-y-4 font-sans">
-      <ToastContainer position="top-right" autoClose={5000} />
-      
+    <div className="p-3 sm:p-4 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
       {isSubmitting && <BoxesLoader />}
       
       {error && (
@@ -4659,12 +4737,22 @@ const resolveApproveAction = () => {
         gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
         currentUser={currentUser}
         onOpenAddProductModal={handleOpenAddProductModal}
+        onSuccessModal={(message, action = 'submit') => {
+          setSuccessModalMessage(message);
+          setSuccessModalAction(action);
+          setIsSuccessModalOpen(true);
+        }}
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
           setFormData((prev) => ({
             ...prev,
             systemQtyUpdated: true,
           }));
+          
+          // Show success modal
+          setSuccessModalMessage(t('messages.systemQtyUpdated', { defaultValue: 'System quantities updated successfully' }));
+          setSuccessModalAction('submit');
+          setIsSuccessModalOpen(true);
           
           // Refetch form data to get updated system_qty values after account updates
           // This ensures supervisor sees the updated system_qty values at Ac_Acknowledged stage
@@ -4921,26 +5009,25 @@ const resolveApproveAction = () => {
         // Only show if we have at least one of them
         if (remarkTypeLabel || issNumbers.length > 0) {
           return (
-            <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-4 space-y-3">
-              <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-3">
-                <Hash size={16} />
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
+              <h4 className="text-sm sm:text-base font-semibold text-gray-800 flex items-center gap-2 mb-3">
+                <Hash size={18} className="text-gray-600" />
                 ISS Information
               </h4>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-3">
                 {remarkTypeLabel && (
-                  <div className="flex-1 inline-flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  <div className="inline-flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
                     <span className="font-semibold text-amber-800">ISS Remark Type:</span>
                     <span>{remarkTypeLabel}</span>
                   </div>
                 )}
                 {issNumbers.length > 0 && (
-                  <div className="flex-1 inline-flex items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
-                    <span className="font-semibold text-blue-800">ISS Number{issNumbers.length > 1 ? 's' : ''}:</span>
-                    <span className="flex flex-wrap gap-1">
+                  <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+                    <span className="font-semibold text-blue-800 whitespace-nowrap">ISS Number{issNumbers.length > 1 ? 's' : ''}:</span>
+                    <span className="flex flex-wrap gap-1.5">
                       {issNumbers.map((issNum, idx) => (
-                        <span key={idx} className="font-mono text-blue-900">
+                        <span key={idx} className="font-mono text-blue-900 bg-blue-100 px-2 py-0.5 rounded">
                           {issNum}
-                          {idx < issNumbers.length - 1 ? ',' : ''}
                         </span>
                       ))}
                     </span>
@@ -4964,17 +5051,17 @@ const resolveApproveAction = () => {
         onAttachmentsChange={(newAttachments) => setFormData(prev => ({ ...prev, attachments: newAttachments }))}
       />
 
-      <div className="flex flex-col md:flex-row flex-wrap items-stretch md:items-center justify-between gap-2 mt-4">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
         <div className="hidden md:flex items-center order-2 md:order-1">
           <AnimatedBackButton status={formData.status || statusText} />
         </div>
-        <div className="flex flex-wrap items-stretch justify-end gap-2 w-full md:w-auto order-1 md:order-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 w-full md:w-auto order-1 md:order-2">
         {mode === 'add' ? (
           <>
             <button 
               onClick={handleBack}
-              className="btn-with-icon inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-gray-900 bg-white hover:bg-gray-50 border border-black transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 overflow-hidden"
-              style={{ fontSize: '0.75rem', minWidth: '90px' }}
+              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-gray-900 bg-white hover:bg-gray-50 border-2 border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 shadow-sm hover:shadow-md"
+              style={{ fontSize: '0.875rem' }}
             >
               <span className="btn-text">Cancel</span>
               <XCircle className="btn-icon w-4 h-4 absolute" />
@@ -4982,63 +5069,40 @@ const resolveApproveAction = () => {
             <button 
               onClick={() => handleSubmitClick('Submit')}
               disabled={isSubmitting}
-              className="btn-with-icon inline-flex flex-1 md:flex-none items-center justify-center gap-1 px-6 py-2.5 text-xs font-medium text-white transition-all duration-300 rounded-md shadow-sm bg-orange-600 hover:bg-orange-700 border-orange-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ minWidth: '110px' }}
+              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 font-semibold text-white transition-all duration-200 rounded-lg shadow-md bg-green-600 hover:bg-green-700 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontSize: '0.875rem' }}
             >
               <span className="btn-text">Submit</span>
               <Send className="btn-icon w-4 h-4 absolute" />
             </button>
           </>
-          ) : (
+        ) : (
             <>
-              {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+            {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
               <button 
                 onClick={() => handleSubmitClick('Edit')}
-                className="btn-with-icon btn-edit inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
-                style={{ fontSize: '0.75rem', minWidth: '80px' }}
+                className="btn-with-icon btn-edit inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-sm hover:shadow-md" 
+                style={{ fontSize: '0.875rem' }}
               >
                 <span className="btn-text">Edit</span>
                 <Edit3 className="btn-icon w-4 h-4 absolute" />   
               </button>
             )}
             
-            {/* Reject Button - Visible based on role and status */}
-            {!!showRejectButton() && (
-              <button 
-                onClick={() => handleSubmitClick('Rejected')}
-                className="btn-with-icon btn-reject inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border" 
-                style={{ fontSize: '0.75rem', minWidth: '90px' }}
-              >
-                <span className="btn-text">Reject</span>
-                <XCircle className="btn-icon w-4 h-4 absolute" />
-              </button>
-            )}
-            
             {/* Approve Button - Visible based on role and status */}
             {!!showApproveButton() && (() => {
-              console.log('[DamageFormLayout] showApproveButton returned true, resolving action...');
               const action = resolveApproveAction();
-              console.log('[DamageFormLayout] Button render check:', {
-                showApproveButton: showApproveButton(),
-                action,
-                willRender: !!action,
-                status: formData.status,
-                role: getUserRole(),
-                isAccount
-              });
-              // Don't render button if action is null or undefined
-              if (!action) {
-                console.log('[DamageFormLayout] Not rendering button - action is null/undefined');
+              // Don't render button if action is null or undefined, or if submitting (to avoid white disabled button)
+              if (!action || isSubmitting) {
                 return null;
               }
-              console.log('[DamageFormLayout] Rendering button with action:', action);
               const buttonClass = getButtonColorClass(action);
               return (
                 <button 
                   onClick={() => handleSubmitClick(action)}
                   disabled={isSubmitting}
-                  className={`btn-with-icon inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-5 py-2.5 rounded-md font-medium text-white transition-all duration-300 border ${buttonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
-                  style={{ fontSize: '0.75rem', minWidth: '120px' }}
+                  className={`btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-md hover:shadow-lg ${buttonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+                  style={{ fontSize: '0.875rem' }}
                 >
                   <span className="btn-text">
                     {prettyApprove(action) || 'Proceed'}
@@ -5052,11 +5116,12 @@ const resolveApproveAction = () => {
             {/* Removed supervisor Issue button */}
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
-            {!!actions.backToPrevious && formData.status !== 'Checked' && formData.status !== 'checked' && (
-              <button
+            {/* Hide if Branch Manager is viewing a form they already approved */}
+            {shouldShowBackToPrevious && (
+              <button 
                 onClick={() => handleSubmitClick('BackToPrevious')}
-                className="group inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-yellow-600 hover:text-yellow-800 transition-colors hover:bg-yellow-50 border border-yellow-200"
-                style={{ fontSize: '0.75rem' }}
+                className="group inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-yellow-700 hover:text-yellow-900 transition-all duration-200 hover:bg-yellow-50 border-2 border-yellow-300 shadow-sm hover:shadow-md"
+                style={{ fontSize: '0.875rem' }}
               >
                 <CornerUpLeft className="w-4 h-4 transition-transform duration-300 group-hover:rotate-[360deg]" />
                 <span className="transition-transform duration-200 group-hover:scale-[1.1]">Back To Previous</span>
@@ -5064,18 +5129,19 @@ const resolveApproveAction = () => {
             )}
             
             {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
-            {!!actions.cancel && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+            {/* Hide if Branch Manager is viewing a form they already approved */}
+            {shouldShowCancel && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
-                className="btn-with-icon btn-cancel inline-flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 rounded-md font-medium text-white transition-all duration-300 border border-red-600 bg-red-600 hover:bg-red-700" 
-                style={{ fontSize: '0.75rem', minWidth: '90px' }}
+                className="btn-with-icon btn-cancel inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 border-2 border-red-600 bg-red-600 hover:bg-red-700 shadow-sm hover:shadow-md" 
+                style={{ fontSize: '0.875rem' }}
               >
                 <span className="btn-text">Cancel</span>
                 <XCircle className="btn-icon w-4 h-4 absolute" />
               </button>
             )}
             </>
-          )}
+        )}
         </div>
       </div>
       {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} totalAmount={totalAmount} />}
@@ -5094,6 +5160,22 @@ const resolveApproveAction = () => {
         isOpen={validationErrorModal.isOpen}
         errors={validationErrorModal.errors}
         onClose={() => setValidationErrorModal({ isOpen: false, errors: [] })}
+      />
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        message={successModalMessage}
+        action={successModalAction}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        message={errorModalMessage}
+        autoClose={false}
       />
     </div>
   );
