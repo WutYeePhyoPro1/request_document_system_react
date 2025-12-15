@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Hash, Search } from 'lucide-react';
+import { XMarkIcon } from '@heroicons/react/24/solid';
 
 
 export default function AddDamageItem({ onSearch, branchName, isSearching, caseType, onCaseTypeChange, isReadOnly = false }) {
   const [productCode, setProductCode] = useState('');
+  const productCodeInputRef = useRef(null);
+  
+  // Auto-focus on product code input when component mounts (modal opens)
+  useEffect(() => {
+    // Use setTimeout to ensure the modal is fully rendered before focusing
+    const timer = setTimeout(() => {
+      if (productCodeInputRef.current) {
+        productCodeInputRef.current.focus();
+        productCodeInputRef.current.select(); // Select any existing text
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []); // Only run once when component mounts
   // Use caseType from props if provided, otherwise default to 'Not sell'
   const selectedCase = caseType || 'Not sell';
   
@@ -60,14 +75,27 @@ export default function AddDamageItem({ onSearch, branchName, isSearching, caseT
         <div className="col-span-1">
           <label className="block text-xs font-medium text-gray-500 mb-1">Product Code</label>
           <div className="flex">
+            <div className="relative flex-grow">
             <input
+              ref={productCodeInputRef}
               type="text"
               value={productCode}
               style={INPUT_TEXT_SIZE}
               onChange={(e) => setProductCode(e.target.value)}
               placeholder="Enter product code"
-              className={`${INPUT_CONTROL_BASE} flex-grow rounded-l-md text-sm bg-white focus:outline-none`}
+              className={`${INPUT_CONTROL_BASE} w-full rounded-l-md text-sm bg-white focus:outline-none ${productCode ? 'pr-8' : ''}`}
             />
+              {productCode && (
+                <button
+                  type="button"
+                  onClick={() => setProductCode('')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  style={{ fontSize: '12px' }}
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
+            </div>
             <button
               style={INPUT_TEXT_SIZE}
               onClick={handleSearch}

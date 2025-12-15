@@ -215,7 +215,7 @@ export default function SupportingInfo({
   const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments;
   
   return (
-    <div className="bg-transparent border border-gray-200 rounded-xl p-4 space-y-3 shadow-2xl" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
+    <div className="bg-transparent p-4 space-y-3">
       <div className="mb-4">
         <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2">
           <FileText size={16} />
@@ -235,7 +235,7 @@ export default function SupportingInfo({
           {shouldShowRemark && (
             <div className="flex-1">
               <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
-                {t('supportingInfo.remarks')} {isRequired && <span className="text-red-500">*</span>}
+              
               </label>
               {readOnly ? (
                 <div className="w-full border border-transparent rounded-md px-2 py-2 text-sm bg-transparent text-gray-800 min-h-[3rem] whitespace-pre-wrap">

@@ -711,14 +711,8 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const displayApprovals = buildDisplayApprovals();
 
   return (
-    <div className="bg-transparent rounded-xl p-3 sm:p-4 border border-gray-200 shadow-2xl" style={{ boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-      <div className="flex items-center justify-between gap-2 mb-4">
-        <h4 className="text-sm font-semibold text-blue-600 flex items-center gap-2">
-          <CheckCircle size={16} /> Approval Section
-        </h4>
-      </div>
-
-      <div className="grid grid-cols-2 md:flex md:flex-nowrap gap-2 text-sm w-full">
+    <div className="bg-white rounded-xl p-4 shadow-sm">
+      <div className="grid grid-cols-2 md:flex md:flex-nowrap gap-2 w-full" style={{ fontSize: '13px' }}>
         {displayApprovals.map((approval, index) => {
           const isBmStage = (approval.label || '').toLowerCase().includes('bm approved');
           const isCancelledCard = (approval.label || '').toLowerCase().includes('cancelled');
@@ -758,52 +752,45 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           return (
             <div
               key={`${approval.label}-${index}`}
-              className={`border rounded-md p-2 text-gray-700 flex flex-col gap-1 min-w-0 md:flex-1 ${
+              className={`rounded-[8px] p-3 text-[#012970] flex flex-col gap-1 min-w-0 md:flex-1 ${
                 (approval.label || '').toLowerCase().includes('cancelled')
-                  ? 'border-gray-200'
+                  ? ''
                   : approval.acted
-                    ? 'bg-white border-green-200'
-                    : 'bg-white border-gray-200'
+                    ? 'bg-white'
+                    : 'bg-white'
               } md:shadow-sm ${getInnerShadowClass()} md:[box-shadow:none]`}
               style={(approval.label || '').toLowerCase().includes('cancelled') 
                 ? { backgroundColor: '#fda19d' } 
                 : {}}
             >
                 <div className="flex items-center justify-between w-full">
-                  <p className="flex items-center gap-1 text-gray-500 text-xs uppercase tracking-wider">
-                    <User className="text-blue-500 w-4 h-4" />
+                  <p className={`flex items-center gap-1 font-bold ${!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#012970]'}`} style={{ fontSize: '13px' }}>
+                    <User className={`w-4 h-4 ${!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#2ea2d1]'}`} />
                     {approval.label}
                   </p>
-                  <span className={`hidden md:inline-flex items-center justify-center px-1.5 py-0.5 rounded text-xs border ${statusClass}`}>
-                    {approval.acted ? (
-                      <CheckCircle className="w-3 h-3" />
-                    ) : (
-                      <Clock className="w-3 h-3" />
-                    )}
-                  </span>
                 </div>
                   
                 <div className="mt-1">
                   {approval.acted ? (
                     <>
-                      <p className="font-medium text-gray-900 text-xs">
+                      <p className="font-bold text-[#012970]" style={{ fontSize: '13px' }}>
                         {approval.title && <span>{approval.title} </span>}
                         {approval.name || (approval.label === 'Prepared by' ? '' : 'N/A')}
                       </p>
                       {(approval.department || approval.role) && (
-                        <p className="text-xs text-gray-600 mt-0.5">
+                        <p className="text-[#012970] mt-0.5" style={{ fontSize: '13px' }}>
                           ({approval.department || approval.role})
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="font-medium text-gray-900 text-xs">Pending</p>
+                    <p className="font-bold text-gray-400" style={{ fontSize: '13px' }}>Pending</p>
                   )}
                 </div>
 
                 {approval.date && (
                   <div>
-                    <p className="text-xs text-gray-800">
+                    <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#012970]'} style={{ fontSize: '13px' }}>
                       {approval.acted
                         ? approval.date ? new Date(approval.date).toLocaleString() : 'N/A'
                         : 'Awaiting action'}
@@ -813,7 +800,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
               {approval.comment && (
                 <div>
-                  <p className="text-xs text-gray-700 leading-snug">{approval.comment}</p>
+                  <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#012970]'} style={{ fontSize: '13px' }}>{approval.comment}</p>
                 </div>
               )}
             </div>

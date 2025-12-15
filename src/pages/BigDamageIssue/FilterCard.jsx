@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import Select from 'react-select';
-import { MagnifyingGlassIcon } from '@heroicons/react/24/solid';
+import { MagnifyingGlassIcon, CalendarIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
 export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions }) {
-  // Styles and Constants
-  const INPUT_TEXT_SIZE = { fontSize: '0.8rem' };
-
-  const CONTROL_CLASSES = `w-full border border-gray-300 rounded-md px-2 py-2
-                           text-gray-700
-                           focus:outline-none focus:ring-2 focus:ring-blue-500`;
+  // Styles matching Laravel blade design
+  // custom-fs = font-size: 13px
+  // custom-rounded = border-radius: 8px, border-color: #2ea2d1
+  // custom-text = color: #012970
+  // fw-bold = font-weight: bold
+  
+  const CONTROL_CLASSES = `w-full border px-2
+                           text-[#012970] font-bold
+                           rounded-[8px] border-[#2ea2d1]
+                           focus:outline-none focus:ring-2 focus:ring-[#2ea2d1] focus:ring-opacity-50`;
 
   const statusOptions = [
     { value: 'Ongoing', label: 'Ongoing' },
@@ -27,7 +31,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     formDocNo: "",
     fromDate: "",
     toDate: "",
-    status: null,
+    status: "",
     branch: null,
   });
 
@@ -36,13 +40,25 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   ]);
 
   // Function to filter branches based on user's branch
-  const filterBranchesByUser = (allBranchOptions) => {
+  // Use selectedBranch parameter or localFilters.branch as source of truth
+  const filterBranchesByUser = (allBranchOptions, selectedBranch = null) => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
       const userBranchId = storedUser?.from_branch_id;
+      
+      // Use selectedBranch parameter, then localFilters.branch, then filters.branch as fallback
+      const currentBranch = selectedBranch || localFilters.branch || filters.branch;
 
       if (!userBranchId) {
         // If user has no branch assigned, show only "All Branch" option
+        // But preserve selected branch if one exists
+        if (currentBranch && currentBranch.value) {
+          const branchExists = allBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
+          if (branchExists) {
+            setBranchOptions([{ value: '', label: 'All Branch' }, branchExists]);
+            return;
+          }
+        }
         setBranchOptions([{ value: '', label: 'All Branch' }]);
         return;
       }
@@ -55,31 +71,93 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
         return Number(option.value) === Number(userBranchId);
       });
 
+      // Preserve selected branch even if it's not the user's branch (to prevent glitching)
+      if (currentBranch && currentBranch.value) {
+        const branchExists = allBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
+        if (branchExists && !filteredOptions.find(opt => String(opt.value) === String(currentBranch.value))) {
+          // Add selected branch to options if it's not already there
+          filteredOptions.push(branchExists);
+        }
+      }
+
       setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [{ value: '', label: 'All Branch' }]);
     } catch (e) {
       console.error('Error filtering branches by user:', e);
-      // On error, show only "All Branch" as fallback
+      // On error, preserve selected branch if possible
+      const currentBranch = selectedBranch || localFilters.branch || filters.branch;
+      if (currentBranch && currentBranch.value) {
+        const branchExists = allBranchOptions?.find(opt => String(opt.value) === String(currentBranch.value));
+        if (branchExists) {
+          setBranchOptions([{ value: '', label: 'All Branch' }, branchExists]);
+          return;
+        }
+      }
       setBranchOptions([{ value: '', label: 'All Branch' }]);
     }
   };
 
   // Sync local filters with props when filters are cleared from parent
   useEffect(() => {
+    // Handle status - convert from array/object to string if needed
+    let statusValue = "";
+    if (filters.status) {
+      if (Array.isArray(filters.status) && filters.status.length > 0) {
+        statusValue = filters.status.map(s => s.value || s).join(", ");
+      } else if (typeof filters.status === 'object' && filters.status.value) {
+        statusValue = filters.status.value;
+      } else if (typeof filters.status === 'string') {
+        statusValue = filters.status;
+      }
+    }
+    
     setLocalFilters({
       productName: filters.productName || "",
       formDocNo: filters.formDocNo || "",
       fromDate: filters.fromDate || "",
       toDate: filters.toDate || "",
-      status: filters.status || null,
+      status: statusValue,
       branch: filters.branch || null,
     });
   }, [filters]);
-
+  
+  // Separate effect to ensure selected branch is always in branchOptions
+  // Use localFilters.branch to track current selection state
   useEffect(() => {
+    const currentBranch = localFilters.branch || filters.branch;
+    if (currentBranch && currentBranch.value && externalBranchOptions) {
+      setBranchOptions(prev => {
+        const branchExists = prev.find(opt => String(opt.value) === String(currentBranch.value));
+        if (!branchExists) {
+          // Selected branch is not in options, add it
+          const branchFromAll = externalBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
+          if (branchFromAll) {
+            return [...prev, branchFromAll];
+          }
+        }
+        return prev;
+      });
+    }
+  }, [localFilters.branch, filters.branch, externalBranchOptions]);
+
+  // Use ref to track previous externalBranchOptions to prevent unnecessary re-filtering
+  const prevExternalBranchOptionsRef = React.useRef(externalBranchOptions);
+  const hasInitializedBranchOptionsRef = React.useRef(false);
+  
+  useEffect(() => {
+    // Only re-filter if externalBranchOptions actually changed (reference or content)
+    const optionsChanged = prevExternalBranchOptionsRef.current !== externalBranchOptions ||
+      (externalBranchOptions && prevExternalBranchOptionsRef.current && 
+       externalBranchOptions.length !== prevExternalBranchOptionsRef.current.length);
+    
     // If parent passes branch options (even initially), use them and skip fetching
     if (externalBranchOptions) {
-      // Filter branches based on user's branch
-      filterBranchesByUser(externalBranchOptions);
+      // Only filter if options changed or if we haven't initialized yet
+      if (optionsChanged || !hasInitializedBranchOptionsRef.current) {
+        // Use localFilters.branch as source of truth (current state)
+        filterBranchesByUser(externalBranchOptions, localFilters.branch || filters.branch);
+        prevExternalBranchOptionsRef.current = externalBranchOptions;
+        hasInitializedBranchOptionsRef.current = true;
+      }
       return;
     }
 
@@ -104,20 +182,25 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               : [];
         const mapped = list.map(b => ({ value: b.id, label: b.branch_name }));
         const allOptions = [{ value: '', label: 'All Branch' }, ...mapped];
-        // Filter branches based on user's branch
-        filterBranchesByUser(allOptions);
+        // Filter branches based on user's branch, passing current branch from localFilters
+        filterBranchesByUser(allOptions, localFilters.branch || filters.branch);
       } catch (e) {
         // keep default All Branch only on failure
         setBranchOptions([{ value: '', label: 'All Branch' }]);
       }
     };
     fetchBranches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalBranchOptions]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     // Only update local state, don't apply filters
     setLocalFilters({ ...localFilters, [name]: value });
+  };
+
+  const handleClearInput = (fieldName) => {
+    setLocalFilters({ ...localFilters, [fieldName]: "" });
   };
 
   const handleSelectChange = (selected, action) => {
@@ -140,7 +223,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       formDocNo: "",
       fromDate: "",
       toDate: "",
-      status: null,
+      status: "",
       branch: null,
     };
     setLocalFilters(emptyFilters);
@@ -150,8 +233,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
   const isAnyFilterApplied = Object.entries(localFilters).some(([key, val]) => {
     if (key === 'status') {
-      // For status (multi-select), check if it's an array with items
-      return Array.isArray(val) && val.length > 0;
+      // For status (text input), check if it's a non-empty string
+      return typeof val === 'string' && val.trim() !== '';
     }
     return val !== null && val !== undefined && val !== '';
   });
@@ -177,35 +260,36 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     return colorMap[statusValue] || { bg: '#fef3c7', text: '#d97706', border: '#d97706' };
   };
 
-  // Shared react-select style to match input height
+  // Shared react-select style matching Laravel blade design
   const customSelectStyles = {
     control: (base, state) => ({
       ...base,
-      minHeight: '36px',
-      fontSize: '0.8rem',
-      borderRadius: '0.5rem',
-      borderColor: state.isFocused ? '#3B82F6' : '#D1D5DB',
-      boxShadow: state.isFocused ? '0 0 0 3px rgba(59, 130, 246, 0.1)' : 'none',
-      transition: 'all 0.2s ease',
+      minHeight: '32px',
+      fontSize: '10px',
+      fontWeight: 'bold',
+      color: '#012970',
+      borderRadius: '8px',
+      borderColor: state.isFocused ? '#2ea2d1' : '#2ea2d1',
+      boxShadow: state.isFocused ? '0 0 0 3px rgba(46, 162, 209, 0.1)' : 'none',
       // Allow height to grow for multi-select
-      height: state.selectProps.isMulti ? 'auto' : '36px',
-      '&:hover': {
-        borderColor: state.isFocused ? '#3B82F6' : '#9CA3AF',
-      },
+      height: state.selectProps.isMulti ? 'auto' : '32px',
     }),
     singleValue: (base) => ({
       ...base,
-      lineHeight: '36px',
-      color: '#374151',
+      lineHeight: '32px',
+      color: '#012970',
+      fontWeight: 'bold',
+      fontSize: '10px',
     }),
     indicatorsContainer: (base) => ({
       ...base,
-      height: '36px',
+      height: '32px',
     }),
     placeholder: (base) => ({
       ...base,
-      fontSize: '0.8rem',
+      fontSize: '10px',
       color: '#9CA3AF',
+      fontWeight: 'bold',
     }),
     multiValue: (base, state) => {
       const statusValue = state.data?.value;
@@ -273,8 +357,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     }),
     valueContainer: (base) => ({
       ...base,
-      padding: '4px 8px',
-      gap: '4px',
+      padding: '1px 4px',
+      gap: '2px',
     }),
   };
 
@@ -284,125 +368,191 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-xl sm:p-6 mx-auto">
-      <form onSubmit={handleFormSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-4 sm:gap-x-6 gap-y-4 items-end">
+    <div className="bg-white shadow-lg rounded-xl p-6 mx-auto">
+      <form onSubmit={handleFormSubmit}>
+        {/* First Row: Product Name, Form Doc No, From Date, To Date, Status */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 sm:gap-x-6 gap-y-4 items-center mb-4">
+          {/* Product Name / Code */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
+              Product Name or Code
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                name="productName"
+                value={localFilters.productName || ""}
+                onChange={handleChange}
+                placeholder=""
+                className={`${CONTROL_CLASSES} ${localFilters.productName ? 'pr-8' : ''}`}
+                style={{ fontSize: '12px', height: '32px', paddingTop: '4px', paddingBottom: '4px' }}
+              />
+              {localFilters.productName && (
+                <button
+                  type="button"
+                  onClick={() => handleClearInput('productName')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  style={{ fontSize: '12px' }}
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
 
-        {/* Product Name / Code */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Product Name / Code
-          </label>
-          <input
-            type="text"
-            name="productName"
-            value={localFilters.productName || ""}
-            onChange={handleChange}
-            placeholder="Enter product name or code"
-            className={CONTROL_CLASSES}
-            style={INPUT_TEXT_SIZE}
-          />
+          {/* Form Doc No */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
+              Form Doc No
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                name="formDocNo"
+                value={localFilters.formDocNo || ""}
+                onChange={handleChange}
+                placeholder=""
+                className={`${CONTROL_CLASSES} ${localFilters.formDocNo ? 'pr-8' : ''}`}
+                style={{ fontSize: '12px', height: '32px', paddingTop: '4px', paddingBottom: '4px' }}
+              />
+              {localFilters.formDocNo && (
+                <button
+                  type="button"
+                  onClick={() => handleClearInput('formDocNo')}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  style={{ fontSize: '12px' }}
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* From Date */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
+              From Date
+            </label>
+            <div className="relative">
+              <input
+                type={localFilters.fromDate ? "date" : "text"}
+                name="fromDate"
+                value={localFilters.fromDate || ""}
+                onChange={handleChange}
+                placeholder="mm/dd/yyyy"
+                className={`${CONTROL_CLASSES} ${localFilters.fromDate ? 'pr-16' : 'pr-10'}`}
+                style={{ fontSize: '12px', height: '32px', paddingTop: '4px', paddingBottom: '4px' }}
+                onFocus={(e) => {
+                  if (!e.target.value) {
+                    e.target.type = 'date';
+                  }
+                }}
+              />
+              {localFilters.fromDate && (
+                <button
+                  type="button"
+                  onClick={() => handleClearInput('fromDate')}
+                  className="absolute right-8 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+                  style={{ fontSize: '12px' }}
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
+              <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* To Date */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
+              To Date
+            </label>
+            <div className="relative">
+              <input
+                type={localFilters.toDate ? "date" : "text"}
+                name="toDate"
+                value={localFilters.toDate || ""}
+                onChange={handleChange}
+                placeholder="mm/dd/yyyy"
+                className={`${CONTROL_CLASSES} ${localFilters.toDate ? 'pr-16' : 'pr-10'}`}
+                style={{ fontSize: '12px', height: '32px', paddingTop: '4px', paddingBottom: '4px' }}
+                onFocus={(e) => {
+                  if (!e.target.value) {
+                    e.target.type = 'date';
+                  }
+                }}
+              />
+              {localFilters.toDate && (
+                <button
+                  type="button"
+                  onClick={() => handleClearInput('toDate')}
+                  className="absolute right-8 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
+                  style={{ fontSize: '12px' }}
+                >
+                  <XMarkIcon className="h-4 w-4" />
+                </button>
+              )}
+              <CalendarIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Status Select */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <Select
+              name="status"
+              value={localFilters.status ? statusOptions.find(opt => opt.value === localFilters.status) : null}
+              onChange={(selected) => {
+                setLocalFilters({ ...localFilters, status: selected ? selected.value : "" });
+              }}
+              options={statusOptions}
+              placeholder=""
+              isClearable
+              styles={customSelectStyles}
+            />
+          </div>
         </div>
 
-        {/* Form Doc No */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Form Doc No
-          </label>
-          <input
-            type="text"
-            name="formDocNo"
-            value={localFilters.formDocNo || ""}
-            onChange={handleChange}
-            placeholder="Document number"
-            className={CONTROL_CLASSES}
-            style={INPUT_TEXT_SIZE}
-          />
-        </div>
+        {/* Second Row: Branch, Search Button, and Reset Button */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-4 sm:gap-x-6 gap-y-4 items-end">
+          {/* Branch Select */}
+          <div>
+            <label className="block text-[13px] font-medium text-gray-700 mb-1">
+              Branch
+            </label>
+            <Select
+              name="branch"
+              value={localFilters.branch || null}
+              onChange={handleSelectChange}
+              options={branchOptions}
+              placeholder="All Branch"
+              styles={customSelectStyles}
+              isClearable
+            />
+          </div>
 
-        {/* From Date */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            From Date
-          </label>
-          <input
-            type="date"
-            name="fromDate"
-            value={localFilters.fromDate || ""}
-            onChange={handleChange}
-            className={CONTROL_CLASSES}
-            style={INPUT_TEXT_SIZE}
-          />
-        </div>
-
-        {/* To Date */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            To Date
-          </label>
-          <input
-            type="date"
-            name="toDate"
-            value={localFilters.toDate || ""}
-            onChange={handleChange}
-            className={CONTROL_CLASSES}
-            style={INPUT_TEXT_SIZE}
-          />
-        </div>
-
-        {/* Status Select */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Status
-          </label>
-          <Select
-            name="status"
-            isMulti
-            value={localFilters.status || null}
-            onChange={handleSelectChange}
-            options={statusOptions}
-            placeholder="Select Status"
-            styles={customSelectStyles}
-            isClearable
-          />
-        </div>
-
-        {/* Branch Select */}
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">
-            Branch
-          </label>
-          <Select
-            name="branch"
-            value={localFilters.branch || null}
-            onChange={handleSelectChange}
-            options={branchOptions}
-            placeholder="Select Branch"
-            styles={customSelectStyles}
-            isClearable
-          />
-        </div>
-
-        {/* Action Buttons */}
-        <div className="col-span-1 sm:col-span-2 md:col-span-3 lg:col-span-6 flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={handleSearch}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 text-xs font-medium transition duration-150 ease-in-out shadow-sm hover:shadow-md"
-            style={INPUT_TEXT_SIZE}
-          >
-            <MagnifyingGlassIcon className="h-4 w-4" />
-            Search
-          </button>
-          {isAnyFilterApplied && (
+          {/* Search and Reset Buttons */}
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              className="px-5 bg-[#0dcaf0] text-black rounded-[8px] text-[13px] font-bold hover:bg-[#0bb8d9] transition-colors"
+              style={{ fontSize: '12px', height: '32px', paddingTop: '4px', paddingBottom: '4px' }}
+            >
+              Search
+            </button>
             <button
               type="button"
               onClick={clearFilters}
-              className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-700 text-xs font-medium transition duration-150 ease-in-out shadow-sm hover:shadow-md"
-              style={INPUT_TEXT_SIZE}
+              disabled={!isAnyFilterApplied}
+              className="px-5 bg-gray-500 text-white rounded-[8px] text-[13px] font-bold hover:bg-gray-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+              style={{ fontSize: '10px', height: '32px', paddingTop: '4px', paddingBottom: '4px' }}
             >
-              Clear Filters
+              <ArrowPathIcon className="h-4 w-4" />
+              Reset
             </button>
-          )}
+          </div>
         </div>
       </form>
     </div>

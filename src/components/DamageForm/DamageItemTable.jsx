@@ -1792,16 +1792,6 @@ const normalizeImageEntries = (list) => {
         message={qtyErrorModal.message}
         onClose={() => setQtyErrorModal({ isOpen: false, message: '' })}
       />
-      <div className="flex items-center justify-start mb-4">
-        <h3 className={`${mode === 'view' ? 'text-sm' : 'text-[0.8rem] sm:text-sm'} font-semibold text-green-600 flex items-center gap-2`}>
-          <CheckCircle size={16} /> {t('damageForm.productInformation')}
-        </h3>
-        <span className="font-medium text-gray-600 px-2 py-0.5 rounded">
-            <span className="text-[0.8rem] sm:text-[0.7rem] bg-green-50 text-green-800 px-2.5 py-0.5 rounded-md border border-green-200">
-              {`${Array.isArray(items) ? items.length : 0}- product${(Array.isArray(items) && items.length === 1) ? '' : 's'}`}
-            </span>
-        </span>
-      </div>
       {/* Action buttons and Add Product button with search bar */}
       <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
         {/* Left side: Search box and Filter button */}
@@ -1897,66 +1887,13 @@ const normalizeImageEntries = (list) => {
             );
           })()}
           
-          {/* Add Product button for Ongoing (Checkers, Supervisors, Approvers only - NOT regular users) or Checked (BM only) - hide in add mode and Branch Account stages - Desktop only */}
-          {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || (status === 'Checked' && isApproverRole)) && 
-           !isCompleted && 
-           mode !== 'add' && 
-           status !== 'BM Approved' && 
-           status !== 'BMApproved' &&
-           status !== 'Ac_Acknowledged' && 
-           status !== 'Acknowledged' &&
-           status !== 'Issued' &&
-           status !== 'Completed' &&
-           // Hide for Branch Account users and regular user role
-           !isAccount && 
-           !isUserRole && (
-            <button
-              onClick={onOpenAddProductModal}
-              className="hidden md:inline-flex group relative items-center justify-center gap-1.5 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-sm transition-all duration-300 ease-out hover:shadow-lg hover:shadow-blue-500/30 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 overflow-hidden"
-              title="Add Product"
-            >
-              {/* Background shine effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out"></div>
-              
-              {/* Icons with modern animation */}
-              <Plus size={18} className="relative z-10 transition-all duration-300 ease-out group-hover:rotate-90" />
-              <Package size={18} className="relative z-10 transition-all duration-300 ease-out group-hover:scale-110" />
-            </button>
-          )}
         </div>
         
-        {/* Add Product button for mobile - Fixed position at bottom right - Ongoing (Checkers, Supervisors, Approvers only - NOT regular users) or Checked (BM only) - hide in Branch Account stages */}
-        {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || (status === 'Checked' && isApproverRole)) && 
-         !isCompleted && 
-         mode !== 'add' && 
-         status !== 'BM Approved' && 
-         status !== 'BMApproved' &&
-         status !== 'Ac_Acknowledged' && 
-         status !== 'Acknowledged' &&
-         status !== 'Issued' && 
-         status !== 'Completed' && 
-         // Hide for Branch Account users and regular user role
-         !isAccount && 
-         !isUserRole && (
-          <button
-            onClick={onOpenAddProductModal}
-            className="md:hidden fixed bottom-6 right-6 z-50 flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-full shadow-2xl transition-all duration-300 hover:shadow-blue-500/50 hover:scale-110 active:scale-95 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-offset-2"
-          >
-            <div className="relative flex items-center justify-center w-full h-full">
-              {/* Main Plus icon */}
-              <Plus size={28} className="shrink-0 drop-shadow-lg" strokeWidth={2.5} />
-              {/* Package icon as floating badge */}
-              <div className="absolute -top-1 -right-1 flex items-center justify-center w-6 h-6 bg-white rounded-full shadow-lg border-2 border-blue-500">
-                <Package size={12} className="text-blue-600 shrink-0" strokeWidth={2.5} />
-              </div>
-            </div>
-          </button>
-        )}
       </div>
 
       <div className="overflow-x-auto border border-gray-200 rounded-t-xl hidden md:block">
         <table className="min-w-full border-collapse table-auto">
-          <thead className={`bg-gray-50 text-gray-500 ${mode === 'view' ? 'text-xs' : 'text-[0.7rem]'} uppercase tracking-wider border-b border-gray-200`}>
+          <thead className="bg-[#f6f6fe] text-[13px] font-bold border-b border-gray-200">
             <tr>
               <th className="px-2 py-2 text-center">
                 <input
@@ -2000,7 +1937,7 @@ const normalizeImageEntries = (list) => {
             </tr>
           </thead>
 
-          <tbody className={`${mode === 'view' ? 'text-sm' : 'text-[0.75rem]'} text-gray-700`}>
+          <tbody className="text-[13px]">
             {paginatedItems.length > 0 ? (
               paginatedItems.map((item, idx) => {
                 const matchId = item.id ?? item.specific_form_id;
@@ -2013,7 +1950,7 @@ const normalizeImageEntries = (list) => {
                   }`}
                 >
                   <td
-                    className="px-2 py-2 text-center"
+                    className="px-2 py-2 text-center text-[13px]"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <input
@@ -2023,19 +1960,19 @@ const normalizeImageEntries = (list) => {
                       onChange={() => toggleSelect(item.id)}
                     />
                   </td>
-                  <td className="px-2 py-2">{startIdx + idx + 1}</td>
-                  <td className="px-2 py-2 hidden sm:table-cell">
+                  <td className="px-2 py-2 text-[13px]">{startIdx + idx + 1}</td>
+                  <td className="px-2 py-2 hidden sm:table-cell text-[13px]">
                     {item.category}
                   </td>
-                  <td className="px-2 py-2">{item.code}</td>
-                  <td className="px-2 py-2 font-medium">{item.name}</td>
-                  <td className="px-2 py-2 hidden sm:table-cell">
+                  <td className="px-2 py-2 text-[13px]">{item.code}</td>
+                  <td className="px-2 py-2 text-[13px]">{item.name}</td>
+                  <td className="px-2 py-2 hidden sm:table-cell text-[13px]">
                     {item.unit}
                   </td>
-                  <td className="px-2 py-2 hidden md:table-cell">
+                  <td className="px-2 py-2 hidden md:table-cell text-[13px]">
                     {item.system_qty}
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-2 text-[13px]">
                     {(() => {
                       const explicit = Number(
                         item?.price ??
@@ -2075,7 +2012,7 @@ const normalizeImageEntries = (list) => {
                     })()}
                   </td>
                   {/* Request Qty - shows actual_qty (editable in add mode, read-only in view mode) */}
-                  <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-2 py-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
                     {mode === 'add' ? (
                       // In add mode, actual_qty is editable (this becomes the request)
                       <div>
@@ -2085,6 +2022,8 @@ const normalizeImageEntries = (list) => {
                           pattern="[0-9]*"
                           data-item-id={item.id}
                           data-field="request_qty"
+                          data-qty-field="true"
+                          data-auto-focus-target="true"
                           value={item.actual_qty ?? item.request_qty ?? ''}
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
@@ -2167,15 +2106,26 @@ const normalizeImageEntries = (list) => {
                   </td>
                   {mode !== 'add' && (
                     <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
-                      {mode === 'view' && !allowFinalQtyEdit ? (
-                        <span>{formatQuantity(item.final_qty)}</span>
-                      ) : (
-                        <div>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={item.final_qty ?? ''}
+                      {(() => {
+                        // In Checked stage, Final Qty should be read-only (only Actual Qty is editable)
+                        const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || (mode === 'view' && !allowFinalQtyEdit);
+                        
+                        if (shouldShowFinalQtyAsReadOnly) {
+                          return <span>{formatQuantity(item.final_qty)}</span>;
+                        }
+                        
+                        return (
+                          <div>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              data-item-id={item.id}
+                              data-field="final_qty"
+                              data-qty-field="true"
+                              data-auto-focus-target="true"
+                              value={item.final_qty ?? ''}
                             max={item.system_qty > 0 ? item.system_qty : undefined}
                             onChange={(e) => {
                               const nextValue = e.target.value;
@@ -2249,11 +2199,12 @@ const normalizeImageEntries = (list) => {
                             title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
                           />
                         </div>
-                      )}
+                        );
+                      })()}
                     </td>
                   )}
                   {mode !== 'add' && (
-                    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-2 py-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const systemQty = toSafeNumber(item.system_qty);
                         const finalQty = toSafeNumber(item.final_qty ?? item.actual_qty);
@@ -2270,6 +2221,9 @@ const normalizeImageEntries = (list) => {
                         // Account can edit product_type at OP Approved stage (matching Laravel blade)
                         // Supervisor cannot edit product_type (read-only)
                         const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
+                        
+                        // In Checked stage, Actual Qty should be editable
+                        const canEditActualQty = (status === 'Checked' || status === 'checked') && !isCompleted;
                         
                         if (canEditProductType) {
                           return (
@@ -2317,12 +2271,101 @@ const normalizeImageEntries = (list) => {
                           );
                         }
                         
+                        // In Checked stage, show editable input for actual_qty
+                        if (canEditActualQty) {
+                          return (
+                            <div>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                data-item-id={item.id}
+                                data-field="actual_qty"
+                                data-qty-field="true"
+                                data-auto-focus-target="true"
+                                value={item.actual_qty ?? ''}
+                                max={item.system_qty > 0 ? item.system_qty : undefined}
+                                onChange={(e) => {
+                                  const nextValue = e.target.value;
+                                  if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
+                                    // Validate against system_qty
+                                    const systemQty = parseFloat(item.system_qty) || 0;
+                                    const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                                    
+                                    if (systemQty === 0 && numericValue > 0) {
+                                      // Show error modal
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                      });
+                                      return; // Don't update the value
+                                    }
+                                    
+                                    if (systemQty > 0 && numericValue > systemQty) {
+                                      // Show error modal
+                                      const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.actualQtyExceedsSystem', { 
+                                          productName,
+                                          qty: numericValue,
+                                          systemQty,
+                                          defaultValue: `${productName}: Actual Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                        })
+                                      });
+                                      return; // Don't update the value
+                                    }
+                                    
+                                    handleQtyChange(item.id, nextValue, 'actual_qty');
+                                  }
+                                }}
+                                onBlur={(e) => {
+                                  const nextValue = e.target.value === '' ? '0' : e.target.value;
+                                  const systemQty = parseFloat(item.system_qty) || 0;
+                                  const numericValue = parseFloat(nextValue) || 0;
+                                  
+                                  // Validate on blur as well - show error but don't auto-change
+                                  if (systemQty === 0 && numericValue > 0) {
+                                    setQtyErrorModal({
+                                      isOpen: true,
+                                      message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                    });
+                                    // Reset to previous value
+                                    e.target.value = String(item.actual_qty ?? '0');
+                                    return;
+                                  }
+                                  
+                                  if (systemQty > 0 && numericValue > systemQty) {
+                                    const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                    setQtyErrorModal({
+                                      isOpen: true,
+                                      message: t('messages.errors.actualQtyExceedsSystem', { 
+                                        productName,
+                                        qty: numericValue,
+                                        systemQty,
+                                        defaultValue: `${productName}: Actual Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                      })
+                                    });
+                                    // Reset to previous value
+                                    e.target.value = String(item.actual_qty ?? '0');
+                                    return;
+                                  }
+                                  
+                                  handleQtyChange(item.id, nextValue, 'actual_qty');
+                                }}
+                                className="w-20 border border-gray-300 rounded px-2 py-1"
+                                title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
+                              />
+                            </div>
+                          );
+                        }
+                        
                         return formatQuantity(displayQty);
                       })()}
                     </td>
                   )}
                   {/* Amount - calculated using final_qty (or min of system_qty and final_qty) */}
-                  <td className="px-2 py-2 whitespace-nowrap">
+                  <td className="px-2 py-2 whitespace-nowrap text-[13px]">
                     {(() => {
                       const systemQty = toSafeNumber(item.system_qty);
                       const finalQty = toSafeNumber(item.final_qty ?? item.actual_qty);
@@ -2340,7 +2383,7 @@ const normalizeImageEntries = (list) => {
                   </td>
                   
                   {/* Remark */}
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-2 text-[13px]">
                     <div className="w-full" onClick={e => e.stopPropagation()}>
                       {/* Make remark editable when: mode is not view, OR status is Ongoing/Checked (for newly added products) */}
                       {(mode === 'view' && status !== 'Ongoing' && status !== 'Checked' && status !== 'checked') ? (
@@ -2363,7 +2406,7 @@ const normalizeImageEntries = (list) => {
                       )}
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="px-2 py-2 text-[13px]">
                     {/* Make img editable when: mode is add/edit, OR status is Ongoing/Checked (for newly added products) */}
                     {((mode === 'add' || mode === 'edit') || ((status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted)) ? (
                       <div className="flex items-center gap-1">
@@ -2479,7 +2522,7 @@ const normalizeImageEntries = (list) => {
                   </td>
                   {/* Show account code column in all stages including Completed */}
                   {showAccountCodes && (
-                    <td className="px-2 py-2" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-2 py-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
                       {isCompleted ? (
                         <span className="inline-block rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
                           {getAccountCodeLabel(item.acc_code1 ?? item.acc_code ?? '')}
@@ -2526,7 +2569,8 @@ const normalizeImageEntries = (list) => {
                     1 + // Img (hidden md)
                     (showAccountCodes ? 1 : 0) // Account Code
                   } 
-                  className="px-2 py-6 text-center text-gray-400"
+                  className="px-2 py-6 text-center"
+                  style={{ fontSize: '13px' }}
                 >
                   No items added yet.
                 </td>
@@ -2541,7 +2585,7 @@ const normalizeImageEntries = (list) => {
           paginatedItems.map((item) => (
             <div
               key={item.id}
-              className={`border border-gray-200 rounded-lg p-2.5 mb-2 bg-white shadow-md hover:shadow-lg transition-all duration-200 ${
+              className={`border border-gray-200 rounded-lg p-2.5 mb-2 bg-white ${
                 selectedIds.includes(item.id) ? "ring-1 ring-emerald-400 border-emerald-300" : ""
               }`}
             >
@@ -2560,16 +2604,17 @@ const normalizeImageEntries = (list) => {
                   <div className="flex items-start justify-between min-w-0 gap-2">
                     <div className="min-w-0 flex-1 basis-0">
                       <div 
-                        className="block text-sm font-semibold text-gray-900 w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis py-0.5 leading-tight cursor-pointer"
+                        className="block w-full max-w-full overflow-hidden whitespace-nowrap text-ellipsis py-0.5 leading-tight cursor-pointer"
+                        style={{ fontSize: '13px' }}
                         onClick={() => openProductModal(item)}
                       >
                       {item.name}
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-                        <span className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200 text-gray-700 text-xs font-medium">
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5" style={{ fontSize: '13px' }}>
+                        <span className="px-1.5 py-0.5 rounded bg-gray-100 border border-gray-200" style={{ fontSize: '13px' }}>
                           {item.code}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-xs font-medium">
+                        <span className="px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200" style={{ fontSize: '13px' }}>
                           {item.unit}
                         </span>
                       </div>
@@ -2852,7 +2897,7 @@ const normalizeImageEntries = (list) => {
         </div>
       )}
 
-      <div className="flex justify-end gap-6 items-center mt-4 bg-green-50 p-3 rounded-md font-semibold text-green-700 text-sm sm:text-sm">
+      <div className="flex justify-end gap-6 items-center mt-4 bg-green-50 p-3 rounded-md font-bold text-green-700" style={{ fontSize: '13px' }}>
         <span>Total</span>
         <span className="text-right">{Math.round(total).toLocaleString('en-US')}</span>
       </div>

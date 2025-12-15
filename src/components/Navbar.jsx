@@ -239,8 +239,22 @@ export default function Navbar({ toggleSidebar }) {
     }, [menuOpen]);
 
     useEffect(() => {
+        const isFetchingRef = { current: false }; // Track if fetch is in progress
+        const lastFetchTimeRef = { current: 0 }; // Track last fetch time for debouncing
+        
         const fetchNotifications = async () => {
             if (!user || !token) return;
+            
+            // Debounce: Don't fetch if we just fetched within the last 500ms
+            const now = Date.now();
+            if (isFetchingRef.current || (now - lastFetchTimeRef.current < 500)) {
+                console.log('[Navbar] Skipping fetch - already fetching or too soon since last fetch');
+                return;
+            }
+            
+            isFetchingRef.current = true;
+            lastFetchTimeRef.current = now;
+            
             try {
                 // Add cache-busting parameter to ensure we get fresh data
                 const cacheBuster = `?t=${Date.now()}`;
@@ -303,10 +317,48 @@ export default function Navbar({ toggleSidebar }) {
                     };
                 });
 
+                // Helper function to check if notification should be shown based on user role and form status
+                const shouldShowNotificationForRole = (notification, currentUser) => {
+                    if (!currentUser || !notification) return false;
+                    
+                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                    const userType = normalizeText(currentUser.user_type || currentUser.role || '');
+                    const formStatus = normalizeText(notification.status || notification.data?.status || '');
+                    
+                    // Checker (C/CS) - only show notifications for "Ongoing" forms
+                    if (['c', 'cs'].includes(userType)) {
+                        return formStatus === 'ongoing';
+                    }
+                    
+                    // Approver/BM (A1) - only show notifications for "Checked" forms
+                    if (userType === 'a1' || normalizeText(currentUser.role) === 'bm' || normalizeText(currentUser.role) === 'abm') {
+                        return formStatus === 'checked';
+                    }
+                    
+                    // Operation Manager (A2) - only show notifications for "BM Approved" forms
+                    if (userType === 'a2') {
+                        return formStatus === 'bm approved' || formStatus === 'bmapproved';
+                    }
+                    
+                    // Branch Account (AC) - only show notifications for "BM Approved" and "Acknowledged" forms
+                    if (userType === 'ac' || normalizeText(currentUser.role) === 'account') {
+                        return formStatus === 'bm approved' || formStatus === 'bmapproved' || 
+                               formStatus === 'ac_acknowledged' || formStatus === 'acknowledged';
+                    }
+                    
+                    // For other roles, don't show notifications
+                    return false;
+                };
+
                 // Filter to only show unread notifications (is_viewed is false, null, or undefined)
-                const unreadNotifications = parsed.filter(n => 
-                    n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined
-                );
+                // AND filter by role and form status
+                const unreadNotifications = parsed.filter(n => {
+                    const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
+                    const matchesForm = n.form_name === 'Big Damage Issue Form';
+                    const shouldShow = shouldShowNotificationForRole(n, user);
+                    
+                    return isUnread && matchesForm && shouldShow;
+                });
 
                 // Detect new notifications by comparing with previous set
                 const currentNotificationIds = new Set(unreadNotifications.map(n => n.notification_id));
@@ -569,6 +621,9 @@ export default function Navbar({ toggleSidebar }) {
                 localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
             } catch (err) {
                 // Don't throw to prevent uncaught promise rejection
+                console.error('[Navbar] Error fetching notifications:', err);
+            } finally {
+                isFetchingRef.current = false;
             }
         };
 
@@ -576,19 +631,23 @@ export default function Navbar({ toggleSidebar }) {
         subscribeToPush();
         
         // Listen for custom event to refresh notifications immediately
+        // Use debouncing to prevent multiple rapid fetches
+        let notificationUpdateTimeout = null;
         const handleNotificationsUpdated = (event) => {
             // Force immediate refresh when notifications are updated
             console.log('[Navbar] Notifications updated event received, refreshing...', event.detail);
-            // Refresh immediately
-            fetchNotifications();
-            // Add a small delay to ensure backend has processed the update, then refresh again
-            setTimeout(() => {
+            
+            // Clear any pending timeout
+            if (notificationUpdateTimeout) {
+                clearTimeout(notificationUpdateTimeout);
+            }
+            
+            // Debounce: Wait 500ms after the last event before fetching
+            // This prevents multiple rapid fetches when multiple events fire
+            notificationUpdateTimeout = setTimeout(() => {
                 fetchNotifications();
-            }, 300);
-            // Also refresh after a longer delay to catch any delayed backend updates
-            setTimeout(() => {
-                fetchNotifications();
-            }, 1500);
+                notificationUpdateTimeout = null;
+            }, 500);
         };
         window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
         
@@ -607,6 +666,9 @@ export default function Navbar({ toggleSidebar }) {
         const interval = setInterval(fetchNotifications, 10000);
         return () => {
             clearInterval(interval);
+            if (notificationUpdateTimeout) {
+                clearTimeout(notificationUpdateTimeout);
+            }
             window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
             window.removeEventListener('storage', handleStorageChange);
         };

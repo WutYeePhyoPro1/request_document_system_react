@@ -3,6 +3,7 @@ import useSWR from 'swr';
 import useSWRImmutable from 'swr/immutable';
 import { Link, useSearchParams, useLocation } from "react-router-dom";
 import { PlusCircleIcon, FunnelIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { PlusSquareIcon } from '@heroicons/react/24/outline';
 import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
 import BigDamageIsuueLogo from "../../assets/images/big-dmg-issue-logo.png";
@@ -31,15 +32,8 @@ const Dashboard = () => {
     const statusParam = searchParams.get('status');
     const branchParam = searchParams.get('branch');
     
-    // Parse status - can be comma-separated string or single value
-    let status = null;
-    if (statusParam) {
-      const statusValues = statusParam.split(',').map(s => s.trim()).filter(Boolean);
-      if (statusValues.length > 0) {
-        // Map to filter format (array of objects with value property)
-        status = statusValues.map(s => ({ value: s, label: s }));
-      }
-    }
+    // Parse status - now a simple string
+    let status = statusParam || "";
     
     // Parse branch - will be set after branchOptions are loaded
     let branch = null;
@@ -67,6 +61,8 @@ const Dashboard = () => {
   const token = useMemo(() => localStorage.getItem("token"), []);
   const listAbortRef = useRef(null);
   const lastQueryRef = useRef('');
+  const isFilteringRef = useRef(false);
+  const filterTimeoutRef = useRef(null);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -94,19 +90,9 @@ const Dashboard = () => {
       params.set("doc_no", filters.formDocNo); // fallback key some APIs use
       params.set("document_no", filters.formDocNo); // additional fallback
     }
-    // Handle status as array (multi-select) or single value
-    if (filters.status) {
-      if (Array.isArray(filters.status) && filters.status.length > 0) {
-        // Multi-select: send as array or comma-separated string
-        const statusValues = filters.status.map(s => s.value || s).filter(Boolean);
-        if (statusValues.length > 0) {
-          // Send as comma-separated string (common API pattern)
-          params.set("status", statusValues.join(','));
-        }
-      } else if (filters.status.value) {
-        // Single select (backward compatibility)
-        params.set("status", filters.status.value);
-      }
+    // Handle status as string
+    if (filters.status && filters.status.trim()) {
+      params.set("status", filters.status.trim());
     }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
     // Only send date filters if they have actual values (not empty strings)
@@ -241,10 +227,69 @@ const Dashboard = () => {
   }, [notifications, currentUser]);
 
   // Create a map of notification counts per form (by general_form_id)
+  // Helper function to check if notification should be shown based on user role and form status
+  const shouldShowNotificationForRole = (user, formStatus) => {
+    if (!user || !formStatus) return false;
+    
+    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+    const userType = normalizeText(user.user_type || user.role || '');
+    const status = normalizeText(formStatus);
+    
+    // Checker (C/CS) - only show notifications for "Ongoing" forms
+    if (['c', 'cs'].includes(userType)) {
+      return status === 'ongoing';
+    }
+    
+    // Approver/BM (A1) - only show notifications for "Checked" forms
+    if (userType === 'a1' || normalizeText(user.role) === 'bm' || normalizeText(user.role) === 'abm') {
+      return status === 'checked';
+    }
+    
+    // Operation Manager (A2) - only show notifications for "BM Approved" forms
+    if (userType === 'a2') {
+      return status === 'bm approved' || status === 'bmapproved';
+    }
+    
+    // Branch Account (AC) - only show notifications for "BM Approved" and "Acknowledged" forms
+    if (userType === 'ac' || normalizeText(user.role) === 'account') {
+      return status === 'bm approved' || status === 'bmapproved' || 
+             status === 'ac_acknowledged' || status === 'acknowledged';
+    }
+    
+    // For other roles, don't show notifications
+    return false;
+  };
+
+  // Use a ref to store the previous count to prevent flickering during filter changes
+  const notificationCountsByFormRef = useRef(new Map());
   const notificationCountsByForm = useMemo(() => {
-    if (!currentUser || !notifications) return new Map();
+    if (!currentUser || !notifications) {
+      // Return previous count if filtering to prevent flickering
+      if (isFilteringRef.current) {
+        return notificationCountsByFormRef.current;
+      }
+      return new Map();
+    }
+    
+    // Don't update notification counts while filtering to prevent glitches
+    if (isFilteringRef.current) {
+      return notificationCountsByFormRef.current;
+    }
     
     const counts = new Map();
+    
+    // Create a map of form IDs to their status from listPayload for quick lookup
+    const formStatusMap = new Map();
+    if (listPayload?.data && Array.isArray(listPayload.data)) {
+      listPayload.data.forEach(row => {
+        const gf = row?.general_form || row;
+        const formId = gf?.id || row?.general_form_id || row?.id;
+        const status = gf?.status || row?.status;
+        if (formId && status) {
+          formStatusMap.set(String(formId), status);
+        }
+      });
+    }
     
     notifications.forEach(noti => {
       // Only count unread notifications for Big Damage Issue Form
@@ -262,10 +307,23 @@ const Dashboard = () => {
         
         if (formId) {
           const formIdStr = String(formId);
-          counts.set(formIdStr, (counts.get(formIdStr) || 0) + 1);
+          
+          // Get form status from notification data or from formStatusMap
+          const formStatus = noti.data?.status || 
+                           noti.status || 
+                           formStatusMap.get(formIdStr) || 
+                           '';
+          
+          // Only count if this notification should be shown for the current user's role
+          if (shouldShowNotificationForRole(currentUser, formStatus)) {
+            counts.set(formIdStr, (counts.get(formIdStr) || 0) + 1);
+          }
         }
       }
     });
+    
+    // Update the ref with the new counts
+    notificationCountsByFormRef.current = counts;
     
     // Debug logging
     if (process.env.NODE_ENV !== 'production') {
@@ -277,12 +335,13 @@ const Dashboard = () => {
           (n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined)
         ).length,
         countsMap: Array.from(counts.entries()),
-        sampleNotification: notifications.find(n => n.form_name === 'Big Damage Issue Form')
+        sampleNotification: notifications.find(n => n.form_name === 'Big Damage Issue Form'),
+        isFiltering: isFilteringRef.current
       });
     }
     
     return counts;
-  }, [notifications, currentUser]);
+  }, [notifications, currentUser, listPayload]);
 
   // Check if there are any unread notifications
   const hasUnreadNotifications = bigDamageNotificationIds.length > 0;
@@ -591,6 +650,11 @@ const Dashboard = () => {
       }
       
       // Only update filters if they're different (to avoid infinite loops)
+      // Skip if we're currently filtering programmatically (from onFilter handler)
+      if (isFilteringRef.current) {
+        return;
+      }
+      
       // Check if any URL param differs from current filters
       const hasUrlParams = urlFilters.productName || urlFilters.formDocNo || urlFilters.fromDate || 
                           urlFilters.toDate || urlFilters.status || urlFilters.branch;
@@ -724,16 +788,28 @@ const Dashboard = () => {
     if (!mutate) return;
 
     const handleNotificationsUpdated = () => {
+      // Don't refresh if we're currently filtering to prevent glitches
+      if (isFilteringRef.current) {
+        return;
+      }
       // Refresh the list to update is_viewed status for message icons
       setTimeout(() => {
-        mutate(undefined, { revalidate: true });
+        if (!isFilteringRef.current) {
+          mutate(undefined, { revalidate: true });
+        }
       }, 500); // Delay to ensure backend has updated
     };
 
     const handleFormViewed = () => {
+      // Don't refresh if we're currently filtering to prevent glitches
+      if (isFilteringRef.current) {
+        return;
+      }
       // Also refresh when form is viewed (additional trigger)
       setTimeout(() => {
-        mutate(undefined, { revalidate: true });
+        if (!isFilteringRef.current) {
+          mutate(undefined, { revalidate: true });
+        }
       }, 500);
     };
 
@@ -743,82 +819,65 @@ const Dashboard = () => {
     return () => {
       window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
       window.removeEventListener('formViewed', handleFormViewed);
+      // Cleanup filter timeout on unmount
+      if (filterTimeoutRef.current) {
+        clearTimeout(filterTimeoutRef.current);
+      }
     };
   }, [mutate]);
 
   return (
     <div>
-      <div className="sticky z-40 bg-white border-b border-gray-200 shadow-sm px-3 py-3 mb-4 -mx-3 -mt-3 md:flex-row md:items-center md:justify-between flex flex-col gap-3" style={{ top: '-12px' }}>
-        <div className="flex flex-col md:flex-1 md:justify-between">
-          <div className="flex items-center justify-between gap-3 md:justify-start">
-            <div className="flex items-center space-x-2">
-              <img
-                src={BigDamageIsuueLogo}
-                alt="Big Damage Issue Logo"
-                className="h-7 w-7 md:h-8 md:w-8"
-              />
-              <span className="text-xl font-semibold text-gray-800 md:text-2xl md:font-normal">
-                Big Damage Issue 
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                const wasClosed = !isFilterOpen;
-                setIsFilterOpen(prev => !prev);
-                // Scroll to filter section when opened
-                if (wasClosed && filterRef.current) {
-                  setTimeout(() => {
-                    filterRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 100);
-                }
-              }}
-              aria-expanded={isFilterOpen}
-              className={`inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-blue-500 md:hidden ${
-                hasActiveFilters
-                  ? 'border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100'
-                  : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <FunnelIcon className="h-5 w-5" />
-              <span className="hidden sm:inline">Filters</span>
-              {hasActiveFilters && <span className="inline-flex h-2 w-2 rounded-full bg-blue-500" aria-hidden="true" />}
-            </button>
-          </div>
-          <p className="mt-1 text-sm text-gray-500 md:text-base md:mx-8 md:mt-2">/big-damage-issue</p>
+      {/* Header with Request Document System and Breadcrumb */}
+      <div className="bg-white border-b border-gray-200 px-6 py-3 mb-4">
+        <div className="mb-2">
+          <h1 className="text-lg font-semibold text-[#012970]">Request Document System</h1>
         </div>
-        <div className="hidden md:flex items-center">
-          <Link
-            to="/big-damage-issue-add"
-            className="group relative inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-500 text-white rounded-md text-xs font-medium shadow-lg shadow-blue-500/50 transition-all duration-500 ease-in-out hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-500/60 hover:scale-105 hover:-translate-y-0.5 active:scale-100 active:translate-y-0 overflow-hidden min-w-[100px]"
-          >
-            {/* Initial icon - visible, fades out and moves left on hover */}
-            <PlusCircleIcon className="h-4 w-4 transition-all duration-500 ease-in-out opacity-100 group-hover:opacity-0 group-hover:translate-x-[-15px] group-hover:scale-75 relative z-10" />
-            
-            {/* Text - fades out and moves left on hover */}
-            <span className="relative z-10 transition-all duration-500 ease-in-out opacity-100 group-hover:opacity-0 group-hover:translate-x-[-20px] group-hover:scale-75 whitespace-nowrap text-xs">
-              Add new
-            </span>
-            
-            {/* Large centered icon - hidden initially, appears and grows on hover */}
-            <PlusCircleIcon className="h-6 w-6 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-in-out opacity-0 group-hover:opacity-100 transform scale-0 group-hover:scale-110 group-hover:rotate-180 z-10" />
-            
-            {/* Animated background glow on hover */}
-            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-md -z-0"></span>
-            
-            {/* Shimmer sweep effect on hover */}
-            <span className="absolute inset-0 rounded-md bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-0 group-hover:opacity-100 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></span>
-          </Link>
-        </div>
+        <nav className="text-sm text-gray-600">
+          <span>Home</span>
+          <span className="mx-2">/</span>
+          <span>Notifications</span>
+          <span className="mx-2">/</span>
+          <span className="text-[#012970] font-semibold">Big Damage Issue Form</span>
+        </nav>
       </div>
-      <div className="mx-6">
-      <div ref={filterRef} className={`${isFilterOpen ? 'block' : 'hidden'} md:block mt-2 sticky top-0 z-30 bg-white md:bg-transparent shadow-lg md:shadow-none border-b border-gray-200 md:border-0 py-3 md:py-0 -mx-6 `}>
-        <FilterCard
+
+      {/* Main Title with Add Button */}
+      <div className="px-6 mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-[#012970]">Big Damage Issue Form</h2>
+        {/* Green Add Button */}
+        <Link
+          to="/big-damage-issue-add"
+          className="inline-flex items-center justify-center w-10 h-10 bg-[#198754] text-white rounded relative"
+          title="Add new"
+        >
+          {/* White square outline with plus inside */}
+          <div className="absolute inset-2 border border-white rounded flex items-center justify-center">
+            <PlusIcon className="h-3 w-3 text-white" />
+          </div>
+        </Link>
+      </div>
+
+      {/* Filter Section */}
+      <div className="px-6 mb-4">
+        <div ref={filterRef} className="relative">
+          <FilterCard
           filters={filters}
           onFilter={(v) => {
             console.log('[Dashboard] onFilter called with:', v);
             
-            // Update URL params with filter values first (before setting state)
+            // Set filtering flag FIRST to prevent useEffect from interfering
+            isFilteringRef.current = true;
+            
+            // Clear any existing timeout
+            if (filterTimeoutRef.current) {
+              clearTimeout(filterTimeoutRef.current);
+            }
+            
+            // Update filters state synchronously (before URL update)
+            setFilters(v);
+            
+            // Update URL params with filter values
             const newSearchParams = new URLSearchParams(searchParams);
             newSearchParams.delete('page'); // Reset to page 1 when filters change
             
@@ -855,20 +914,9 @@ const Dashboard = () => {
               newSearchParams.delete('to_date');
             }
             
-            // Set status filter
-            if (v.status) {
-              if (Array.isArray(v.status) && v.status.length > 0) {
-                const statusValues = v.status.map(s => s.value || s).filter(Boolean);
-                if (statusValues.length > 0) {
-                  newSearchParams.set('status', statusValues.join(','));
-                } else {
-                  newSearchParams.delete('status');
-                }
-              } else if (v.status.value) {
-                newSearchParams.set('status', v.status.value);
-              } else {
-                newSearchParams.delete('status');
-              }
+            // Set status filter (now a string)
+            if (v.status && v.status.trim()) {
+              newSearchParams.set('status', v.status.trim());
             } else {
               newSearchParams.delete('status');
             }
@@ -882,24 +930,35 @@ const Dashboard = () => {
             
             console.log('[Dashboard] New URL params:', newSearchParams.toString());
             
-            // Update URL params first, then state (prevents race condition)
+            // Update URL params (this won't trigger filter update because isFilteringRef is true)
             setSearchParams(newSearchParams, { replace: true });
             
-            // Update filters state after URL is updated
-            // Use a small delay to ensure URL params are processed first
-            setTimeout(() => {
-              setFilters(v);
-            }, 0);
+            // Reset filtering flag after a delay to allow data to load
+            filterTimeoutRef.current = setTimeout(() => {
+              isFilteringRef.current = false;
+            }, 1000); // Wait 1 second after filter change before allowing notification updates
           }}
           onClear={() => {
-            setFilters({
+            // Set filtering flag to prevent useEffect from interfering
+            isFilteringRef.current = true;
+            
+            // Clear any existing timeout
+            if (filterTimeoutRef.current) {
+              clearTimeout(filterTimeoutRef.current);
+            }
+            
+            const clearedFilters = {
               productName: "",
               formDocNo: "",
               fromDate: "",
               toDate: "",
-              status: null,
+              status: "",
               branch: null,
-            });
+            };
+            
+            // Update filters state first
+            setFilters(clearedFilters);
+            
             // Clear all filter params from URL and reset to page 1
             const newSearchParams = new URLSearchParams(searchParams);
             newSearchParams.delete('page');
@@ -914,6 +973,11 @@ const Dashboard = () => {
             newSearchParams.delete('status');
             newSearchParams.delete('branch');
             setSearchParams(newSearchParams, { replace: true });
+            
+            // Reset filtering flag after a delay
+            filterTimeoutRef.current = setTimeout(() => {
+              isFilteringRef.current = false;
+            }, 1000);
           }}
           externalBranchOptions={branchOptions}
         />

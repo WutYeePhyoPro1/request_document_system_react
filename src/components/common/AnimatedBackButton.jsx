@@ -33,17 +33,17 @@ const AnimatedBackButton = ({
   return (
     <button
       onClick={handleClick}
-      className={`btn-with-icon inline-flex items-center justify-center gap-2 px-6 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-md hover:shadow-lg border ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded font-bold text-white border transition-all duration-200 hover:bg-[#1e3a8a] hover:border-[#1e3a8a] hover:shadow-md ${className}`}
       style={{
         backgroundColor: colorStyles.backgroundColor,
         color: colorStyles.color,
         borderColor: colorStyles.borderColor,
-        fontSize: '0.875rem'
+        fontSize: '15px'
       }}
       aria-label={label}
     >
-      <span className="btn-text">{label}</span>
-      <ArrowLeft className="btn-icon w-4 h-4 absolute" />
+      <ArrowLeft className="w-4 h-4" />
+      <span>{label}</span>
     </button>
   );
 };
