@@ -372,11 +372,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         return null;
       }
       const user = JSON.parse(userStr);
-      console.log('[DamageIssueList] Current user loaded:', {
-        id: user?.id,
-        role: user?.role,
-        user_type: user?.user_type
-      });
       return user;
     } catch (e) {
       console.error('[DamageIssueList] Error parsing user from localStorage:', e);
@@ -390,6 +385,67 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     return String(text).trim().replace(/\s+/g, ' ').toLowerCase();
   };
   
+  // Role ID to Name mapping (matches Navbar.jsx)
+  const roleIdToNameMap = {
+    1: 'User',
+    2: 'Checker',
+    3: 'Approver',
+    4: 'Super-Admin',
+    5: 'Acknowledge',
+    6: 'Recorder',
+    7: 'Branch Account',
+    8: 'Branch IT',
+    9: 'Branch HR',
+    10: 'Supervisor'
+  };
+
+  // Helper function to extract user_type and role from user object
+  const extractUserRoleInfo = (user) => {
+    if (!user) return { userType: '', userRole: '' };
+    
+    const normalizeText = (text) => (text || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
+    
+    // First, try to get user_type and role directly
+    let userType = normalizeText(user.user_type || user.userType || '');
+    let userRole = normalizeText(user.role || user.role_name || user.roleName || '');
+    
+    // If we have role_id but no role name, map it
+    if (!userRole && user.role_id && roleIdToNameMap[user.role_id]) {
+      userRole = normalizeText(roleIdToNameMap[user.role_id]);
+    }
+    
+    // If we have role name but no user_type, infer user_type from role
+    if (!userType && userRole) {
+      // Checker role -> user_type C or CS
+      // role_id 2 = Checker, which can be user_type 'C' or 'CS' depending on form type
+      // For notification purposes, both 'c' and 'cs' are treated the same
+      if (userRole === 'checker' || userRole.includes('checker')) {
+        userType = 'c'; // Use 'c' as default - the check ['c', 'cs'].includes(userType) will work for both
+      }
+      // Approver/BM role -> user_type A1
+      else if (userRole === 'approver' || userRole === 'bm' || userRole === 'abm' || 
+               userRole.includes('approver') || userRole.includes('branch manager')) {
+        userType = 'a1';
+      }
+      // Branch Account role -> user_type AC
+      else if (userRole === 'branch account' || userRole === 'account' || 
+               userRole.includes('account')) {
+        userType = 'ac';
+      }
+      // Operation Manager -> user_type A2
+      else if (userRole.includes('operation manager') || userRole.includes('op manager')) {
+        userType = 'a2';
+      }
+    }
+    
+    // Also check if user_type is in nested role object
+    if (!userType && user.role && typeof user.role === 'object') {
+      userType = normalizeText(user.role.user_type || user.role.userType || '');
+    }
+    
+    return { userType, userRole };
+  };
+
   // Helper function to check if form is relevant to current user's role
   // Returns true only if the form status matches what the user should see notifications for
   const isFormRelevantToUser = (gf) => {
@@ -413,25 +469,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       return false;
     }
     
-    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-    const userType = normalizeText(user.user_type || '');
-    const userRole = normalizeText(user.role || '');
+    // Extract user_type and role from user object
+    const { userType, userRole } = extractUserRoleInfo(user);
+    const normalizeText = (text) => (text || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
     const formStatus = normalizeText(gf.status || '');
-    
-    // Debug logging for first few calls
-    if (typeof window._isFormRelevantDebugCount === 'undefined') {
-      window._isFormRelevantDebugCount = 0;
-    }
-    if (window._isFormRelevantDebugCount < 3) {
-      console.log('[DamageIssueList] isFormRelevantToUser check:', {
-        userType,
-        userRole,
-        formStatus,
-        originalStatus: gf.status,
-        userObject: { role: user.role, user_type: user.user_type }
-      });
-      window._isFormRelevantDebugCount++;
-    }
     
     // Checker (C/CS) - only relevant for "Ongoing" forms
     if (['c', 'cs'].includes(userType)) {
@@ -575,49 +616,12 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   // Use prop first, then URL params - prop is more reliable as it comes directly from Dashboard state
   const productNameFilter = productFilter || searchFromParams || searchFromUrl || productNameParam || productCodeParam || '';
   
-  // Debug: Log searchParams changes
+  // Log warning if no data received
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.console) {
-      window.console.log('[DamageIssueList] searchParams changed:', {
-        searchParam: searchParams.get('search'),
-        searchFromParams,
-        searchFromUrl,
-        productNameParam: searchParams.get('product_name'),
-        productCodeParam: searchParams.get('product_code'),
-        allParams: searchParams.toString(),
-        windowLocationSearch: window.location.search,
-        productNameFilter
-      });
+    if (typeof window !== 'undefined' && window.console && (!Array.isArray(data) || data.length === 0)) {
+      window.console.warn('[DamageIssueList] No data received!', { data });
     }
-  }, [searchParams, productNameFilter, searchFromParams, searchFromUrl]);
-  
-  // Debug logging - always log to see what's happening
-  React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.console) {
-      window.console.log('[DamageIssueList] Component rendered:', {
-        dataLength: Array.isArray(data) ? data.length : 0,
-        productFilter: productNameFilter,
-        currentPage,
-        loading,
-        totalRows,
-        urlSearch: searchParams.toString(),
-        searchParamValue: searchParams.get('search')
-      });
-      
-      if (Array.isArray(data) && data.length > 0) {
-        window.console.log('[DamageIssueList] Sample data row:', {
-          keys: Object.keys(data[0] || {}),
-          hasProductCode: !!data[0]?.product_code,
-          hasProductName: !!data[0]?.product_name,
-          productCode: data[0]?.product_code,
-          productName: data[0]?.product_name,
-          fullRow: data[0]
-        });
-      } else {
-        window.console.warn('[DamageIssueList] No data received!', { data });
-      }
-    }
-  }, [data, productNameFilter, currentPage, loading, totalRows, searchParams]);
+  }, [data]);
 
   // Helper function to navigate to detail with page preservation
   const navigateToDetail = (detailId, bigDamageId, generalFormId) => {
@@ -639,33 +643,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   const rawIssues = Array.isArray(data) ? data : [];
   const productNameFilterLower = productNameFilter ? productNameFilter.toLowerCase().trim() : '';
   
-  // Always log filter status - use window.console to ensure it works
-  // Use useEffect to log after render to catch URL changes
-  React.useEffect(() => {
-    if (typeof window !== 'undefined' && window.console) {
-      window.console.log('[DamageIssueList] Processing data (useEffect):', {
-        rawIssuesCount: rawIssues.length,
-        productFilter: productNameFilter,
-        productFilterLower: productNameFilterLower,
-        hasFilter: !!productNameFilterLower,
-        urlSearch: searchParams.toString(),
-        searchParam: searchParams.get('search'),
-        allSearchParams: Object.fromEntries(searchParams.entries())
-      });
-    }
-  }, [rawIssues.length, productNameFilter, productNameFilterLower, searchParams]);
-  
-  // Also log during render for immediate feedback
-  if (typeof window !== 'undefined' && window.console && productNameFilter) {
-    window.console.log('[DamageIssueList] Processing data (render):', {
-      rawIssuesCount: rawIssues.length,
-      productFilter: productNameFilter,
-      productFilterLower: productNameFilterLower,
-      hasFilter: !!productNameFilterLower,
-      urlSearch: searchParams.toString(),
-      searchParam: searchParams.get('search')
-    });
-  }
   
   // Group items by general_form_id to collect all products per form
   // This allows us to check if any product in a form matches the filter
@@ -713,12 +690,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     return formsMap;
   }, [data]); // Use data as dependency since rawIssues is derived from it
   
-  if (productNameFilterLower) {
-    if (typeof window !== 'undefined' && window.console) {
-      window.console.log('[DamageIssueList] Forms grouped:', formsWithItems.size);
-      window.console.log('[DamageIssueList] Sample form items:', Array.from(formsWithItems.values())[0]?.items);
-    }
-  }
   
   // Calculate total amounts per form
   const formTotals = React.useMemo(() => {
@@ -765,18 +736,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
           );
           
           if (codeMatches || nameMatches) {
-            if (typeof window !== 'undefined' && window.console) {
-              window.console.log('[DamageIssueList] Match found:', {
-                itemCode,
-                itemName,
-                filter: productNameFilterLower,
-                codeMatches,
-                nameMatches
-              });
-            }
+            return true;
           }
           
-          return codeMatches || nameMatches;
+          return false;
         });
         
         // Also check the form row itself for product info (in case it's a single-item form)
@@ -801,13 +764,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
           const nameMatches = rowName && rowName.includes(productNameFilterLower);
           
           if (codeMatches || nameMatches) {
-            if (typeof window !== 'undefined' && window.console) {
-              window.console.log('[DamageIssueList] Match found in formRow:', {
-                rowCode,
-                rowName,
-                filter: productNameFilterLower
-              });
-            }
             return true;
           }
         }
@@ -815,23 +771,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         return hasMatchingItem;
       });
       
-      if (typeof window !== 'undefined' && window.console) {
-        window.console.log('[DamageIssueList] After filtering:', {
-          before: beforeFilterCount,
-          after: forms.length,
-          filter: productNameFilterLower,
-          filteredOut: beforeFilterCount - forms.length
+      if (forms.length === 0 && beforeFilterCount > 0) {
+        window.console.warn('[DamageIssueList] No forms matched filter!', {
+          filter: productNameFilterLower
         });
-        
-        if (forms.length === 0 && beforeFilterCount > 0) {
-          window.console.warn('[DamageIssueList] No forms matched filter!', {
-            filter: productNameFilterLower,
-            sampleItems: formsWithItems.values().next().value?.items || [],
-            sampleFormRow: formsWithItems.values().next().value?.formRow || null,
-            allProductCodes: Array.from(formsWithItems.values()).flatMap(f => f.items.map(i => i.product_code)).filter(Boolean).slice(0, 10),
-            allProductNames: Array.from(formsWithItems.values()).flatMap(f => f.items.map(i => i.product_name)).filter(Boolean).slice(0, 10)
-          });
-        }
       }
     }
     
@@ -1086,28 +1029,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                                 matchedFormId = formId;
                                 break;
                               }
-                            }
-                            
-                            // Debug logging for first few rows to help diagnose
-                            if (idx < 3) {
-                              console.log('[DamageIssueList] Notification badge check:', {
-                                rowIndex: idx,
-                                possibleFormIds,
-                                matchedFormId,
-                                notiCount,
-                                notificationCountsSize: notificationCounts.size,
-                                notificationCountsKeys: Array.from(notificationCounts.keys()).slice(0, 10),
-                                gfId: gf?.id,
-                                gfGeneralFormId: gf?.general_form_id,
-                                rowGeneralFormId: row?.general_form_id,
-                                rowId: row?.id,
-                                formDocNo: gf?.form_doc_no,
-                                formStatus: gf?.status,
-                                isRelevant: isFormRelevantToUser(gf)
-                              });
-                            }
-                            
-                            // Only show notification count badge if form is relevant to user's role
+                              }
+                              
+                              // Only show notification count badge if form is relevant to user's role
                             const isRelevant = isFormRelevantToUser(gf);
                             
                             // Only show notification count badge if form is relevant to user's role
@@ -1311,20 +1235,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           matchedFormId = formId;
                           break;
                         }
-                      }
-                      
-                      // Debug logging for first row
-                      if (idx === 0 && process.env.NODE_ENV !== 'production') {
-                        console.log('[DamageIssueList] Mobile notification badge check:', {
-                          possibleFormIds,
-                          matchedFormId,
-                          notiCount,
-                          notificationCountsSize: notificationCounts.size,
-                          notificationCountsKeys: Array.from(notificationCounts.keys()),
-                          gfId: gf?.id,
-                          rowGeneralFormId: row?.general_form_id,
-                          formDocNo: gf?.form_doc_no
-                        });
                       }
                       
                       // Check if form is relevant to user's role

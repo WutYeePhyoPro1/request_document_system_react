@@ -1,6 +1,6 @@
 
 
-import React, { useState, useRef, useEffect, useContext } from "react";
+import React, { useState, useRef, useEffect, useContext, useMemo } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AiOutlineMenu } from "react-icons/ai";
 import finalLogo from "../assets/images/finallogo.png";
@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
 import { NotificationContext } from "../context/NotificationContext"; // ✅
 import LanguageSwitcher from './LanguageSwitcher';
+import { canViewAllBranches } from '../utils/userAccess';
 
 // Role ID to Name mapping (fallback if API fails)
 const roleIdToNameMap = {
@@ -45,6 +46,7 @@ const departmentIdToNameMap = {
 export default function Navbar({ toggleSidebar }) {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
+    const canViewAllBranchesAccess = useMemo(() => canViewAllBranches(user), [user]);
     const { notifications, setNotifications } = useContext(NotificationContext); // ✅
     const [formBasedNotificationCount, setFormBasedNotificationCount] = useState(0);
     const token = localStorage.getItem("token");
@@ -56,6 +58,8 @@ export default function Navbar({ toggleSidebar }) {
     const previousNotificationIds = useRef(new Set());
     const shownBrowserNotificationIds = useRef(new Set()); // Track which notifications we've shown browser notifications for
     const isFirstLoad = useRef(true);
+    const lastBigDamageCountRef = useRef(0); // Store Big Damage count to prevent flickering
+    const lastOtherFormsCountRef = useRef(0); // Store other forms count to prevent flickering
     const navigate = useNavigate();
     const [roleName, setRoleName] = useState(null);
     const [branchName, setBranchName] = useState(null);
@@ -289,7 +293,7 @@ export default function Navbar({ toggleSidebar }) {
                     return;
                 }
 
-                const parsed = data.map((n, idx) => {
+                const parsedNotifications = data.map((n, idx) => {
                     // Try to get notification ID from multiple possible locations
                     const notificationId = n.id || 
                                           n.notification_id || 
@@ -322,7 +326,7 @@ export default function Navbar({ toggleSidebar }) {
                 const shouldShowNotificationForRole = (notification, currentUser) => {
                     if (!currentUser || !notification) return false;
                     
-                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
                     const userType = normalizeText(currentUser.user_type || '');
                     const userRole = normalizeText(currentUser.role || '');
                     // Some notifications may only include an action (e.g., "checked") but not a status.
@@ -334,16 +338,54 @@ export default function Navbar({ toggleSidebar }) {
                       notification.data?.action ||
                       ''
                     );
+                    const notificationBranchId = notification.from_branch_id ||
+                                                 notification.data?.from_branch_id ||
+                                                 notification.data?.general_form?.from_branch_id ||
+                                                 notification.data?.branch_id ||
+                                                 notification.branch_id;
+                    const shouldFilterByBranch = !canViewAllBranchesAccess;
+                    if (shouldFilterByBranch && currentUser?.from_branch_id && notificationBranchId && String(notificationBranchId) !== String(currentUser.from_branch_id)) {
+                        return false;
+                    }
+
+                    const totalAmount = Number(
+                        notification.total_amount ??
+                        notification.data?.total_amount ??
+                        notification.data?.totalAmount ??
+                        notification.data?.general_form?.total_amount ??
+                        notification.data?.general_form?.totalAmount ??
+                        0
+                    );
+                    const requiresOpManagerApproval = totalAmount > 500000;
                     
                     // Checker (C/CS) - show notifications for "Ongoing" forms only
                     // Hide when status changes to "Checked" or beyond
                     if (['c', 'cs'].includes(userType)) {
+                        // Show only "Ongoing" status, hide "Checked" and beyond
                         return formStatus === 'ongoing';
+                    }
+                    
+                    // Operation Manager (A2) - MUST CHECK BEFORE BM to avoid role conflict
+                    // Show notifications for "BM Approved" forms ONLY when amount > 500000
+                    const isOpManager = userType === 'a2' || 
+                                       userRole.includes('operation manager') || 
+                                       userRole.includes('op manager') ||
+                                       (currentUser?.employee_number === '666-666666' && currentUser?.department_id === 8);
+                    
+                    if (isOpManager) {
+                        // Operation manager should ONLY see BM Approved forms that exceed threshold
+                        if (!requiresOpManagerApproval) return false;
+                        return formStatus === 'bm approved' || 
+                               formStatus === 'bmapproved' || 
+                               formStatus === 'bm_approved' ||
+                               formStatus.includes('bm approved') ||
+                               formStatus.includes('bmapproved');
                     }
                     
                     // Approver/BM (A1) - show notifications for "Checked" forms only
                     // Hide when status changes to "BM Approved" or beyond
                     // Check both user_type (A1) and role name (bm, abm, approver)
+                    // NOTE: This check comes AFTER operation manager to avoid conflicts
                     const isBM = userType === 'a1' || 
                                  userRole === 'bm' || 
                                  userRole === 'abm' || 
@@ -353,13 +395,16 @@ export default function Navbar({ toggleSidebar }) {
                     
                     if (isBM) {
                         // BM should ONLY see "Checked" forms
-                        // Hide if status is "BM Approved" or beyond
+                        // Hide if status is "BM Approved", "BMApproved", or beyond
+                        const isBMApproved = formStatus === 'bm approved' || 
+                                            formStatus === 'bmapproved' || 
+                                            formStatus === 'bm_approved' ||
+                                            formStatus.includes('bm approved') ||
+                                            formStatus.includes('bmapproved');
+                        if (isBMApproved) {
+                            return false; // Hide when status is BM Approved or beyond
+                        }
                         return formStatus === 'checked';
-                    }
-                    
-                    // Operation Manager (A2) - show notifications for "BM Approved" forms only
-                    if (userType === 'a2') {
-                        return formStatus === 'bm approved' || formStatus === 'bmapproved';
                     }
                     
                     // Branch Account (AC) - show notifications for "BM Approved" and "Acknowledged" forms only
@@ -379,16 +424,27 @@ export default function Navbar({ toggleSidebar }) {
                             return false;
                         }
                         // Hide completed statuses
-                        if (formStatus === 'completed' || formStatus === 'issued' || formStatus === 'supervisorissued') {
+                        if (formStatus === 'completed' || 
+                            formStatus === 'issued' || 
+                            formStatus === 'supervisorissued' ||
+                            formStatus.includes('completed') ||
+                            formStatus.includes('issued')) {
                             return false;
                         }
                         // Show only "BM Approved", "OP Approved", and "Acknowledged"
                         return formStatus === 'bm approved' || 
                                formStatus === 'bmapproved' || 
+                               formStatus === 'bm_approved' ||
                                formStatus === 'op approved' ||
                                formStatus === 'opapproved' ||
+                               formStatus === 'op_approved' ||
                                formStatus === 'ac_acknowledged' || 
-                               formStatus === 'acknowledged';
+                               formStatus === 'acknowledged' ||
+                               formStatus.includes('bm approved') ||
+                               formStatus.includes('bmapproved') ||
+                               formStatus.includes('op approved') ||
+                               formStatus.includes('opapproved') ||
+                               formStatus.includes('acknowledged');
                     }
                     
                     // For other roles, don't show notifications
@@ -401,7 +457,7 @@ export default function Navbar({ toggleSidebar }) {
                 // 3. Role-based relevance (using notification's status/action)
                 // NOTE: The backend should ideally filter by actual form status, but we do it here as fallback
                 // The notification's status/action should reflect the form's current state
-                const unreadNotifications = parsed.filter(n => {
+                const unreadNotifications = parsedNotifications.filter(n => {
                     const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
                     const matchesForm = n.form_name === 'Big Damage Issue Form';
                     
@@ -416,26 +472,11 @@ export default function Navbar({ toggleSidebar }) {
                 // Detect new notifications by comparing with previous set
                 const currentNotificationIds = new Set(unreadNotifications.map(n => n.notification_id));
                 
-                console.log('[Notification] Tracking:', {
-                    isFirstLoad: isFirstLoad.current,
-                    currentNotificationCount: unreadNotifications.length,
-                    currentNotificationIds: Array.from(currentNotificationIds),
-                    previousNotificationIds: Array.from(previousNotificationIds.current),
-                    unreadNotifications: unreadNotifications.map(n => ({
-                        id: n.notification_id,
-                        action: n.action,
-                        status: n.status,
-                        form_doc_no: n.form_doc_no,
-                        is_viewed: n.is_viewed
-                    }))
-                });
-                
                 // On first load, initialize the previous set but don't show notifications
                 // (to avoid showing notifications for old unread items on page load)
                 if (isFirstLoad.current) {
                     previousNotificationIds.current = currentNotificationIds;
                     isFirstLoad.current = false;
-                    console.log('[Notification] First load - initialized previous IDs, skipping notifications');
                     // Skip showing notifications on first load
                 } else {
                     // After first load, detect and show new notifications
@@ -465,18 +506,6 @@ export default function Navbar({ toggleSidebar }) {
                         return isNew;
                     });
 
-                    // Debug logging for new notifications
-                    if (newNotifications.length > 0) {
-                        console.log('[Notification] New notifications detected:', newNotifications.map(n => ({
-                            id: n.notification_id,
-                            action: n.action,
-                            status: n.status,
-                            form_doc_no: n.form_doc_no,
-                            actor_name: n.actor_name,
-                            actor_role: n.actor_role,
-                            data: n.data
-                        })));
-                    }
 
                     // Helper function to show notifications (defined before use)
                     const showNotificationsForItems = (notificationsToShow) => {
@@ -540,15 +569,12 @@ export default function Navbar({ toggleSidebar }) {
                                 
                                 // Always show notification regardless of action/status matching
                                 // This ensures browser notifications appear for check and issue actions
-                                
-                                console.log('[Notification] Showing browser notification:', { title, body });
 
                                 // Show browser notification
                                 try {
                                     // Try using service worker registration first (more reliable)
                                     if ('serviceWorker' in navigator) {
                                         navigator.serviceWorker.ready.then(registration => {
-                                            console.log('[Notification] Using service worker to show notification');
                                             return registration.showNotification(title, {
                                                 body: body,
                                                 icon: '/PRO1logo.png',
@@ -587,11 +613,9 @@ export default function Navbar({ toggleSidebar }) {
                                                 }
                                                 browserNotification.close();
                                             };
-                                            console.log('[Notification] Direct notification shown');
                                         });
                                     } else {
                                         // Fallback to direct Notification API if service worker not available
-                                        console.log('[Notification] Service worker not available, using direct API');
                                         const browserNotification = new Notification(title, {
                                             body: body,
                                             icon: '/PRO1logo.png',
@@ -614,7 +638,6 @@ export default function Navbar({ toggleSidebar }) {
                                             }
                                             browserNotification.close();
                                         };
-                                        console.log('[Notification] Direct notification shown');
                                     }
                                 } catch (error) {
                                     console.error('[Notification] Error showing browser notification:', error);
@@ -670,9 +693,26 @@ export default function Navbar({ toggleSidebar }) {
                     );
                 }
 
-                // Store notifications for backward compatibility
-                setNotifications(unreadNotifications);
-                localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
+                // Store ALL unread notifications from ALL forms (not just Big Damage Issue)
+                // The Notification component will filter and show all forms
+                // Big Damage Issue forms will have role-based status filtering applied
+                const allUnreadNotifications = parsedNotifications.filter(n => {
+                    const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
+                    return isUnread;
+                });
+                
+                console.log('[Navbar] Storing all unread notifications:', {
+                    total: parsedNotifications.length,
+                    unread: allUnreadNotifications.length,
+                    byForm: allUnreadNotifications.reduce((acc, n) => {
+                        const formName = n.form_name || n.data?.form_name || 'Unknown';
+                        acc[formName] = (acc[formName] || 0) + 1;
+                        return acc;
+                    }, {})
+                });
+                
+                setNotifications(allUnreadNotifications);
+                localStorage.setItem("notifications", JSON.stringify(allUnreadNotifications));
             } catch (err) {
                 // Don't throw to prevent uncaught promise rejection
                 console.error('[Navbar] Error fetching notifications:', err);
@@ -685,23 +725,133 @@ export default function Navbar({ toggleSidebar }) {
         subscribeToPush();
         
         // Listen for custom event to refresh notifications immediately
-        // Use debouncing to prevent multiple rapid fetches
+        // Use debouncing to prevent multiple rapid fetches, but allow immediate refresh when needed
         let notificationUpdateTimeout = null;
         const handleNotificationsUpdated = (event) => {
-            // Force immediate refresh when notifications are updated
-            console.log('[Navbar] Notifications updated event received, refreshing...', event.detail);
+            const { forceRefresh, immediate } = event.detail || {};
             
             // Clear any pending timeout
             if (notificationUpdateTimeout) {
                 clearTimeout(notificationUpdateTimeout);
+                notificationUpdateTimeout = null;
             }
             
-            // Debounce: Wait 500ms after the last event before fetching
-            // This prevents multiple rapid fetches when multiple events fire
-            notificationUpdateTimeout = setTimeout(() => {
+            // If immediate flag is set, fetch immediately without debounce
+            if (immediate || forceRefresh) {
                 fetchNotifications();
-                notificationUpdateTimeout = null;
-            }, 500);
+                // Also refresh form-based count immediately
+                if (user && token) {
+                    // Trigger form count refresh immediately
+                    const refreshFormCount = async () => {
+                        try {
+                            const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                                headers: { 
+                                    'Authorization': `Bearer ${token}`,
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                },
+                                credentials: 'include',
+                            });
+                            if (res.ok) {
+                                const data = await res.json();
+                                let formListData = null;
+                                if (data?.data && Array.isArray(data.data)) {
+                                    formListData = data.data;
+                                } else if (Array.isArray(data)) {
+                                    formListData = data;
+                                } else if (data?.data?.data && Array.isArray(data.data.data)) {
+                                    formListData = data.data.data;
+                                }
+                                if (formListData && Array.isArray(formListData)) {
+                                    // Recalculate count immediately using the same logic as fetchFormBasedNotificationCount
+                                    const { userType, userRole } = extractUserRoleInfo(user);
+                                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                                    let count = 0;
+                                    formListData.forEach(row => {
+                                        const gf = row?.general_form || row;
+                                        const status = gf?.status || row?.status;
+                                        if (!status) return;
+                                        
+                                        const normalizedStatus = normalizeText(status);
+                                        
+                                        // Checker (C/CS) - count "Ongoing" forms
+                                        if (['c', 'cs'].includes(userType) && normalizedStatus === 'ongoing') {
+                                            count++;
+                                            return;
+                                        }
+                                        
+                                        // Branch Manager (A1/BM) - count "Checked" forms (not BM Approved)
+                                        const isBM = userType === 'a1' || 
+                                                    userRole === 'bm' || 
+                                                    userRole === 'abm' || 
+                                                    userRole === 'approver' ||
+                                                    userRole.includes('approver') ||
+                                                    userRole.includes('branch manager');
+                                        if (isBM) {
+                                            const isBMApproved = normalizedStatus === 'bm approved' || 
+                                                                normalizedStatus === 'bmapproved' || 
+                                                                normalizedStatus === 'bm_approved' ||
+                                                                normalizedStatus.includes('bm approved') ||
+                                                                normalizedStatus.includes('bmapproved');
+                                            if (!isBMApproved && normalizedStatus === 'checked') {
+                                                count++;
+                                            }
+                                            return;
+                                        }
+                                        
+                                        // Branch Account (AC) - count "BM Approved", "OP Approved", and "Acknowledged" forms
+                                        const isAccount = userType === 'ac' || 
+                                                         userRole === 'account' ||
+                                                         userRole === 'branch account' ||
+                                                         userRole.includes('account') ||
+                                                         userRole.includes('branch account');
+                                        if (isAccount) {
+                                            if (normalizedStatus === 'ongoing' || normalizedStatus === 'checked') {
+                                                return;
+                                            }
+                                            if (normalizedStatus === 'completed' || 
+                                                normalizedStatus === 'issued' || 
+                                                normalizedStatus === 'supervisorissued' ||
+                                                normalizedStatus.includes('completed') ||
+                                                normalizedStatus.includes('issued')) {
+                                                return;
+                                            }
+                                            if (normalizedStatus === 'bm approved' || 
+                                                normalizedStatus === 'bmapproved' || 
+                                                normalizedStatus === 'bm_approved' ||
+                                                normalizedStatus === 'op approved' ||
+                                                normalizedStatus === 'opapproved' ||
+                                                normalizedStatus === 'op_approved' ||
+                                                normalizedStatus === 'ac_acknowledged' || 
+                                                normalizedStatus === 'acknowledged' ||
+                                                normalizedStatus.includes('bm approved') ||
+                                                normalizedStatus.includes('bmapproved') ||
+                                                normalizedStatus.includes('op approved') ||
+                                                normalizedStatus.includes('opapproved') ||
+                                                normalizedStatus.includes('acknowledged')) {
+                                                count++;
+                                            }
+                                        }
+                                    });
+                                    // Update ref and total count with other forms
+                                    lastBigDamageCountRef.current = count;
+                                    setFormBasedNotificationCount(count + lastOtherFormsCountRef.current);
+                                }
+                            }
+                        } catch (err) {
+                            // Silently fail - will be refreshed by next poll
+                        }
+                    };
+                    refreshFormCount();
+                }
+            } else {
+                // Debounce: Wait 300ms after the last event before fetching (reduced from 500ms)
+                // This prevents multiple rapid fetches when multiple events fire
+                notificationUpdateTimeout = setTimeout(() => {
+                    fetchNotifications();
+                    notificationUpdateTimeout = null;
+                }, 300);
+            }
         };
         window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
         
@@ -728,17 +878,34 @@ export default function Navbar({ toggleSidebar }) {
         };
     }, [userRoleId, token, setNotifications]);
 
-    // Fetch form list and count forms that need action based on user role
-    // This is the source of truth for notification counts (not the notifications API)
+    // Calculate other forms count from notifications (updates immediately when notifications change)
     useEffect(() => {
-        const fetchFormBasedNotificationCount = async () => {
+        const otherFormsCount = (notifications || []).filter(n => {
+            const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
+            const isBigDamage = n.form_name === 'Big Damage Issue Form' || 
+                               n.form_name?.toLowerCase().includes('damage') ||
+                               (n.form_doc_no && (n.form_doc_no.startsWith('BDI') || n.form_doc_no.startsWith('ASDLAN')));
+            return isUnread && !isBigDamage;
+        }).length;
+        
+        lastOtherFormsCountRef.current = otherFormsCount;
+        
+        // Update total count immediately using cached Big Damage count
+        setFormBasedNotificationCount(lastBigDamageCountRef.current + otherFormsCount);
+    }, [notifications]);
+
+    // Fetch Big Damage Issue form list and count forms that need action based on user role
+    // This runs independently and doesn't flicker because it uses refs
+    useEffect(() => {
+        const fetchBigDamageCount = async () => {
             if (!user || !token) {
-                setFormBasedNotificationCount(0);
+                lastBigDamageCountRef.current = 0;
+                setFormBasedNotificationCount(lastOtherFormsCountRef.current);
                 return;
             }
 
             try {
-                // Fetch form list with minimal data (just status and IDs)
+                // Fetch Big Damage Issue form list
                 const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
@@ -748,126 +915,134 @@ export default function Navbar({ toggleSidebar }) {
                     credentials: 'include',
                 });
 
-                if (!res.ok) {
-                    console.warn('[Navbar] Failed to fetch form list for notification count');
-                    return;
-                }
-
-                const data = await res.json();
-                // Handle different response structures
-                let formListData = null;
-                if (data?.data && Array.isArray(data.data)) {
-                    formListData = data.data;
-                } else if (Array.isArray(data)) {
-                    formListData = data;
-                } else if (data?.data?.data && Array.isArray(data.data.data)) {
-                    formListData = data.data.data;
-                }
-
-                if (!formListData || !Array.isArray(formListData)) {
-                    console.warn('[Navbar] Invalid form list data structure:', { data });
-                    return;
-                }
-
-                // Helper function to check if form should be counted
-                const shouldCountForm = (formStatus) => {
-                    if (!formStatus) return false;
-                    
-                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-                    const userType = normalizeText(user.user_type || '');
-                    const userRole = normalizeText(user.role || '');
-                    const status = normalizeText(formStatus);
-
-                    // Checker: Count "Ongoing" forms
-                    if (['c', 'cs'].includes(userType)) {
-                        return status === 'ongoing';
-                    }
-
-                    // Branch Manager: Count "Checked" forms
-                    const isBM = userType === 'a1' || 
-                                userRole === 'bm' || 
-                                userRole === 'abm' || 
-                                userRole === 'approver' ||
-                                userRole.includes('approver') ||
-                                userRole.includes('branch manager');
-                    if (isBM) {
-                        return status === 'checked';
-                    }
-
-                    // Branch Account: Count "BM Approved" and "Acknowledged" forms
-                    const isAccount = userType === 'ac' || 
-                                     userRole === 'account' ||
-                                     userRole === 'branch account' ||
-                                     userRole.includes('account') ||
-                                     userRole.includes('branch account');
-                    if (isAccount) {
-                        if (status === 'ongoing' || status === 'checked' || 
-                            status === 'completed' || status === 'issued' || status === 'supervisorissued') {
-                            return false;
-                        }
-                        return status === 'bm approved' || 
-                               status === 'bmapproved' || 
-                               status === 'op approved' ||
-                               status === 'opapproved' ||
-                               status === 'ac_acknowledged' || 
-                               status === 'acknowledged';
-                    }
-
-                    return false;
+                // Role ID to Name mapping
+                const roleIdToNameMap = {
+                    1: 'User', 2: 'Checker', 3: 'Approver', 4: 'Super-Admin',
+                    5: 'Acknowledge', 6: 'Recorder', 7: 'Branch Account',
+                    8: 'Branch IT', 9: 'Branch HR', 10: 'Supervisor'
                 };
 
-                // Count forms that match the criteria
-                let count = 0;
-                const matchedForms = [];
-                
-                formListData.forEach(row => {
-                    const gf = row?.general_form || row;
-                    const status = gf?.status || row?.status;
-                    
-                    if (!status) return;
-                    
-                    // Check branch match if user has a branch
-                    if (user.from_branch_id) {
-                        const formBranchId = gf?.from_branch_id || row?.from_branch_id;
-                        if (formBranchId && formBranchId !== user.from_branch_id) {
-                            return; // Skip forms from other branches
-                        }
+                const extractUserRoleInfo = (userObj) => {
+                    if (!userObj) return { userType: '', userRole: '' };
+                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                    let userType = normalizeText(userObj.user_type || userObj.userType || '');
+                    let userRole = normalizeText(userObj.role || userObj.role_name || '');
+                    if (!userRole && userObj.role_id && roleIdToNameMap[userObj.role_id]) {
+                        userRole = normalizeText(roleIdToNameMap[userObj.role_id]);
                     }
-                    
-                    if (shouldCountForm(status)) {
-                        count++;
-                        matchedForms.push({
-                            formId: row?.general_form_id || gf?.general_form_id || gf?.id || row?.id,
-                            status: status,
-                            formDocNo: gf?.form_doc_no || row?.form_doc_no
+                    if (!userType && userRole) {
+                        if (userRole === 'checker' || userRole.includes('checker')) userType = 'c';
+                        else if (userRole === 'approver' || userRole === 'bm' || userRole.includes('approver')) userType = 'a1';
+                        else if (userRole === 'branch account' || userRole.includes('account')) userType = 'ac';
+                        else if (userRole.includes('operation manager') || userRole.includes('op manager')) userType = 'a2';
+                    }
+                    return { userType, userRole };
+                };
+
+                const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                const { userType, userRole } = extractUserRoleInfo(user);
+                
+                let bigDamageCount = 0;
+                if (res.ok) {
+                    const data = await res.json();
+                    let formListData = null;
+                    if (data?.data && Array.isArray(data.data)) {
+                        formListData = data.data;
+                    } else if (Array.isArray(data)) {
+                        formListData = data;
+                    } else if (data?.data?.data && Array.isArray(data.data.data)) {
+                        formListData = data.data.data;
+                    }
+
+                    if (formListData && Array.isArray(formListData)) {
+                        // Count Big Damage Issue forms based on role
+                        formListData.forEach(row => {
+                            const gf = row?.general_form || row;
+                            const status = normalizeText(gf?.status || row?.status || '');
+                            if (!status) return;
+                            
+                            // Branch check
+                            if (!canViewAllBranchesAccess && user.from_branch_id) {
+                                const formBranchId = gf?.from_branch_id || row?.from_branch_id;
+                                if (formBranchId && formBranchId !== user.from_branch_id) return;
+                            }
+
+                            // Checker: "Ongoing" forms
+                            if (['c', 'cs'].includes(userType) && status === 'ongoing') {
+                                bigDamageCount++;
+                                return;
+                            }
+                            
+                            // Get total amount for Operation Manager filtering
+                            const totalAmount = Number(
+                                gf?.total_amount ??
+                                row?.total_amount ??
+                                gf?.totalAmount ??
+                                row?.totalAmount ??
+                                gf?.total ??
+                                row?.total ??
+                                0
+                            );
+                            const requiresOpManagerApproval = totalAmount > 500000;
+                            
+                            // Operation Manager: MUST CHECK BEFORE BM to avoid role conflict
+                            // Only count BM Approved forms that exceed threshold
+                            const isOpManager = userType === 'a2' || 
+                                               userRole.includes('operation manager') || 
+                                               userRole.includes('op manager') ||
+                                               (user?.employee_number === '666-666666' && user?.department_id === 8);
+                            
+                            if (isOpManager) {
+                                if (!requiresOpManagerApproval) return;
+                                if (status.includes('bm approved') || status === 'bmapproved' || status === 'bm approved') {
+                                    bigDamageCount++;
+                                }
+                                return;
+                            }
+                            
+                            // BM/Approver: "Checked" forms (not BM Approved)
+                            // NOTE: This check comes AFTER operation manager to avoid conflicts
+                            const isBM = userType === 'a1' || userRole === 'approver' || userRole.includes('approver');
+                            if (isBM) {
+                                const isBMApproved = status.includes('bm approved') || status === 'bmapproved';
+                                if (!isBMApproved && status === 'checked') {
+                                    bigDamageCount++;
+                                }
+                                return;
+                            }
+                            // Branch Account: "BM Approved", "OP Approved", "Acknowledged"
+                            const isAccount = userType === 'ac' || userRole.includes('account');
+                            if (isAccount) {
+                                if (status === 'ongoing' || status === 'checked') return;
+                                if (status.includes('completed') || status.includes('issued')) return;
+                                if (status.includes('bm approved') || status.includes('op approved') || status.includes('acknowledged')) {
+                                    bigDamageCount++;
+                                }
+                            }
                         });
                     }
-                });
+                }
 
-                setFormBasedNotificationCount(count);
+                // Store in ref and update total
+                lastBigDamageCountRef.current = bigDamageCount;
+                const totalCount = bigDamageCount + lastOtherFormsCountRef.current;
+                setFormBasedNotificationCount(totalCount);
+                
                 console.log('[Navbar] Form-based notification count:', {
-                    count,
-                    userRole: user.role,
-                    userType: user.user_type,
-                    totalForms: formListData.length,
-                    matchedForms: matchedForms.slice(0, 5), // First 5 matched forms
-                    sampleForm: formListData[0] ? {
-                        hasGeneralForm: !!formListData[0].general_form,
-                        status: formListData[0].general_form?.status || formListData[0].status,
-                        structure: Object.keys(formListData[0])
-                    } : null
+                    bigDamageCount,
+                    otherFormsCount: lastOtherFormsCountRef.current,
+                    totalCount,
+                    userRole: extractUserRoleInfo(user).userRole
                 });
             } catch (err) {
                 console.error('[Navbar] Error fetching form-based notification count:', err);
             }
         };
 
-        fetchFormBasedNotificationCount();
-        
-        // Refresh count periodically
-        const interval = setInterval(fetchFormBasedNotificationCount, 30000); // Every 30 seconds
+        fetchBigDamageCount();
+        const interval = setInterval(fetchBigDamageCount, 30000);
         return () => clearInterval(interval);
-    }, [user, token]);
+    }, [user, token]); // Note: notifications removed from dependencies
 
     const handleLogout = () => {
         logout();

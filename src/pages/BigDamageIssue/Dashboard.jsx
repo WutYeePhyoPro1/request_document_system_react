@@ -8,6 +8,7 @@ import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
 import BigDamageIsuueLogo from "../../assets/images/big-dmg-issue-logo.png";
 import { filterFormsByRole, getDefaultStatusFilter } from "../../utils/roleBasedFilter";
+import { canViewAllBranches } from "../../utils/userAccess";
 import { useContext } from 'react';
 import { NotificationContext } from '../../context/NotificationContext';
 
@@ -76,6 +77,8 @@ const Dashboard = () => {
     // Request total amount in response
     params.set("include_total", "true");
     
+    console.log('[Dashboard] Building query with filters:', filters);
+    
     // Add other filters
     // NOTE: Do NOT send product filter to backend when doing client-side filtering
     // We fetch all data and filter client-side to ensure we get all products per form
@@ -109,12 +112,15 @@ const Dashboard = () => {
     // This ensures consistent page sizes after deduplication
     // params.set("page", currentPage); // Removed for client-side pagination
     
-    return params.toString();
+    const queryString = params.toString();
+    console.log('[Dashboard] Final query string:', queryString);
+    return queryString;
   };
 
  const query = useMemo(() => buildQuery(), [filters, currentPage]);
 
   const fetcher = async (url) => {
+    console.log('[Dashboard] Fetching:', url);
     const res = await fetch(url, {
       headers: { 
         'Authorization': `Bearer ${token}`, 
@@ -126,6 +132,7 @@ const Dashboard = () => {
     });
     
     if (!res.ok) {
+      console.error('[Dashboard] Fetch failed with status:', res.status);
       // Handle 429 Too Many Requests with user-friendly error
       if (res.status === 429) {
         const error = new Error('Too many requests. Please wait a moment and try again.');
@@ -140,6 +147,11 @@ const Dashboard = () => {
     }
     
     const data = await res.json();
+    console.log('[Dashboard] Fetched data:', {
+      dataType: Array.isArray(data) ? 'array' : typeof data,
+      dataLength: Array.isArray(data) ? data.length : (data?.data?.length || 'N/A'),
+      dataSample: Array.isArray(data) ? data[0] : data?.data?.[0]
+    });
     return data;
   };
 
@@ -194,7 +206,7 @@ const Dashboard = () => {
   
   // Get current user from localStorage
   // This should match the user structure from AuthContext
-  const currentUser = useMemo(() => {
+  const [currentUser, setCurrentUser] = useState(() => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
@@ -202,19 +214,65 @@ const Dashboard = () => {
         return null;
       }
       const user = JSON.parse(userStr);
-      console.log('[Dashboard] Current user loaded:', {
-        id: user?.id,
-        role: user?.role,
-        user_type: user?.user_type,
-        from_branch_id: user?.from_branch_id,
-        fullUser: user
+      console.log('[Dashboard] Current user:', user);
+      console.log('[Dashboard] canViewAllBranches:', canViewAllBranches(user));
+      console.log('[Dashboard] User fields:', {
+        all_branch: user.all_branch,
+        emp_id: user.emp_id,
+        role_id: user.role_id,
+        from_branch_id: user.from_branch_id
       });
       return user;
     } catch (e) {
       console.error('[Dashboard] Error parsing user from localStorage:', e);
       return null;
     }
-  }, []);
+  });
+
+  // Refresh user data if critical fields are missing
+  useEffect(() => {
+    const refreshUserIfNeeded = async () => {
+      if (!currentUser) return;
+      
+      // Check if critical fields are missing
+      const needsRefresh = !('all_branch' in currentUser || 'allBranch' in currentUser) || 
+                          !('emp_id' in currentUser);
+      
+      if (!needsRefresh) return;
+      
+      console.log('[Dashboard] Critical fields missing, fetching fresh user data from /api/me');
+      try {
+        const response = await fetch('/api/me', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('[Dashboard] Response from /api/me:', data);
+          if (data?.user) {
+            console.log('[Dashboard] Updated user from /api/me:', data.user);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            setCurrentUser(data.user);
+            // Force a page reload to ensure all components get the updated user
+            window.location.reload();
+          }
+        } else {
+          console.error('[Dashboard] Failed to fetch /api/me:', response.status);
+        }
+      } catch (error) {
+        console.error('[Dashboard] Failed to refresh user data:', error);
+      }
+    };
+    
+    refreshUserIfNeeded();
+  }, [currentUser, token]);
+
+  const canViewAllBranchesAccess = useMemo(() => canViewAllBranches(currentUser), [currentUser]);
 
   // Get notification form IDs for Big Damage Issues
   const bigDamageNotificationIds = useMemo(() => {
@@ -228,7 +286,7 @@ const Dashboard = () => {
       // Only include notifications with exact form_name 'Big Damage Issue Form'
       // If from_branch_id is undefined, include it (for backward compatibility)
       const matchesForm = noti.form_name === 'Big Damage Issue Form';
-      const matchesBranch = !noti.from_branch_id || noti.from_branch_id === currentUser.from_branch_id;
+    const matchesBranch = canViewAllBranchesAccess || !noti.from_branch_id || noti.from_branch_id === currentUser.from_branch_id;
       
       if (matchesForm && matchesBranch) {
         notificationFormIds.add(String(noti.specific_form_id));
@@ -246,8 +304,9 @@ const Dashboard = () => {
   // Logic: Show notifications until form moves to next status
   // - Checker: Show "Ongoing" until it becomes "Checked" or beyond
   // - Branch Manager: Show "Checked" until it becomes "BM Approved" or beyond
+  // - Operation Manager: Show "BM Approved" only when total exceeds 500000
   // - Branch Account: Show "BM Approved" and "Acknowledged" until it becomes "Completed" or beyond
-  const shouldShowNotificationForRole = (user, formStatus) => {
+  const shouldShowNotificationForRole = (user, formStatus, formRow) => {
     if (!user || !formStatus) {
       console.warn('[Dashboard] shouldShowNotificationForRole: Missing user or status', { user, formStatus });
       return false;
@@ -257,14 +316,22 @@ const Dashboard = () => {
     const userType = normalizeText(user.user_type || '');
     const userRole = normalizeText(user.role || '');
     const status = normalizeText(formStatus);
-    
-    console.log('[Dashboard] shouldShowNotificationForRole check:', {
-      userType,
-      userRole,
-      status,
-      originalStatus: formStatus,
-      userObject: user
-    });
+    const gf = formRow?.general_form || formRow;
+    const formBranchId = gf?.from_branch_id || formRow?.from_branch_id;
+    const shouldFilterByBranch = !canViewAllBranchesAccess;
+    if (shouldFilterByBranch && user?.from_branch_id && formBranchId && String(formBranchId) !== String(user.from_branch_id)) {
+      return false;
+    }
+    const totalAmount = Number(
+      gf?.total_amount ??
+      gf?.totalAmount ??
+      gf?.total ??
+      formRow?.total_amount ??
+      formRow?.totalAmount ??
+      formRow?.total ??
+      0
+    );
+    const requiresOpManagerApproval = totalAmount > 500000;
     
     // Checker (C/CS) - show notifications for "Ongoing" forms only
     // Hide when status changes to "Checked" or beyond
@@ -272,9 +339,23 @@ const Dashboard = () => {
       return status === 'ongoing';
     }
     
+    // Operation Manager (A2) - MUST CHECK BEFORE BM to avoid role conflict
+    // Show notifications for "BM Approved" forms ONLY when amount > 500000
+    const isOpManager = userType === 'a2' || 
+                       userRole.includes('operation manager') || 
+                       userRole.includes('op manager') ||
+                       (user?.employee_number === '666-666666' && user?.department_id === 8);
+    
+    if (isOpManager) {
+      // Operation manager should ONLY see BM Approved forms that exceed threshold
+      if (!requiresOpManagerApproval) return false;
+      return status === 'bm approved' || status === 'bmapproved';
+    }
+    
     // Approver/BM (A1) - show notifications for "Checked" forms only
     // Hide when status changes to "BM Approved" or beyond
     // Check both user_type (A1) and role name (bm, abm, approver)
+    // NOTE: This check comes AFTER operation manager to avoid conflicts
     const isBM = userType === 'a1' || 
                  userRole === 'bm' || 
                  userRole === 'abm' || 
@@ -286,11 +367,6 @@ const Dashboard = () => {
       // BM should ONLY see "Checked" forms
       // Hide if status is "BM Approved", "OP Approved", "Acknowledged", "Completed", etc.
       return status === 'checked';
-    }
-    
-    // Operation Manager (A2) - show notifications for "BM Approved" forms only
-    if (userType === 'a2') {
-      return status === 'bm approved' || status === 'bmapproved';
     }
     
     // Branch Account (AC) - show notifications for "BM Approved" and "Acknowledged" forms only
@@ -344,15 +420,11 @@ const Dashboard = () => {
     // If currentUser is not loaded yet, try to get it from localStorage directly
     let user = currentUser;
     if (!user) {
-      try {
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          user = JSON.parse(userStr);
-          console.log('[Dashboard] Loaded user from localStorage for notification counting:', {
-            role: user?.role,
-            user_type: user?.user_type
-          });
-        }
+        try {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            user = JSON.parse(userStr);
+          }
       } catch (e) {
         console.error('[Dashboard] Error loading user from localStorage:', e);
       }
@@ -411,30 +483,27 @@ const Dashboard = () => {
       }
       
       // Check if this form should be counted for the current user's role
-      if (shouldShowNotificationForRole(user, status)) {
+      if (shouldShowNotificationForRole(user, status, row)) {
         // Get form ID - try multiple possible fields
         // IMPORTANT: Store with ALL possible ID variations to ensure matching works
-        const generalFormId = row?.general_form_id || gf?.general_form_id;
+        const generalFormId = row?.general_form_id || gf?.general_form_id || gf?.id;
         const gfId = gf?.id;
         const rowId = row?.id;
         
-        // Store count with all possible ID keys to ensure we can match it later
-        if (generalFormId) {
-          counts.set(String(generalFormId), 1);
-          matchedCount++;
-        }
-        if (gfId && String(gfId) !== String(generalFormId)) {
-          counts.set(String(gfId), 1);
-        }
-        if (rowId && String(rowId) !== String(generalFormId) && String(rowId) !== String(gfId)) {
-          counts.set(String(rowId), 1);
-        }
+        // Primary ID is general_form_id (this is what DamageIssueList uses for matching)
+        const primaryId = generalFormId || gfId || rowId;
         
-        // Also store a combined key for extra matching
-        if (generalFormId || gfId || rowId) {
-          const primaryId = generalFormId || gfId || rowId;
-          if (primaryId) {
-            counts.set(String(primaryId), 1);
+        if (primaryId) {
+          // Store count with the primary ID (this is what DamageIssueList will look for)
+          counts.set(String(primaryId), 1);
+          matchedCount++;
+          
+          // Also store with other possible ID variations for extra matching
+          if (gfId && String(gfId) !== String(primaryId)) {
+            counts.set(String(gfId), 1);
+          }
+          if (rowId && String(rowId) !== String(primaryId) && String(rowId) !== String(gfId)) {
+            counts.set(String(rowId), 1);
           }
         }
       }
@@ -464,43 +533,6 @@ const Dashboard = () => {
                  userRole === 'approver' ||
                  userRole.includes('approver') ||
                  userRole.includes('branch manager');
-    
-    console.log('[Dashboard] Notification counts by form (from form list):', {
-      totalForms: formListData.length,
-      matchedForms: matchedCount,
-      countsMapSize: counts.size,
-      countsMap: Array.from(counts.entries()).slice(0, 10), // First 10 entries
-      currentUserRole: user?.role,
-      currentUserType: user?.user_type,
-      userTypeNormalized: userType,
-      userRoleNormalized: userRole,
-      isBM: isBM,
-      userObject: { role: user?.role, user_type: user?.user_type, id: user?.id },
-      isFiltering: isFilteringRef.current,
-      statusDistribution, // Show how many forms have each status
-      checkedFormsCount: checkedForms.length,
-      checkedForms: checkedForms.slice(0, 5), // First 5 checked forms
-      ongoingFormsCount: ongoingForms.length,
-      sampleForms: formListData.slice(0, 5).map(row => {
-        const gf = row?.general_form || row;
-        const status = gf?.status || row?.status;
-        const formId = row?.general_form_id || gf?.general_form_id || gf?.id || row?.id;
-        const normalizedStatus = (status || '').toString().toLowerCase().trim();
-        const shouldShow = shouldShowNotificationForRole(user, status);
-        return {
-          formId,
-          status,
-          normalizedStatus,
-          formDocNo: gf?.form_doc_no || row?.form_doc_no,
-          shouldShow,
-          inCountsMap: counts.has(String(formId)),
-          // Show why it should or shouldn't show
-          reason: normalizedStatus === 'checked' && isBM ? 'BM should see Checked' : 
-                  normalizedStatus === 'ongoing' && ['c', 'cs'].includes(userType) ? 'Checker should see Ongoing' :
-                  'Not matching criteria'
-        };
-      })
-    });
     
     return counts;
   }, [currentUser, listPayload]);
@@ -660,11 +692,6 @@ const Dashboard = () => {
         if (!formId) return true; // Keep rows without ID
         
         if (seenFormIds.has(formId)) {
-          console.warn('[Dashboard] Duplicate form detected and removed:', {
-            formId,
-            form_doc_no: row?.general_form?.form_doc_no,
-            row_id: row?.id
-          });
           return false; // Remove duplicate
         }
         
@@ -711,24 +738,7 @@ const Dashboard = () => {
   
   // Debug logging for listData
   useEffect(() => {
-    console.log('[Dashboard] listData updated:', {
-      rowsCount: listData.rows.length,
-      total: listData.meta.total,
-      currentPage: listData.meta.current_page,
-      hasProductFilter: !!(filters.productName && filters.productName.trim()),
-      productFilter: filters.productName,
-      urlSearch: searchParams.get('search')
-    });
-    if (listData.rows.length > 0) {
-      console.log('[Dashboard] Sample row:', {
-        keys: Object.keys(listData.rows[0] || {}),
-        hasProductCode: !!listData.rows[0]?.product_code,
-        hasProductName: !!listData.rows[0]?.product_name,
-        productCode: listData.rows[0]?.product_code,
-        productName: listData.rows[0]?.product_name,
-        fullRow: listData.rows[0]
-      });
-    } else {
+    if (listData.rows.length === 0) {
       console.warn('[Dashboard] No rows in listData!', {
         listPayload: listPayload?.data?.length || 0,
         hasProductFilter: !!(filters.productName && filters.productName.trim())
@@ -754,59 +764,36 @@ const Dashboard = () => {
   }, [branchList]);
 
   useEffect(() => {
-    // Filter branches based on user (matching Laravel blade logic)
-    // Special users (emp_id in ['000-000046', '000-000024', '000-000067']) see all branches
-    // Other users only see branches from their user_branches
     let filteredBranches = branchList;
     
-    if (currentUser?.emp_id && !['000-000046', '000-000024', '000-000067'].includes(currentUser.emp_id)) {
-      // User is not in special list - filter by user_branches
-      // Check multiple possible structures for user_branches
+    if (!canViewAllBranchesAccess) {
+      if (currentUser) {
       const userBranches = currentUser.user_branches || currentUser.userBranches || [];
-      
       if (Array.isArray(userBranches) && userBranches.length > 0) {
-        // Extract branch IDs from user_branches - handle different structures
-        const userBranchIds = userBranches.map(ub => {
-          // Handle different possible structures: {branch_id: X}, {id: X}, or just X
-          return ub?.branch_id || ub?.id || ub;
-        }).filter(Boolean);
-        
+          const userBranchIds = userBranches.map(ub => ub?.branch_id || ub?.id || ub).filter(Boolean);
         if (userBranchIds.length > 0) {
           filteredBranches = branchList.filter(b => userBranchIds.includes(b.id));
         } else if (currentUser.from_branch_id) {
-          // Fallback to single branch if user_branches array is empty but has from_branch_id
           filteredBranches = branchList.filter(b => b.id === currentUser.from_branch_id);
         } else {
-          // If no valid branch IDs, show no branches (empty list)
           filteredBranches = [];
         }
       } else if (currentUser.from_branch_id) {
-        // Fallback to single branch if no user_branches
         filteredBranches = branchList.filter(b => b.id === currentUser.from_branch_id);
       } else {
-        // If no user_branches and no from_branch_id, show no branches (empty list)
         filteredBranches = [];
       }
-      
-      // Debug logging
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('[Dashboard] Branch filtering:', {
-          emp_id: currentUser.emp_id,
-          hasUserBranches: Array.isArray(userBranches) && userBranches.length > 0,
-          userBranchesCount: Array.isArray(userBranches) ? userBranches.length : 0,
-          from_branch_id: currentUser.from_branch_id,
-          filteredBranchesCount: filteredBranches.length,
-          allBranchesCount: branchList.length
-        });
-      }
+      } else {
+        filteredBranches = [];
     }
-    // If user is in special list or has no restrictions, show all branches (filteredBranches = branchList)
+    }
     
     const opts = [{ value: '', label: 'All Branch' }, ...filteredBranches.map(b => ({ value: b.id, label: b.branch_name }))];
     setBranchOptions(opts);
     
     // Initialize filters from URL params on mount or when branchOptions are ready
-    if (opts.length > 1) {
+    // Only run once to prevent flickering on navigation
+    if (opts.length > 1 && !filtersInitializedRef.current) {
       const urlFilters = { ...initializeFiltersFromUrl };
       
       // Update branch filter with proper label from branchOptions
@@ -817,34 +804,27 @@ const Dashboard = () => {
         }
       }
       
-      // Only update filters if they're different (to avoid infinite loops)
       // Skip if we're currently filtering programmatically (from onFilter handler)
       if (isFilteringRef.current) {
         return;
       }
       
-      // Check if any URL param differs from current filters
+      // Check if any URL param exists
       const hasUrlParams = urlFilters.productName || urlFilters.formDocNo || urlFilters.fromDate || 
                           urlFilters.toDate || urlFilters.status || urlFilters.branch;
       
-      if (hasUrlParams && (!filtersInitializedRef.current || 
-          filters.productName !== urlFilters.productName ||
-          filters.formDocNo !== urlFilters.formDocNo ||
-          filters.fromDate !== urlFilters.fromDate ||
-          filters.toDate !== urlFilters.toDate ||
-          JSON.stringify(filters.status) !== JSON.stringify(urlFilters.status) ||
-          filters.branch?.value !== urlFilters.branch?.value)) {
+      if (hasUrlParams) {
         setFilters(urlFilters);
-        filtersInitializedRef.current = true;
-      } else if (filters.branch && filters.branch.value && !filters.branch.label) {
-        // Update branch label if it's missing (e.g., when branchOptions load after filters are set)
-        const branchOption = opts.find(o => String(o.value) === String(filters.branch.value));
-        if (branchOption) {
-          setFilters(prev => ({ ...prev, branch: branchOption }));
-        }
+      }
+      filtersInitializedRef.current = true;
+    } else if (filtersInitializedRef.current && filters.branch && filters.branch.value && !filters.branch.label) {
+      // Update branch label if it's missing (e.g., when branchOptions load after filters are set)
+      const branchOption = opts.find(o => String(o.value) === String(filters.branch.value));
+      if (branchOption) {
+        setFilters(prev => ({ ...prev, branch: branchOption }));
       }
     }
-  }, [branchList, initializeFiltersFromUrl, filters, currentUser]);
+    }, [branchList, initializeFiltersFromUrl, currentUser, canViewAllBranchesAccess]);
 
   useEffect(() => {
     try {
@@ -855,7 +835,7 @@ const Dashboard = () => {
       // 3. No branch is in URL params (to preserve filters when navigating back)
       // 4. Filters have been initialized from URL
       const branchFromUrl = searchParams.get('branch');
-      if (storedUser?.from_branch_id && !filters.branch && !branchFromUrl && filtersInitializedRef.current) {
+    if (!canViewAllBranchesAccess && storedUser?.from_branch_id && !filters.branch && !branchFromUrl && filtersInitializedRef.current) {
         const defaultBranch = branchOptions.find(o => o.value === storedUser.from_branch_id);
         if (defaultBranch) {
           setFilters(prev => ({ ...prev, branch: defaultBranch }));
@@ -864,7 +844,7 @@ const Dashboard = () => {
     } catch (_) {
       // ignore parsing issues
     }
-  }, [branchOptions, filters.branch, searchParams]);
+  }, [branchOptions, filters.branch, searchParams, canViewAllBranchesAccess]);
 
   const hasActiveFilters = useMemo(() => {
     return Boolean(
@@ -925,9 +905,18 @@ const Dashboard = () => {
     }
   }, [mutate]);
   
+  // Track if we just navigated back to prevent multiple refreshes
+  const lastPathnameRef = useRef(location.pathname);
+  const navigationRefreshDoneRef = useRef(false);
+  
   // Refresh when navigating back to dashboard (location pathname changes) - debounced
   useEffect(() => {
-    if (mutate && location.pathname === '/big_damage_issue' && !has429Error) {
+    // Only refresh if we're coming FROM a different page (not on initial mount)
+    const isNavigatingBack = lastPathnameRef.current !== location.pathname && 
+                             location.pathname === '/big_damage_issue';
+    
+    if (isNavigatingBack && mutate && !has429Error && !navigationRefreshDoneRef.current) {
+      navigationRefreshDoneRef.current = true;
       // Debounce navigation refresh to prevent rapid requests
       const timeoutId = setTimeout(() => {
         mutate(undefined, { 
@@ -935,9 +924,17 @@ const Dashboard = () => {
           populateCache: true,
           rollbackOnError: false
         });
-      }, 500); // Wait 500ms after navigation
+        // Reset flag after a delay to allow future navigations
+        setTimeout(() => {
+          navigationRefreshDoneRef.current = false;
+        }, 2000);
+      }, 300); // Reduced from 500ms for faster response
+      
+      lastPathnameRef.current = location.pathname;
       return () => clearTimeout(timeoutId);
     }
+    
+    lastPathnameRef.current = location.pathname;
   }, [location.pathname, mutate, has429Error]);
   
   // Also refresh when component first mounts (user navigates to dashboard)
@@ -1032,8 +1029,6 @@ const Dashboard = () => {
           <FilterCard
           filters={filters}
           onFilter={(v) => {
-            console.log('[Dashboard] onFilter called with:', v);
-            
             // Set filtering flag FIRST to prevent useEffect from interfering
             isFilteringRef.current = true;
             
@@ -1052,12 +1047,10 @@ const Dashboard = () => {
             // Set product name filter in URL (use 'search' parameter)
             if (v.productName && v.productName.trim()) {
               newSearchParams.set('search', v.productName.trim());
-              console.log('[Dashboard] Setting search param to:', v.productName.trim());
             } else {
               newSearchParams.delete('search');
               newSearchParams.delete('product_name');
               newSearchParams.delete('product_code');
-              console.log('[Dashboard] Removing search param');
             }
             
             // Set form doc no filter
@@ -1095,8 +1088,6 @@ const Dashboard = () => {
             } else {
               newSearchParams.delete('branch');
             }
-            
-            console.log('[Dashboard] New URL params:', newSearchParams.toString());
             
             // Update URL params (this won't trigger filter update because isFilteringRef is true)
             setSearchParams(newSearchParams, { replace: true });
@@ -1148,6 +1139,7 @@ const Dashboard = () => {
             }, 1000);
           }}
           externalBranchOptions={branchOptions}
+          allowAllBranchSelection={canViewAllBranchesAccess}
         />
       </div>
       </div>

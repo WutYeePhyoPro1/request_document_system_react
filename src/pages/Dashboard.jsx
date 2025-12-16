@@ -1,5 +1,5 @@
 
-import {  useEffect, useState, useContext, useMemo } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 import dashboardPhoto from "../assets/images/reqBa.png";
 import BigDamageIsuueLogo from "../assets/images/big-dmg-issue-logo.png";
@@ -24,120 +24,218 @@ const Dashboard = () => {
       }
     }, []);
     
-    // Calculate notification counts from context for Big Damage Issue Form
-    const bigDamageIssueCount = useMemo(() => {
-      if (!notifications || !Array.isArray(notifications) || notifications.length === 0) {
-        return 0;
-      }
-      
-      if (!currentUser) return 0;
-      
-      let count = 0;
-      const matchedNotifications = [];
-      const unmatchedNotifications = [];
-      
-      notifications.forEach(noti => {
-        // Check if notification is for Big Damage Issue Form
-        // Method 1: Check form_name (check multiple possible locations with flexible matching)
-        const formName = (noti.form_name 
-          || noti.data?.form_name 
-          || noti.data?.formName
-          || '').toString().trim();
-        const formNameLower = formName.toLowerCase();
-        
-        // More flexible matching - check for partial matches too
-        const matchesFormName = formName === 'Big Damage Issue Form' 
-          || formName === 'Big Damage Issue'
-          || formNameLower.includes('big damage issue')
-          || formNameLower.includes('big damage')
-          || (formNameLower.includes('damage') && formNameLower.includes('issue'));
-        
-        // Method 2: Check form_id (Big Damage Issue Form has form_id = 8)
-        // Check multiple possible locations for form_id
-        const formId = noti.form_id 
-          || noti.data?.form_id 
-          || noti.data?.formId;
-        const formIdNum = typeof formId === 'string' ? parseInt(formId, 10) : formId;
-        const matchesFormId = formIdNum === 8 || formId === 8 || formId === '8';
-        
-        // Method 3: Check form_doc_no prefix (BDI = Big Damage Issue)
-        // Big Damage Issue forms have document numbers starting with "BDI" (e.g., BDILAN120251213-0001)
-        const formDocNo = (noti.form_doc_no 
-          || noti.data?.form_doc_no 
-          || '').toString().trim().toUpperCase();
-        const matchesFormDocNo = formDocNo.startsWith('BDI') || formDocNo.startsWith('BDILAN');
-        
-        // Method 4: Check if it's unread (is_viewed is false/null/undefined)
-        const isUnread = noti.is_viewed === false 
-          || noti.is_viewed === null 
-          || noti.is_viewed === undefined
-          || (noti.data?.is_viewed === false)
-          || (noti.data?.is_viewed === null)
-          || (noti.data?.is_viewed === undefined);
-        
-        // Match if ANY of the form identification methods match
-        const matchesForm = matchesFormName || matchesFormId || matchesFormDocNo;
-        const matchesBranch = !noti.from_branch_id 
-          || noti.from_branch_id === currentUser.from_branch_id
-          || noti.data?.from_branch_id === currentUser.from_branch_id;
-        
-        if (matchesForm && matchesBranch && isUnread) {
-          count++;
-          matchedNotifications.push({
-            id: noti.id || noti.notification_id,
-            form_name: formName,
-            form_id: formId,
-            form_doc_no: formDocNo,
-            from_branch_id: noti.from_branch_id || noti.data?.from_branch_id,
-            is_viewed: noti.is_viewed,
-            specific_form_id: noti.specific_form_id || noti.data?.specific_form_id,
-            matchedBy: {
-              formName: matchesFormName,
-              formId: matchesFormId,
-              formDocNo: matchesFormDocNo
+    // Calculate notification count from form list (same as Navbar)
+    // This is the source of truth - counts forms based on status, not notifications API
+    const [bigDamageIssueCount, setBigDamageIssueCount] = useState(0);
+    
+    // Fetch form list and count forms that need action based on user role (same logic as Navbar)
+    useEffect(() => {
+        const fetchFormBasedNotificationCount = async () => {
+            if (!currentUser || !currentUser.id) {
+                setBigDamageIssueCount(0);
+                return;
             }
-          });
-        } else {
-          unmatchedNotifications.push({
-            id: noti.id || noti.notification_id,
-            form_name: formName,
-            form_id: formId,
-            form_doc_no: formDocNo,
-            from_branch_id: noti.from_branch_id || noti.data?.from_branch_id,
-            is_viewed: noti.is_viewed,
-            matchesForm,
-            matchesBranch,
-            isUnread,
-            matchedBy: {
-              formName: matchesFormName,
-              formId: matchesFormId,
-              formDocNo: matchesFormDocNo
-            },
-            fullNotification: noti
-          });
-        }
-      });
-      
-      // Debug logging
-      if (typeof window !== 'undefined' && window.console) {
-        window.console.log('[Dashboard] Big Damage Issue notification count:', {
-          count,
-          notificationsLength: notifications.length,
-          currentUserFromBranchId: currentUser?.from_branch_id,
-          matchedNotifications: matchedNotifications,
-          unmatchedNotifications: unmatchedNotifications.slice(0, 5), // Show first 5 unmatched
-          allNotificationFormNames: [...new Set(notifications.map(n => 
-            n.form_name || n.data?.form_name || n.data?.formName
-          ).filter(Boolean))],
-          allNotificationFormIds: [...new Set(notifications.map(n => 
-            n.form_id || n.data?.form_id || n.data?.formId
-          ).filter(Boolean))],
-          sampleNotification: notifications[0]
-        });
-      }
-      
-      return count;
-    }, [notifications, currentUser]);
+            
+            const token = localStorage.getItem("token");
+            if (!token) {
+                setBigDamageIssueCount(0);
+                return;
+            }
+
+            try {
+                // Fetch form list with minimal data (just status and IDs) - same as Navbar
+                const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                });
+
+                if (!res.ok) {
+                    console.warn('[Dashboard] Failed to fetch form list for notification count');
+                    return;
+                }
+
+                const data = await res.json();
+                // Handle different response structures
+                let formListData = null;
+                if (data?.data && Array.isArray(data.data)) {
+                    formListData = data.data;
+                } else if (Array.isArray(data)) {
+                    formListData = data;
+                } else if (data?.data?.data && Array.isArray(data.data.data)) {
+                    formListData = data.data.data;
+                }
+
+                if (!formListData || !Array.isArray(formListData)) {
+                    console.warn('[Dashboard] Invalid form list data structure:', { data });
+                    return;
+                }
+
+                // Role ID to Name mapping (same as Navbar)
+                const roleIdToNameMap = {
+                    1: 'User',
+                    2: 'Checker',
+                    3: 'Approver',
+                    4: 'Super-Admin',
+                    5: 'Acknowledge',
+                    6: 'Recorder',
+                    7: 'Branch Account',
+                    8: 'Branch IT',
+                    9: 'Branch HR',
+                    10: 'Supervisor'
+                };
+
+                // Helper function to extract user_type and role from user object (same as Navbar)
+                const extractUserRoleInfo = (userObj) => {
+                    if (!userObj) return { userType: '', userRole: '' };
+                    
+                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
+                    
+                    // First, try to get user_type and role directly
+                    let userType = normalizeText(userObj.user_type || userObj.userType || '');
+                    let userRole = normalizeText(userObj.role || userObj.role_name || userObj.roleName || '');
+                    
+                    // If we have role_id but no role name, map it
+                    if (!userRole && userObj.role_id && roleIdToNameMap[userObj.role_id]) {
+                        userRole = normalizeText(roleIdToNameMap[userObj.role_id]);
+                    }
+                    
+                    // If we have role name but no user_type, infer user_type from role
+                    if (!userType && userRole) {
+                        // Checker role -> user_type C or CS
+                        if (userRole === 'checker' || userRole.includes('checker')) {
+                            userType = 'c';
+                        }
+                        // Approver/BM role -> user_type A1
+                        else if (userRole === 'approver' || userRole === 'bm' || userRole === 'abm' || 
+                                 userRole.includes('approver') || userRole.includes('branch manager')) {
+                            userType = 'a1';
+                        }
+                        // Branch Account role -> user_type AC
+                        else if (userRole === 'branch account' || userRole === 'account' || 
+                                 userRole.includes('account')) {
+                            userType = 'ac';
+                        }
+                        // Operation Manager -> user_type A2
+                        else if (userRole.includes('operation manager') || userRole.includes('op manager')) {
+                            userType = 'a2';
+                        }
+                    }
+                    
+                    return { userType, userRole };
+                };
+
+                // Helper function to check if form should be counted (same as Navbar)
+                const shouldCountForm = (formStatus, userObj) => {
+                    if (!formStatus) return false;
+                    
+                    const { userType, userRole } = extractUserRoleInfo(userObj);
+                    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
+                    const status = normalizeText(formStatus);
+                    
+                    // Checker (C/CS) - count "Ongoing" forms
+                    if (['c', 'cs'].includes(userType)) {
+                        return status === 'ongoing';
+                    }
+                    
+                    // Branch Manager (A1/BM) - count "Checked" forms (not BM Approved)
+                    const isBM = userType === 'a1' || 
+                                userRole === 'bm' || 
+                                userRole === 'abm' || 
+                                userRole === 'approver' ||
+                                userRole.includes('approver') ||
+                                userRole.includes('branch manager');
+                    if (isBM) {
+                        const isBMApproved = status === 'bm approved' || 
+                                            status === 'bmapproved' || 
+                                            status === 'bm_approved' ||
+                                            status.includes('bm approved') ||
+                                            status.includes('bmapproved');
+                        if (isBMApproved) return false;
+                        return status === 'checked';
+                    }
+                    
+                    // Branch Account (AC) - count "BM Approved", "OP Approved", and "Acknowledged" forms
+                    const isAccount = userType === 'ac' || 
+                                     userRole === 'account' ||
+                                     userRole === 'branch account' ||
+                                     userRole.includes('account') ||
+                                     userRole.includes('branch account');
+                    if (isAccount) {
+                        if (status === 'ongoing' || status === 'checked') return false;
+                        if (status === 'completed' || 
+                            status === 'issued' || 
+                            status === 'supervisorissued' ||
+                            status.includes('completed') ||
+                            status.includes('issued')) return false;
+                        return status === 'bm approved' || 
+                               status === 'bmapproved' || 
+                               status === 'bm_approved' ||
+                               status === 'op approved' ||
+                               status === 'opapproved' ||
+                               status === 'op_approved' ||
+                               status === 'ac_acknowledged' || 
+                               status === 'acknowledged' ||
+                               status.includes('bm approved') ||
+                               status.includes('bmapproved') ||
+                               status.includes('op approved') ||
+                               status.includes('opapproved') ||
+                               status.includes('acknowledged');
+                    }
+                    
+                    return false;
+                };
+                
+                // Count forms based on status and user role (same logic as Navbar)
+                let count = 0;
+                formListData.forEach(row => {
+                    const gf = row?.general_form || row;
+                    const status = gf?.status || row?.status;
+                    
+                    if (!status) return;
+                    
+                    // Check branch match if user has a branch
+                    if (currentUser.from_branch_id) {
+                        const formBranchId = gf?.from_branch_id || row?.from_branch_id;
+                        if (formBranchId && formBranchId !== currentUser.from_branch_id) {
+                            return;
+                        }
+                    }
+                    
+                    if (shouldCountForm(status, currentUser)) {
+                        count++;
+                    }
+                });
+                
+                setBigDamageIssueCount(count);
+                
+                console.log('[Dashboard] Form-based notification count calculated:', {
+                    count,
+                    totalForms: formListData.length,
+                    userType: extractUserRoleInfo(currentUser).userType,
+                    userRole: extractUserRoleInfo(currentUser).userRole
+                });
+            } catch (err) {
+                console.error('[Dashboard] Error fetching form-based notification count:', err);
+                setBigDamageIssueCount(0);
+            }
+        };
+        
+        fetchFormBasedNotificationCount();
+        
+        // Refresh count when notifications are updated
+        const handleNotificationsUpdated = () => {
+            fetchFormBasedNotificationCount();
+        };
+        
+        window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
+        return () => {
+            window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
+        };
+    }, [currentUser]);
     
      useEffect(() => {
     const fetchAllForms = async () => {
@@ -446,44 +544,21 @@ const Dashboard = () => {
           // Use form.id as the key (consistent with how we stored it)
           let count = formCounts[form.id] || 0;
           
-          // For Big Damage Issue Form, use context count as primary source
-          // Context count checks form_doc_no (BDI prefix) which is more reliable than form_id
-          // Some Big Damage Issue forms may have form_id = 1 instead of 8, so API count may be wrong
+          // For Big Damage Issue Form, ALWAYS use form-based count (bigDamageIssueCount)
+          // This ensures we ONLY show Big Damage Issue Form notifications, not all notifications
+          // The form-based count is calculated from the form list API and filters by status and role
           if (form.name === "Big Damage Issue Form") {
-            const apiCount = count; // This comes from formCounts[form.id] which is set by API (checks form_id = 8)
-            const contextCount = bigDamageIssueCount || 0;
+            // ALWAYS use bigDamageIssueCount - this is the source of truth for Big Damage Issue Form
+            // It counts forms from /api/big-damage-issues that match the user's role and status
+            // This ensures we ONLY show Big Damage Issue Form count, not all notifications
+            count = bigDamageIssueCount || 0;
             
-            // CRITICAL: Context count is more reliable for Big Damage Issue because:
-            // 1. It checks form_doc_no prefix (BDI/BDILAN) which is unique to Big Damage Issue
-            // 2. Some Big Damage Issue forms may have form_id = 1 instead of 8
-            // 3. API only checks form_id = 8, so it misses notifications with wrong form_id
-            // Always use the higher count, but prioritize context if it's > 0
-            if (contextCount > 0) {
-              count = contextCount;
-              console.log('[Dashboard] Using context count for Big Damage Issue Form (checks form_doc_no):', contextCount);
-            } else if (apiCount > 0) {
-              count = apiCount;
-              console.log('[Dashboard] Using API count for Big Damage Issue Form (context returned 0):', apiCount);
-            } else {
-              count = 0;
-              console.log('[Dashboard] No notifications found for Big Damage Issue Form (API: 0, Context: 0)');
-            }
-            
-            // Debug logging for Big Damage Issue Form (always log to help diagnose)
-            console.log('[Dashboard] Rendering Big Damage Issue Form card:', {
+            console.log('[Dashboard] Big Damage Issue Form card count:', {
               formId: form.id,
               form_id: form.form_id,
-              apiCount: apiCount,
-              contextCount: contextCount,
+              bigDamageIssueCount: bigDamageIssueCount,
               finalCount: count,
-              willShowBadge: count > 0,
-              notificationsLength: notifications?.length || 0,
-              allFormCountsKeys: Object.keys(formCounts),
-              formCountsObject: formCounts,
-              hasNotifications: notifications && notifications.length > 0,
-              sampleNotification: notifications?.[0],
-              allNotificationFormNames: notifications ? [...new Set(notifications.map(n => n.form_name || n.data?.form_name).filter(Boolean))] : [],
-              allNotificationFormIds: notifications ? [...new Set(notifications.map(n => n.form_id || n.data?.form_id).filter(Boolean))] : []
+              willShowBadge: count > 0
             });
           }
           const icon = formIcons[form.name] || "";
