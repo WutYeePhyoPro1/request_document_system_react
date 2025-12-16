@@ -424,26 +424,50 @@ const ApproveForm: React.FC = () => {
               centered
             >
               <div className="flex flex-wrap gap-4 items-center justify-center">
-                {accountFile?.map((img, i) => (
-                  <div className="flex flex-col">
-                    <img
-                      key={i}
-                      src={img.file_url}
-                      className="w-20 h-20 object-cover rounded border"
-                    />
-                    <a href={img.file_url} className="text-blue-600 underline">
-                      {img.name}
-                    </a>
-                    <Button
-                      color="red"
-                      variant="filled"
-                      size="xs"
-                      onClick={() => handleDeleteAccountFile(img.id)}
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                ))}
+               {accountFile?.map((file) => {
+  const isPdf = file.file_url?.toLowerCase().endsWith(".pdf");
+
+  return (
+    <div
+      key={file.id}
+      className="flex flex-col items-center gap-2"
+    >
+      {isPdf ? (
+                                    <iframe
+                                      src={file.file_url}
+                                      className="w-40 h-40 border rounded"
+                                      title={file.name}
+                                    />
+                                  ) : (
+                                    <img
+                                      src={file.file_url}
+                                      alt={file.name || "Attachment"}
+                                      className="w-40 h-40 object-cover rounded border"
+                                    />
+                                  )}
+
+      {/* File name */}
+      <a
+        href={file.file_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 underline text-sm truncate max-w-[80px] text-center"
+      >
+        {file.name}
+      </a>
+
+      <Button
+        color="red"
+        variant="filled"
+        size="xs"
+        onClick={() => handleDeleteAccountFile(file.id)}
+      >
+        Delete
+      </Button>
+    </div>
+  );
+})}
+
               </div>
             </Modal>
             {accountFile?.[0] && (

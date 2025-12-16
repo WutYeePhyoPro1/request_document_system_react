@@ -229,35 +229,50 @@ const Detail: React.FC = () => {
                           centered
                         >
                           <div className="flex flex-wrap gap-4 items-center justify-center">
-                            {detailData?.files?.map((img, i) => (
-                              <div className="flex flex-col ">
-                                <img
+                            {detailData?.files?.map((file, i) => {
+                              const isPDF = file.file_url
+                                .toLowerCase()
+                                .endsWith(".pdf");
+                              return (
+                                <div
                                   key={i}
-                                  src={img.file_url}
-                                  alt="Discount Attachment"
-                                  className="w-20  h-20 object-cover rounded border"
-                                />
-
-                                <a
-                                  href={img.file_url}
-                                  className="text-blue-600 underline"
+                                  className="flex flex-col items-center gap-2"
                                 >
-                                  {img.name}
-                                </a>
-                                {["Ongoing", "BM Approved"].includes(
-                                  detailData?.form?.status
-                                ) && (
-                                  <Button
-                                    onClick={() => handleDete(img.id)}
-                                    color="red"
-                                    variant="filled"
-                                    size="xs"
+                                  {isPDF ? (
+                                    <iframe
+                                      src={file.file_url}
+                                      className="w-40 h-40 border rounded"
+                                      title={file.name}
+                                    />
+                                  ) : (
+                                    <img
+                                      src={file.file_url}
+                                      alt={file.name || "Attachment"}
+                                      className="w-40 h-40 object-cover rounded border"
+                                    />
+                                  )}
+                                  <a
+                                    href={file.file_url}
+                                    className="text-blue-600 underline"
+                                    target="_blank"
                                   >
-                                    Delete
-                                  </Button>
-                                )}
-                              </div>
-                            ))}
+                                    {file.name}
+                                  </a>
+                                  {["Ongoing", "BM Approved"].includes(
+                                    detailData?.form?.status
+                                  ) && (
+                                    <Button
+                                      onClick={() => handleDete(file.id)}
+                                      color="red"
+                                      variant="filled"
+                                      size="xs"
+                                    >
+                                      Delete
+                                    </Button>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </Modal>
 
@@ -287,14 +302,13 @@ const Detail: React.FC = () => {
                           detailData?.form?.status
                         ) && (
                           <AddAttachFile
-  generalFormId={id}
-  onUploaded={() => {
-    if (token && id) {
-      dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
-    }
-  }}
-/>
-
+                            generalFormId={id}
+                            onUploaded={() => {
+                              if (token && id) {
+                                dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
+                              }
+                            }}
+                          />
                         )}
                       </div>
                     </div>

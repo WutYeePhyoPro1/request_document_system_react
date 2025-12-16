@@ -3,7 +3,7 @@ import useSWR from 'swr';
 import useSWRImmutable from 'swr/immutable';
 import { Link, useSearchParams, useLocation } from "react-router-dom";
 import { PlusCircleIcon, FunnelIcon, PlusIcon } from '@heroicons/react/24/solid';
-import { PlusSquareIcon } from '@heroicons/react/24/outline';
+// import { PlusSquareIcon } from '@heroicons/react/24/outline';
 import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
 import BigDamageIsuueLogo from "../../assets/images/big-dmg-issue-logo.png";

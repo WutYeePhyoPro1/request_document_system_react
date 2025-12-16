@@ -27,7 +27,7 @@ const AddAttachFile: React.FC<{
       prev.map((f) => (f.id === id ? { ...f, file } : f))
     );
   };
-
+console.log("invoiceFile>>" , invoiceFile) ;
   const addInvoiceFile = () => {
     setInvoiceFile([...invoiceFile, { id: uuidv4(), file: null }]);
   };
@@ -45,15 +45,23 @@ const AddAttachFile: React.FC<{
     const token = localStorage.getItem("token");
     if (!token) return;
 
+    // const formData = new FormData();
+    // formData.append("general_form_id", String(generalFormId));
+
+    // invoiceFile.forEach((f) => {
+    //   if (f.file) {
+    //     formData.append("file[]", f.file);
+    //   }
+    // });
     const formData = new FormData();
-    formData.append("general_form_id", String(generalFormId));
+  formData.append("general_form_id", String(generalFormId));
 
-    invoiceFile.forEach((f) => {
-      if (f.file) {
-        formData.append("file[]", f.file);
-      }
-    });
-
+  invoiceFile.forEach((item, index) => {
+    if (item.file) {
+      formData.append(`file[]`, item.file); // Laravel expects array
+      formData.append(`file_uuid[]`, item.id); // OPTIONAL (if you want UUID)
+    }
+  });
     try {
       setSubmitting(true);
       await reUploadFile(token, formData);
@@ -75,14 +83,25 @@ const AddAttachFile: React.FC<{
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {invoiceFile.map((fileField, index) => (
             <div key={fileField.id} className="flex gap-2">
-              <FileInput
+              {/* <FileInput
                 leftSection={fileIcon}
                 placeholder="Upload file"
                 value={fileField.file}
                 onChange={(file) => updateInvoiceFile(fileField.id, file)}
                 disabled={submitting}
                 className="flex-1"
-              />
+                accept="image/*,application/pdf"
+              /> */}
+              <FileInput
+  leftSection={fileIcon}
+  placeholder="Upload file"
+  value={fileField.file}
+  onChange={(file) => updateInvoiceFile(fileField.id, file)}
+  disabled={submitting}
+  accept="image/*,application/pdf" // allow images + PDFs
+  className="flex-1"
+/>
+
 
               {index === 0 ? (
                 <Button type="button" onClick={addInvoiceFile}>
