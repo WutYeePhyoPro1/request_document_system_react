@@ -243,12 +243,26 @@ const InvestigationFormModal = ({
         accCompany: existing.acc_company,
       });
       
-      // Handle bdi_reason: convert 'discipl' to 'discipline' for display
-      const reason = existing.bdi_reason === 'discipl' ? 'discipline' : existing.bdi_reason;
-      const category = (reason && reason[0]?.toUpperCase() + reason.slice(1)) || 'Thief';
-      
+      // Normalize bdi_reason to one of our category IDs (matches `categories[].id`)
+      const mapReasonToCategoryId = (reasonRaw) => {
+        if (!reasonRaw) return 'Thief';
+        const r = (reasonRaw || '').toString().toLowerCase().trim();
+        if (r === 'discipl' || r === 'discipline') return 'Discipline';
+        if (r === 'natural' || r === 'natural accident' || r === 'natural_accident') return 'Natural Accident';
+        if (r === 'thief') return 'Thief';
+        if (r === 'delivery') return 'Delivery';
+        if (r === 'accident') return 'Accident';
+        if (r === 'safety') return 'Safety';
+        if (r === 'other') return 'Other';
+        // Fallback: capitalize first letter
+        return reasonRaw[0]?.toUpperCase() + reasonRaw.slice(1);
+      };
+
+      const reason = existing.bdi_reason;
+      const categoryId = mapReasonToCategoryId(reason);
+
       setInvestigationId(existingId);
-      setSelectedCategory(category);
+      setSelectedCategory(categoryId);
         setBmReason(existing.bm_reason || '');
       setCompanyPct(existing.bm_company ?? '0');
       setUserPct(existing.bm_user ?? '0');
@@ -798,12 +812,22 @@ const InvestigationFormModal = ({
         setAccUserPct(investigationData.acc_user ?? '0');
         setAccIncomePct(investigationData.acc_income ?? '0');
         
-        // Update category from bdi_reason
+        // Update category from bdi_reason (normalize to category IDs)
         if (investigationData.bdi_reason) {
-          // Handle both 'discipl' (stored) and 'discipline' (display) formats
-          const reason = investigationData.bdi_reason === 'discipl' ? 'discipline' : investigationData.bdi_reason;
-          const category = reason[0]?.toUpperCase() + reason.slice(1);
-          setSelectedCategory(category || 'Thief');
+          const mapReasonToCategoryId = (reasonRaw) => {
+            if (!reasonRaw) return 'Thief';
+            const r = (reasonRaw || '').toString().toLowerCase().trim();
+            if (r === 'discipl' || r === 'discipline') return 'Discipline';
+            if (r === 'natural' || r === 'natural accident' || r === 'natural_accident') return 'Natural Accident';
+            if (r === 'thief') return 'Thief';
+            if (r === 'delivery') return 'Delivery';
+            if (r === 'accident') return 'Accident';
+            if (r === 'safety') return 'Safety';
+            if (r === 'other') return 'Other';
+            return reasonRaw[0]?.toUpperCase() + reasonRaw.slice(1);
+          };
+          const categoryId = mapReasonToCategoryId(investigationData.bdi_reason);
+          setSelectedCategory(categoryId || 'Thief');
         }
         
         console.log('[InvestigationModal] Updated modal state:', {

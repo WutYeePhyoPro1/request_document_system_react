@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from 'swr';
 import useSWRImmutable from 'swr/immutable';
 import { Link, useSearchParams, useLocation } from "react-router-dom";
@@ -194,6 +194,21 @@ const Dashboard = () => {
       }
     }
   );
+
+  // Listen for external updates (e.g., after form submission/system update) and revalidate list
+  React.useEffect(() => {
+    const handler = () => {
+      try {
+        if (typeof mutate === 'function') {
+          mutate();
+        }
+      } catch (e) {
+        console.warn('[Dashboard] failed to revalidate after external update', e);
+      }
+    };
+    window.addEventListener('big-damage-updated', handler);
+    return () => window.removeEventListener('big-damage-updated', handler);
+  }, [mutate]);
 
   // Branches load once and cache
   const { data: branchesPayload } = useSWRImmutable(

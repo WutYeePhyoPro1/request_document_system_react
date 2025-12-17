@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useContext, useMemo } from "react";
+import React, { useEffect, useState, useContext, useMemo } from "react";
 import { Link } from "react-router-dom";
 import dashboardPhoto from "../assets/images/reqBa.png";
 import BigDamageIsuueLogo from "../assets/images/big-dmg-issue-logo.png";

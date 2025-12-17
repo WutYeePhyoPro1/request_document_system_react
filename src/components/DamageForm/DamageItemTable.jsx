@@ -2905,8 +2905,8 @@ const normalizeImageEntries = (list) => {
       {/* Update System Qty Button - Matches Laravel acknowledge() function logic exactly */}
       {/* Shows only when: ACK user, ACK entry exists, status matches amount, form type is big_damage, form not issued/completed */}
       {canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="mt-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
               type="button"
               onClick={handleUpdateSystemQty}
@@ -2916,8 +2916,9 @@ const normalizeImageEntries = (list) => {
               {isUpdatingSystemQty ? 'Updating...' : systemQtyUpdated ? 'Update System Qty Again' : 'Update System Qty'}
             </button>
             {!systemQtyUpdated && (
-              <p className="text-red-600 text-xs">
-                <span className="text-red-600 font-bold">*</span> Please update your system qty before clicking the Issued button.
+              <p className="text-red-600 text-xs flex items-center ml-1">
+                <span className="text-red-600 font-bold mr-1">*</span>
+                <span className="ml-2">Please update your system qty before clicking the Issued button.</span>
               </p>
             )}
           </div>
