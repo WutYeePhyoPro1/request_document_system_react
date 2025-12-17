@@ -195,6 +195,21 @@ const Dashboard = () => {
     }
   );
 
+  // Listen for external updates (e.g., after form submission/system update) and revalidate list
+  React.useEffect(() => {
+    const handler = () => {
+      try {
+        if (typeof mutate === 'function') {
+          mutate();
+        }
+      } catch (e) {
+        console.warn('[Dashboard] failed to revalidate after external update', e);
+      }
+    };
+    window.addEventListener('big-damage-updated', handler);
+    return () => window.removeEventListener('big-damage-updated', handler);
+  }, [mutate]);
+
   // Branches load once and cache
   const { data: branchesPayload } = useSWRImmutable(
     token ? ['/api/branches'] : null,

@@ -44,19 +44,24 @@ export default function ConfirmationModal({
 
             <p className="mb-6 text-gray-600">{defaultMessage}</p>
 
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={onCancel}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 hover:bg-gray-300 transition"
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={onConfirm}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 focus:ring-4 focus:ring-red-300 transition"
-              >
-                {t('common.delete')}
-              </button>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <button
+                  onClick={onConfirm}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[#198754] text-white hover:bg-[#157347] focus:ring-4 focus:ring-emerald-300 transition"
+                >
+                  {t('common.confirm')}
+                </button>
+              </div>
+
+              <div>
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

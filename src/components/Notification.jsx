@@ -1098,8 +1098,8 @@ export default function Notification({ notifications, formBasedCount = null }) {
                                 <div className="flex items-start gap-3">
                                     {/* Small PRO Global Logo */}
                                     <div className="flex-shrink-0 w-8 h-8 mt-0.5">
-                                        <img
-                                            src={finalLogo}
+                                <img
+                                    src={finalLogo}
                                             alt="PRO Global"
                                             className="w-full h-full object-contain"
                                         />
@@ -1139,7 +1139,7 @@ export default function Notification({ notifications, formBasedCount = null }) {
                             </div>
                             <p className="text-gray-600 font-medium text-base mb-1">No notifications</p>
                             <p className="text-gray-400 text-sm text-center">You're all caught up! Check back later for updates.</p>
-                        </div>
+                    </div>
                     )}
 
                     {/* Footer */}

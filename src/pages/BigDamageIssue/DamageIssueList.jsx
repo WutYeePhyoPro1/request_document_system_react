@@ -379,6 +379,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     }
   }, []);
   
+  
+  
   // Helper function to normalize text (case-insensitive, trim whitespace)
   const normalizeText = (text) => {
     if (!text) return '';
@@ -479,24 +481,30 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       return formStatus === 'ongoing';
     }
     
-    // Approver/BM (A1) - only relevant for "Checked" forms (NOT Ongoing)
-    // Check both user_type (A1) and role name (bm, abm, approver)
-    const isBM = userType === 'a1' || 
-                 userRole === 'bm' || 
-                 userRole === 'abm' || 
-                 userRole === 'approver' ||
-                 userRole.includes('approver') ||
-                 userRole.includes('branch manager');
-    
-    if (isBM) {
-      // BM should ONLY see "Checked" forms, NOT "Ongoing" forms
-      return formStatus === 'checked';
-    }
-    
-    // Operation Manager (A2) - only relevant for "BM Approved" forms
-    if (userType === 'a2') {
-      return formStatus === 'bm approved' || formStatus === 'bmapproved';
-    }
+  // Operation Manager (A2) - only relevant for "BM Approved" forms
+  // Check this BEFORE BM check to avoid role conflicts for users who have multiple roles
+  const isOpManager = userType === 'a2' ||
+                      (userRole || '').includes('operation manager') ||
+                      (userRole || '').includes('op manager') ||
+                      // Special legacy override: treat this specific employee as OP manager (matches Dashboard logic)
+                      (user?.employee_number === '666-666666' && user?.department_id === 8);
+  if (isOpManager) {
+    return formStatus === 'bm approved' || formStatus === 'bmapproved';
+  }
+
+  // Approver/BM (A1) - only relevant for "Checked" forms (NOT Ongoing)
+  // Check both user_type (A1) and role name (bm, abm, approver)
+  const isBM = userType === 'a1' || 
+               userRole === 'bm' || 
+               userRole === 'abm' || 
+               userRole === 'approver' ||
+               userRole.includes('approver') ||
+               userRole.includes('branch manager');
+  
+  if (isBM) {
+    // BM should ONLY see "Checked" forms, NOT "Ongoing" forms
+    return formStatus === 'checked';
+  }
     
     // Branch Account (AC) - only relevant for "BM Approved" and "Acknowledged" forms
     // Hide when status changes to "Completed" or beyond
@@ -807,6 +815,30 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     issues = allFilteredIssues.slice(startIndex, startIndex + perPage);
   }
   
+  // Compute visible issues based on role (Operation Manager should only see forms exceeding threshold)
+  const visibleIssues = React.useMemo(() => {
+    try {
+      if (!currentUser) return issues;
+      const { userType, userRole } = extractUserRoleInfo(currentUser || {});
+      const roleLower = (userRole || '').toString().toLowerCase();
+      const isOpManager = userType === 'a2' || roleLower.includes('operation manager') || roleLower.includes('op manager') || (currentUser?.employee_number === '666-666666' && currentUser?.department_id === 8);
+      if (!isOpManager) return issues;
+    // Filter to only show BM Approved forms whose total exceeds threshold for Operation Manager
+    return issues.filter((row) => {
+      const gf = row.general_form || {};
+      const totalAmount = getTotalAmount(row, gf);
+      const status = ((gf.status || row.status || '') + '').toString().toLowerCase().trim();
+      const isBmApproved = status === 'bm approved' || status === 'bmapproved';
+      return isBmApproved && Number(totalAmount) > 500000;
+    });
+    } catch (e) {
+      // Prevent render crash — on error fallback to showing all issues and log details
+      // eslint-disable-next-line no-console
+      console.error('[DamageIssueList] visibleIssues useMemo error:', e);
+      return issues;
+    }
+  }, [issues, currentUser]);
+  
   // Use filtered total for pagination when product filter is active
   const effectiveTotalRows = productNameFilterLower ? filteredTotal : totalRows;
   
@@ -845,7 +877,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     'Sell / Not Sell',
     'Branch',
     'Requested By',
-    'Amount',
     'Created Date',
     'Modified',
   ];
@@ -972,7 +1003,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 </thead>
 
                 <tbody className="bg-white">
-                  {issues.map((row, idx) => {
+            {visibleIssues.map((row, idx) => {
                     const gf = row.general_form || {};
                     const detailId = row.id;
                     const displayNo = (currentPage - 1) * perPage + idx + 1;
@@ -1034,15 +1065,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               // Only show notification count badge if form is relevant to user's role
                             const isRelevant = isFormRelevantToUser(gf);
                             
-                            // Only show notification count badge if form is relevant to user's role
+                            // Hide numeric unread-count badge entirely (do not render the red '1' badge)
                             if (notiCount > 0 && isRelevant) {
-                              return (
-                                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
-                                                bg-gradient-to-br from-red-500 to-red-600 rounded-full 
-                                                border-2 border-white shadow-lg text-white text-xs font-bold">
-                                  {notiCount > 99 ? '99+' : notiCount}
-                                </span>
-                              );
+                              return null;
                             }
                             return null;
                           })()}
@@ -1127,7 +1152,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">
+                        {/* <t className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">
                           <div className="flex items-center justify-end gap-1">
                             {exceedsThreshold ? (
                               <ArrowUpIcon className="h-5 w-5 text-green-600" />
@@ -1138,7 +1163,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               {Math.round(totalAmount).toLocaleString('en-US')}
                             </span>
                           </div>
-                        </td>
+                        </td> */}
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
                         </td>
@@ -1176,7 +1201,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             <EmptyState />
           </div>
         ) : (
-          issues.map((row, idx) => {
+          visibleIssues.map((row, idx) => {
             const gf = row.general_form || {};
             const detailId = row.id;
             const displayNo = (currentPage - 1) * perPage + idx + 1;
@@ -1240,15 +1265,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       // Check if form is relevant to user's role
                       const isRelevantMobile = isFormRelevantToUser(gf);
                       
-                      // Only show notification count badge if form is relevant to user's role
+                      // Hide numeric unread-count badge entirely for mobile view as well
                       if (notiCount > 0 && isRelevantMobile) {
-                        return (
-                          <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
-                                          bg-gradient-to-br from-red-500 to-red-600 rounded-full 
-                                          border-2 border-white shadow-lg text-white text-xs font-bold flex-shrink-0">
-                            {notiCount > 99 ? '99+' : notiCount}
-                          </span>
-                        );
+                        return null;
                       }
                       return null;
                     })()}

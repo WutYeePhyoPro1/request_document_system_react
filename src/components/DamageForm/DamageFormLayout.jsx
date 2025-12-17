@@ -2941,6 +2941,24 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const actionToSubmit = confirmationModal.action;
     setConfirmationModal({ isOpen: false, action: null, emptyFields: [] });
     if (actionToSubmit) {
+      // Prevent acknowledgement actions when investigation is not filled.
+      const isOpAckAction = ['Ac_Acknowledged', 'Acknowledged', 'OPApproved', 'opapproved'].includes(actionToSubmit);
+      const statusRaw =
+        formData.status ??
+        formData.general_form?.status ??
+        formData.big_damage_issue?.status ??
+        'Ongoing';
+      const normalizedStatus = (statusRaw || '').toString().trim();
+      const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
+
+      if (isOpAckAction && isBMApprovedStatus && !isInvestigationFilled) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
+        return;
+      }
+
       await handleSubmit(actionToSubmit);
     }
   };
@@ -3389,6 +3407,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       appendArrayField('product_category_id', productCategoryIds);
       appendArrayField('specific_form_id', specificFormIds);
       appendArrayField('acc_code1', accountCodeLines);
+      // Also include legacy 'acc_code' key (backend may expect either)
+      appendArrayField('acc_code', accountCodeLines);
+      
+      // If any account codes are present, mark the form as "Other income sell" for backend/listing
+      const hasAccountCodes = accountCodeLines.some(code => code !== undefined && code !== null && String(code).trim() !== '');
+      if (hasAccountCodes) {
+        // Backend expects case_type or asset_type to indicate Other income sell
+        formDataToSend.append('case_type', 'Other income sell');
+        formDataToSend.append('asset_type', 'on');
+        // Also include camelCase variants in case backend expects them
+        formDataToSend.append('caseType', 'Other income sell');
+        formDataToSend.append('assetType', 'on');
+      }
 
       const commentValue = [formData.comment, formData.reason, formData.remark]
         .map((value) => (typeof value === 'string' ? value.trim() : ''))
@@ -4201,6 +4232,53 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             };
             return updated;
           });
+
+          // Trigger backend system update and finalize step (best-effort, do not block UX)
+          (async () => {
+            try {
+              if (!responseGeneralFormId) return;
+              const { apiRequest } = await import('../../utils/api');
+              // 1) Update system quantities (existing endpoint used elsewhere)
+              try {
+                await apiRequest('/api/big-damage-issues/sys_update', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    general_form_id: responseGeneralFormId,
+                    form_id: formId,
+                    layout_id: layoutId
+                  })
+                });
+                console.log('[Form Submission] sys_update called successfully for', responseGeneralFormId);
+              } catch (e) {
+                console.warn('[Form Submission] sys_update failed (ignored):', e);
+              }
+
+              // 2) Call optional finalize endpoint (if backend expects an explicit finalize)
+              try {
+                await apiRequest(`/api/big-damage-issues/${responseGeneralFormId}/finalize`, {
+                  method: 'POST',
+                });
+                console.log('[Form Submission] finalize called successfully for', responseGeneralFormId);
+              } catch (e) {
+                // Not all backends expose this endpoint; ignore failures
+                console.warn('[Form Submission] finalize call failed or not available (ignored):', e);
+              }
+  
+          // Notify other parts of the app (lists/dashboards) to refresh their data
+          try {
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('big-damage-updated', {
+                detail: { generalFormId: responseGeneralFormId }
+              }));
+              console.log('[Form Submission] dispatched big-damage-updated event for', responseGeneralFormId);
+            }
+          } catch (e) {
+            // ignore
+          }
+            } catch (err) {
+              console.error('[Form Submission] Post-completion follow-up failed:', err);
+            }
+          })();
 
         }
 
@@ -5283,7 +5361,8 @@ const resolveApproveAction = () => {
                       system_qty: transformedSystemQty, // This should now have the updated value
                       request_qty: Number(item.request_qty ?? 0),
                       final_qty: Number(item.final_qty ?? 0),
-                      actual_qty: Number(item.product_type ?? item.actual_qty ?? item.final_qty ?? 0),
+                      // Use actual_qty (or fallback to request_qty/final_qty) — do NOT read from product_type
+                      actual_qty: Number(item.actual_qty ?? item.request_qty ?? item.final_qty ?? 0),
                       price: Number(item.price ?? 0),
                       amount: Number(item.total ?? item.amount ?? 0),
                       total: Number(item.total ?? item.amount ?? 0),
@@ -5481,7 +5560,12 @@ const resolveApproveAction = () => {
         status={formData.status}
         reason={formData.reason}
         onReasonChange={val => setFormData(prev => ({ ...prev, reason: val }))}
-        showRemark={mode !== 'add' && !((getUserRole() === 'bm' || getUserRole() === 'abm') && (formData.status === 'BM Approved' || formData.status === 'BMApproved'))}
+        // Show remark for view/edit modes (including Ongoing) except hide only for BM when BM Approved
+        showRemark={
+          mode !== 'add' &&
+          !((getUserRole() === 'bm' || getUserRole() === 'abm') && (formData.status === 'BM Approved' || formData.status === 'BMApproved'))
+        }
+        // Show attachments in all non-add modes (and in add mode too)
         showAttachments={true}
         isRequired={mode !== 'add'}
         attachments={formData.attachments || []}
@@ -5559,11 +5643,15 @@ const resolveApproveAction = () => {
               }
               const buttonClass = getButtonColorClass(action);
               const isCheckedButton = action === 'Checked' || action === 'BMApprovedMem';
+              // Disable acknowledge-type actions if investigation is not filled
+              const ackActions = ['Ac_Acknowledged', 'Acknowledged', 'OPApproved', 'opapproved'];
+              const disableDueToInvestigation = ackActions.includes(action) && !isInvestigationFilled;
               return (
                 <button 
                   onClick={() => handleSubmitClick(action)}
-                  disabled={isSubmitting}
-                  className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
+                  disabled={isSubmitting || disableDueToInvestigation}
+                  title={disableDueToInvestigation ? t('messages.investigationRequired') : undefined}
+                  className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${disableDueToInvestigation ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
                   style={{ fontSize: '15px' }}
                 >
                   <span>{prettyApprove(action) || 'Proceed'}</span>
