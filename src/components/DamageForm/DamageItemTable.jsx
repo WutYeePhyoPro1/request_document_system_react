@@ -2905,7 +2905,7 @@ const normalizeImageEntries = (list) => {
       {/* Update System Qty Button - Matches Laravel acknowledge() function logic exactly */}
       {/* Shows only when: ACK user, ACK entry exists, status matches amount, form type is big_damage, form not issued/completed */}
       {canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && (
-        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
+        <div className="mt-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
           <div className="flex items-center gap-4 flex-wrap">
             <button
               type="button"

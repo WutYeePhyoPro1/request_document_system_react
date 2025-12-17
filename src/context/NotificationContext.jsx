@@ -1,5 +1,5 @@
 // context/NotificationContext.js
-import { createContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect } from "react";
 
 export const NotificationContext = createContext();
 
