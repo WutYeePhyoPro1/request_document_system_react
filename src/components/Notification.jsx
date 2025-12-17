@@ -909,8 +909,8 @@ export default function Notification({ notifications, formBasedCount = null }) {
 
         // Determine if this is a Big Damage Issue or CCTV
         // Check multiple indicators: form_id, form_name, form_doc_no pattern
-        const formName = noti.form_name ?? noti.data?.form_name ?? '';
-        const isBigDamageByName = formName.toLowerCase().includes('damage');
+        const formNameRaw = noti.form_name ?? noti.data?.form_name ?? '';
+        const isBigDamageByName = (formNameRaw || '').toLowerCase().includes('damage');
         const isBigDamageByDocNo = formDocNo && (formDocNo.startsWith('BDI') || formDocNo.startsWith('ASDLAN') || formDocNo.includes('ASDLAN') || formDocNo.includes('BDI'));
         
         // Check form_id (could be 1, 8, or other values depending on backend)
@@ -1151,8 +1151,21 @@ export default function Notification({ notifications, formBasedCount = null }) {
                                 // Ensure we have a unique key
                                 const itemKey = noti.notification_id || noti.id || noti.specific_form_id || noti.data?.specific_form_id || `noti-${index}`;
                                 
-                                // Get form name
-                                const itemFormName = noti?.form_name || noti?.data?.form_name || 'Unknown Form';
+                                // Determine displayed form name (match Laravel logic for Big Damage Issue)
+                                const rawFormName = noti?.form_name || noti?.data?.form_name || '';
+                                const rawFormId = noti?.form_id || noti?.data?.form_id || noti?.data?.general_form?.form_id;
+                                const rawFormDocNo = (noti?.form_doc_no || noti?.data?.form_doc_no || noti?.data?.general_form?.form_doc_no || '').toString();
+                                const rawGRemark = noti?.data?.general_form?.g_remark || noti?.data?.g_remark || '';
+
+                                const isBigDamage =
+                                    Number(rawFormId) === 8 ||
+                                    rawFormDocNo.startsWith('BDI') ||
+                                    rawFormDocNo.startsWith('ASDLAN') ||
+                                    rawFormDocNo.includes('ASDLAN') ||
+                                    rawFormDocNo.includes('BDI') ||
+                                    String(rawGRemark).toLowerCase() === 'big_damage';
+
+                                const itemFormName = isBigDamage ? 'Big Damage Issue Form' : (rawFormName || 'Unknown Form');
                                 
                                 // Get document number
                                 const itemDocNo = noti?.form_doc_no || noti?.data?.form_doc_no || 'N/A';
