@@ -94,7 +94,7 @@ export default function Navbar({ toggleSidebar }) {
             body: JSON.stringify(subscription),
         });
 
-        void endpoint;
+        // void endpoint;
     };
 
 

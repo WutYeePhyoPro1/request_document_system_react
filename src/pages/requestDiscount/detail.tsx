@@ -61,6 +61,14 @@ const Detail: React.FC = () => {
       }
     );
   };
+  const isImageFile = (url: string) => {
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  };
+
+  const isPdfFile = (url: string) => {
+    return /\.pdf$/i.test(url);
+  };
+
   const element = detailData?.data?.map((item) => ({
     requestSaleStaff: item.sale_staff,
     saleInvoiceNo: item.sale_invoice,
@@ -282,22 +290,43 @@ const Detail: React.FC = () => {
                               href={detailData.files[0].file_url}
                               className="text-blue-600 underline"
                               target="_blank"
+                              rel="noopener noreferrer"
                             >
-                              {" "}
                               Operation Attach File
                             </a>
-                            <img
-                              src={detailData.files[0].file_url}
-                              alt={
-                                detailData.files[0].name ||
-                                "Discount Attachment"
-                              }
-                              className="w-40 h-40 object-cover rounded border"
-                              onClick={openFileModal}
-                              loading="lazy"
-                            />
+
+                            {isImageFile(detailData.files[0].file_url) && (
+                              <img
+                                src={detailData.files[0].file_url}
+                                alt={
+                                  detailData.files[0].name ||
+                                  "Discount Attachment"
+                                }
+                                className="w-40 h-40 object-cover rounded border cursor-pointer"
+                                onClick={openFileModal}
+                                loading="lazy"
+                              />
+                            )}
+
+                            {isPdfFile(detailData.files[0].file_url) && (
+                              <div
+                                className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
+                                onClick={openFileModal}
+                              >
+                                {/* PDF Preview */}
+                                <iframe
+                                  src={detailData.files[0].file_url}
+                                  title="PDF Preview"
+                                  className="w-full h-full rounded"
+                                />
+
+                                {/* Click overlay */}
+                                <div className="absolute inset-0 z-10" />
+                              </div>
+                            )}
                           </>
                         )}
+
                         {["Ongoing", "BM Approved"].includes(
                           detailData?.form?.status
                         ) && (

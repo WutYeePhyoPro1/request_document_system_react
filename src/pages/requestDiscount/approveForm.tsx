@@ -45,11 +45,10 @@ const ApproveForm: React.FC = () => {
     }
   }, [detailData?.accountFile]);
   const formId = detailData?.form?.id;
-  console.log("Detail Data>>", detailData , formId);
+  console.log("Detail Data>>", detailData, formId);
   const icon = <IconFile size={18} stroke={1.5} />;
   const navigate = useNavigate();
   const handleSubmit = async (statusValue: string) => {
-    
     if (statusValue == "cateCheck") {
       const checkCount =
         formData.check?.filter((v: string | null) => v === "checked").length ||
@@ -68,17 +67,22 @@ const ApproveForm: React.FC = () => {
       console.error("Form ID is missing");
       return;
     }
-   if (statusValue === "bracc_btp" || statusValue === "cat_btp" || statusValue === "mer_btp" || statusValue === "Approved") {
-  if (!formData.comment || formData.comment.trim() === "") {
-    Swal.fire({
-      icon: "warning",
-      title: "Please fill in a remark",
-      text: "You must fill a reason for sending back to the previous step.",
-      confirmButtonText: "OK",
-    });
-    return;
-  }
-}
+    if (
+      statusValue === "bracc_btp" ||
+      statusValue === "cat_btp" ||
+      statusValue === "mer_btp" ||
+      statusValue === "Approved"
+    ) {
+      if (!formData.comment || formData.comment.trim() === "") {
+        Swal.fire({
+          icon: "warning",
+          title: "Please fill in a remark",
+          text: "You must fill a reason for sending back to the previous step.",
+          confirmButtonText: "OK",
+        });
+        return;
+      }
+    }
 
     const checkedItems =
       statusValue === "cateCheck"
@@ -164,18 +168,18 @@ const ApproveForm: React.FC = () => {
           title: "Success",
           text: `Form has been ${statusValue} successfully!`,
         });
-        console.log("Submit Data" , submitData) ;
-       
+        console.log("Submit Data", submitData);
+
         const token = localStorage.getItem("token");
         if (token && formId) {
           await dispatch(fetchDetailData({ token, id: formId.toString() }));
         }
-      //    if (token && formId) {
-      //   // Use a small timeout to ensure the backend has processed the request
-      //   setTimeout(async () => {
-      //     await dispatch(fetchDetailData({ token, id: formId.toString() }));
-      //   }, 500);
-      // }
+        //    if (token && formId) {
+        //   // Use a small timeout to ensure the backend has processed the request
+        //   setTimeout(async () => {
+        //     await dispatch(fetchDetailData({ token, id: formId.toString() }));
+        //   }, 500);
+        // }
         window.scrollTo({ top: 0, behavior: "smooth" });
       } catch (error: any) {
         Swal.fire({
@@ -190,6 +194,13 @@ const ApproveForm: React.FC = () => {
   const handleClose = () => {
     setInvoiceFile([{ id: uuidv4(), file: null }]);
     close();
+  };
+  const isImageFile = (url: string) => {
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+  };
+
+  const isPdfFile = (url: string) => {
+    return /\.pdf$/i.test(url);
   };
 
   const onFinish = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -221,16 +232,15 @@ const ApproveForm: React.FC = () => {
         title: "Upload Successful",
         text: "Files uploaded successfully!",
       });
-       setInvoiceFile([{ id: uuidv4(), file: null }]);
-      close() ;
+      setInvoiceFile([{ id: uuidv4(), file: null }]);
+      close();
       const token = localStorage.getItem("token");
       if (token && formId) {
         await dispatch(fetchDetailData({ token, id: formId.toString() }));
       }
-      
+
       window.scrollTo({ top: 0, behavior: "smooth" });
       // closeFileModal();
-      
     } catch (err: any) {
       Swal.fire({
         icon: "error",
@@ -265,13 +275,13 @@ const ApproveForm: React.FC = () => {
   };
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    if(e.target.value.length > 150) {
+    if (e.target.value.length > 150) {
       Swal.fire({
-        icon: "warning" ,
-        title: "Warning" ,
-        text: "Comment cannot exceed 150 characters" ,
+        icon: "warning",
+        title: "Warning",
+        text: "Comment cannot exceed 150 characters",
       });
-      return ;
+      return;
     }
     dispatch(setComment(e.target.value));
     console.log(setComment(e.target.value));
@@ -323,7 +333,11 @@ const ApproveForm: React.FC = () => {
                 >
                   {loading ? "Submitting..." : "Check"}
                 </Button>
-                <Button color="red" disabled={loading} onClick={() => handleSubmit("Cancel")} >
+                <Button
+                  color="red"
+                  disabled={loading}
+                  onClick={() => handleSubmit("Cancel")}
+                >
                   Cancel
                 </Button>
               </div>
@@ -369,7 +383,11 @@ const ApproveForm: React.FC = () => {
                 >
                   {loading ? "Submitting..." : "Approved"}
                 </Button>
-                <Button  color="red" disabled={loading} onClick = {() => handleSubmit("Cancel")}>
+                <Button
+                  color="red"
+                  disabled={loading}
+                  onClick={() => handleSubmit("Cancel")}
+                >
                   Cancel
                 </Button>
               </div>
@@ -407,7 +425,11 @@ const ApproveForm: React.FC = () => {
                 >
                   Back To Previous
                 </Button>
-                <Button color="red" disabled={loading} onClick={() => handleSubmit("Cancel")}>
+                <Button
+                  color="red"
+                  disabled={loading}
+                  onClick={() => handleSubmit("Cancel")}
+                >
                   Cancel
                 </Button>
               </div>
@@ -424,66 +446,90 @@ const ApproveForm: React.FC = () => {
               centered
             >
               <div className="flex flex-wrap gap-4 items-center justify-center">
-               {accountFile?.map((file) => {
-  const isPdf = file.file_url?.toLowerCase().endsWith(".pdf");
+                {accountFile?.map((file) => {
+                  const isPdf = file.file_url?.toLowerCase().endsWith(".pdf");
 
-  return (
-    <div
-      key={file.id}
-      className="flex flex-col items-center gap-2"
-    >
-      {isPdf ? (
-                                    <iframe
-                                      src={file.file_url}
-                                      className="w-40 h-40 border rounded"
-                                      title={file.name}
-                                    />
-                                  ) : (
-                                    <img
-                                      src={file.file_url}
-                                      alt={file.name || "Attachment"}
-                                      className="w-40 h-40 object-cover rounded border"
-                                    />
-                                  )}
+                  return (
+                    <div
+                      key={file.id}
+                      className="flex flex-col items-center gap-2"
+                    >
+                      {isPdf ? (
+                        <iframe
+                          src={file.file_url}
+                          className="w-40 h-40 border rounded"
+                          title={file.name}
+                        />
+                      ) : (
+                        <img
+                          src={file.file_url}
+                          alt={file.name || "Attachment"}
+                          className="w-40 h-40 object-cover rounded border"
+                        />
+                      )}
 
-      {/* File name */}
-      <a
-        href={file.file_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-blue-600 underline text-sm truncate max-w-[80px] text-center"
-      >
-        {file.name}
-      </a>
+                      {/* File name */}
+                      <a
+                        href={file.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 underline text-sm truncate max-w-[80px] text-center"
+                      >
+                        {file.name}
+                      </a>
 
-      <Button
-        color="red"
-        variant="filled"
-        size="xs"
-        onClick={() => handleDeleteAccountFile(file.id)}
-      >
-        Delete
-      </Button>
-    </div>
-  );
-})}
-
+                      <Button
+                        color="red"
+                        variant="filled"
+                        size="xs"
+                        onClick={() => handleDeleteAccountFile(file.id)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </Modal>
-            {accountFile?.[0] && (
-              <div
-                onClick={openFileModal}
-                className="flex flex-col gap-4 items-start "
-              >
-                <a className="text-blue-500 hover:text-blue-700  font-bold py-2 px-4 rounded cursor-pointer">
-                  Branch Account Attach Files
-                </a>
-                <img
-                  src={accountFile[0].file_url}
-                  className="w-40 h-40 object-cover rounded brder"
-                />
-              </div>
-            )}
+           {accountFile?.[0] && (
+  <div className="flex flex-col gap-4 items-start">
+    <a
+      onClick={openFileModal}
+      className="text-blue-500 hover:text-blue-700 font-bold py-2 px-4 rounded cursor-pointer"
+    >
+      Branch Account Attach Files
+    </a>
+
+    {/* IMAGE PREVIEW */}
+    {isImageFile(accountFile[0].file_url) && (
+      <img
+        src={accountFile[0].file_url}
+        alt={accountFile[0].name || "Branch Account Attachment"}
+        className="w-40 h-40 object-cover rounded border cursor-pointer"
+        onClick={openFileModal}
+        loading="lazy"
+      />
+    )}
+
+    {/* PDF PREVIEW */}
+    {isPdfFile(accountFile[0].file_url) && (
+      <div
+        className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
+        onClick={openFileModal}
+      >
+        <iframe
+          src={accountFile[0].file_url}
+          title="PDF Preview"
+          className="w-full h-full rounded"
+        />
+
+        {/* Click overlay to catch iframe clicks */}
+        <div className="absolute inset-0 z-10" />
+      </div>
+    )}
+  </div>
+)}
+
           </div>
         )}
         {detailData?.reqAcknowledge == true && (
