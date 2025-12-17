@@ -62,52 +62,33 @@ export default function Demo() {
   };
   const navigate = useNavigate();
 
-  const fetchData = async (): Promise<void> => {
+  useEffect(() => {
+    const cached = sessionStorage.getItem("discount_cache");
     const token = localStorage.getItem("token");
     if (!token) return;
-    setLoading(true);
-    try {
-      const data = await getRequestDiscountData(token);
-      sessionStorage.setItem(
-        "discount_cache",
-        JSON.stringify({
+
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      getRequestDiscountData(token).then((data) => {
+        setDiscountData({
           meta: {
             authenticatedUser: data?.authenticatedUser,
             branch: data?.branch,
             user_branches: data?.user_branches,
             noti_data: data?.noti_data,
           },
-          data: data?.data,
-          searchTerm,
-          activePage: 1,
-        })
-      );
-
-      setDiscountData(data);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching discount data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const cached = sessionStorage.getItem("discount_cache");
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      // setDiscountData(parsed.discountData);
-      setDiscountData({
-        ...parsed.meta,
-        data: parsed.data,
-      });
-      setSearchTerm(parsed.searchTerm);
-      setActivePage(parsed.activePage);
-      setLoading(false);
+          data: parsed.data, // load cached table data
+        });
+        setSearchTerm(parsed.searchTerm);
+        setActivePage(parsed.activePage);
+        setLoading(false);
+      }).catch(console.error);
     } else {
       fetchData();
     }
   }, []);
+
+  // Update cached page when page changes
   useEffect(() => {
     const cached = sessionStorage.getItem("discount_cache");
     if (cached) {
@@ -116,6 +97,55 @@ export default function Demo() {
       sessionStorage.setItem("discount_cache", JSON.stringify(parsed));
     }
   }, [activePage]);
+
+  const fetchData = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setLoading(true);
+    try {
+      const data = await getRequestDiscountData(token);
+      setDiscountData({
+        meta: {
+          authenticatedUser: data?.authenticatedUser,
+          branch: data?.branch,
+          user_branches: data?.user_branches,
+          noti_data: data?.noti_data,
+        },
+        data: data?.data,
+      });
+      setActivePage(1);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+    const handleSearch = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setLoading(true);
+    try {
+      const results = await searchDiscountProduct(token, searchTerm);
+
+      // Store cache only when user searches
+      sessionStorage.setItem(
+        "discount_cache",
+        JSON.stringify({
+          data: results.data,
+          searchTerm,
+          activePage: 1,
+        })
+      );
+
+      setDiscountData(prev => ({ ...prev, data: results.data }));
+      setActivePage(1);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   console.log("Data Check>>", discountData);
   const pageSize: number = 10;
   const start = (activePage - 1) * pageSize;
@@ -148,40 +178,40 @@ export default function Demo() {
   //     setLoading(false);
   //   }
   // };
-  const handleSearch = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
+  // const handleSearch = async () => {
+  //   const token = localStorage.getItem("token");
+  //   if (!token) return;
 
-    setLoading(true);
-    try {
-      const results = await searchDiscountProduct(token, searchTerm);
+  //   setLoading(true);
+  //   try {
+  //     const results = await searchDiscountProduct(token, searchTerm);
 
-      const cached = sessionStorage.getItem("discount_cache");
-      if (!cached) return;
+  //     const cached = sessionStorage.getItem("discount_cache");
+  //     if (!cached) return;
 
-      const parsed = JSON.parse(cached);
+  //     const parsed = JSON.parse(cached);
 
-      const updatedCache = {
-        ...parsed,
-        data: results.data, // 🔥 only replace table data
-        searchTerm,
-        activePage: 1,
-      };
+  //     const updatedCache = {
+  //       ...parsed,
+  //       data: results.data, // 🔥 only replace table data
+  //       searchTerm,
+  //       activePage: 1,
+  //     };
 
-      sessionStorage.setItem("discount_cache", JSON.stringify(updatedCache));
+  //     sessionStorage.setItem("discount_cache", JSON.stringify(updatedCache));
 
-      setDiscountData({
-        ...parsed.meta,
-        data: results.data,
-      });
+  //     setDiscountData({
+  //       ...parsed.meta,
+  //       data: results.data,
+  //     });
 
-      setActivePage(1);
-    } catch (error) {
-      console.error("Search failed:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  //     setActivePage(1);
+  //   } catch (error) {
+  //     console.error("Search failed:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleRestart = async () => {
     sessionStorage.removeItem("discount_cache");
@@ -206,7 +236,7 @@ export default function Demo() {
   const rows = useMemo(() => {
     return paginateData?.map((element, index) => {
       const isCopied = copied === element.id;
-      const hasUnreadNotification = discountData?.noti_data?.some(
+      const hasUnreadNotification = discountData?.meta?.noti_data?.some(
         (item: any) =>
           element.id === item.specific_form_id &&
           element.form_id === item.form_id &&
@@ -304,8 +334,8 @@ export default function Demo() {
         />
         <div className="flex justify-between mr-4">
           <h2 className="text-xl font-semibold">Request Discount Form</h2>
-          {(discountData?.authenticatedUser?.role_id == 1 ||
-            discountData?.authenticatedUser?.role_id == 10) && (
+          {(discountData?.meta?.authenticatedUser?.role_id == 1 ||
+            discountData?.meta?.authenticatedUser?.role_id == 10) && (
             <Link
               to="/request-discount-create"
               className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
@@ -429,15 +459,15 @@ export default function Demo() {
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
               Branch
             </label>
-            {discountData?.authenticatedUser?.emp_id == "000-000046" ||
-            discountData?.authenticatedUser?.emp_id == "000-000024" ||
-            discountData?.authenticatedUser?.emp_id == "000-000067" ? (
+            {discountData?.meta?.authenticatedUser?.emp_id == "000-000046" ||
+            discountData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
+            discountData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
               <Select
                 id="branch_id"
                 searchable
                 clearable
                 value={searchTerm.branch_id}
-                data={discountData?.branch?.map((item) => ({
+                data={discountData?.meta?.branch?.map((item) => ({
                   value: String(item.id),
                   label: item.branch_name,
                 }))}
@@ -452,7 +482,7 @@ export default function Demo() {
                 searchable
                 clearable
                 value={searchTerm.branch_id}
-                data={discountData?.authenticatedUser?.user_branches?.map(
+                data={discountData?.meta?.user_branches?.map(
                   (item) => ({
                     value: String(item.branch_id),
                     label: item.branches?.branch_name,
