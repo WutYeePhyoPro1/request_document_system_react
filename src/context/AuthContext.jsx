@@ -18,7 +18,7 @@ const getUserFromStorage = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(getUserFromStorage());
-console.log("USer Data>>" , user) ;
+// console.log("USer Data>>" , user) ;
     const login = async (employee_number, password, remember = false) => {
         try {
             const response = await fetch("/api/login", {
@@ -58,13 +58,42 @@ console.log("USer Data>>" , user) ;
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('notifications');
-        window.location.href = "/login"; // ✅ Safe redirect
-    };
+    // const logout = () => {
+    //     setUser(null);
+    //     localStorage.removeItem('token');
+    //     localStorage.removeItem('user');
+    //     localStorage.removeItem('notifications');
+    //     window.location.href = "/login"; // ✅ Safe redirect
+    // };
+    const logout = async () => {
+  try {
+    // 🔹 Call backend logout (important)
+    await axios.post('/api/logout', {}, {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+      withCredentials: true,
+    });
+  } catch (error) {
+    console.warn("Backend logout failed, clearing locally anyway");
+  }
+
+  // 🔥 CLEAR EVERYTHING
+  setUser(null);
+
+  localStorage.clear();      // ✅ clears token, user, notifications, etc
+  sessionStorage.clear();    // ✅ clears discount_cache, search cache, etc
+
+  // Optional: clear cookies if needed
+  document.cookie.split(";").forEach((c) => {
+    document.cookie = c
+      .replace(/^ +/, "")
+      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+  });
+
+  window.location.href = "/login"; // ✅ hard redirect (safest)
+};
+
 
     // ⏰ Auto logout when JWT token expires
     useEffect(() => {

@@ -17,7 +17,11 @@ import {
 } from "../../api/requestDiscount/requestDiscountData";
 import { parse } from "uuid";
 import { FiCopy, FiMessageCircle } from "react-icons/fi";
-import { AiFillMessage, AiTwotoneMessage, AiTwotoneMinusSquare } from "react-icons/ai";
+import {
+  AiFillMessage,
+  AiTwotoneMessage,
+  AiTwotoneMinusSquare,
+} from "react-icons/ai";
 
 export default function Demo() {
   const [discountData, setDiscountData] = useState<IndexData[]>([]);
@@ -31,6 +35,7 @@ export default function Demo() {
     from_date: null as string | null,
     to_date: null as string | null,
     status: [] as string[],
+    branch_id: null as string | null,
   });
   const [loading, setLoading] = useState(true);
 
@@ -63,6 +68,21 @@ export default function Demo() {
     setLoading(true);
     try {
       const data = await getRequestDiscountData(token);
+      sessionStorage.setItem(
+        "discount_cache",
+        JSON.stringify({
+          meta: {
+            authenticatedUser: data?.authenticatedUser,
+            branch: data?.branch,
+            user_branches: data?.user_branches,
+            noti_data: data?.noti_data,
+          },
+          data: data?.data,
+          searchTerm,
+          activePage: 1,
+        })
+      );
+
       setDiscountData(data);
       setLoading(false);
     } catch (error) {
@@ -76,7 +96,11 @@ export default function Demo() {
     const cached = sessionStorage.getItem("discount_cache");
     if (cached) {
       const parsed = JSON.parse(cached);
-      setDiscountData(parsed.discountData);
+      // setDiscountData(parsed.discountData);
+      setDiscountData({
+        ...parsed.meta,
+        data: parsed.data,
+      });
       setSearchTerm(parsed.searchTerm);
       setActivePage(parsed.activePage);
       setLoading(false);
@@ -104,19 +128,53 @@ export default function Demo() {
       : [];
   }, [discountData, activePage]);
   //Hello test git conflig
+  // const handleSearch = async () => {
+  //   const token = localStorage.getItem("token");
+  //   if (!token) return;
+  //   setLoading(true);
+  //   try {
+  //     const results = await searchDiscountProduct(token, searchTerm);
+  //     const cache = {
+  //       discountData: results,
+  //       searchTerm,
+  //       activePage: 1,
+  //     };
+  //     sessionStorage.setItem("discount_cache", JSON.stringify(cache));
+  //     setDiscountData(results);
+  //     setActivePage(1);
+  //   } catch (error) {
+  //     console.error("Search failed:", error);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   const handleSearch = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
+
     setLoading(true);
     try {
       const results = await searchDiscountProduct(token, searchTerm);
-      const cache = {
-        discountData: results,
+
+      const cached = sessionStorage.getItem("discount_cache");
+      if (!cached) return;
+
+      const parsed = JSON.parse(cached);
+
+      const updatedCache = {
+        ...parsed,
+        data: results.data, // 🔥 only replace table data
         searchTerm,
         activePage: 1,
       };
-      sessionStorage.setItem("discount_cache", JSON.stringify(cache));
-      setDiscountData(results);
+
+      sessionStorage.setItem("discount_cache", JSON.stringify(updatedCache));
+
+      setDiscountData({
+        ...parsed.meta,
+        data: results.data,
+      });
+
       setActivePage(1);
     } catch (error) {
       console.error("Search failed:", error);
@@ -124,6 +182,7 @@ export default function Demo() {
       setLoading(false);
     }
   };
+
   const handleRestart = async () => {
     sessionStorage.removeItem("discount_cache");
 
@@ -133,83 +192,92 @@ export default function Demo() {
       from_date: null,
       to_date: null,
       status: [],
+      branch_id: null,
     });
+
     setActivePage(1);
-    setDiscountData([]);
+
+    setLoading(true);
     await fetchData();
-    navigate("/request_discount");
+
+    navigate("/request_discount", { replace: true });
   };
 
   const rows = useMemo(() => {
-  return paginateData?.map((element, index) => {
-    const isCopied = copied === element.id;
-     const hasUnreadNotification = discountData?.noti_data?.some(
-      (item: any) =>
-        element.id === item.specific_form_id &&
-        element.form_id === item.form_id &&
-        element.form_doc_no === item.form_doc_no
-    );
+    return paginateData?.map((element, index) => {
+      const isCopied = copied === element.id;
+      const hasUnreadNotification = discountData?.noti_data?.some(
+        (item: any) =>
+          element.id === item.specific_form_id &&
+          element.form_id === item.form_id &&
+          element.form_doc_no === item.form_doc_no
+      );
 
-    return (
-      <Table.Tr
-        key={element.id}
-        bg={
-          selectedRows.includes(element.id)
-            ? "var(--mantine-color-blue-light)"
-            : undefined
-        }
-      >
-        <Table.Td>{start + index + 1}</Table.Td>
-        <Table.Td>
-          <StatusBadge status={element.status} />
-        </Table.Td>
-
-        {/* Copy Button Section */}
-        <Table.Td className="flex flex-justify gap-3 items-center">
-          <Link to={`/request_discount_detail/${element.id}`} className="contents">
-            {element.form_doc_no}
-           
-          </Link>
-         
-          <button
-            onClick={() => {
-              handleCopy(
-                element.form_doc_no,
-                () => {
-                  setCopied(element.id);
-                  setTimeout(() => setCopied(null), 2000);
-                },
-                (err) => console.log("Copy Failed:", err)
-              );
-            }}
-            className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
-              isCopied
-                ? "text-green-600 bg-green-50"
-                : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
-            }`}
-            title={isCopied ? "Copied!" : "Copy ID"}
-            disabled={isCopied}
-          >
-            {isCopied ? "Copied!" : <FiCopy className="w-4 h-4" />}
-          </button>
-           {hasUnreadNotification && (
-            <AiFillMessage className="text-red-400 w-4 h-4" />
-          )}
-        </Table.Td>
-
-        <Link to={`/request_discount_detail/${element.id}`} className="contents">
-          <Table.Td>{element.from_branches?.branch_name}</Table.Td>
-          <Table.Td>{element.originators?.name}</Table.Td>
-          <Table.Td>{dateFormat(element.created_at)}</Table.Td>
-          <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
-          <Table.Td className="text-blue-600 font-medium underline">
-            View
+      return (
+        <Table.Tr
+          key={element.id}
+          bg={
+            selectedRows.includes(element.id)
+              ? "var(--mantine-color-blue-light)"
+              : undefined
+          }
+        >
+          <Table.Td>{start + index + 1}</Table.Td>
+          <Table.Td>
+            <StatusBadge status={element.status} />
           </Table.Td>
-        </Link>
-      </Table.Tr>
-    );
-  });
-}, [paginateData, selectedRows, copied]);
+
+          {/* Copy Button Section */}
+          <Table.Td className="flex flex-justify gap-3 items-center">
+            <Link
+              to={`/request_discount_detail/${element.id}`}
+              className="contents"
+            >
+              {element.form_doc_no}
+            </Link>
+
+            <button
+              onClick={() => {
+                handleCopy(
+                  element.form_doc_no,
+                  () => {
+                    setCopied(element.id);
+                    setTimeout(() => setCopied(null), 2000);
+                  },
+                  (err) => console.log("Copy Failed:", err)
+                );
+              }}
+              className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
+                isCopied
+                  ? "text-green-600 bg-green-50"
+                  : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
+              }`}
+              title={isCopied ? "Copied!" : "Copy ID"}
+              disabled={isCopied}
+            >
+              {isCopied ? "Copied!" : <FiCopy className="w-4 h-4" />}
+            </button>
+            {hasUnreadNotification && (
+              <AiFillMessage className="text-red-400 w-4 h-4" />
+            )}
+          </Table.Td>
+
+          <Link
+            to={`/request_discount_detail/${element.id}`}
+            className="contents"
+          >
+            <Table.Td>{element.from_branches?.branch_name}</Table.Td>
+            <Table.Td>{element.originators?.name}</Table.Td>
+            <Table.Td>{dateFormat(element.created_at)}</Table.Td>
+            <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
+            <Table.Td className="text-blue-600 font-medium underline">
+              View
+            </Table.Td>
+          </Link>
+        </Table.Tr>
+      );
+    });
+  }, [paginateData, selectedRows, copied]);
 
   const showLoading = loading || !discountData;
   if (showLoading) {
@@ -343,7 +411,7 @@ export default function Demo() {
             </label>
             <MultiSelect
               id="status"
-               placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
+              placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
               data={[
                 "All",
                 "Ongoing",
@@ -367,10 +435,13 @@ export default function Demo() {
               <Select
                 id="branch_id"
                 searchable
+                clearable
+                value={searchTerm.branch_id}
                 data={discountData?.branch?.map((item) => ({
-                  value: item.id,
+                  value: String(item.id),
                   label: item.branch_name,
                 }))}
+                onChange={handleBranchChange}
                 placeholder="Select Status"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
               />
@@ -379,6 +450,8 @@ export default function Demo() {
                 id="branch_id"
                 name="branch_id"
                 searchable
+                clearable
+                value={searchTerm.branch_id}
                 data={discountData?.authenticatedUser?.user_branches?.map(
                   (item) => ({
                     value: String(item.branch_id),
@@ -447,18 +520,17 @@ export default function Demo() {
         </div>
       </div>
       <div className="mx-auto mt-6 flex items-center justify-between px-4">
-  <p className="text-sm text-gray-600 font-bold">
-    Total Records: {discountData?.data?.length ?? 0}
-  </p>
+        <p className="text-sm text-gray-600 font-bold">
+          Total Records: {discountData?.data?.length ?? 0}
+        </p>
 
-  <Pagination
-    total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
-    value={activePage}
-    onChange={setActivePage}
-    boundaries={1}
-  />
-</div>
-
+        <Pagination
+          total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
+          value={activePage}
+          onChange={setActivePage}
+          boundaries={1}
+        />
+      </div>
     </div>
   );
 }

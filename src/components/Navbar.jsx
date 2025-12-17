@@ -253,7 +253,7 @@ export default function Navbar({ toggleSidebar }) {
             // Debounce: Don't fetch if we just fetched within the last 500ms
             const now = Date.now();
             if (isFetchingRef.current || (now - lastFetchTimeRef.current < 500)) {
-                console.log('[Navbar] Skipping fetch - already fetching or too soon since last fetch');
+                // console.log('[Navbar] Skipping fetch - already fetching or too soon since last fetch');
                 return;
             }
             
@@ -491,17 +491,17 @@ export default function Navbar({ toggleSidebar }) {
                         const isNew = isNewById && notShownBefore;
                         
                         if (isNew) {
-                            console.log('[Notification] New notification detected:', {
-                                id: n.notification_id,
-                                action: n.action,
-                                status: n.status,
-                                form_doc_no: n.form_doc_no,
-                                actor_name: n.actor_name,
-                                created_at: n.created_at,
-                                isNewById,
-                                notShownBefore,
-                                reason: 'new ID and not shown before'
-                            });
+                            // console.log('[Notification] New notification detected:', {
+                            //     id: n.notification_id,
+                            //     action: n.action,
+                            //     status: n.status,
+                            //     form_doc_no: n.form_doc_no,
+                            //     actor_name: n.actor_name,
+                            //     created_at: n.created_at,
+                            //     isNewById,
+                            //     notShownBefore,
+                            //     reason: 'new ID and not shown before'
+                            // });
                         }
                         return isNew;
                     });
@@ -523,14 +523,14 @@ export default function Navbar({ toggleSidebar }) {
                                 const actorRole = notification.actor_role || notification.data?.actor_role || '';
                                 const formDocNo = notification.form_doc_no || notification.data?.form_doc_no || 'Unknown';
                                 
-                                console.log('[Notification] Processing notification:', {
-                                    action,
-                                    status,
-                                    actorName,
-                                    actorRole,
-                                    formDocNo,
-                                    notification_id: notification.notification_id
-                                });
+                                // console.log('[Notification] Processing notification:', {
+                                //     action,
+                                //     status,
+                                //     actorName,
+                                //     actorRole,
+                                //     formDocNo,
+                                //     notification_id: notification.notification_id
+                                // });
                                 
                                 // Create notification message based on action and status
                                 let title = 'New Notification';
@@ -652,20 +652,20 @@ export default function Navbar({ toggleSidebar }) {
                         const hasNotificationSupport = 'Notification' in window;
                         let hasPermission = Notification.permission === 'granted';
                         
-                        console.log('[Notification] Browser notification check:', {
-                            hasNotificationSupport,
-                            permission: Notification.permission,
-                            hasPermission,
-                            newNotificationsCount: newNotifications.length,
-                            previousCount: previousNotificationIds.current.size,
-                            currentCount: currentNotificationIds.size
-                        });
+                        // console.log('[Notification] Browser notification check:', {
+                        //     hasNotificationSupport,
+                        //     permission: Notification.permission,
+                        //     hasPermission,
+                        //     newNotificationsCount: newNotifications.length,
+                        //     previousCount: previousNotificationIds.current.size,
+                        //     currentCount: currentNotificationIds.size
+                        // });
                         
                         // If permission is default, try to request it
                         if (hasNotificationSupport && Notification.permission === 'default') {
-                            console.log('[Notification] Requesting notification permission...');
+                            // console.log('[Notification] Requesting notification permission...');
                             Notification.requestPermission().then(permission => {
-                                console.log('[Notification] Permission result:', permission);
+                                // console.log('[Notification] Permission result:', permission);
                                 if (permission === 'granted') {
                                     hasPermission = true;
                                     // Show notifications after permission is granted
@@ -701,15 +701,15 @@ export default function Navbar({ toggleSidebar }) {
                     return isUnread;
                 });
                 
-                console.log('[Navbar] Storing all unread notifications:', {
-                    total: parsedNotifications.length,
-                    unread: allUnreadNotifications.length,
-                    byForm: allUnreadNotifications.reduce((acc, n) => {
-                        const formName = n.form_name || n.data?.form_name || 'Unknown';
-                        acc[formName] = (acc[formName] || 0) + 1;
-                        return acc;
-                    }, {})
-                });
+                // console.log('[Navbar] Storing all unread notifications:', {
+                //     total: parsedNotifications.length,
+                //     unread: allUnreadNotifications.length,
+                //     byForm: allUnreadNotifications.reduce((acc, n) => {
+                //         const formName = n.form_name || n.data?.form_name || 'Unknown';
+                //         acc[formName] = (acc[formName] || 0) + 1;
+                //         return acc;
+                //     }, {})
+                // });
                 
                 setNotifications(allUnreadNotifications);
                 localStorage.setItem("notifications", JSON.stringify(allUnreadNotifications));
@@ -1028,12 +1028,12 @@ export default function Navbar({ toggleSidebar }) {
                 const totalCount = bigDamageCount + lastOtherFormsCountRef.current;
                 setFormBasedNotificationCount(totalCount);
                 
-                console.log('[Navbar] Form-based notification count:', {
-                    bigDamageCount,
-                    otherFormsCount: lastOtherFormsCountRef.current,
-                    totalCount,
-                    userRole: extractUserRoleInfo(user).userRole
-                });
+                // console.log('[Navbar] Form-based notification count:', {
+                //     bigDamageCount,
+                //     otherFormsCount: lastOtherFormsCountRef.current,
+                //     totalCount,
+                //     userRole: extractUserRoleInfo(user).userRole
+                // });
             } catch (err) {
                 console.error('[Navbar] Error fetching form-based notification count:', err);
             }
@@ -1046,7 +1046,7 @@ export default function Navbar({ toggleSidebar }) {
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        // navigate('/login');
     };
 
     // Get page name based on current route

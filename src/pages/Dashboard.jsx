@@ -212,12 +212,12 @@ const Dashboard = () => {
                 
                 setBigDamageIssueCount(count);
                 
-                console.log('[Dashboard] Form-based notification count calculated:', {
-                    count,
-                    totalForms: formListData.length,
-                    userType: extractUserRoleInfo(currentUser).userType,
-                    userRole: extractUserRoleInfo(currentUser).userRole
-                });
+                // console.log('[Dashboard] Form-based notification count calculated:', {
+                //     count,
+                //     totalForms: formListData.length,
+                //     userType: extractUserRoleInfo(currentUser).userType,
+                //     userRole: extractUserRoleInfo(currentUser).userRole
+                // });
             } catch (err) {
                 console.error('[Dashboard] Error fetching form-based notification count:', err);
                 setBigDamageIssueCount(0);
@@ -265,7 +265,7 @@ const Dashboard = () => {
               } catch (firstError) {
                 // If form.id fails and we have form.form_id, try that
                 if (form.name === "Big Damage Issue Form" && form.form_id) {
-                  console.log('[Dashboard] Trying form.form_id for Big Damage Issue Form:', form.form_id);
+                  // console.log('[Dashboard] Trying form.form_id for Big Damage Issue Form:', form.form_id);
                   try {
                     apiCount = await countFormNoti(token, form.form_id);
                   } catch (secondError) {
@@ -284,45 +284,45 @@ const Dashboard = () => {
               // For Big Damage Issue Form, always use API count (context might not have Big Damage notifications)
               // The API is the source of truth for the count
               if (form.name === "Big Damage Issue Form") {
-                console.log('[Dashboard] Big Damage Issue Form - API response details:', {
-                  formId: form.id,
-                  form_id: form.form_id,
-                  formIdentifier: formIdentifier,
-                  rawApiCount: apiCount,
-                  apiCountType: typeof apiCount,
-                  parsedCount: finalCount,
-                  storedInCounts: counts[form.id],
-                  contextCount: bigDamageIssueCount,
-                  fullFormObject: form,
-                  apiUrl: `/api/count_notis/${formIdentifier}`,
-                  willUseApiCount: finalCount > 0
-                });
+                // console.log('[Dashboard] Big Damage Issue Form - API response details:', {
+                //   formId: form.id,
+                //   form_id: form.form_id,
+                //   formIdentifier: formIdentifier,
+                //   rawApiCount: apiCount,
+                //   apiCountType: typeof apiCount,
+                //   parsedCount: finalCount,
+                //   storedInCounts: counts[form.id],
+                //   contextCount: bigDamageIssueCount,
+                //   fullFormObject: form,
+                //   apiUrl: `/api/count_notis/${formIdentifier}`,
+                //   willUseApiCount: finalCount > 0
+                // });
                 
                 // IMPORTANT: Always trust the API count for Big Damage Issue Form
                 // The API queries the database directly and is more reliable than context
                 // Context might not have loaded Big Damage Issue notifications yet
                 if (finalCount > 0) {
-                  console.log('[Dashboard] Big Damage Issue Form has notifications from API:', finalCount);
+                  // console.log('[Dashboard] Big Damage Issue Form has notifications from API:', finalCount);
                 } else {
-                  console.log('[Dashboard] Big Damage Issue Form API returned 0 - no notifications');
+                  // console.log('[Dashboard] Big Damage Issue Form API returned 0 - no notifications');
                 }
               }
               
               // Debug logging for Big Damage Issue Form and Asset Damage / Lost Form
               if (form.name === "Big Damage Issue Form" || form.name === "Asset Damage / Lost Form") {
-                console.log(`[Dashboard] ${form.name} count from API:`, {
-                  formId: form.id,
-                  form_id: form.form_id,
-                  formIdentifier: formIdentifier,
-                  formName: form.name,
-                  apiCount: apiCount,
-                  apiCountType: typeof apiCount,
-                  apiCountValue: apiCount,
-                  contextCount: form.name === "Big Damage Issue Form" ? bigDamageIssueCount : 'N/A',
-                  storedInCounts: counts[form.id],
-                  fullFormObject: form,
-                  apiResponse: apiCount // Show raw response
-                });
+                // console.log(`[Dashboard] ${form.name} count from API:`, {
+                //   formId: form.id,
+                //   form_id: form.form_id,
+                //   formIdentifier: formIdentifier,
+                //   formName: form.name,
+                //   apiCount: apiCount,
+                //   apiCountType: typeof apiCount,
+                //   apiCountValue: apiCount,
+                //   contextCount: form.name === "Big Damage Issue Form" ? bigDamageIssueCount : 'N/A',
+                //   storedInCounts: counts[form.id],
+                //   fullFormObject: form,
+                //   apiResponse: apiCount // Show raw response
+                // });
               }
             } catch (error) {
               console.error(`Error fetching count for ${form.name}:`, error, {
@@ -342,19 +342,19 @@ const Dashboard = () => {
         );
         
         // Debug: Log all counts after fetching
-        console.log('[Dashboard] All form counts after API fetch:', counts);
-        console.log('[Dashboard] Big Damage Issue context count:', bigDamageIssueCount);
+        // console.log('[Dashboard] All form counts after API fetch:', counts);
+        // console.log('[Dashboard] Big Damage Issue context count:', bigDamageIssueCount);
         
         // Log specifically for Big Damage Issue Form
         const bigDamageForm = formsData.find(f => f.name === "Big Damage Issue Form");
         if (bigDamageForm) {
-          console.log('[Dashboard] Big Damage Issue Form final API count:', {
-            formId: bigDamageForm.id,
-            form_id: bigDamageForm.form_id,
-            apiCount: counts[bigDamageForm.id],
-            contextCount: bigDamageIssueCount,
-            willUseApiCount: counts[bigDamageForm.id] > 0
-          });
+          // console.log('[Dashboard] Big Damage Issue Form final API count:', {
+          //   formId: bigDamageForm.id,
+          //   form_id: bigDamageForm.form_id,
+          //   apiCount: counts[bigDamageForm.id],
+          //   contextCount: bigDamageIssueCount,
+          //   willUseApiCount: counts[bigDamageForm.id] > 0
+          // });
         }
 
         setFormCounts(counts);
@@ -381,13 +381,13 @@ const Dashboard = () => {
           const newCount = Math.max(currentCount, bigDamageIssueCount);
           
           if (process.env.NODE_ENV !== 'production') {
-            console.log('[Dashboard] Updating Big Damage Issue count:', {
-              formId: bigDamageForm.id,
-              currentCount,
-              bigDamageIssueCount,
-              newCount,
-              willUpdate: newCount !== currentCount
-            });
+            // console.log('[Dashboard] Updating Big Damage Issue count:', {
+            //   formId: bigDamageForm.id,
+            //   currentCount,
+            //   bigDamageIssueCount,
+            //   newCount,
+            //   willUpdate: newCount !== currentCount
+            // });
           }
           
           return {
@@ -402,7 +402,7 @@ const Dashboard = () => {
   // Listen for notification updates to refresh the count and reload notifications
   useEffect(() => {
     const handleNotificationsUpdated = async (event) => {
-      console.log('[Dashboard] notificationsUpdated event received', event?.detail);
+      // console.log('[Dashboard] notificationsUpdated event received', event?.detail);
       
       // Refresh notifications from API to get updated counts
       const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -451,7 +451,7 @@ const Dashboard = () => {
               setNotifications(unreadNotifications);
               localStorage.setItem("notifications", JSON.stringify(unreadNotifications));
               
-              console.log('[Dashboard] Notifications refreshed. Total:', parsed.length, 'Unread:', unreadNotifications.length);
+              // console.log('[Dashboard] Notifications refreshed. Total:', parsed.length, 'Unread:', unreadNotifications.length);
             }
           }
         } catch (error) {
@@ -470,12 +470,12 @@ const Dashboard = () => {
               const newCount = Math.max(prev[bigDamageForm.id] || 0, bigDamageIssueCount);
               
               if (process.env.NODE_ENV !== 'production') {
-                console.log('[Dashboard] Notification updated event - updating count:', {
-                  formId: bigDamageForm.id,
-                  previousCount: prev[bigDamageForm.id],
-                  bigDamageIssueCount,
-                  newCount
-                });
+                // console.log('[Dashboard] Notification updated event - updating count:', {
+                //   formId: bigDamageForm.id,
+                //   previousCount: prev[bigDamageForm.id],
+                //   bigDamageIssueCount,
+                //   newCount
+                // });
               }
               
               return {
@@ -494,7 +494,7 @@ const Dashboard = () => {
     };
   }, [bigDamageIssueCount, allForm, setNotifications]);
   
-    console.log("Forms>>" , allForm) ;
+    // console.log("Forms>>" , allForm) ;
     const formIcons = {
 
         "Asset Transfer Form": "📂",
@@ -519,7 +519,7 @@ const Dashboard = () => {
     route: form.route || "",
     count: 0,
   }));
-  console.log("Request Data>>", requests);
+  // console.log("Request Data>>", requests);
   if (loading) {
     return <div className="p-6 text-gray-600">Loading dashboard...</div>;
   }
@@ -553,13 +553,13 @@ const Dashboard = () => {
             // This ensures we ONLY show Big Damage Issue Form count, not all notifications
             count = bigDamageIssueCount || 0;
             
-            console.log('[Dashboard] Big Damage Issue Form card count:', {
-              formId: form.id,
-              form_id: form.form_id,
-              bigDamageIssueCount: bigDamageIssueCount,
-              finalCount: count,
-              willShowBadge: count > 0
-            });
+            // console.log('[Dashboard] Big Damage Issue Form card count:', {
+            //   formId: form.id,
+            //   form_id: form.form_id,
+            //   bigDamageIssueCount: bigDamageIssueCount,
+            //   finalCount: count,
+            //   willShowBadge: count > 0
+            // });
           }
           const icon = formIcons[form.name] || "";
           const isActive =
