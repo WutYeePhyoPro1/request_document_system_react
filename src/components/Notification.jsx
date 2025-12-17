@@ -23,6 +23,15 @@ export default function Notification({ notifications, formBasedCount = null }) {
             // Reset to empty array if notifications prop is invalid
             setLocalNotifications([]);
         }
+        try {
+            // eslint-disable-next-line no-console
+            console.log('[Notification][SYNC] props notifications changed', {
+                propNotificationsLength: Array.isArray(notifications) ? notifications.length : 0,
+                localNotificationsLength: localNotifications?.length || 0,
+                virtualNotificationsLength: (virtualNotifications || []).length,
+                formBasedCount
+            });
+        } catch (e) {}
     }, [notifications]);
     
     const getTotalAmountFromRow = (row) => {
@@ -49,7 +58,9 @@ export default function Notification({ notifications, formBasedCount = null }) {
                 if (!token || !user) return;
                 
                 try {
-                    const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                    // Include branch filter when user is branch-limited to match server-side badge count
+                    const branchParam = (!canViewAllBranchesForUser && user?.from_branch_id) ? `&branch=${user.from_branch_id}` : '';
+                    const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue${branchParam}`, {
                         headers: { 
                             'Authorization': `Bearer ${token}`,
                             'Accept': 'application/json',
@@ -604,10 +615,46 @@ export default function Notification({ notifications, formBasedCount = null }) {
         return filtered;
     }, [localNotifications, user, formBasedCount, virtualNotifications, canViewAllBranchesForUser]);
 
-    // Use form-based count if provided (source of truth), otherwise use filtered notifications
-    // formBasedCount comes from Navbar's form-based counting which checks actual form status
-    // This is more reliable than filtering notifications by their status field
-    const notificationCount = formBasedCount !== null ? formBasedCount : (filteredNotifications?.length || 0);
+    // Prepare a deduplicated combined list helper
+    const dedupNotifications = (list) => {
+        const map = new Map();
+        const out = [];
+        (list || []).forEach(n => {
+            const key = n.notification_id || n.id || n.specific_form_id || (n.data && n.data.specific_form_id) || `${n.form_id || 'f'}-${n.specific_form_id || ''}`;
+            if (key && !map.has(String(key))) {
+                map.set(String(key), true);
+                out.push(n);
+            }
+        });
+        return out;
+    };
+
+    // Decide which notifications to display in the dropdown.
+    const displayNotifications = useMemo(() => {
+        // If formBasedCount is present (>0) prefer virtualNotifications + localNotifications (branch-filtered)
+        if (formBasedCount > 0) {
+            const combined = [];
+            if (Array.isArray(virtualNotifications)) combined.push(...virtualNotifications);
+            if (Array.isArray(localNotifications)) combined.push(...localNotifications);
+            return dedupNotifications(combined);
+        }
+        // Otherwise prefer filteredNotifications, fallback to local then virtual
+        if (Array.isArray(filteredNotifications) && filteredNotifications.length > 0) {
+            return dedupNotifications(filteredNotifications);
+        }
+        if (Array.isArray(localNotifications) && localNotifications.length > 0) {
+            return dedupNotifications(localNotifications);
+        }
+        if (Array.isArray(virtualNotifications) && virtualNotifications.length > 0) {
+            return dedupNotifications(virtualNotifications);
+        }
+        return [];
+    }, [formBasedCount, filteredNotifications, localNotifications, virtualNotifications]);
+
+    // Compute badge count as the maximum of authoritative formBasedCount and available notification sets
+    const localLen = (localNotifications && Array.isArray(localNotifications)) ? dedupNotifications(localNotifications).length : 0;
+    const virtualLen = (virtualNotifications && Array.isArray(virtualNotifications)) ? dedupNotifications(virtualNotifications).length : 0;
+    const notificationCount = Math.max(formBasedCount || 0, localLen, virtualLen, displayNotifications.length || 0);
     const hasNotifications = notificationCount > 0;
     
     // Debug: Log when badge shows but dropdown is empty
@@ -1046,24 +1093,76 @@ export default function Notification({ notifications, formBasedCount = null }) {
                         </div>
 
                     {/* Notifications List or Empty State */}
-                    {hasNotifications && filteredNotifications.length > 0 ? (
-                        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                            {filteredNotifications.map((noti, index) => {
+                    {/* Decide which notifications to actually display in the dropdown.
+                        Prefer filteredNotifications (role+status filtered). If empty but badge shows,
+                        fall back to localNotifications, then virtualNotifications so users always see items. */}
+                    {hasNotifications ? (
+                        (() => {
+                            // If formBasedCount is present (>0) it is the source-of-truth for the badge.
+                            // In that case prefer virtualNotifications (derived from form list API using same logic)
+                            // combined with localNotifications so the dropdown reflects the same set that produced the badge.
+                            let displayNotifications = [];
+                            if (formBasedCount > 0) {
+                                const combined = [];
+                                if (Array.isArray(virtualNotifications) && virtualNotifications.length > 0) {
+                                    combined.push(...virtualNotifications);
+                                }
+                                if (Array.isArray(localNotifications) && localNotifications.length > 0) {
+                                    combined.push(...localNotifications);
+                                }
+                                displayNotifications = combined;
+                            } else {
+                                displayNotifications = (filteredNotifications && filteredNotifications.length > 0)
+                                    ? filteredNotifications
+                                    : (localNotifications && localNotifications.length > 0)
+                                        ? localNotifications
+                                        : (virtualNotifications && virtualNotifications.length > 0)
+                                            ? virtualNotifications
+                                            : [];
+                            }
+
+                            // Deduplicate by notification_id / specific_form_id to avoid duplicates from virtual+local merge
+                            const dedupMap = new Map();
+                            const deduped = [];
+                            displayNotifications.forEach((n) => {
+                                const key = String(n.notification_id || n.id || n.specific_form_id || n.data?.specific_form_id || `${n.form_id}-${n.specific_form_id}`);
+                                if (key && !dedupMap.has(key)) {
+                                    dedupMap.set(key, true);
+                                    deduped.push(n);
+                                }
+                            });
+                            displayNotifications = deduped;
+
+                            if (displayNotifications.length === 0) {
+                                return (
+                                    <div className="flex flex-col items-center justify-center py-12 px-6">
+                                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                                            <FaBell className="text-3xl text-gray-400" />
+                                        </div>
+                                        <p className="text-gray-600 font-medium text-base mb-1">No notifications</p>
+                                        <p className="text-gray-400 text-sm text-center">You're all caught up! Check back later for updates.</p>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                                    {displayNotifications.map((noti, index) => {
                                 // Ensure we have a unique key
-                                const notiKey = noti.notification_id || noti.id || noti.specific_form_id || noti.data?.specific_form_id || `noti-${index}`;
+                                const itemKey = noti.notification_id || noti.id || noti.specific_form_id || noti.data?.specific_form_id || `noti-${index}`;
                                 
                                 // Get form name
-                                const formName = noti?.form_name || noti?.data?.form_name || 'Unknown Form';
+                                const itemFormName = noti?.form_name || noti?.data?.form_name || 'Unknown Form';
                                 
                                 // Get document number
-                                const docNo = noti?.form_doc_no || noti?.data?.form_doc_no || 'N/A';
+                                const itemDocNo = noti?.form_doc_no || noti?.data?.form_doc_no || 'N/A';
                                 
                                 // Get status
-                                const status = noti?.status || noti?.data?.status || '';
+                                const itemStatus = noti?.status || noti?.data?.status || '';
                                 
-                                // Status badge color mapping
-                                const getStatusBadgeClass = (status) => {
-                                    const normalizedStatus = (status || '').toLowerCase().trim();
+                                // Status badge color mapping (reuse)
+                                const getBadgeClass = (s) => {
+                                    const normalizedStatus = (s || '').toLowerCase().trim();
                                     if (normalizedStatus === 'checked') {
                                         return 'bg-orange-100 text-orange-700 border-orange-200';
                                     } else if (normalizedStatus === 'ongoing') {
@@ -1077,61 +1176,62 @@ export default function Notification({ notifications, formBasedCount = null }) {
                                 };
                                 
                                 return (
-                            <div
-                                key={notiKey}
-                                role="button"
-                                tabIndex={0}
-                                className="relative group px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors duration-150 last:border-b-0"
-                                onClick={(e) => {
-                                    e.preventDefault();
-                                    e.stopPropagation();
-                                    handleNotificationClick(noti, e);
-                                }}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleNotificationClick(noti, e);
-                                    }
-                                }}
-                            >
-                                <div className="flex items-start gap-3">
-                                    {/* Small PRO Global Logo */}
-                                    <div className="flex-shrink-0 w-8 h-8 mt-0.5">
-                                <img
-                                    src={finalLogo}
-                                            alt="PRO Global"
-                                            className="w-full h-full object-contain"
-                                        />
-                                    </div>
+                                    <div
+                                        key={itemKey}
+                                        role="button"
+                                        tabIndex={0}
+                                        className="relative group px-4 py-3 border-b border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors duration-150 last:border-b-0"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleNotificationClick(noti, e);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleNotificationClick(noti, e);
+                                            }
+                                        }}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            {/* Small PRO Global Logo */}
+                                            <div className="flex-shrink-0 w-8 h-8 mt-0.5">
+                                                <img
+                                                    src={finalLogo}
+                                                    alt="PRO Global"
+                                                    className="w-full h-full object-contain"
+                                                />
+                                            </div>
 
-                                    {/* Content */}
-                                    <div className="flex-1 min-w-0">
-                                        {/* Form Type Name */}
-                                        <p className="text-sm font-medium text-gray-900 mb-1.5 leading-tight">
-                                            {formName}
-                                        </p>
-                                        
-                                        {/* Document Number and Status Row */}
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            {/* Document Number */}
-                                            <p className="text-xs text-gray-600 font-medium">
-                                                {docNo}
-                                            </p>
-                                            
-                                            {/* Status Badge */}
-                                            {status && (
-                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getStatusBadgeClass(status)}`}>
-                                                    {status}
-                                                </span>
-                                            )}
+                                            {/* Content */}
+                                            <div className="flex-1 min-w-0">
+                                                {/* Form Type Name */}
+                                                <p className="text-sm font-medium text-gray-900 mb-1.5 leading-tight">
+                                                    {itemFormName}
+                                                </p>
+                                                {/* Document Number and Status Row */}
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {/* Document Number */}
+                                                    <p className="text-xs text-gray-600 font-medium">
+                                                        {itemDocNo}
+                                                    </p>
+                                                    
+                                                    {/* Status Badge */}
+                                                    {itemStatus && (
+                                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getBadgeClass(itemStatus)}`}>
+                                                            {itemStatus}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
+                                );
+                                    })}
                                 </div>
-                            </div>
                             );
-                            })}
-                        </div>
+                        })()
                     ) : (
                         <div className="flex flex-col items-center justify-center py-12 px-6">
                             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
@@ -1139,8 +1239,9 @@ export default function Notification({ notifications, formBasedCount = null }) {
                             </div>
                             <p className="text-gray-600 font-medium text-base mb-1">No notifications</p>
                             <p className="text-gray-400 text-sm text-center">You're all caught up! Check back later for updates.</p>
-                    </div>
+                        </div>
                     )}
+                    {/* End conditional rendering */}
 
                     {/* Footer */}
                     <button

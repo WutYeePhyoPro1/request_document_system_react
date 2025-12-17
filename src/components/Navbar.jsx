@@ -711,8 +711,37 @@ export default function Navbar({ toggleSidebar }) {
                 //     }, {})
                 // });
                 
-                setNotifications(allUnreadNotifications);
-                localStorage.setItem("notifications", JSON.stringify(allUnreadNotifications));
+                // Deduplicate notifications by notification_id or specific_form_id before storing
+                const deduped = [];
+                const seenKeys = new Set();
+                (allUnreadNotifications || []).forEach(n => {
+                    const key = n.notification_id || n.id || n.specific_form_id || (n.data && n.data.specific_form_id) || `${n.form_id || 'f'}-${n.specific_form_id || (n.data && n.data.specific_form_id) || ''}`;
+                    if (key && !seenKeys.has(String(key))) {
+                        seenKeys.add(String(key));
+                        deduped.push(n);
+                    }
+                });
+                setNotifications(deduped);
+                localStorage.setItem("notifications", JSON.stringify(deduped));
+                // Debug: expose summary for troubleshooting mismatched counts
+                try {
+                    window.__NOTIF_DEBUG__ = {
+                        formBasedCount,
+                        parsedNotifications: parsedNotifications || null,
+                        allUnreadNotificationsCount: allUnreadNotifications.length,
+                        sampleParsed: (parsedNotifications || []).slice(0,5),
+                        sampleUnread: allUnreadNotifications.slice(0,5),
+                        timestamp: Date.now()
+                    };
+                    // eslint-disable-next-line no-console
+                    console.log('[Navbar][DEBUG] notifications fetched', {
+                        formBasedCount,
+                        parsed: parsedNotifications?.length ?? null,
+                        unread: allUnreadNotifications.length,
+                        sampleParsed: (parsedNotifications || []).slice(0,5),
+                        sampleUnread: allUnreadNotifications.slice(0,5)
+                    });
+                } catch (e) {}
             } catch (err) {
                 // Don't throw to prevent uncaught promise rejection
                 console.error('[Navbar] Error fetching notifications:', err);
@@ -744,7 +773,8 @@ export default function Navbar({ toggleSidebar }) {
                     // Trigger form count refresh immediately
                     const refreshFormCount = async () => {
                         try {
-                            const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                    const branchParam = (!canViewAllBranchesAccess && user?.from_branch_id) ? `&branch=${user.from_branch_id}` : '';
+                    const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue${branchParam}`, {
                                 headers: { 
                                     'Authorization': `Bearer ${token}`,
                                     'Accept': 'application/json',
@@ -906,7 +936,8 @@ export default function Navbar({ toggleSidebar }) {
 
             try {
                 // Fetch Big Damage Issue form list
-                const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                const branchParam2 = (!canViewAllBranchesAccess && user?.from_branch_id) ? `&branch=${user.from_branch_id}` : '';
+                const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue${branchParam2}`, {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         'Accept': 'application/json',
