@@ -516,23 +516,23 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       userRole.includes('branch account');
     
     if (isAccount) {
-      // Account should see "BM Approved" and "Acknowledged" forms
-      // Hide if status is "Completed", "Issued", "SupervisorIssued", etc.
-      // Explicitly exclude "Ongoing", "Checked", and completed statuses
+      // Account should see BM/OP/Acknowledged and Completed forms.
+      // Exclude only Ongoing and Checked (they are earlier workflow stages).
       if (formStatus === 'ongoing' || formStatus === 'checked') {
         return false;
       }
-      // Hide completed statuses
-      if (formStatus === 'completed' || formStatus === 'issued' || formStatus === 'supervisorissued') {
-        return false;
-      }
-      // Show only "BM Approved", "OP Approved", and "Acknowledged"
-      return formStatus === 'bm approved' || 
-             formStatus === 'bmapproved' || 
-             formStatus === 'op approved' ||
-             formStatus === 'opapproved' ||
-             formStatus === 'ac_acknowledged' || 
-             formStatus === 'acknowledged';
+      // Show BM Approved, OP Approved, Acknowledged, and Completed statuses
+      return [
+        'bm approved',
+        'bmapproved',
+        'op approved',
+        'opapproved',
+        'ac_acknowledged',
+        'acknowledged',
+        'completed',
+        'issued',
+        'supervisorissued'
+      ].includes(formStatus);
     }
     
     // For other roles, form is not relevant

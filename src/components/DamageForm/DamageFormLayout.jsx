@@ -4022,6 +4022,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             ?? response?.data?.general_form?.id
             ?? null;
           
+          // Debug: log response so we can trace Issue -> backend roundtrip easily in browser console
+          console.log('[API CALL] Response received', {
+            requestId,
+            endpoint,
+            method,
+            responseSummary: {
+              general_form_id: responseGeneralFormId,
+              status: response?.status || response?.form_status || null,
+              redirect: response?.redirect || null,
+              ok: true
+            },
+            fullResponse: response
+          });
           // Get form status from response - avoid response.status (HTTP status code)
           // Check form status fields first, then fallback to current formData.status
           const nextStatus = response?.form_status
@@ -4263,6 +4276,19 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                 // Not all backends expose this endpoint; ignore failures
                 console.warn('[Form Submission] finalize call failed or not available (ignored):', e);
               }
+
+              // 3) Explicitly trigger other-income processing for API clients to ensure parity with Blade flow
+              try {
+                if (responseGeneralFormId) {
+                  await apiRequest(`/api/big-damage-issues/${responseGeneralFormId}/process-other-income`, {
+                    method: 'POST',
+                    body: JSON.stringify({ actual_user_id: formData.user_id || formData.actual_user_id || null })
+                  });
+                  console.log('[Form Submission] process-other-income triggered for', responseGeneralFormId);
+                }
+              } catch (e) {
+                console.warn('[Form Submission] process-other-income failed (ignored):', e);
+              }
   
           // Notify other parts of the app (lists/dashboards) to refresh their data
           try {
@@ -4274,6 +4300,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
             }
           } catch (e) {
             // ignore
+          }
+
+          // 4) Check if backend wants us to redirect (e.g., for Other Income Sell forms)
+          if (response?.redirect?.should_redirect && response?.redirect?.redirect_to) {
+            console.log('[Form Submission] Backend requested redirect to:', response.redirect.redirect_to);
+            // Give a brief moment for events to propagate, then redirect
+            setTimeout(() => {
+              window.location.href = response.redirect.redirect_to;
+            }, 500);
+            return; // Don't proceed with normal success handling if redirecting
           }
             } catch (err) {
               console.error('[Form Submission] Post-completion follow-up failed:', err);

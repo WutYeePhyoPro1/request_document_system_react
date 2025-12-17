@@ -1225,7 +1225,7 @@ export default function Navbar({ toggleSidebar }) {
                             {/* Menu Items */}
                             <ul className="text-sm text-gray-700 bg-white/50 backdrop-blur-sm">
                                 <li>
-                                    <button
+                                    <button type="button"
                                         onClick={handleLogout}
                                         className="w-full text-left px-3 py-2 sm:px-5 sm:py-3 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 text-red-600 font-semibold transition-all duration-200 flex items-center space-x-2 sm:space-x-3 group text-xs sm:text-sm"
                                     >
