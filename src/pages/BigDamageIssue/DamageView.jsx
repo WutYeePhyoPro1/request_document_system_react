@@ -1162,9 +1162,9 @@ export default function DamageView() {
       null,
   };
 
-  if (process.env.NODE_ENV !== 'production') {
-    // eslint-disable-next-line no-console
-  }
+  // Always log asset_type / caseType / status for easier debugging in dev and QA environments
+  // eslint-disable-next-line no-console
+  console.log('[DamageView] asset_type (backend):', gf.asset_type, '=> caseType (frontend):', initialData.caseType, 'status:', initialData.status);
 
   return (
     <div className="min-h-screen bg-gray-100">
