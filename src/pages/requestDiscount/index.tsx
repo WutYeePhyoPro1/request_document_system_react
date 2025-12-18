@@ -76,6 +76,7 @@ export default function Demo() {
             branch: data?.branch,
             user_branches: data?.user_branches,
             noti_data: data?.noti_data,
+            authBranch: data?.authBranch ,
           },
           data: parsed.data, // load cached table data
         });
@@ -110,6 +111,7 @@ export default function Demo() {
           branch: data?.branch,
           user_branches: data?.user_branches,
           noti_data: data?.noti_data,
+          authBranch: data?.authBranch ,
         },
         data: data?.data,
       });
@@ -485,7 +487,7 @@ export default function Demo() {
                 data={discountData?.meta?.user_branches?.map(
                   (item) => ({
                     value: String(item.branch_id),
-                    label: item.branches?.branch_name,
+                    label: item.branches?.branch_name || '',
                   })
                 )}
                 onChange={handleBranchChange}
