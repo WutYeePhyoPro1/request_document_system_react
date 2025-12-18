@@ -1160,12 +1160,29 @@ export default function Notification({ notifications, formBasedCount = null }) {
                                 const formIdFromNoti = noti?.form_id || noti?.data?.form_id || noti?.data?.general_form?.form_id;
                                 const docNoUpper = String(itemDocNo || '').toUpperCase();
                                 // Heuristics: form_id 8, doc no prefixes, or name containing asset damage/big damage
-                                if (formIdFromNoti === 8 ||
+                                if (
+                                    formIdFromNoti === 8 ||
                                     lowerName.includes('asset damage') ||
                                     lowerName.includes('big damage') ||
                                     docNoUpper.startsWith('BDI') ||
-                                    docNoUpper.startsWith('ASDLAN')) {
+                                    docNoUpper.startsWith('BDILAN') ||
+                                    docNoUpper.startsWith('ASDLAN') ||
+                                    (String(noti?.form_id || '').trim() === '8')
+                                ) {
                                     itemFormName = 'Big Damage Issue Form';
+                                }
+
+                                // Debug: help identify why some items still show wrong title
+                                if (process.env.NODE_ENV !== 'production') {
+                                    try {
+                                        // eslint-disable-next-line no-console
+                                        console.debug('[Notification] titleNormalize', {
+                                            original: noti?.form_name || noti?.data?.form_name,
+                                            resolved: itemFormName,
+                                            formId: formIdFromNoti,
+                                            docNo: itemDocNo
+                                        });
+                                    } catch (e) {}
                                 }
 
                                 // Get status
