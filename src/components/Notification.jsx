@@ -6,28 +6,28 @@ import { FaBell, FaCheckDouble } from "react-icons/fa";
 
 const Notification = ({ notifications, formBasedCount = null }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-//   const [upperNoti, setUpperNoti] = useState([]);
+  const [upperNoti, setUpperNoti] = useState([]);
   const navigate = useNavigate();
-//   useEffect(() => {
-//     const token = localStorage.getItem("token");
-//     if (!token) return;
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-//     const fetchNoti = async () => {
-//       try {
-//         const response = await badgeNoti(token);
-//         setUpperNoti(response);
-//       } catch (error) {
-//         console.error(error);
-//       }
-//     };
+    const fetchNoti = async () => {
+      try {
+        const response = await badgeNoti(token);
+        setUpperNoti(response);
+      } catch (error) {
+        console.error(error);
+      }
+    };
 
-//     fetchNoti();
-//   }, []);
+    fetchNoti();
+  }, []);
   const toggleDropdown = () => {
     setIsDropdownOpen((prev) => !prev);
   };
-  const formDataUpperNoti = notifications?.formData ?? [];
-  const unreadNotiUpperNoti = notifications?.getUnreadNoti ?? [];
+  const formDataUpperNoti = upperNoti?.formData ?? [];
+  const unreadNotiUpperNoti = upperNoti?.getUnreadNoti ?? [];
   const countNotiUpperNoti = unreadNotiUpperNoti.length;
 const handleNotiClick = (path) => {
   setIsDropdownOpen(false); // close dropdown
