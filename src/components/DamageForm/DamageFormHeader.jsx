@@ -119,6 +119,12 @@ export default function DamageFormHeader({
     formData.big_damage_issue?.status ||
     'Ongoing';
   const status = (statusRaw || '').toString().trim();
+  const prettyStatus = (s) => {
+    const v = (s || '').toString().trim();
+    if (!v) return v;
+    if (v === 'Ac_Acknowledged' || v === 'Acknowledged') return 'Operation Manager Approved';
+    return v;
+  };
   const branchDisplay = resolveBranchDisplay({
     branchId: formData.branch,
     branchName: formData.branch_name,
@@ -262,7 +268,8 @@ export default function DamageFormHeader({
           return { backgroundColor: '#e9f9cf', color: '#a3e635' };
           case 'Ac_Acknowledged':
           case 'Acknowledged':
-          return { backgroundColor: '#aff1d7', color: '#20be7f' };
+                    case 'Operation Manager Approved':
+                      return { backgroundColor: '#e9f9cf', color: '#a3e635' };
           case 'Completed':
         case 'Issued':
         case 'SupervisorIssued':
@@ -275,12 +282,12 @@ export default function DamageFormHeader({
         }
     })()}
   >
-    {formData.status}
+    {prettyStatus(status)}
   </span>
 )}
 
       <div className=" space-y-4 mb-0 pb-0">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center mb-3">
           <span className="text-gray-400 text-sm hidden sm:inline-block">
             Dashboard / Big Damage Issue Form
           </span>
@@ -311,7 +318,8 @@ export default function DamageFormHeader({
                 break;
               case 'Ac_Acknowledged':
               case 'Acknowledged':
-                shadowColor = '#aff1d7'; // Acknowledged color
+              case 'Operation Manager Approved':
+                shadowColor = '#e9f9cf'; // Operation Manager Approved color
                 break;
               case 'Completed':
               case 'Issued':
@@ -421,7 +429,7 @@ export default function DamageFormHeader({
                 }
                 })()}
               >
-                {formData.status}
+                {prettyStatus(status)}
               </span>
           )}
           </div>

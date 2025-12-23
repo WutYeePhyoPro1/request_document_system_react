@@ -238,8 +238,8 @@
     "userGuide": "အသုံးပြုသူ လမ်းညွှန်"
   },
   "damageFormHeader": {
-    "bigDamageIssueForm": "ကြီးမားသော ပျက်စီးမှု ပြဿနာ ဖောင်",
-    "otherIncomeSell": "အခြား ဝင်ငွေ ရောင်းချမှု"
+    "bigDamageIssueForm": "ကြီးမားသောပျက်စီးမှုများတင်ပြရာဖောင်",
+    "otherIncomeSell": "အခြားသောဝင်ငွေအတွက် ရောင်းချမှု"
   },
   "supportingInfo": {
     "title": "အထောက်အပံ့ အချက်အလက်",
@@ -251,9 +251,9 @@
     "attachFilesMultiple": "ဖိုင်များ ချိတ်ဆက်ရန် (များစွာ ခွင့်ပြုထားသည်)",
     "uploadFiles": "ဖိုင်များ တင်ရန်",
     "noFilesAttached": "ဖိုင်များ ချိတ်ဆက်ထားခြင်း မရှိပါ။",
-    "characterLimitWarning": "{{max}} စာလုံးသာ ရိုက်နိုင်ပါသည်။",
-    "characterLimitReached": "စာလုံး အကန့်အသတ် ရောက်ရှိပါပြီ။ {{max}} စာလုံးသာ ရိုက်နိုင်ပါသည်။",
-    "charactersRemaining": "{{remaining}} စာလုံး ထပ်မံ ရိုက်နိုင်ပါသည် (စုစုပေါင်း {{max}} စာလုံး)။"
+    "characterLimitWarning": "စာလုံး {{max}}သာ ရိုက်နိုင်ပါသည်။",
+    "characterLimitReached": "စာလုံး အကန့်အသတ် ရောက်ရှိပါပြီ။ စာလုံး {{max}}သာ ရိုက်နိုင်ပါသည်။",
+    "charactersRemaining": "စာလုံး {{remaining}} ထပ်မံ ရိုက်နိုင်ပါသည် (စုစုပေါင်း {{max}} စာလုံး)။"
   }
 }
 

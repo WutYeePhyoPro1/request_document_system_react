@@ -33,8 +33,25 @@ const Dashboard = () => {
     const statusParam = searchParams.get('status');
     const branchParam = searchParams.get('branch');
     
-    // Parse status - now a simple string
+    // Parse status - now may be comma-separated string; if missing, set role-based defaults
     let status = statusParam || "";
+    if (!status) {
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
+        if (role.includes('checker') || (storedUser?.user_type || '').toString().toLowerCase() === 'c') {
+          status = ['Ongoing', 'Checked'].join(',');
+        } else if (role.includes('approver') || role.includes('branch manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a1') {
+          status = ['Checked', 'BM Approved'].join(',');
+        } else if (role.includes('operation manager') || role.includes('op manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a2') {
+          status = ['BM Approved', 'Ac_Acknowledged'].join(',');
+        } else if (role.includes('account') || role.includes('branch account') || (storedUser?.user_type || '').toString().toLowerCase() === 'ac') {
+          status = ['BM Approved', 'Ac_Acknowledged'].join(',');
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
     
     // Parse branch - will be set after branchOptions are loaded
     let branch = null;
@@ -53,7 +70,7 @@ const Dashboard = () => {
   }, [searchParams]);
 
   const [filters, setFilters] = useState(initializeFiltersFromUrl);
-  const perPage = 15;
+  const [perPage, setPerPage] = useState(999999); // show all by default
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const filterRef = useRef(null);
@@ -93,9 +110,16 @@ const Dashboard = () => {
       params.set("doc_no", filters.formDocNo); // fallback key some APIs use
       params.set("document_no", filters.formDocNo); // additional fallback
     }
-    // Handle status as string
-    if (filters.status && filters.status.trim()) {
-      params.set("status", filters.status.trim());
+    // Handle status: allow filters.status to be an array (from multi-select) or string
+    if (filters.status) {
+      if (Array.isArray(filters.status) && filters.status.length > 0) {
+        const joined = filters.status.map(s => (typeof s === 'string' ? s : s.value || '')).filter(Boolean).join(',');
+        if (joined) params.set('status', joined);
+      } else if (typeof filters.status === 'string' && filters.status.trim()) {
+        params.set('status', filters.status.trim());
+      } else if (typeof filters.status === 'object' && filters.status.value) {
+        params.set('status', filters.status.value);
+      }
     }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
     // Only send date filters if they have actual values (not empty strings)
@@ -271,8 +295,16 @@ const Dashboard = () => {
           console.log('[Dashboard] Response from /api/me:', data);
           if (data?.user) {
             console.log('[Dashboard] Updated user from /api/me:', data.user);
-            localStorage.setItem('user', JSON.stringify(data.user));
-            setCurrentUser(data.user);
+            const enrichedUser = { ...data.user };
+            if (!enrichedUser.user_type) {
+              if (enrichedUser.employee_number === '666-666666' || enrichedUser.emp_id === '666-666666') {
+                enrichedUser.user_type = 'A2';
+              } else if (Number(enrichedUser.role_id) === 3) {
+                enrichedUser.user_type = 'A1';
+              }
+            }
+            localStorage.setItem('user', JSON.stringify(enrichedUser));
+            setCurrentUser(enrichedUser);
             // Force a page reload to ensure all components get the updated user
             window.location.reload();
           }
@@ -476,7 +508,7 @@ const Dashboard = () => {
     let checkedForms = [];
     let ongoingForms = [];
     
-    formListData.forEach(row => {
+      formListData.forEach(row => {
       const gf = row?.general_form || row;
       const status = gf?.status || row?.status;
       
@@ -499,6 +531,21 @@ const Dashboard = () => {
       
       // Check if this form should be counted for the current user's role
       if (shouldShowNotificationForRole(user, status, row)) {
+        // Suppress notification counts for Operation Managers on BM Approved forms
+        // when the form total does NOT exceed the OP threshold (<= 500,000).
+        try {
+          const normalizeStatus = (s = '') => (s || '').toString().toLowerCase().replace(/[\s_]+/g, '');
+          const compactStatus = normalizeStatus(status);
+          const isBMApprovedForCounting = compactStatus.includes('bm') && compactStatus.includes('approved');
+          const userTypeForCounting = (user?.user_type || '').toString().toLowerCase();
+          const totalAmountForCounting = parseFloat(gf?.total_amount || row?.total_amount || 0) || 0;
+          if (userTypeForCounting === 'a2' && isBMApprovedForCounting && Number(totalAmountForCounting) <= 500000) {
+            // Skip counting this form for OP users when amount <= 500k
+            return;
+          }
+        } catch (e) {
+          // ignore and continue to counting if any unexpected shape
+        }
         // Get form ID - try multiple possible fields
         // IMPORTANT: Store with ALL possible ID variations to ensure matching works
         const generalFormId = row?.general_form_id || gf?.general_form_id || gf?.id;
@@ -600,32 +647,14 @@ const Dashboard = () => {
         const productFilterFromUrl = searchParams.get('search') || searchParams.get('product_name') || searchParams.get('product_code') || '';
         const hasProductFilter = productFilterFromUrl.trim() !== '' || (filters.productName && filters.productName.trim() !== '');
         
-        if (!hasProductFilter) {
-          // Only deduplicate when there's no product filter
-          // This prevents duplicate forms from showing, but allows product filtering to work
-          const seenIds = new Set();
-          allRows = allRows.filter((row) => {
-            const formId = row?.general_form?.id || row?.id;
-            if (!formId) return true;
-            
-            if (seenIds.has(formId)) {
-              console.warn('[Dashboard] Duplicate form detected and removed:', {
-                formId,
-                form_doc_no: row?.general_form?.form_doc_no,
-                row_id: row?.id
-              });
-              return false;
-            }
-            
-            seenIds.add(formId);
-            return true;
-          });
-        }
+        // Keep all product rows here and let DamageIssueList deduplicate/aggregate totals.
+        // Deduplicating here removed other product rows and caused per-form totals to be incorrect
+        // (only the first product row was kept). Do not deduplicate at this stage.
         
-        // Client-side pagination: Always return exactly perPage items (or less on last page)
-        // This ensures consistent page sizes after deduplication and filtering
-        // We fetch 1000 items from backend to have enough data for multiple pages
-        // When product filter is active, we pass all rows to DamageIssueList for proper filtering
+      // Client-side pagination: paginate using a UI page size (15) independent from fetch page size.
+      // We fetch many items from backend (perPage may be large) to have enough data for multiple pages,
+      // but the UI should always show 15 forms per page like the original Laravel blade.
+      const uiPageSize = 15;
         if (hasProductFilter) {
           // Pass all rows to DamageIssueList - it will handle filtering and deduplication
           return {
@@ -633,27 +662,27 @@ const Dashboard = () => {
             meta: {
               ...meta,
               current_page: currentPage,
-              per_page: perPage,
+              per_page: uiPageSize,
               total: meta.total || allRows.length,
-              last_page: meta.last_page || 1,
+              last_page: Math.max(1, Math.ceil((meta.total || allRows.length) / uiPageSize)),
             },
             hasUnreadNotifications: hasUnreadNotifications
           };
         } else {
           // No product filter - do normal pagination
-          const startIndex = (currentPage - 1) * perPage;
-          const paginatedRows = allRows.slice(startIndex, startIndex + perPage);
-          
+          const startIndex = (currentPage - 1) * uiPageSize;
+          const paginatedRows = allRows.slice(startIndex, startIndex + uiPageSize);
+
           // Calculate total pages based on actual filtered data
           const filteredTotal = allRows.length;
-          const actualLastPage = Math.ceil(filteredTotal / perPage) || 1;
-          
+          const actualLastPage = Math.ceil(filteredTotal / uiPageSize) || 1;
+
           return {
             rows: paginatedRows,
             meta: {
               ...meta,
               current_page: currentPage,
-              per_page: perPage,
+              per_page: uiPageSize,
               total: filteredTotal,
               last_page: actualLastPage,
             },
@@ -718,17 +747,18 @@ const Dashboard = () => {
       allRows = filterFormsByRole(allRows, user);
       
       // For non-paginated responses, we need to paginate client-side
-      const startIndex = (currentPage - 1) * perPage;
-      const paginatedRows = allRows.slice(startIndex, startIndex + perPage);
+      const uiPageSize = 15;
+      const startIndex = (currentPage - 1) * uiPageSize;
+      const paginatedRows = allRows.slice(startIndex, startIndex + uiPageSize);
       
       return {
         rows: paginatedRows,
         meta: {
           ...meta,
           current_page: currentPage,
-          per_page: perPage,
+          per_page: uiPageSize,
           total: meta.total || allRows.length,
-          last_page: meta.last_page || Math.ceil((meta.total || allRows.length) / perPage) || 1,
+          last_page: meta.last_page || Math.ceil((meta.total || allRows.length) / uiPageSize) || 1,
         },
         hasUnreadNotifications
       };
@@ -840,6 +870,54 @@ const Dashboard = () => {
       }
     }
     }, [branchList, initializeFiltersFromUrl, currentUser, canViewAllBranchesAccess]);
+
+  // If user navigates back and the URL contains filters, ensure we re-apply them.
+  // This handles cases where the Dashboard component was not unmounted (React Router reuse)
+  // but the user expects query params to restore the filter card state.
+  useEffect(() => {
+    // Don't interfere if filters are being changed programmatically by the filter UI
+    if (isFilteringRef.current) return;
+
+    try {
+      const hasSearchParams = Array.from(searchParams.entries()).length > 0;
+      if (!hasSearchParams) return; // nothing to apply
+
+      // Build filters object from URL params
+      const urlFilters = { ...initializeFiltersFromUrl };
+
+      // Update branch label using branchOptions if available
+      if (urlFilters.branch && urlFilters.branch.value && branchOptions && branchOptions.length > 0) {
+        const branchOption = branchOptions.find(o => String(o.value) === String(urlFilters.branch.value));
+        if (branchOption) {
+          urlFilters.branch = branchOption;
+        }
+      }
+
+      // Only set filters if they differ from current filters to avoid needless state updates
+      const filtersDiffer = JSON.stringify({
+        productName: filters.productName || '',
+        formDocNo: filters.formDocNo || '',
+        fromDate: filters.fromDate || '',
+        toDate: filters.toDate || '',
+        status: (Array.isArray(filters.status) ? filters.status.join(',') : (filters.status || '')),
+        branch: filters.branch ? String(filters.branch.value || '') : ''
+      }) !== JSON.stringify({
+        productName: urlFilters.productName || '',
+        formDocNo: urlFilters.formDocNo || '',
+        fromDate: urlFilters.fromDate || '',
+        toDate: urlFilters.toDate || '',
+        status: urlFilters.status || '',
+        branch: urlFilters.branch ? String(urlFilters.branch.value || '') : ''
+      });
+
+      if (filtersDiffer) {
+        setFilters(urlFilters);
+      }
+    } catch (e) {
+      // ignore parse issues
+    }
+  // Trigger when URL search changes or branch options update
+  }, [location.search, branchOptions, initializeFiltersFromUrl]);
 
   useEffect(() => {
     try {
@@ -1040,8 +1118,9 @@ const Dashboard = () => {
 
       {/* Filter Section */}
       <div className="px-6 mb-4">
-        <div ref={filterRef} className="relative">
-          <FilterCard
+        <div ref={filterRef} className="relative w-full">
+          <div className="w-full">
+            <FilterCard
           filters={filters}
           onFilter={(v) => {
             // Set filtering flag FIRST to prevent useEffect from interfering
@@ -1155,7 +1234,8 @@ const Dashboard = () => {
           }}
           externalBranchOptions={branchOptions}
           allowAllBranchSelection={canViewAllBranchesAccess}
-        />
+          />
+          </div>
       </div>
       </div>
       
@@ -1221,17 +1301,63 @@ const Dashboard = () => {
       )}
       
       <div className="overflow-x-auto mt-6">
-        <DamageIssueList
-          data={listData.rows}
-          loading={listLoading}
-          currentPage={listData.meta.current_page}
-          perPage={listData.meta.per_page}
-          totalRows={listData.meta.total}
-          branchMap={branchMap}
-          onPageChange={handlePageChange}
-          productFilter={filters.productName || ''}
-          notificationCounts={notificationCountsByForm}
-        />
+        {/*
+          The API's meta.total sometimes counts product rows rather than distinct forms.
+          Compute the distinct form count client-side and pass that to the list component
+          so the "Total X Rows" footer shows the number of forms, not rows.
+        */}
+        {(() => {
+          // Compute distinct form count from the full fetched payload (not the paginated rows)
+          // so pagination reflects the total number of forms across all pages.
+          let totalFormCount = 0;
+          try {
+            // Prefer server-reported total when available (Laravel paginator provides total)
+            if (listPayload && (typeof listPayload.total === 'number' || (listPayload.meta && typeof listPayload.meta.total === 'number'))) {
+              totalFormCount = Number(listPayload.total || (listPayload.meta && listPayload.meta.total) || 0);
+            } else {
+              let rawRows = [];
+              if (listPayload?.data && Array.isArray(listPayload.data)) {
+                rawRows = listPayload.data;
+              } else if (Array.isArray(listPayload)) {
+                rawRows = listPayload;
+              } else if (listPayload?.items && Array.isArray(listPayload.items)) {
+                rawRows = listPayload.items;
+              } else if (listPayload?.results && Array.isArray(listPayload.results)) {
+                rawRows = listPayload.results;
+              } else if (listPayload?.records && Array.isArray(listPayload.records)) {
+                rawRows = listPayload.records;
+              }
+
+              const userForFilter = JSON.parse(localStorage.getItem('user') || '{}');
+              const filteredRaw = filterFormsByRole(rawRows || [], userForFilter);
+              const fullFormIdSet = new Set((filteredRaw || []).map(r => r?.general_form?.id || r?.general_form_id || r?.id).filter(Boolean));
+              totalFormCount = fullFormIdSet.size;
+
+              if (console && console.debug) {
+                console.debug('[Dashboard DEBUG] listData.meta:', listData?.meta || null);
+                console.debug('[Dashboard DEBUG] rawRows.length:', rawRows.length, 'distinctForms(all):', totalFormCount, 'sampleFormIds:', Array.from(fullFormIdSet).slice(0,10));
+              }
+            }
+          } catch (e) {
+            console.warn('[Dashboard] Failed to compute totalFormCount from payload:', e);
+            totalFormCount = listData?.meta?.total || 0;
+          }
+
+          return (
+            <DamageIssueList
+              data={listData.rows}
+              loading={listLoading}
+              // Use URL-derived currentPage so client-side pagination follows user's page selection
+              currentPage={currentPage}
+              perPage={perPage}
+              totalRows={totalFormCount}
+              branchMap={branchMap}
+              onPageChange={handlePageChange}
+              productFilter={filters.productName || ''}
+              notificationCounts={notificationCountsByForm}
+            />
+          );
+        })()}
       </div>
 
       <Link

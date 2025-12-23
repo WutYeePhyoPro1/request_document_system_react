@@ -12,9 +12,18 @@ export const login = createAsyncThunk(
           'X-Requested-With': 'XMLHttpRequest'
         }
       });
+      // Enrich user with user_type if missing
+      const enriched = { ...response.data.user };
+      if (!enriched.user_type) {
+        if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
+          enriched.user_type = 'A2';
+        } else if (Number(enriched.role_id) === 3) {
+          enriched.user_type = 'A1';
+        }
+      }
       localStorage.setItem("token", response.data.token);
-      localStorage.setItem("user", JSON.stringify(response.data.user));
-      return response.data.user;
+      localStorage.setItem("user", JSON.stringify(enriched));
+      return enriched;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Login failed");
     }

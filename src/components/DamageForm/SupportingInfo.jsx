@@ -111,6 +111,10 @@ export default function SupportingInfo({
   readOnly = false,
   status = '',
   maxRemarkLength = 500, // Character limit for remark field
+  currentUserRole = null,
+  isCurrentUserChecker = null,
+  isRegularUser = null,
+  isCheckerWhoApproved = null,
 }) {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
@@ -210,9 +214,66 @@ export default function SupportingInfo({
   ];
   const shouldHideAttachments = statusesThatHideAttachments.includes(status);
   
-  const shouldShowRemark = showRemark && !isCompleted;
-  // Hide attachments if completed, or if status is one of the restricted statuses
-  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments;
+  // Prefer explicit role passed from parent (single source of truth). Fall back to localStorage when not provided.
+  const incomingRoleLower = (currentUserRole || '').toString().toLowerCase();
+  let resolvedRoleLower = incomingRoleLower;
+  if (!resolvedRoleLower) {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      if (storedUser) {
+        resolvedRoleLower = (
+          (storedUser.role && storedUser.role.toString()) ||
+          storedUser.role_name ||
+          storedUser.user_type ||
+          storedUser.userType ||
+          ''
+        ).toString().toLowerCase();
+      }
+    } catch (e) {
+      resolvedRoleLower = '';
+    }
+  }
+
+  const isLocalChecker = resolvedRoleLower.includes('check') || resolvedRoleLower === 'c' || resolvedRoleLower === 'cs';
+  const isLocalRegularUser = resolvedRoleLower === 'user' || resolvedRoleLower.includes('user');
+  // Use trimmed/lowercased status for robust comparisons
+  const statusLower = (status || '').toString().trim().toLowerCase();
+
+  // Prefer explicit flags passed from parent if provided; otherwise fall back to local role detection.
+  // Consider the "checker who already approved" as a checker for UI hiding purposes as well.
+  const resolvedIsChecker = (typeof isCheckerWhoApproved === 'boolean' && isCheckerWhoApproved) ? true : (typeof isCurrentUserChecker === 'boolean' ? isCurrentUserChecker : isLocalChecker);
+  const resolvedIsRegularUser = typeof isRegularUser === 'boolean' ? isRegularUser : isLocalRegularUser;
+
+  const shouldShowRemark = showRemark && !isCompleted && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved'));
+  // Hide attachments if completed, or if status is one of the restricted statuses, or per role rules above
+  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved'));
+
+  // Debugging: log resolved values to help diagnose why UI might still appear
+  React.useEffect(() => {
+    try {
+      console.debug('[SupportingInfo DEBUG]', {
+        status,
+        statusLower,
+        currentUserRole,
+        resolvedRoleLower,
+        isCurrentUserChecker,
+        isRegularUser,
+        resolvedIsChecker,
+        resolvedIsRegularUser,
+        showRemark,
+        showAttachments,
+        shouldShowRemark,
+        shouldShowAttachments,
+        readOnly,
+      });
+    } catch (e) {
+      // swallow
+    }
+  }, [status, currentUserRole, isCurrentUserChecker, isRegularUser, showRemark, showAttachments, readOnly, shouldShowRemark, shouldShowAttachments]);
+
+  // Effective readonly: if parent told us readOnly, or if viewer is a regular user viewing an Ongoing form,
+  // treat as readonly so delete buttons are disabled even when attachments are shown.
+  const effectiveReadOnly = Boolean(readOnly || (resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved')));
   
   return (
     <div className="bg-transparent p-4 space-y-3">
@@ -234,7 +295,7 @@ export default function SupportingInfo({
           {/* Remarks section */}
           {shouldShowRemark && (
             <div className="flex-1">
-              <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-1">
+              <label className="text-sm font-medium text-gray-600 flex items-center gap-2 mb-3">
               {t('supportingInfo.remarks')}
               </label>
               {readOnly ? (
@@ -274,6 +335,7 @@ export default function SupportingInfo({
                         ? 'border-amber-300 focus:ring-amber-400' 
                         : 'border-gray-300 focus:ring-blue-400'
                     }`}
+                    style={{ fontSize: '13px' }}
                     required={isRequired}
                     onKeyDown={e => {
                       e.stopPropagation();
@@ -383,7 +445,7 @@ export default function SupportingInfo({
                       key={file.id} 
                       className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col group"
                     >
-                      {!isCompleted && (
+                      {!isCompleted && !effectiveReadOnly && (
                         <button 
                           type="button"
                           onClick={() => handleRemoveFile(file.id)}

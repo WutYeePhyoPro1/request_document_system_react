@@ -35,9 +35,18 @@ export const AuthProvider = ({ children }) => {
             const data = await response.json();
 
             if (response.ok) {
+                // Ensure user_type is present in localStorage (infer when missing)
+                const enriched = { ...data.user };
+                if (!enriched.user_type) {
+                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
+                    enriched.user_type = 'A2';
+                  } else if (Number(enriched.role_id) === 3) {
+                    enriched.user_type = 'A1';
+                  }
+                }
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data.user));
-                setUser(data.user);
+                localStorage.setItem('user', JSON.stringify(enriched));
+                setUser(enriched);
                 return true;
             } else {
                 confirmAlert({
@@ -136,9 +145,17 @@ export const AuthProvider = ({ children }) => {
                 withCredentials: true // ✅ Include cookies for Laravel session
             }); // Adjust endpoint as needed
             if (response.data && response.data.user) {
+                const enriched = { ...response.data.user };
+                if (!enriched.user_type) {
+                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
+                    enriched.user_type = 'A2';
+                  } else if (Number(enriched.role_id) === 3) {
+                    enriched.user_type = 'A1';
+                  }
+                }
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-                setUser(response.data.user);
+                localStorage.setItem('user', JSON.stringify(enriched));
+                setUser(enriched);
                 return true;
 
                 // setUser(response.data.user);

@@ -456,6 +456,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       if (upperCandidate === 'A2' || upperCandidate === 'OP') {
         return 'op_manager';
       }
+      // Map A1 (approver / branch manager) to 'bm' for role resolution
+      if (upperCandidate === 'A1' || upperCandidate === 'APPROVER') {
+        return 'bm';
+      }
     }
 
     // Check position/designation field FIRST - "assistant operation manager" should map to op_manager
@@ -791,6 +795,95 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const role = getUserRole();
     return role;
   }, [currentUser]);
+  
+  // Robust checker detection: combines getUserRole(), currentUser fields and initialData
+  const isCurrentUserChecker = useMemo(() => {
+    try {
+      const fromGet = (getUserRole() || '').toString().toLowerCase();
+      // Treat explicit 'branch_lp' role and role_id 2 as checker as requested
+      if (fromGet === 'branch_lp') return true;
+      if (fromGet.includes('check') || fromGet === 'c' || fromGet === 'cs') return true;
+      const cur = currentUser || {};
+      // Check numeric role id fields that may indicate branch_lp (role_id === 2)
+      const roleIdCandidates = [
+        cur.role_id,
+        cur.roleId,
+        cur.role?.id,
+        cur.role?.role_id,
+      ].filter(Boolean);
+      for (const rid of roleIdCandidates) {
+        const numeric = typeof rid === 'string' ? Number(rid) : rid;
+        if (!Number.isNaN(numeric) && Number(numeric) === 2) return true;
+      }
+      const userType = (cur.user_type || cur.userType || '').toString().toLowerCase();
+      if (userType === 'c' || userType === 'cs') return true;
+      const roleCandidates = [
+        cur.role,
+        cur.role_name,
+        cur.roleName,
+        cur.position,
+        cur.job_title,
+        cur.designation
+      ].filter(Boolean).map(v => v.toString().toLowerCase());
+      for (const r of roleCandidates) {
+        if (r.includes('check') || r.includes('checker')) return true;
+      }
+      // Also check initialData if available (sometimes backend provides user info there)
+      const initRoles = [
+        initialData?.current_user?.role,
+        initialData?.current_user?.role_name,
+        initialData?.user?.role,
+        initialData?.user?.role_name
+      ].filter(Boolean).map(v => v.toString().toLowerCase());
+      for (const r of initRoles) {
+        if (r.includes('check') || r.includes('checker')) return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }, [currentUser, initialData]);
+
+  // Resolve form status from multiple possible fields (formData, nested general_form, or initialData)
+  const resolvedStatusRaw = formData?.status || formData?.general_form?.status || initialData?.status || initialData?.general_form?.status || initialData?.generalForm?.status || '';
+  const resolvedStatus = resolvedStatusRaw ? String(resolvedStatusRaw).trim().replace(/\s+/g, ' ') : '';
+  const resolvedStatusLower = resolvedStatus.toLowerCase();
+  // Force-hide UI for checkers when viewing a form — but only when the form is already Checked.
+  // This ensures checkers can still see remark/attachments on Ongoing forms.
+  const hideUiForCheckerInView = (mode === 'view' || mode === 'readonly') && isCurrentUserChecker && (resolvedStatusLower === 'checked');
+  
+  // Detect if the current user is the checker who already acted on this form (checked)
+  const isCheckerWhoApproved = useMemo(() => {
+    try {
+      const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId || currentUser?.user_id || currentUser?.adminId;
+      const currentUserName = (currentUser?.name || currentUser?.full_name || currentUser?.username || '').toString().toLowerCase().trim();
+      const currentUserEmail = (currentUser?.email || currentUser?.user_email || '').toString().toLowerCase().trim();
+      if (!approvals.length) return false;
+
+      const checkerApproval = approvals.find(approval => {
+        const userTypeRaw = (approval?.user_type || approval?.raw?.user_type || approval?.user?.role?.user_type || approval?.role_type || '').toString().toLowerCase();
+        const label = (approval?.label || approval?.role || approval?.raw?.label || '').toString().toLowerCase();
+        const adminId = approval?.admin_id || approval?.raw?.admin_id;
+        const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+        const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+        const allIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+        const idMatches = currentUserId ? allIds.some(id => String(id) === String(currentUserId)) : false;
+        const approvalName = (approval?.actual_user_name || approval?.name || approval?.raw?.actual_user_name || approval?.raw?.name || approval?.user?.name || '').toString().toLowerCase().trim();
+        const nameMatches = currentUserName && approvalName && approvalName === currentUserName;
+        const approvalEmail = (approval?.actual_user_email || approval?.email || approval?.user?.email || '').toString().toLowerCase().trim();
+        const emailMatches = currentUserEmail && approvalEmail && approvalEmail === currentUserEmail;
+
+        const isCheckerApproval = userTypeRaw === 'c' || userTypeRaw === 'cs' || userTypeRaw.includes('check') || label.includes('check') || (approval?.role || '').toString().toLowerCase().includes('checker');
+
+        return isCheckerApproval && (idMatches || nameMatches || emailMatches);
+      });
+
+      return Boolean(checkerApproval) && (String((formData?.status || formData?.general_form?.status || initialData?.status || initialData?.general_form?.status) || '').toLowerCase().trim() === 'checked');
+    } catch (e) {
+      return false;
+    }
+  }, [currentUser, formData?.approvals, formData?.status]);
 
   // Check if user is operation manager based on approvals (matching Laravel Op_Manager logic)
   // Laravel Op_Manager($data) checks:
@@ -1038,6 +1131,40 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const isAccount = userRole === 'account' || isAccountByApproval;
 
   const isDocumentOwner = currentUser?.id === initialData?.userId;
+  // When the document owner is viewing an existing Ongoing form in view mode (not add/edit),
+  // they should not be allowed to add products, edit remark, upload attachments, or delete attachments.
+  const isDocumentOwnerViewingOngoingBack = useMemo(() => {
+    const status = (formData?.status || '').toString().toLowerCase();
+    const isOngoing = status === 'ongoing';
+    // Consider view mode if not editing, or specially when in 'add' mode but the form already has an id (submitted)
+    const isViewMode = (mode !== 'add' && mode !== 'edit') || (mode === 'add' && Boolean(formData?.id));
+    return Boolean(isDocumentOwner && isOngoing && isViewMode);
+  }, [isDocumentOwner, formData?.status, mode, formData?.id]);
+
+  // Debug: log key values to help diagnose why Add/Remark/Attach still appear
+  React.useEffect(() => {
+    try {
+      console.debug('[DamageFormLayout DEBUG]', {
+        mode,
+        formId: formData?.id,
+        formStatus: formData?.status,
+        currentUserId: currentUser?.id,
+        currentUserName: currentUser?.name,
+        currentUserEmail: currentUser?.email,
+        isDocumentOwner,
+        isDocumentOwnerViewingOngoingBack,
+        isCheckerWhoApproved,
+        showRemarkProp: mode !== 'add' &&
+          !((getUserRole() === 'bm' || getUserRole() === 'abm') && (formData.status === 'BM Approved' || formData.status === 'BMApproved')) &&
+          !(isCheckerWhoApproved && (formData.status === 'Checked' || formData.status === 'checked')) &&
+          !isDocumentOwnerViewingOngoingBack,
+        showAttachmentsProp: !isCheckerWhoApproved && !isDocumentOwnerViewingOngoingBack,
+        readOnlyProp: (isCheckerWhoApproved && (formData.status === 'Checked' || formData.status === 'checked')) || isDocumentOwnerViewingOngoingBack,
+      });
+    } catch (e) {
+      // swallow
+    }
+  }, [mode, formData?.id, formData?.status, currentUser, isDocumentOwner, isDocumentOwnerViewingOngoingBack, isCheckerWhoApproved]);
   
   // Fix incorrect "Checked by" name if current user is supervisor and their name is in Checked by
   useEffect(() => {
@@ -1599,6 +1726,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
               if (meData?.user?.from_branch_id) {
                 // Update localStorage with refreshed user info
                 storedUser = { ...storedUser, ...meData.user };
+                // Ensure user_type present
+                if (!storedUser.user_type) {
+                  if (storedUser.employee_number === '666-666666' || storedUser.emp_id === '666-666666') {
+                    storedUser.user_type = 'A2';
+                  } else if (Number(storedUser.role_id) === 3) {
+                    storedUser.user_type = 'A1';
+                  }
+                }
                 localStorage.setItem('user', JSON.stringify(storedUser));
                 branchId = meData.user.from_branch_id;
               }
@@ -2352,6 +2487,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
           act.cancel = true;
         }
       }
+      
+      // Ensure Operation Manager can see BackToPrevious / Cancel when the form is at operation manager stage
+      const isOpManagerUser = role === 'op_manager' || role === 'op manager' || Number(currentUser?.role_id) === 4 || Number(currentUser?.role_id) === 5;
+      if ((normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged' || normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') && isOpManagerUser) {
+        act.backToPrevious = true;
+        act.cancel = true;
+      }
     }
     
     // FINAL CHECK: If BM is viewing own approved form, force disable buttons again (safety check)
@@ -2378,13 +2520,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
       if (role === 'branch_lp' && currentStatus === 'Ongoing') {
         act.approve = 'BMApprovedMem';
-      } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
+      } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm' || role === 'branch_lp') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
         act.approve = 'BMApproved';
       } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
         // Operation Manager should only approve if amount > 500000
         // After Operation Manager acknowledges, form goes directly to Completed (no supervisor step)
         if (requiresOpManagerApproval) {
-          act.approve = 'Ac_Acknowledged'; // Changed from OPApproved to Ac_Acknowledged
+          act.approve = 'Ac_Acknowledged'; // Operation Manager acknowledgement should set Ac_Acknowledged
         }
       } else if (role === 'account') {
         // Account can only issue after proper approval stage:
@@ -2452,6 +2594,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // Check if user is an approver role (for Add Product button visibility)
   const isApproverRole = ['bm', 'abm', 'approver', 'manager', 'checker', 'supervisor'].some(r => userRoleLower.includes(r));
   const isUserRole = userRoleLower === 'user';
+  const isCheckerRole = userRoleLower.includes('check') || userRoleLower === 'c' || userRoleLower === 'cs';
+  // Robust regular-user detection:
+  // - explicit 'user' in role/user_type OR
+  // - when no explicit role string is available (userRoleLower is empty) and the user is not any approver/manager/account/checker
+  const isRegularUser = (currentUser?.role || '').toString().toLowerCase().includes('user') ||
+                        (currentUser?.user_type || '').toString().toLowerCase() === 'user' ||
+                        // Treat role_id === 1 as regular user when provided by backend
+                        Number(currentUser?.role_id) === 1 ||
+                        Number(currentUser?.roleId) === 1 ||
+                        Number(currentUser?.role?.id) === 1 ||
+                        ((!userRoleLower || userRoleLower.trim() === '') && !isApproverRole && !isBranchAccount && !isBranchManager && !isCheckerRole);
+
+// Allow OP to see certain buttons when form is at OP-related statuses
+const isOpStageForButtons = (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved');
 
   // Show buttons for branch account at branch account stage, or use existing logic for others
   // Branch account should see buttons even when status is BM Approved
@@ -2464,6 +2620,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                                      true :
                                      // Existing logic for other cases - hide if BM Approved
                                      (!isBMApproved && formData.status !== 'Checked' && formData.status !== 'checked'));
+// Also allow OP to see BackToPrevious when appropriate
+const shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && isOpStageForButtons);
+                                   // Also allow Operation Manager to see BackToPrevious on OP stages
+                                   // (covers cases where OP should be able to return forms)
+                                   const shouldShowBackToPreviousOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
   
   // Hide Cancel for BM in Ongoing status
   const shouldShowCancel = !isBMViewingOwnApprovedForm && 
@@ -2474,6 +2635,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                             true :
                             // Existing logic for other cases - hide if BM Approved
                             (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
+// Also allow OP to see Cancel when appropriate
+const shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButtons);
+                          // Also allow Operation Manager to see Cancel on OP stages
+                          const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
 
 
   // Handle back button click - preserve pagination and filters
@@ -4289,6 +4454,39 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
               } catch (e) {
                 console.warn('[Form Submission] process-other-income failed (ignored):', e);
               }
+              
+              // 4) Ensure general_forms.total_amount is persisted in backend.
+              // Some backends do not automatically recalculate/persist the general_form total when items change,
+              // so explicitly PATCH the general form with the computed total to keep DB in sync.
+              try {
+                if (responseGeneralFormId) {
+                  // Prefer responseItems (backend-returned items) for most-accurate totals, fall back to current formData.items
+                  const itemsForTotal = Array.isArray(responseItems) && responseItems.length > 0
+                    ? responseItems
+                    : (Array.isArray(formData.items) ? formData.items : []);
+
+                  const computedTotal = itemsForTotal.reduce((acc, it) => {
+                    const n = Number(it.total ?? it.amount ?? it.total_amount ?? 0);
+                    return acc + (Number.isFinite(n) ? n : 0);
+                  }, 0);
+
+                  // Only send update if computed total is a finite number
+                  if (Number.isFinite(computedTotal)) {
+                    try {
+                      await apiRequest(`/api/general-forms/${responseGeneralFormId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ total_amount: computedTotal })
+                      });
+                      console.log('[Form Submission] Synced general_form.total_amount ->', computedTotal, 'for', responseGeneralFormId);
+                    } catch (innerErr) {
+                      // Not critical - log and continue
+                      console.warn('[Form Submission] Failed to persist general_form.total_amount (ignored):', innerErr);
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn('[Form Submission] Error while attempting to persist general form total (ignored):', e);
+              }
   
           // Notify other parts of the app (lists/dashboards) to refresh their data
           try {
@@ -4552,19 +4750,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       return userTypeMatches && userIdMatches;
     });
     
-    // If user has OP approval assignment but no status yet, wait for form data to load
-    if (hasOpApprovalAssignment && !formData.status) {
-      return false;
-    }
-    
-    if (!formData.status) {
-      console.log('[showApproveButton] No status - returning false');
+    // If user has OP approval assignment but no status yet (and no resolvedStatus), wait for form data to load
+    if (hasOpApprovalAssignment && !(formData.status || resolvedStatus)) {
       return false;
     }
 
     const role = userRole?.toLowerCase?.() || '';
-    // Normalize status by trimming and removing extra spaces
-    const status = (formData.status || '').toString().trim();
+    // Normalize status by using formData.status first, then fallback to resolvedStatus
+    const status = (formData.status || resolvedStatus || '').toString().trim();
     const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
     
     // Get total amount to check if Operation Manager approval is required
@@ -4598,7 +4791,42 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // 2. role name is 'op_manager', OR
     // 3. isOpManagerByApproval is true, OR
     // 4. user has OP approval entry assigned to them
-    const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
+    const userTypeLowerCheck = (
+      (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
+      (initialData?.current_user?.user_type || initialData?.currentUser?.user_type || initialData?.user?.user_type || initialData?.userType) ||
+      (currentUser?.role_name || currentUser?.roleName || '')
+    ).toString().toLowerCase();
+    const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
+    let isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+
+    // Fallback: if user has shared role_id (3) and there's an OP/A2 approval entry for this form,
+    // and the form requires OP approval (amount > 500000), treat user as OP for UI purposes.
+    // Backend will still enforce actual admin_id on submit.
+    try {
+      const currentRoleId = Number(currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || 0);
+      const approvalsList = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const hasOpApprovalEntryAny = approvalsList.some(a => {
+        const ut = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+        return ut === 'OP' || ut === 'A2';
+      });
+      if (!isOpManagerFinal && currentRoleId === 3 && hasOpApprovalEntryAny && requiresOpManagerApproval) {
+        isOpManagerFinal = true;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Extra permissive fallback: when role_id === 3 (shared BM/OP) and the form requires OP approval,
+    // treat the current user as OP for UI purposes so they can see the acknowledge button.
+    // The backend will still verify the actual OP assignment/admin_id on submit.
+    try {
+      const currentRoleId2 = Number(currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || 0);
+      if (!isOpManagerFinal && currentRoleId2 === 3 && requiresOpManagerApproval) {
+        isOpManagerFinal = true;
+      }
+    } catch (e) {
+      // ignore
+    }
     
     
     // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
@@ -4751,6 +4979,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       
     }
     // Supervisor should NOT see approve button - they have a separate Issue button
+    // Debug output to help trace why approve button is hidden
+    try {
+      console.debug('[showApproveButton DEBUG]', {
+        currentUser: { id: currentUser?.id, role_id: currentUser?.role_id, user_type: currentUser?.user_type },
+        role,
+        normalizedStatus,
+        totalAmount,
+        requiresOpManagerApproval,
+        isOpManagerFinal,
+        hasOpApprovalAssignment,
+        approvalsCount: Array.isArray(formData?.approvals) ? formData.approvals.length : 0,
+        result
+      });
+    } catch (e) {}
     return !!result; // Ensure boolean return value
   };
 
@@ -4825,7 +5067,13 @@ const resolveApproveAction = () => {
   // 3. isOpManager is true, OR
   // 4. isOpManagerByApproval is true, OR
   // 5. user has OP approval entry assigned to them
-  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment;
+  const userTypeLowerCheck = (
+    (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
+    (initialData?.current_user?.user_type || initialData?.currentUser?.user_type || initialData?.user?.user_type || initialData?.userType) ||
+    (currentUser?.role_name || currentUser?.roleName || '')
+  ).toString().toLowerCase();
+  const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
+  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
   
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
@@ -5592,20 +5840,49 @@ const resolveApproveAction = () => {
         return null;
       })()}
 
+      {console.debug && console.debug('[DamageFormLayout DEBUG role]', {
+        userRoleLower,
+        userRole,
+        currentUserSnapshot: { id: currentUser?.id, role_id: currentUser?.role_id, role: currentUser?.role, user_type: currentUser?.user_type },
+        isRegularUser,
+        isCurrentUserChecker,
+        resolvedStatusLower,
+        formDataStatus: formData.status
+      })}
+
       <SupportingInfo
-        status={formData.status}
+        status={resolvedStatus || formData.status}
         reason={formData.reason}
         onReasonChange={val => setFormData(prev => ({ ...prev, reason: val }))}
         // Show remark for view/edit modes (including Ongoing) except hide only for BM when BM Approved
+        // Additionally hide remark and attachments for the checker who already checked the form
+        // and hide for document owner when they are viewing an Ongoing form in view mode ("viewed back")
         showRemark={
           mode !== 'add' &&
-          !((getUserRole() === 'bm' || getUserRole() === 'abm') && (formData.status === 'BM Approved' || formData.status === 'BMApproved'))
+          !((getUserRole() === 'bm' || getUserRole() === 'abm') && (resolvedStatus === 'BM Approved' || resolvedStatus === 'BMApproved')) &&
+          !(isCheckerWhoApproved && (resolvedStatusLower === 'checked')) &&
+          !isDocumentOwnerViewingOngoingBack &&
+        // Also hide for any checker role viewing a Checked form (cover missing approval matching)
+          !(isCheckerRole && (resolvedStatusLower === 'checked')) &&
+          // Also hide when current user is detected as checker viewing a Checked form
+          !(isCurrentUserChecker && (resolvedStatusLower === 'checked')) &&
+        // Hide remark for regular users viewing Ongoing or BM Approved forms
+        !(isRegularUser && (resolvedStatusLower === 'ongoing' || resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'bmapproved')) &&
+        !hideUiForCheckerInView
         }
-        // Show attachments in all non-add modes (and in add mode too)
-        showAttachments={true}
+        // Show attachments unless checker already checked or document owner is viewing ongoing back or any checker viewing Checked status
+        // Also hide for regular users viewing Ongoing or BM Approved forms
+        showAttachments={!isCheckerWhoApproved && !isDocumentOwnerViewingOngoingBack && !(isCheckerRole && (resolvedStatusLower === 'checked')) && !(isRegularUser && (resolvedStatusLower === 'ongoing' || resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'bmapproved')) && !(isCurrentUserChecker && (resolvedStatusLower === 'checked')) && !hideUiForCheckerInView}
         isRequired={mode !== 'add'}
         attachments={formData.attachments || []}
         onAttachmentsChange={(newAttachments) => setFormData(prev => ({ ...prev, attachments: newAttachments }))}
+        // Make SupportingInfo read-only for checkers who already acted or document owner viewing ongoing back
+        // Also make read-only for regular users viewing Ongoing or BM Approved forms so they cannot delete attachments or edit remark
+        readOnly={(isCheckerWhoApproved && (resolvedStatusLower === 'checked')) || isDocumentOwnerViewingOngoingBack || (isRegularUser && (resolvedStatusLower === 'ongoing' || resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'bmapproved')) || (isCurrentUserChecker && (resolvedStatusLower === 'checked')) || hideUiForCheckerInView}
+        currentUserRole={userRole}
+        isCurrentUserChecker={isCurrentUserChecker}
+        isRegularUser={isRegularUser}
+        isCheckerWhoApproved={isCheckerWhoApproved}
       />
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
@@ -5650,7 +5927,7 @@ const resolveApproveAction = () => {
             
             {/* Add Product Button - Show for Ongoing or Checked (approver only) status, hide for Account and regular users */}
             {((formData.status === 'Ongoing' || formData.status?.toLowerCase() === 'ongoing') || 
-              (formData.status === 'Checked' && isApproverRole)) && 
+              (formData.status === 'Checked' && isApproverRole && !isCheckerWhoApproved)) && 
              formData.status !== 'Completed' && 
              formData.status !== 'Issued' && 
              formData.status !== 'SupervisorIssued' &&
@@ -5660,7 +5937,14 @@ const resolveApproveAction = () => {
              formData.status !== 'Ac_Acknowledged' && 
              formData.status !== 'Acknowledged' &&
              !isAccount && 
-             !isUserRole && (
+             !isUserRole && 
+             !isDocumentOwnerViewingOngoingBack && 
+             !(isCheckerRole && ((formData.status || '').toString().toLowerCase() === 'checked')) && 
+             // Also hide Add for any current user detected as checker viewing Checked
+             !(isCurrentUserChecker && ((formData.status || '').toString().toLowerCase() === 'checked')) &&
+             // Hide Add button for regular user when status is Ongoing
+             !(isRegularUser && ((formData.status || '').toString().toLowerCase() === 'ongoing')) && 
+             !hideUiForCheckerInView && (
               <button 
                 onClick={handleOpenAddProductModal}
                 className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1"
@@ -5671,8 +5955,44 @@ const resolveApproveAction = () => {
             )}
             
             {/* Approve Button - Visible based on role and status */}
-            {!!showApproveButton() && (() => {
-              const action = resolveApproveAction();
+            {(() => {
+              const shouldShowApprove = !!showApproveButton();
+              // Compute totalAmount and requiresOpManagerApproval here for render-time fallbacks
+              const totalAmountForRender = formData.items && formData.items.length > 0
+                ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+                : Number(
+                    formData?.general_form?.total_amount ??
+                    formData?.total_amount ??
+                    formData?.general_form?.totalAmount ??
+                    formData?.totalAmount ??
+                    formData?.general_form?.total ??
+                    formData?.total ??
+                    initialData?.general_form?.total_amount ??
+                    initialData?.total_amount ??
+                    initialData?.general_form?.total ??
+                    initialData?.total ??
+                    0
+                  );
+              const requiresOpManagerApproval = Number(totalAmountForRender) > 500000;
+              const currentUserType = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+              // Only force acknowledge for OP when form requires OP Manager approval
+              const forcedOpAcknowledge = (currentUserType === 'A2' || currentUserType === 'OP') && (resolvedStatusLower === 'bm approved') && requiresOpManagerApproval;
+              const forcedOpByRole = (userRoleLower === 'op_manager' || userRoleLower === 'op') && (resolvedStatusLower === 'bm approved') && requiresOpManagerApproval;
+              if (!shouldShowApprove && !forcedOpAcknowledge && !forcedOpByRole) return null;
+              let action = resolveApproveAction();
+              if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
+                action = 'Ac_Acknowledged';
+              }
+              // debug render state (always log)
+              try {
+                console.debug('[ApproveRender DEBUG]', {
+                  shouldShowApprove,
+                  action,
+                  isSubmitting,
+                  formStatus: formData.status,
+                  totalAmount: formData.items && formData.items.length > 0 ? formData.items.reduce((acc,i)=>acc+(Number(i.amount)||Number(i.total)||0),0) : (formData?.general_form?.total_amount||formData?.total_amount||0)
+                });
+              } catch (e) {}
               // Don't render button if action is null or undefined, or if submitting (to avoid white disabled button)
               if (!action || isSubmitting) {
                 return null;
@@ -5700,7 +6020,7 @@ const resolveApproveAction = () => {
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
             {/* Hide if Branch Manager is viewing a form they already approved */}
-            {shouldShowBackToPrevious && (
+            {shouldShowBackToPreviousFinal && (
               <button 
                 onClick={() => handleSubmitClick('BackToPrevious')}
                 className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#ffc107] border-[#ffc107] hover:bg-[#e0a800] hover:border-[#e0a800] hover:shadow-md transition-all duration-200 me-1"
@@ -5712,7 +6032,7 @@ const resolveApproveAction = () => {
             
             {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
             {/* Hide if Branch Manager is viewing a form they already approved */}
-            {shouldShowCancel && (
+            {shouldShowCancelFinal && (
               <button 
                 onClick={() => handleSubmitClick('Cancel')}
                 className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white border-[#dc3545] bg-[#dc3545] me-1" 

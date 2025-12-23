@@ -43,8 +43,8 @@ export default function StatusBadge({ status, count }) {
         return "bg-[#fda19d] text-[#f91206]";
       case "acknowledged":
       case "ac_acknowledged":
-        // custom-badge-bg-acknowledged: bg #aff1d7, text #20be7f
-        return "bg-[#aff1d7] text-[#20be7f]";
+        // custom-badge-bg-acknowledged: use OP Approved colors bg #e9f9cf, text #a3e635
+        return "bg-[#e9f9cf] text-[#a3e635]";
       default:
         return "bg-gray-200 text-gray-600";
     }

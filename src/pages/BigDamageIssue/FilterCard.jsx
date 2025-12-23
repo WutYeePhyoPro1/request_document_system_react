@@ -27,16 +27,20 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
   // Initialize local filters from props to prevent flickering on mount
   const getInitialFilters = () => {
-    let statusValue = "";
+    // Normalize incoming filters.status to an array of option objects for multi-select
+    let statusValue = [];
     if (filters.status) {
       if (Array.isArray(filters.status) && filters.status.length > 0) {
-        statusValue = filters.status.map(s => s.value || s).join(", ");
+        statusValue = filters.status.map(s => (typeof s === 'string' ? statusOptions.find(o => o.value.toLowerCase() === s.toString().toLowerCase()) || { value: s, label: s } : s));
+      } else if (typeof filters.status === 'string' && filters.status.trim()) {
+        // Comma separated? split
+        const parts = filters.status.split(',').map(p => p.trim()).filter(Boolean);
+        statusValue = parts.map(p => statusOptions.find(o => o.value.toLowerCase() === p.toLowerCase()) || { value: p, label: p });
       } else if (typeof filters.status === 'object' && filters.status.value) {
-        statusValue = filters.status.value;
-      } else if (typeof filters.status === 'string') {
-        statusValue = filters.status;
+        statusValue = [filters.status];
       }
     }
+
     return {
       productName: filters.productName || "",
       formDocNo: filters.formDocNo || "",
@@ -53,6 +57,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   const [branchOptions, setBranchOptions] = useState([
     { value: '', label: 'All Branch' },
   ]);
+  const [roleDefaultApplied, setRoleDefaultApplied] = useState(false);
 
   // Function to filter branches based on user's branch
   // Use selectedBranch parameter or localFilters.branch as source of truth
@@ -274,6 +279,10 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     // For multi-select (status), selected is an array or null
     // For single select (branch), selected is an object or null
     setLocalFilters({ ...localFilters, [name]: selected });
+    // If user manually changes status, clear the "role default" marker
+    if (name === 'status') {
+      setRoleDefaultApplied(false);
+    }
   };
 
   const handleSearch = () => {
@@ -298,7 +307,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
   const isAnyFilterApplied = Object.entries(localFilters).some(([key, val]) => {
     if (key === 'status') {
-      // For status (text input), check if it's a non-empty string
+      // For status (multi-select), check if it's a non-empty array or string
+      if (Array.isArray(val)) return val.length > 0;
       return typeof val === 'string' && val.trim() !== '';
     }
     return val !== null && val !== undefined && val !== '';
@@ -427,13 +437,44 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     }),
   };
 
+  // Determine default status selections based on user role when component first mounts
+  useEffect(() => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
+      // If filters already provided a status, don't override
+      if (filters && (filters.status || (localFilters && Array.isArray(localFilters.status) && localFilters.status.length > 0))) {
+        return;
+      }
+
+      let defaultStatuses = [];
+      if (role.includes('checker') || (storedUser?.user_type || '').toString().toLowerCase() === 'c') {
+        defaultStatuses = ['Ongoing', 'Checked'];
+      } else if (role.includes('approver') || role.includes('branch manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a1') {
+        defaultStatuses = ['Checked', 'BM Approved'];
+      } else if (role.includes('operation manager') || role.includes('op manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a2') {
+        defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
+      } else if (role.includes('account') || role.includes('branch account') || (storedUser?.user_type || '').toString().toLowerCase() === 'ac') {
+        defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
+      }
+
+      if (defaultStatuses.length > 0) {
+        const selected = defaultStatuses.map(s => statusOptions.find(o => o.value.toLowerCase() === s.toLowerCase()) || { value: s, label: s });
+        setLocalFilters(prev => ({ ...prev, status: selected }));
+        setRoleDefaultApplied(true);
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []); // run once on mount
+
   const handleFormSubmit = (e) => {
     e.preventDefault();
     handleSearch();
   };
 
   return (
-    <div className="bg-white shadow-lg rounded-xl p-4 mx-auto">
+    <div className="bg-white shadow-lg rounded-xl p-4 w-full">
       <form onSubmit={handleFormSubmit}>
         {/* All filters in one row */}
         <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
@@ -559,24 +600,29 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
           {/* Status Select */}
           <div className="w-full sm:w-auto min-w-[120px]">
-            <label className="block text-[11px] font-medium text-gray-700 mb-1">
-              Status
+            <label className="block text-[11px] font-medium text-gray-700 mb-1 flex items-center gap-2">
+              <span>Status</span>
+              {roleDefaultApplied && (
+                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-semibold">
+                  Role default
+                </span>
+              )}
             </label>
             <Select
               name="status"
-              value={localFilters.status ? statusOptions.find(opt => opt.value === localFilters.status) : null}
-              onChange={(selected) => {
-                setLocalFilters({ ...localFilters, status: selected ? selected.value : "" });
-              }}
+              value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? (Array.isArray(localFilters.status) ? localFilters.status : [localFilters.status]) : [])}
+              onChange={(selected) => handleSelectChange(selected, { name: 'status' })}
               options={statusOptions}
               placeholder=""
               isClearable
+              isMulti
+              closeMenuOnSelect={false}
               styles={{
                 ...customSelectStyles,
                 control: (base, state) => ({
                   ...customSelectStyles.control(base, state),
                   minHeight: '30px',
-                  height: '30px',
+                  height: 'auto',
                   fontSize: '11px',
                 }),
                 indicatorsContainer: (base) => ({

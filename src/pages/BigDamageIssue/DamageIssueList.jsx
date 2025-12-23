@@ -123,14 +123,14 @@ const StatusBadge = ({ status }) => {
       );
     case 'Ac_Acknowledged':
     case 'Acknowledged':
-      // custom-badge-bg-acknowledged: bg #aff1d7, text #20be7f
+      // custom-badge-bg-acknowledged: match OP Approved colors bg #e9f9cf, text #a3e635
       colorClasses = 'rounded-full';
       return (
         <span
           className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
-          style={{ backgroundColor: '#aff1d7', color: '#20be7f' }}
+          style={{ backgroundColor: '#e9f9cf', color: '#a3e635' }}
         >
-          {status}
+          {'Operation Manager Approved'}
         </span>
       );
     case 'Completed':
@@ -263,12 +263,16 @@ const EmptyState = () => {
 };
 
 const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
-  const totalPages = Math.max(1, Math.ceil((totalRows || 0) / (rowsPerPage || 1)));
-  
+  // Coerce to numbers to avoid string/number mismatches that prevent active styling
+  const total = Number(totalRows) || 0;
+  const perPage = Number(rowsPerPage) || 1;
+  const current = Number(currentPage) || 1;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+
   // Generate page numbers to display
   const getPageNumbers = () => {
     const pages = [];
-    
+
     if (totalPages <= 12) {
       // If total pages is small, show all pages
       for (let i = 1; i <= totalPages; i++) {
@@ -320,8 +324,8 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
     <div className="flex items-center space-x-1">
       <button
         className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-        onClick={() => onPageChange?.(Math.max(1, currentPage - 1))}
-        disabled={currentPage <= 1}
+        onClick={() => onPageChange?.(Math.max(1, current - 1))}
+        disabled={current <= 1}
       >
         &lt;
       </button>
@@ -338,7 +342,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
           <button
             key={page}
             className={`px-4 py-2 text-sm font-semibold rounded ${
-              page === currentPage
+              page === current
                 ? 'bg-blue-600 text-white'
                 : 'text-blue-600 hover:bg-blue-50'
             }`}
@@ -350,8 +354,8 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
       })}
       <button
         className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-        onClick={() => onPageChange?.(Math.min(totalPages, currentPage + 1))}
-        disabled={currentPage >= totalPages}
+        onClick={() => onPageChange?.(Math.min(totalPages, current + 1))}
+        disabled={current >= totalPages}
       >
         &gt;
       </button>
@@ -440,17 +444,56 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       }
     }
     
+    // Also check common alternative fields that may contain role/user_type info
+    // Normalize role string to be more forgiving (handle snake_case, kebab-case, etc.)
+    const rawRoleString = (user.role || user.role_name || user.roleName || user.position || user.job_title || user.jobTitle || '').toString().toLowerCase();
+    const normalizedRoleString = rawRoleString.replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+
+    // If still no userType, try to infer from the normalized role string
+    if (!userType && normalizedRoleString) {
+      if (normalizedRoleString.includes('checker')) {
+        userType = 'c';
+      } else if (normalizedRoleString.includes('approver') || normalizedRoleString.includes('bm') || normalizedRoleString.includes('branch manager')) {
+        userType = 'a1';
+      } else if (normalizedRoleString.includes('account')) {
+        userType = 'ac';
+      } else if ((normalizedRoleString.includes('operation') && normalizedRoleString.includes('manager')) || normalizedRoleString.includes('op manager') || normalizedRoleString.includes('operation-manager')) {
+        userType = 'a2';
+      }
+    }
+
     // Also check if user_type is in nested role object
     if (!userType && user.role && typeof user.role === 'object') {
       userType = normalizeText(user.role.user_type || user.role.userType || '');
     }
-    
+
     return { userType, userRole };
+  };
+
+  // Helper to get notification count supporting both string and numeric Map keys
+  const getNotificationCount = (possibleIds = []) => {
+    for (const id of possibleIds) {
+      // Try exact key as string first, then numeric form (some producers use number keys)
+      const keyStr = String(id);
+      let count = undefined;
+      if (notificationCounts && typeof notificationCounts.get === 'function') {
+        count = notificationCounts.get(keyStr);
+        if ((count === undefined || count === null) && !isNaN(Number(id))) {
+          count = notificationCounts.get(Number(id));
+        }
+      }
+      if (count !== undefined && count > 0) {
+        return { count, matchedFormId: id };
+      }
+    }
+    return { count: 0, matchedFormId: null };
   };
 
   // Helper function to check if form is relevant to current user's role
   // Returns true only if the form status matches what the user should see notifications for
-  const isFormRelevantToUser = (gf) => {
+  const isFormRelevantToUser = (gfOrRow) => {
+    // Accept either a general_form object or a raw row (which may contain general_form)
+    const gf = (gfOrRow && gfOrRow.general_form) ? gfOrRow.general_form : (gfOrRow || {});
     if (!gf) return false;
     
     // Try to get user from currentUser, or fallback to localStorage
@@ -704,7 +747,17 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     const totals = new Map();
     formsWithItems.forEach((formData, formId) => {
       const total = formData.items.reduce((sum, item) => sum + (item.amount || 0), 0);
-      totals.set(formId, total);
+      // Store totals under multiple key shapes (string and numeric) to avoid type-mismatch lookups
+      try {
+        totals.set(formId, total);
+        totals.set(String(formId), total);
+        const numKey = Number(formId);
+        if (!isNaN(numKey)) {
+          totals.set(numKey, total);
+        }
+      } catch (e) {
+        totals.set(formId, total);
+      }
     });
     return totals;
   }, [formsWithItems]);
@@ -807,40 +860,90 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   // Calculate total after filtering (for pagination)
   const filteredTotal = allFilteredIssues.length;
   
-  // Apply client-side pagination if we have a product filter
-  // (Dashboard passes all rows when product filter is active)
-  let issues = allFilteredIssues;
-  if (productNameFilterLower && allFilteredIssues.length > perPage) {
-    const startIndex = (currentPage - 1) * perPage;
-    issues = allFilteredIssues.slice(startIndex, startIndex + perPage);
+  if (console && console.debug) {
+    try {
+      console.debug('[DamageIssueList DEBUG] props:', {
+        prop_totalRows: totalRows,
+        data_length: Array.isArray(data) ? data.length : 0,
+        perPage,
+        currentPage,
+        filteredTotal,
+        productNameFilterLower,
+      });
+    } catch (e) {}
   }
+
+  // No client-side pagination — always show all filtered issues in this list.
+  // Pagination controls have been removed; server-side paging (if used) is handled upstream.
+  const issues = allFilteredIssues;
   
-  // Compute visible issues based on role (Operation Manager should only see forms exceeding threshold)
+  // Compute visible issues based on user role defaults.
+  // Default filtering is applied only when there's no explicit status filter in the URL
+  // and when no productFilter is active (i.e. "first view" behavior).
   const visibleIssues = React.useMemo(() => {
     try {
       if (!currentUser) return issues;
+
       const { userType, userRole } = extractUserRoleInfo(currentUser || {});
       const roleLower = (userRole || '').toString().toLowerCase();
+
+      const isChecker = ['c', 'cs'].includes(userType) || roleLower.includes('checker');
+      const isBM = userType === 'a1' || roleLower.includes('approver') || roleLower.includes('branch manager') || roleLower.includes('bm') || roleLower.includes('abm');
       const isOpManager = userType === 'a2' || roleLower.includes('operation manager') || roleLower.includes('op manager') || (currentUser?.employee_number === '666-666666' && currentUser?.department_id === 8);
-      if (!isOpManager) return issues;
-    // Filter to only show BM Approved forms whose total exceeds threshold for Operation Manager
-    return issues.filter((row) => {
-      const gf = row.general_form || {};
-      const totalAmount = getTotalAmount(row, gf);
-      const status = ((gf.status || row.status || '') + '').toString().toLowerCase().trim();
-      const isBmApproved = status === 'bm approved' || status === 'bmapproved';
-      return isBmApproved && Number(totalAmount) > 500000;
-    });
+      const isAccount = userType === 'ac' || roleLower.includes('account') || roleLower.includes('branch account');
+
+      // Determine if user (or URL) already supplied explicit status filter
+      const statusParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('status') : null;
+      const hasExplicitStatus = statusParam && statusParam.toString().trim() !== '';
+      const hasProductFilter = productFilter && productFilter.trim() !== '';
+
+      // If explicit filters are present, do not override — return all issues (server/URL-driven)
+      if (hasExplicitStatus || hasProductFilter) {
+        // But still enforce Operation Manager special view if user is OP manager
+        if (isOpManager) {
+          return issues.filter((row) => {
+            const gf = row.general_form || {};
+            const totalAmount = getTotalAmount(row, gf);
+            const status = ((gf.status || row.status || '') + '').toString().toLowerCase().trim();
+            const isBmApproved = status === 'bm approved' || status === 'bmapproved' || status === 'bm_approved';
+            return isBmApproved && Number(totalAmount) > 500000;
+          });
+        }
+        return issues;
+      }
+
+      // No explicit filters — show all issues (do not apply role-based defaults).
+      // This ensures the list displays all forms unless the user applied an explicit status/product filter.
+      return issues;
     } catch (e) {
-      // Prevent render crash — on error fallback to showing all issues and log details
-      // eslint-disable-next-line no-console
       console.error('[DamageIssueList] visibleIssues useMemo error:', e);
       return issues;
     }
-  }, [issues, currentUser]);
+  }, [issues, currentUser, productFilter]);
   
-  // Use filtered total for pagination when product filter is active
-  const effectiveTotalRows = productNameFilterLower ? filteredTotal : totalRows;
+  // Compute effective total rows: prefer server-provided totalRows when available (no product filter),
+  // otherwise fall back to filtered total or visible issues count.
+  const effectiveTotalRows = productNameFilterLower ? filteredTotal : (totalRows || visibleIssues.length);
+  // Paginate visible issues: show 15 forms per page
+  const pageSize = 15;
+  // Use effective total rows (server-provided when available) for page count
+  const totalForms = effectiveTotalRows || visibleIssues.length;
+  const totalPages = Math.max(1, Math.ceil(totalForms / pageSize));
+  const safeCurrentPage = Math.max(1, Math.min(Number(currentPage) || 1, totalPages));
+
+  // Determine pagedVisibleIssues:
+  // - If the parent/data source already returned a paginated subset (data length <= pageSize
+  //   and server totalRows > data length), treat visibleIssues as the current page.
+  // - Otherwise, slice the full visibleIssues array client-side.
+  let pagedVisibleIssues = [];
+  const dataLen = Array.isArray(data) ? data.length : 0;
+  if (dataLen > 0 && dataLen <= pageSize && (totalRows && Number(totalRows) > dataLen)) {
+    // Server already paginated; use provided rows as current page
+    pagedVisibleIssues = visibleIssues;
+  } else {
+    const startIndexForPage = (safeCurrentPage - 1) * pageSize;
+    pagedVisibleIssues = visibleIssues.slice(startIndexForPage, startIndexForPage + pageSize);
+  }
   
   const hasRecords = issues.length > 0;
   const isEmpty = !loading && !hasRecords;
@@ -871,53 +974,57 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
 
   const headers = [
     'No',
-    '',
     'Status',
     'Document No',
     'Sell / Not Sell',
     'Branch',
     'Requested By',
+    'Amount',
     'Created Date',
     'Modified',
   ];
 
   // Helper function to get total amount from row data
   const getTotalAmount = (row, gf) => {
-    // First, try to get from our pre-calculated formTotals map
-    const formId = gf?.id || row?.general_form_id;
-    if (formId && formTotals.has(formId)) {
-      return formTotals.get(formId);
-    }
+    // Prefer explicit total fields from the general form (server-provided authoritative value)
+    let totalAmount =
+      gf?.total_amount ||
+      gf?.totalAmount ||
+      gf?.total_amt ||
+      gf?.sum_total ||
+      gf?.sumTotal ||
+      row?.total_amount ||
+      row?.totalAmount ||
+      row?.total_amt ||
+      row?.sum_total ||
+      row?.sumTotal ||
+      row?.big_damage_issue?.total_amount ||
+      row?.big_damage_issue?.totalAmount ||
+      gf?.big_damage_issue?.total_amount ||
+      gf?.big_damage_issue?.totalAmount ||
+      row?.general_form_total ||
+      gf?.general_form_total ||
+      0;
     
+    if (totalAmount && parseFloat(totalAmount) > 0) {
+      return parseFloat(totalAmount);
+    }
+
+    // Next, try our pre-calculated formTotals map (derived from row amounts)
+    const formId = gf?.id || row?.general_form_id || row?.id;
+    if (formId) {
+      // Try several key variants to avoid string/number mismatch
+      if (formTotals.has(formId)) return formTotals.get(formId);
+      if (formTotals.has(String(formId))) return formTotals.get(String(formId));
+      const numKey = Number(formId);
+      if (!isNaN(numKey) && formTotals.has(numKey)) return formTotals.get(numKey);
+    }
+
     // Fallback: Try direct amount from current row
     const rowAmount = parseFloat(row?.amount || row?.total || 0);
     if (rowAmount > 0) {
       return rowAmount;
     }
-    
-    // Try multiple possible locations for total amount
-    let totalAmount = 
-      // Check general_form first
-      gf?.total_amount || 
-      gf?.totalAmount || 
-      gf?.total_amt ||
-      gf?.sum_total ||
-      gf?.sumTotal ||
-      // Check row directly
-      row?.total_amount || 
-      row?.totalAmount ||
-      row?.total_amt ||
-      row?.sum_total ||
-      row?.sumTotal ||
-      // Check big_damage_issue object if exists
-      row?.big_damage_issue?.total_amount ||
-      row?.big_damage_issue?.totalAmount ||
-      gf?.big_damage_issue?.total_amount ||
-      gf?.big_damage_issue?.totalAmount ||
-      // Check if there's a calculated total in the response
-      row?.general_form_total ||
-      gf?.general_form_total ||
-      0;
     
     // If no direct total, calculate from items if available
     if (!totalAmount || totalAmount === 0) {
@@ -993,7 +1100,16 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         key={index}
                         scope="col"
                         className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                          index === 0 ? 'w-12 text-left' : index === 7 ? 'text-right' : 'text-left'
+                          index === 0 ? 'w-12' :
+                          index === 1 ? 'w-28' : // Status
+                          index === 2 ? 'w-80 text-left' : // Document No
+                          index === 3 ? 'w-36 text-left' : // Sell / Not Sell
+                          index === 4 ? 'w-28 text-left' : // Branch
+                          index === 5 ? 'w-36 text-left' : // Requested By
+                          index === 6 ? 'w-32 text-right pr-6' : // Amount
+                          index === 7 ? 'w-44 text-left' : // Created Date (more space)
+                          index === 8 ? 'w-48 text-left' : // Modified
+                          'text-left'
                         }`}
                       >
                         {header}
@@ -1003,10 +1119,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 </thead>
 
                 <tbody className="bg-white">
-            {visibleIssues.map((row, idx) => {
+            {pagedVisibleIssues.map((row, idx) => {
                     const gf = row.general_form || {};
                     const detailId = row.id;
-                    const displayNo = (currentPage - 1) * perPage + idx + 1;
+                    const displayNo = (safeCurrentPage - 1) * pageSize + idx + 1;
                     const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
                     const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
                     const branchInfo = toBranchInfo.id != null || toBranchInfo.name
@@ -1039,40 +1155,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 w-12">
                           {displayNo}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {(() => {
-                            // Try multiple possible ID fields to match with notification counts
-                            const possibleFormIds = [
-                              String(gf?.id || ''),
-                              String(row?.general_form_id || ''),
-                              String(gf?.general_form_id || ''),
-                              String(row?.id || '')
-                            ].filter(id => id && id !== 'undefined' && id !== 'null');
-                            
-                            // Check each possible form ID against notification counts
-                            let notiCount = 0;
-                            let matchedFormId = null;
-                            
-                            for (const formId of possibleFormIds) {
-                              const count = notificationCounts.get(formId);
-                              if (count !== undefined && count > 0) {
-                                notiCount = count;
-                                matchedFormId = formId;
-                                break;
-                              }
-                              }
-                              
-                              // Only show notification count badge if form is relevant to user's role
-                            const isRelevant = isFormRelevantToUser(gf);
-                            
-                            // Hide numeric unread-count badge entirely (do not render the red '1' badge)
-                            if (notiCount > 0 && isRelevant) {
-                              return null;
-                            }
-                            return null;
-                          })()}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                     
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
                           <StatusBadge status={gf.status || '-'} />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
@@ -1087,41 +1171,34 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                                 String(row?.id || '')
                               ].filter(id => id && id !== 'undefined' && id !== 'null');
                               
-                              // Check each possible form ID against notification counts
-                              let notiCount = 0;
-                              for (const formId of possibleFormIds) {
-                                const count = notificationCounts.get(formId);
-                                if (count !== undefined && count > 0) {
-                                  notiCount = count;
-                                  break;
-                                }
-                              }
+                              // Check each possible form ID against notification counts (supports string/number keys)
+                              const { count: notiCount } = getNotificationCount(possibleFormIds);
                               
                               // Check if current user has completed their required action
                               const userCompletedAction = hasUserCompletedAction(row, gf);
                               
                               // Check if form is relevant to user's role (using helper function)
                               const isRelevant = isFormRelevantToUser(gf);
+
+                              // Determine OP local flag and BM-approved total to suppress badge for OPs on small forms
+                              const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
+                              const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();
+                              const isOpManagerLocalSmall = (currentUserType === 'a2') || curRoleLower.includes('operation') || curRoleLower.includes('op manager') || ((currentUser?.employee_number === '666-666666') && currentUser?.department_id === 8);
+                              const formTotalForSmall = (typeof getTotalAmount === 'function') ? getTotalAmount(row, gf) : null;
+                              const isBMApprovedSmall = ((gf?.status || row?.status || '') + '').toString().toLowerCase().trim() === 'bm approved';
+                              // If OP and BM Approved but total <= 500k, suppress unread bubble
+                              if (isOpManagerLocalSmall && isBMApprovedSmall && Number(formTotalForSmall) <= 500000) {
+                                return null;
+                              }
                               
-                              // Speech icon should disappear when:
-                              // 1. Form is NOT relevant to user's role, OR
-                              // 2. User has completed their action, OR
-                              // 3. Form has unread notifications (notiCount > 0) - use notificationCounts as source of truth, OR
-                              // 4. Form reaches final completed state
-                              // NOTE: We use notificationCounts as the single source of truth (like Laravel Blade server-side logic)
-                              // If notiCount > 0, there are unread notifications, so don't show speech bubble
-                              // If notiCount === 0 or undefined, there are no unread notifications, so we can show speech bubble
-                              const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
-                              const hasUnreadNotifications = notiCount > 0; // Use notificationCounts as source of truth
-                              const shouldHideIcon = !isRelevant || userCompletedAction || hasUnreadNotifications || isCompleted;
-                              
+                              // Original behavior:
                               // Show red speech bubble icon ONLY if:
                               // - Form is relevant to user's role
                               // - User hasn't completed their action
                               // - Form has NO unread notifications (notiCount === 0) - determined by notificationCounts
                               // - Form is not completed
-                              // - No notification count badge (notiCount === 0)
-                              if (!shouldHideIcon && notiCount === 0 && isRelevant) {
+                              const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                              if (isRelevant && !userCompletedAction && (notiCount === 0 || notiCount === undefined) && !isCompleted) {
                                 return (
                                   <span className="inline-flex items-center justify-center">
                                     <RedSpeechBubbleIcon className="h-4 w-4" />
@@ -1130,6 +1207,85 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               }
                               return null;
                             })()}
+                               <span className=" whitespace-nowrap">
+                          {(() => {
+                            // Try multiple possible ID fields to match with notification counts
+                            const possibleFormIds = [
+                              String(gf?.id || ''),
+                              String(row?.general_form_id || ''),
+                              String(gf?.general_form_id || ''),
+                              String(row?.id || '')
+                            ].filter(id => id && id !== 'undefined' && id !== 'null');
+                            
+                            // Check each possible form ID against notification counts (supports string/number keys)
+                            const { count: notiCount, matchedFormId } = getNotificationCount(possibleFormIds);
+                              
+                              // Only show notification count badge if form is relevant to user's role
+                            const isRelevant = isFormRelevantToUser(gf);
+                            
+                            // Also allow OP to see badge: detect Operation Manager from currentUser
+                            const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
+                            const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();
+                            const isOpManagerLocal = (currentUserType === 'a2') || curRoleLower.includes('operation') || curRoleLower.includes('op manager') || ((currentUser?.employee_number === '666-666666') && currentUser?.department_id === 8);
+                            // Debug notification visibility
+                            try {
+                              console.debug('[NotifBadge DEBUG]', {
+                                gfId: gf?.id || null,
+                                possibleFormIds,
+                                notiCount,
+                                isRelevant,
+                                isOpManagerLocal,
+                                totalAmount: typeof getTotalAmount === 'function' ? getTotalAmount(row, gf) : null
+                              });
+                            } catch (e) { /* ignore */ }
+                            // Determine if OP should see badge for BM Approved forms exceeding OP threshold
+                            const formTotalForNotif = (typeof getTotalAmount === 'function') ? getTotalAmount(row, gf) : null;
+                            const _statusForBadge = ((gf?.status || row?.status || '') + '').toString().toLowerCase();
+                            const _compactStatus = _statusForBadge.replace(/[\s_]+/g, '');
+                            const isBMApprovedStatus = _compactStatus.includes('bm') && _compactStatus.includes('approved');
+
+                            // Explicit suppression: if current user is OP manager and this is a BM Approved form
+                            // that does NOT exceed the OP threshold, never show the unread badge.
+                            if (isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) <= 500000) {
+                              return null;
+                            }
+
+                            // If there are unread notifications for this form and it's relevant (or OP manager), show the red speech bubble icon
+                            // If notifications exist for this form and it's relevant (or OP manager),
+                            // show the red speech bubble icon — but DO NOT show it to OP managers for
+                            // BM Approved forms that do NOT exceed the OP threshold.
+                            if (
+                              notiCount > 0 &&
+                              (isRelevant || isOpManagerLocal) &&
+                              !(isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) <= 500000)
+                            ) {
+                              return (
+                                <span
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center"
+                                  title={`${notiCount} unread notification${notiCount > 1 ? 's' : ''}`}
+                                >
+                                  <RedSpeechBubbleIcon className="h-4 w-4 text-red-500" />
+                                </span>
+                              );
+                            }
+
+                            // Additionally, show badge for OP managers when form is BM Approved and total exceeds OP threshold
+                            if (isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) > 500000) {
+                              return (
+                                <span
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center"
+                                  title={`Requires OP action — total ${Number(formTotalForNotif).toLocaleString()}`}
+                                >
+                                  <RedSpeechBubbleIcon className="h-4 w-4 text-red-500" />
+                                </span>
+                              );
+                            }
+
+                            return null;
+                          })()}
+                        </span>
                             {gf.form_doc_no && (
                               <CopyButton text={gf.form_doc_no} size="small" />
                             )}
@@ -1152,18 +1308,18 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
                         </td>
-                        {/* <t className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">
-                          <div className="flex items-center justify-end gap-1">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          <div className="flex items-center justify-end gap-2">
                             {exceedsThreshold ? (
-                              <ArrowUpIcon className="h-5 w-5 text-green-600" />
+                              <ArrowUpIcon className="h-4 w-4 text-green-600" />
                             ) : (
-                              <ArrowDownIcon className="h-5 w-5 text-red-600" />
+                              <ArrowDownIcon className="h-4 w-4 text-gray-400" />
                             )}
-                            <span className="text-gray-700">
+                            <span className="text-sm font-medium text-gray-900">
                               {Math.round(totalAmount).toLocaleString('en-US')}
                             </span>
                           </div>
-                        </td> */}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
                         </td>
@@ -1201,10 +1357,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             <EmptyState />
           </div>
         ) : (
-          visibleIssues.map((row, idx) => {
+          pagedVisibleIssues.map((row, idx) => {
             const gf = row.general_form || {};
             const detailId = row.id;
-            const displayNo = (currentPage - 1) * perPage + idx + 1;
+            const displayNo = (safeCurrentPage - 1) * pageSize + idx + 1;
             const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
             const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
             const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
@@ -1249,18 +1405,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         String(row?.id || '')
                       ].filter(id => id && id !== 'undefined' && id !== 'null');
                       
-                      // Check each possible form ID against notification counts
-                      let notiCount = 0;
-                      let matchedFormId = null;
-                      
-                      for (const formId of possibleFormIds) {
-                        const count = notificationCounts.get(formId);
-                        if (count !== undefined && count > 0) {
-                          notiCount = count;
-                          matchedFormId = formId;
-                          break;
-                        }
-                      }
+                      // Check each possible form ID against notification counts (supports string/number keys)
+                      const { count: notiCount, matchedFormId } = getNotificationCount(possibleFormIds);
                       
                       // Check if form is relevant to user's role
                       const isRelevantMobile = isFormRelevantToUser(gf);
@@ -1286,15 +1432,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                             String(row?.id || '')
                           ].filter(id => id && id !== 'undefined' && id !== 'null');
                           
-                          // Check each possible form ID against notification counts
-                          let notiCount = 0;
-                          for (const formId of possibleFormIds) {
-                            const count = notificationCounts.get(formId);
-                            if (count !== undefined && count > 0) {
-                              notiCount = count;
-                              break;
-                            }
-                          }
+                          // Check each possible form ID against notification counts (supports string/number keys)
+                          const { count: notiCount } = getNotificationCount(possibleFormIds);
                           
                           // Check if current user has completed their required action
                           const userCompletedAction = hasUserCompletedAction(row, gf);
@@ -1302,25 +1441,25 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           // Check if form is relevant to user's role
                           const isRelevantMobileIcon = isFormRelevantToUser(gf);
                           
-                          // Speech icon should disappear when:
-                          // 1. Form is NOT relevant to user's role, OR
-                          // 2. User has completed their action, OR
-                          // 3. Form has unread notifications (notiCount > 0) - use notificationCounts as source of truth, OR
-                          // 4. Form reaches final completed state
-                          // NOTE: We use notificationCounts as the single source of truth (like Laravel Blade server-side logic)
-                          // If notiCount > 0, there are unread notifications, so don't show speech bubble
-                          // If notiCount === 0 or undefined, there are no unread notifications, so we can show speech bubble
-                          const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
-                          const hasUnreadNotifications = notiCount > 0; // Use notificationCounts as source of truth
-                          const shouldHideIcon = !isRelevantMobileIcon || userCompletedAction || hasUnreadNotifications || isCompleted;
+                          // Determine OP local flag and BM-approved total to suppress badge for OPs on small forms
+                          const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
+                          const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();
+                          const isOpManagerLocalSmall = (currentUserType === 'a2') || curRoleLower.includes('operation') || curRoleLower.includes('op manager') || ((currentUser?.employee_number === '666-666666') && currentUser?.department_id === 8);
+                          const formTotalForSmall = (typeof getTotalAmount === 'function') ? getTotalAmount(row, gf) : null;
+                          const isBMApprovedSmall = ((gf?.status || row?.status || '') + '').toString().toLowerCase().trim() === 'bm approved';
+                          // If OP and BM Approved but total <= 500k, suppress unread bubble
+                          if (isOpManagerLocalSmall && isBMApprovedSmall && Number(formTotalForSmall) <= 500000) {
+                            return null;
+                          }
                           
+                          // Original behavior (mobile):
                           // Show red speech bubble icon ONLY if:
                           // - Form is relevant to user's role
                           // - User hasn't completed their action
                           // - Form has NO unread notifications (notiCount === 0) - determined by notificationCounts
                           // - Form is not completed
-                          // - No notification count badge (notiCount === 0)
-                          if (!shouldHideIcon && notiCount === 0 && isRelevantMobileIcon) {
+                          const isCompletedMobile = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
+                          if (isRelevantMobileIcon && !userCompletedAction && (notiCount === 0 || notiCount === undefined) && !isCompletedMobile) {
                             return (
                               <span className="inline-flex items-center justify-center flex-shrink-0">
                                 <RedSpeechBubbleIcon className="h-4 w-4" />
@@ -1402,8 +1541,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         <div className="flex justify-center md:justify-start w-full md:w-auto">
           <Pagination
             totalRows={effectiveTotalRows}
-            rowsPerPage={perPage}
-            currentPage={currentPage}
+            rowsPerPage={pageSize}
+            currentPage={safeCurrentPage}
             onPageChange={onPageChange}
           />
         </div>

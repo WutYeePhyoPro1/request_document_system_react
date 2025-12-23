@@ -1893,7 +1893,7 @@ const normalizeImageEntries = (list) => {
 
       <div className="overflow-x-auto border border-gray-200 rounded-t-xl hidden md:block">
         <table className="min-w-full border-collapse table-auto">
-          <thead className="bg-[#f6f6fe] text-[13px] font-bold border-b border-gray-200">
+          <thead className="bg-[#f6f6fe] text-[13px] font-normal border-gray-200">
             <tr>
               <th className="px-2 py-2 text-center">
                 <input
@@ -2376,7 +2376,8 @@ const normalizeImageEntries = (list) => {
                         : (systemQty === 0 ? 0 : finalQty);
 
                       const calculatedAmount = qtyForAmount * price;
-                      const displayAmount = item.amount ?? calculatedAmount;
+                      // Prefer explicit total from backend if available, then amount, otherwise fall back to calculated
+                      const displayAmount = (item.total ?? item.amount) ?? calculatedAmount;
 
                       return formatAmount(displayAmount);
                     })()}
@@ -2906,7 +2907,7 @@ const normalizeImageEntries = (list) => {
       {/* Shows only when: ACK user, ACK entry exists, status matches amount, form type is big_damage, form not issued/completed */}
       {canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && (
         <div className="mt-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <div className="flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-6 flex-wrap">
             <button
               type="button"
               onClick={handleUpdateSystemQty}
@@ -2949,7 +2950,7 @@ const normalizeImageEntries = (list) => {
             }
             
             return (
-              <div>
+              <div className="mt-3 ml-6">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">ISS Remark Type</label>
                 {isCompleted ? (
                   <div className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded border border-gray-200">
@@ -2997,7 +2998,7 @@ const normalizeImageEntries = (list) => {
 
       {/* Supervisor Actions Section - For supervisor at Ac_Acknowledged */}
       {isSupervisorUser && mode !== 'add' && !isCompleted && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'Approved') && (
-        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-md space-y-3">
+        <div className="mt-4 py-4 bg-amber-50 border border-amber-200 rounded-md space-y-3">
           <h4 className="text-sm font-semibold text-gray-700 mb-2">Supervisor Actions</h4>
           
           {/* ISS Remark Type Selection - Editable for supervisor */}
