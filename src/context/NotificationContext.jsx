@@ -22,9 +22,24 @@ export const NotificationProvider = ({ children }) => {
         const fetchNoti = async () => {
           try {
             const response = await badgeNoti(token);
-            setNotifications(response);
+            // The API may return an object with multiple fields (e.g. { formData, getUnreadNoti }).
+            // Many components expect `notifications` to be an array of unread notifications,
+            // so prefer `getUnreadNoti` if present. Otherwise, if the response itself is an array,
+            // use it directly. Fallback to an empty array.
+            if (response && Array.isArray(response.getUnreadNoti)) {
+              setNotifications(response.getUnreadNoti);
+            } else if (Array.isArray(response)) {
+              setNotifications(response);
+            } else if (response && Array.isArray(response.getUnreadNoti?.data)) {
+              // In some cases the API may wrap data inside a `data` field.
+              setNotifications(response.getUnreadNoti.data);
+            } else {
+              console.warn('[NotificationContext] Unexpected notifications payload, normalizing to empty array', response);
+              setNotifications([]);
+            }
           } catch (error) {
-            console.error(error);
+            console.error('[NotificationContext] Failed to fetch notifications:', error);
+            setNotifications([]);
           }
         };
     
