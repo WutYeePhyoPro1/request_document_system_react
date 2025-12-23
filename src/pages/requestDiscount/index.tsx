@@ -242,7 +242,7 @@ export default function Demo() {
         (item: any) =>
           element.id === item.specific_form_id &&
           element.form_id === item.form_id &&
-          element.form_doc_no === item.form_doc_noA
+          element.form_doc_no === item.form_doc_no
       );
 
       return (

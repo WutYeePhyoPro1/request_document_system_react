@@ -64,7 +64,7 @@ export default function Navbar({ toggleSidebar }) {
     const [roleName, setRoleName] = useState(null);
     const [branchName, setBranchName] = useState(null);
     const [departmentName, setDepartmentName] = useState(null);
-
+// console.log("ManiNotifications>>" , notifications) ;
     const subscribeToPush = async () => {
         if (!('serviceWorker' in navigator)) {
             return;
@@ -909,20 +909,20 @@ export default function Navbar({ toggleSidebar }) {
     }, [userRoleId, token, setNotifications]);
 
     // Calculate other forms count from notifications (updates immediately when notifications change)
-    useEffect(() => {
-        const otherFormsCount = (notifications || []).filter(n => {
-            const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
-            const isBigDamage = n.form_name === 'Big Damage Issue Form' || 
-                               n.form_name?.toLowerCase().includes('damage') ||
-                               (n.form_doc_no && (n.form_doc_no.startsWith('BDI') || n.form_doc_no.startsWith('ASDLAN')));
-            return isUnread && !isBigDamage;
-        }).length;
+    // useEffect(() => {
+    //     const otherFormsCount = (notifications || []).filter(n => {
+    //         const isUnread = n.is_viewed === false || n.is_viewed === null || n.is_viewed === undefined;
+    //         const isBigDamage = n.form_name === 'Big Damage Issue Form' || 
+    //                            n.form_name?.toLowerCase().includes('damage') ||
+    //                            (n.form_doc_no && (n.form_doc_no.startsWith('BDI') || n.form_doc_no.startsWith('ASDLAN')));
+    //         return isUnread && !isBigDamage;
+    //     }).length;
         
-        lastOtherFormsCountRef.current = otherFormsCount;
+    //     lastOtherFormsCountRef.current = otherFormsCount;
         
-        // Update total count immediately using cached Big Damage count
-        setFormBasedNotificationCount(lastBigDamageCountRef.current + otherFormsCount);
-    }, [notifications]);
+    //     // Update total count immediately using cached Big Damage count
+    //     setFormBasedNotificationCount(lastBigDamageCountRef.current + otherFormsCount);
+    // }, [notifications]);
 
     // Fetch Big Damage Issue form list and count forms that need action based on user role
     // This runs independently and doesn't flicker because it uses refs
