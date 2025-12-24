@@ -152,15 +152,16 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       return;
     }
     
-    // Handle status - convert from array/object to string if needed
-    let statusValue = "";
+    // Handle status - normalize incoming filters.status into an array of option objects
+    let statusValue = [];
     if (filters.status) {
       if (Array.isArray(filters.status) && filters.status.length > 0) {
-        statusValue = filters.status.map(s => s.value || s).join(", ");
+        statusValue = filters.status.map(s => (typeof s === 'string' ? statusOptions.find(o => o.value.toLowerCase() === s.toString().toLowerCase()) || { value: s, label: s } : s));
       } else if (typeof filters.status === 'object' && filters.status.value) {
-        statusValue = filters.status.value;
-      } else if (typeof filters.status === 'string') {
-        statusValue = filters.status;
+        statusValue = [filters.status];
+      } else if (typeof filters.status === 'string' && filters.status.trim()) {
+        const parts = filters.status.split(',').map(p => p.trim()).filter(Boolean);
+        statusValue = parts.map(p => statusOptions.find(o => o.value.toLowerCase() === p.toLowerCase()) || { value: p, label: p });
       }
     }
     
@@ -297,7 +298,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       formDocNo: "",
       fromDate: "",
       toDate: "",
-      status: "",
+      status: [],
       branch: null,
     };
     setLocalFilters(emptyFilters);
