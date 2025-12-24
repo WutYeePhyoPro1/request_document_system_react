@@ -284,50 +284,50 @@ const Detail: React.FC = () => {
                           </div>
                         </Modal>
 
-                        {detailData?.files?.length > 0 && (
-                          <>
-                            <a
-                              href={detailData.files[0].file_url}
-                              className="text-blue-600 underline"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Operation Attach File
-                            </a>
+                        {detailData?.files?.length > 0 && (() => {
+  const latestFile =
+    detailData.files[detailData.files.length - 1];
 
-                            {isImageFile(detailData.files[0].file_url) && (
-                              <img
-                                src={detailData.files[0].file_url}
-                                alt={
-                                  detailData.files[0].name ||
-                                  "Discount Attachment"
-                                }
-                                className="w-40 h-40 object-cover rounded border cursor-pointer"
-                                onClick={openFileModal}
-                                loading="lazy"
-                              />
-                            )}
+  return (
+    <>
+      <a
+        href={latestFile.file_url}
+        className="text-blue-600 underline"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Operation Attach File
+      </a>
 
-                            {isPdfFile(detailData.files[0].file_url) && (
-                              <div
-                                className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
-                                onClick={openFileModal}
-                              >
-                                {/* PDF Preview */}
-                                <iframe
-                                  src={detailData.files[0].file_url}
-                                  title="PDF Preview"
-                                  className="w-full h-full rounded"
-                                />
+      {isImageFile(latestFile.file_url) && (
+        <img
+          src={latestFile.file_url}
+          alt={latestFile.name || "Discount Attachment"}
+          className="w-40 h-40 object-cover rounded border cursor-pointer"
+          onClick={openFileModal}
+          loading="lazy"
+        />
+      )}
 
-                                {/* Click overlay */}
-                                <div className="absolute inset-0 z-10" />
-                              </div>
-                            )}
-                          </>
-                        )}
+      {isPdfFile(latestFile.file_url) && (
+        <div
+          className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
+          onClick={openFileModal}
+        >
+          <iframe
+            src={latestFile.file_url}
+            title="PDF Preview"
+            className="w-full h-full rounded"
+          />
+          <div className="absolute inset-0 z-10" />
+        </div>
+      )}
+    </>
+  );
+})()}
 
-                        {["Ongoing", "BM Approved"].includes(
+
+                        {["Ongoing"].includes(
                           detailData?.form?.status
                         ) && (
                           <AddAttachFile

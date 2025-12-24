@@ -22,6 +22,7 @@ import {
   AiTwotoneMessage,
   AiTwotoneMinusSquare,
 } from "react-icons/ai";
+import Swal from "sweetalert2";
 
 export default function Demo() {
   const [discountData, setDiscountData] = useState<IndexData[]>([]);
@@ -122,10 +123,34 @@ export default function Demo() {
       setLoading(false);
     }
   };
+  
     const handleSearch = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    setLoading(true);
+    
+    // if(searchTerm == null)
+    const isEmptySearch = (searchTerm: any) => {
+  return (
+    !searchTerm.form_doc_no &&
+    !searchTerm.product_category &&
+    !searchTerm.branch_id &&
+    !searchTerm.from_date &&
+    !searchTerm.to_date &&
+    (!searchTerm.status || searchTerm.status.length === 0)
+  );
+};
+ if (isEmptySearch(searchTerm)) {
+    Swal.fire({
+      icon: "warning",
+      title: "Search required",
+      text: "Please fill at least one field to search",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#3085d6",
+    });
+    return;
+  }
+setLoading(true);
+    // console.log("SeaarchTerm>>", searchTerm) ;
     try {
       const results = await searchDiscountProduct(token, searchTerm);
 
@@ -551,10 +576,8 @@ export default function Demo() {
           </Table>
         </div>
       </div>
-      <div className="mx-auto mt-6 flex items-center justify-between px-4">
-        <p className="text-sm text-gray-600 font-bold">
-          Total Records: {discountData?.data?.length ?? 0}
-        </p>
+      <div className="mx-auto mt-6  items-center  px-4">
+       
 
         <Pagination
           total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
@@ -562,6 +585,14 @@ export default function Demo() {
           onChange={setActivePage}
           boundaries={1}
         />
+        <div className="flex justify-center items-center gap-2 text-sm text-gray-600 font-bold">
+  <span>Total</span>
+  <span className="text-red-700 fw-bold">
+    {discountData?.data?.length ?? 0}
+  </span>
+  <span>Rows</span>
+</div>
+
       </div>
     </div>
   );

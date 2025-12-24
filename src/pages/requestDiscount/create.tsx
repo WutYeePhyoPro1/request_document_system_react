@@ -465,8 +465,8 @@ const paginateData = detailInvoice.slice(start , end) ;
             boundaries={1}
             /> */}
             <div className="flex flex-justify gap-6">
-              <Button type="submit" loading={loading}>Save</Button>
-              <Button onClick={() => navigate("/request_discount")} >Cancel</Button>
+              <Button color="green" type="submit" loading={loading}>Save</Button>
+              <Button color="yellow" onClick={() => navigate("/request_discount")} >Cancel</Button>
             </div>
           </div>
         </div>

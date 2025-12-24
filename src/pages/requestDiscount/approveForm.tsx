@@ -70,8 +70,7 @@ const ApproveForm: React.FC = () => {
     if (
       statusValue === "bracc_btp" ||
       statusValue === "cat_btp" ||
-      statusValue === "mer_btp" ||
-      statusValue === "Approved"
+      statusValue === "mer_btp"
     ) {
       if (!formData.comment || formData.comment.trim() === "") {
         Swal.fire({
@@ -127,10 +126,12 @@ const ApproveForm: React.FC = () => {
       category_discount: checkedItems.map((v) => v.category_discount),
       check: checkedItems.map((v) => v.check),
     };
-
+    const isCateCheck = statusValue === "cateCheck";
     const confirmBox = await Swal.fire({
       title: "Are you Sure?",
-      text: `Want to ${statusValue} this form`,
+      text: isCateCheck
+        ? "Want to check this form?"
+        : `Want to ${statusValue} this form`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#30856d",
@@ -166,7 +167,9 @@ const ApproveForm: React.FC = () => {
         Swal.fire({
           icon: "success",
           title: "Success",
-          text: `Form has been ${statusValue} successfully!`,
+          text: isCateCheck
+            ? " Form has been checked successfully!"
+            : `Form has been ${statusValue} successfully!`,
         });
         console.log("Submit Data", submitData);
 
@@ -477,59 +480,62 @@ const ApproveForm: React.FC = () => {
                       >
                         {file.name}
                       </a>
-
-                      <Button
-                        color="red"
-                        variant="filled"
-                        size="xs"
-                        onClick={() => handleDeleteAccountFile(file.id)}
-                      >
-                        Delete
-                      </Button>
+                      {detailData?.form?.status !== "Completed" && (
+                        <Button
+                          color="red"
+                          variant="filled"
+                          size="xs"
+                          onClick={() => handleDeleteAccountFile(file.id)}
+                        >
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   );
                 })}
               </div>
             </Modal>
-           {accountFile?.[0] && (
-  <div className="flex flex-col gap-4 items-start">
-    <a
-      onClick={openFileModal}
-      className="text-blue-500 hover:text-blue-700 font-bold py-2 px-4 rounded cursor-pointer"
-    >
-      Branch Account Attach Files
-    </a>
+            {accountFile?.length > 0 &&
+              (() => {
+                const latestFile = accountFile[accountFile.length - 1];
 
-    {/* IMAGE PREVIEW */}
-    {isImageFile(accountFile[0].file_url) && (
-      <img
-        src={accountFile[0].file_url}
-        alt={accountFile[0].name || "Branch Account Attachment"}
-        className="w-40 h-40 object-cover rounded border cursor-pointer"
-        onClick={openFileModal}
-        loading="lazy"
-      />
-    )}
+                return (
+                  <div className="flex flex-col gap-4 items-start">
+                    <a
+                      onClick={openFileModal}
+                      className="text-blue-500 hover:text-blue-700 font-bold py-2 px-4 rounded cursor-pointer"
+                    >
+                      Branch Account Attach Files
+                    </a>
 
-    {/* PDF PREVIEW */}
-    {isPdfFile(accountFile[0].file_url) && (
-      <div
-        className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
-        onClick={openFileModal}
-      >
-        <iframe
-          src={accountFile[0].file_url}
-          title="PDF Preview"
-          className="w-full h-full rounded"
-        />
+                    {/* IMAGE PREVIEW */}
+                    {isImageFile(latestFile.file_url) && (
+                      <img
+                        src={latestFile.file_url}
+                        alt={latestFile.name || "Branch Account Attachment"}
+                        className="w-40 h-40 object-cover rounded border cursor-pointer"
+                        onClick={openFileModal}
+                        loading="lazy"
+                      />
+                    )}
 
-        {/* Click overlay to catch iframe clicks */}
-        <div className="absolute inset-0 z-10" />
-      </div>
-    )}
-  </div>
-)}
-
+                    {/* PDF PREVIEW */}
+                    {isPdfFile(latestFile.file_url) && (
+                      <div
+                        className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
+                        onClick={openFileModal}
+                      >
+                        <iframe
+                          src={latestFile.file_url}
+                          title="PDF Preview"
+                          className="w-full h-full rounded"
+                        />
+                        <div className="absolute inset-0 z-10" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
           </div>
         )}
         {detailData?.reqAcknowledge == true && (

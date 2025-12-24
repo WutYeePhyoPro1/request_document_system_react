@@ -14,6 +14,7 @@ import { Button } from "@mantine/core";
 import type { CheckValueItem } from "../../utils/requestDiscountUtil/detail";
 import StatusBadge from "../../components/ui/StatusBadge";
 import { getDiscountCheck } from "../../api/requestDiscount/requestDiscountData";
+import { numberFormat } from "../../utils/requestDiscountUtil/helper";
 
 const RequestDiscountDataDetailTable: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -225,6 +226,12 @@ useEffect(() => {
   const Checked = "Checked";
   const UnChecked = "UnChecked";
 // console.log("HElloCheck" , Checked) ;
+const RightCell = ({ children }: { children: React.ReactNode }) => (
+  <div className="text-right pr-3 tabular-nums">
+    {children}
+  </div>
+);
+
 const element = detailData?.discountProduct?.map((item: any, index: number) => {
   const productId = item.product_id || item.id;
   const checked = values[index]?.checked ?? false;
@@ -269,10 +276,10 @@ const element = detailData?.discountProduct?.map((item: any, index: number) => {
     item.product_category,
     item.product_code,
     item.product_name,
-    item.selprice,
-    item.saleqty,
-    item.discountamnt,
-    item.netamount,
+   <RightCell>{numberFormat(item.selprice)}</RightCell>,
+ item.saleqty,
+  <RightCell>{numberFormat(item.discountamnt)}</RightCell>,
+  <RightCell>{numberFormat(item.netamount)}</RightCell>,
     item.request_discount,
     detailData?.approver ? (
       <Input
