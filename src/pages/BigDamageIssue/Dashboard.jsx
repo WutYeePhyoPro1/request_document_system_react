@@ -98,6 +98,35 @@ const Dashboard = () => {
   }, [searchParams]);
 
   const [filters, setFilters] = useState(initializeFiltersFromUrl);
+  // Prompt-based opt-in for Branch Account default filters
+  useEffect(() => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
+      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
+      const isBranchAccount = userType === 'ac' || role.includes('branch account') || role.includes('account');
+
+      if (!isBranchAccount) return;
+
+      const pref = localStorage.getItem('bd_apply_role_defaults');
+      if (pref === null) {
+        // Show a simple confirm prompt once
+        const accept = window.confirm('Apply default filter for Branch Account to hide Ongoing and Checked forms? Select OK to apply defaults.');
+        localStorage.setItem('bd_apply_role_defaults', accept ? 'true' : 'false');
+        // If user accepted, set filters.status so UI immediately reflects choice
+        if (accept) {
+          setFilters(prev => ({ ...prev, status: ['BM Approved','OPApproved','Ac_Acknowledged'].join(',') }));
+        }
+      } else if (pref === 'true') {
+        // If already opted-in, ensure status is set when no explicit status param present
+        if (!searchParams.get('status')) {
+          setFilters(prev => ({ ...prev, status: ['BM Approved','OPApproved','Ac_Acknowledged'].join(',') }));
+        }
+      }
+    } catch (e) {
+      // ignore parse errors
+    }
+  }, []);
   const [perPage, setPerPage] = useState(999999); // show all by default
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);

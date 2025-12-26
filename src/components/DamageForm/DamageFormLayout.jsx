@@ -2502,6 +2502,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       act.cancel = false;
     }
     
+    // (moved) Hide BTP/Cancel/Acknowledge for regular users when form is BM Approved and amount > 500k
+    
     if (!normalize(act.approve)) {
       const role = getUserRole();
       const currentStatus = formData.status || 'Ongoing';
@@ -2587,7 +2589,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // Hide buttons for Branch Manager when status is Ongoing (BM should only act after Checker has checked)
   // Use case-insensitive comparison to be safe
   const userRoleLower = (userRole || '').toLowerCase();
-  const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm';
+  const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm' || Number(currentUser?.role_id) === 3 || (currentUser?.role?.name || '').toLowerCase().includes('approver') || userRoleLower.includes('approver');
   const isOngoingStatus = (formData.status === 'Ongoing' || formData.status === 'ongoing');
   const shouldHideButtonsForBMInOngoing = isBranchManager && isOngoingStatus;
   
@@ -2614,7 +2616,7 @@ const isOpStageForButtons = (resolvedStatusLower === 'bm approved' || resolvedSt
   // Hide Back To Previous for BM in Ongoing status
   const shouldShowBackToPrevious = !isBMViewingOwnApprovedForm && 
                                    !shouldHideButtonsForBMInOngoing &&
-                                   !!actions.backToPrevious &&
+                                   !!(typeof actions !== 'undefined' && actions.backToPrevious) &&
                                    !isCheckerRole &&
                                    (isBranchAccount && isBranchAccountStage ? 
                                      // Branch account at branch account stage (including BM Approved) - always show
@@ -2622,7 +2624,7 @@ const isOpStageForButtons = (resolvedStatusLower === 'bm approved' || resolvedSt
                                      // Existing logic for other cases - hide if BM Approved
                                      (!isBMApproved && formData.status !== 'Checked' && formData.status !== 'checked'));
 // Also allow OP to see BackToPrevious when appropriate
-const shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && isOpStageForButtons);
+let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && isOpStageForButtons);
                                    // Also allow Operation Manager to see BackToPrevious on OP stages
                                    // (covers cases where OP should be able to return forms)
                                    const shouldShowBackToPreviousOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
@@ -2630,7 +2632,7 @@ const shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager &
   // Hide Cancel for BM in Ongoing status
   const shouldShowCancel = !isBMViewingOwnApprovedForm && 
                           !shouldHideButtonsForBMInOngoing &&
-                          !!actions.cancel &&
+                          !!(typeof actions !== 'undefined' && actions.cancel) &&
                           !isCheckerRole &&
                           (isBranchAccount && isBranchAccountStage ? 
                             // Branch account at branch account stage (including BM Approved) - always show
@@ -2638,10 +2640,32 @@ const shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager &
                             // Existing logic for other cases - hide if BM Approved
                             (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
 // Also allow OP to see Cancel when appropriate
-const shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButtons);
+let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButtons);
                           // Also allow Operation Manager to see Cancel on OP stages
                           const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
 
+  // Move the regular-user hiding logic here (after isRegularUser is defined)
+  const finalNormalizedStatusHigh = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+  const isBMApprovedHigh = finalNormalizedStatusHigh === 'BM Approved' || finalNormalizedStatusHigh === 'BMApproved';
+  const isHighAmount = Number(
+    formData?.general_form?.total_amount
+    ?? formData?.total_amount
+    ?? formData?.general_form?.totalAmount
+    ?? formData?.totalAmount
+    ?? formData?.general_form?.total
+    ?? formData?.total
+    ?? 0
+  ) > 500000;
+  if ((isRegularUser || isCheckerRole || isBranchManager) && isBMApprovedHigh && isHighAmount) {
+    if (typeof actions !== 'undefined') {
+      actions.backToPrevious = false;
+      actions.cancel = false;
+      delete actions.approve;
+    }
+    // Also ensure visibility flags are false
+    shouldShowBackToPreviousFinal = false;
+    shouldShowCancelFinal = false;
+  }
 
   // Handle back button click - preserve pagination and filters
   const handleBack = () => {
@@ -4781,6 +4805,15 @@ const shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForBu
     );
     const requiresOpManagerApproval = totalAmount > 500000;
     
+    // Extra: hide approve button for regular users when form is BM Approved and total > 500k
+    try {
+      if (isRegularUser && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') && totalAmount > 500000) {
+        return false;
+      }
+    } catch (e) {
+      // ignore
+    }
+    
     // CRITICAL: Check role_id directly for Operation Manager (role_id 4 or 5)
     // This takes priority over role_name because a user might have role_name="BM" but role_id=4 (Operation Manager)
     const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
@@ -5980,6 +6013,15 @@ const resolveApproveAction = () => {
               // Only force acknowledge for OP when form requires OP Manager approval
               const forcedOpAcknowledge = (currentUserType === 'A2' || currentUserType === 'OP') && (resolvedStatusLower === 'bm approved') && requiresOpManagerApproval;
               const forcedOpByRole = (userRoleLower === 'op_manager' || userRoleLower === 'op') && (resolvedStatusLower === 'bm approved') && requiresOpManagerApproval;
+              // If a regular user and BM Approved + high amount, do not show approve button
+              try {
+                const normalizedStatusLocal = (formData.status || resolvedStatus || '').toString().trim().replace(/\s+/g, ' ');
+                const currentRoleIdLocal = Number(currentUser?.role_id || initialData?.current_user?.role_id || 0);
+                const isUserRoleLocal = userRoleLower === 'user' || currentRoleIdLocal === 1;
+                if ((isRegularUser || isUserRoleLocal || isCheckerRole || isBranchManager) && (normalizedStatusLocal === 'BM Approved' || normalizedStatusLocal === 'BMApproved') && requiresOpManagerApproval) {
+                  return null;
+                }
+              } catch (e) {}
               if (!shouldShowApprove && !forcedOpAcknowledge && !forcedOpByRole) return null;
               let action = resolveApproveAction();
               if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
