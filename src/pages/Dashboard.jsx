@@ -74,6 +74,10 @@ const Dashboard = () => {
                     return;
                 }
 
+                // Debug: show parsed form list and first entries
+                // eslint-disable-next-line no-console
+                console.log('[Dashboard] parsed formListData length:', formListData.length, 'sample:', formListData.slice(0,5));
+
                 // Role ID to Name mapping (same as Navbar)
                 const roleIdToNameMap = {
                     1: 'User',
@@ -186,6 +190,19 @@ const Dashboard = () => {
                                status.includes('acknowledged');
                     }
                     
+                    // Operation Manager (A2) - count BM Approved only when total_amount > 500k,
+                    // and also count OP approved / Acknowledged statuses.
+                    const isOpManager = userType === 'a2' || userRole.includes('operation manager') || userRole.includes('op manager');
+                    if (isOpManager) {
+                        // At this stage we only have status. The caller loop provides the gf/row so
+                        // the check for BM Approved + total > 500k is done at call site.
+                        // Here, count OP-approved / acknowledged statuses as relevant.
+                        if (status === 'opapproved' || status === 'op approved' || status === 'ac_acknowledged' || status === 'acknowledged') {
+                            return true;
+                        }
+                        return false;
+                    }
+                    
                     return false;
                 };
                 
@@ -207,9 +224,27 @@ const Dashboard = () => {
                     
                     if (shouldCountForm(status, currentUser)) {
                         count++;
+                    } else {
+                        // Additional check for Operation Manager (A2): BM Approved forms count only when total_amount > 500k
+                        const { userType: curUserType, userRole: curUserRole } = extractUserRoleInfo(currentUser);
+                        const isOp = curUserType === 'a2' || curUserRole.includes('operation manager') || curUserRole.includes('op manager');
+                        if (isOp) {
+                            const isBMApprovedStatus = status === 'bm approved' || status === 'bmapproved' || status.includes('bm approved') || status.includes('bmapproved');
+                            const total = parseFloat((gf && (gf.total_amount || gf.total)) || 0) || 0;
+                            if (isBMApprovedStatus && total > 500000) {
+                                // Debug: log which GF contributed to OP count
+                                // eslint-disable-next-line no-console
+                                console.log('[Dashboard][OP Count] counting GF for OP:', { gfId: gf?.id, formDocNo: gf?.form_doc_no, total, status });
+                                count++;
+                            }
+                        }
                     }
                 });
                 
+                // Debug: computed count for Big Damage Issue based on form list
+                // eslint-disable-next-line no-console
+                console.log('[Dashboard] computed bigDamageIssue count from formListData:', { computedCount: count });
+
                 setBigDamageIssueCount(count);
                 
                 // console.log('[Dashboard] Form-based notification count calculated:', {
@@ -357,6 +392,9 @@ const Dashboard = () => {
           // });
         }
 
+        // Debug: all form counts after fetching from API
+        // eslint-disable-next-line no-console
+        console.log('[Dashboard] setFormCounts - counts from API:', counts);
         setFormCounts(counts);
       } catch (error) {
         console.error("Error fetching forms or counts:", error);

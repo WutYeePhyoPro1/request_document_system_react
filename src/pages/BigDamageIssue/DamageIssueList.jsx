@@ -121,6 +121,7 @@ const StatusBadge = ({ status }) => {
           {status}
         </span>
       );
+    case 'Ac_Acknowledge':
     case 'Ac_Acknowledged':
     case 'Acknowledged':
       // custom-badge-bg-acknowledged: match OP Approved colors bg #e9f9cf, text #a3e635

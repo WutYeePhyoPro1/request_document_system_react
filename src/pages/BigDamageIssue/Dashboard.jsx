@@ -38,15 +38,43 @@ const Dashboard = () => {
     if (!status) {
       try {
         const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
         const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-        if (role.includes('checker') || (storedUser?.user_type || '').toString().toLowerCase() === 'c') {
-          status = ['Ongoing', 'Checked'].join(',');
-        } else if (role.includes('approver') || role.includes('branch manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a1') {
-          status = ['Checked', 'BM Approved'].join(',');
-        } else if (role.includes('operation manager') || role.includes('op manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a2') {
-          status = ['BM Approved', 'Ac_Acknowledged'].join(',');
-        } else if (role.includes('account') || role.includes('branch account') || (storedUser?.user_type || '').toString().toLowerCase() === 'ac') {
-          status = ['BM Approved', 'Ac_Acknowledged'].join(',');
+
+        // Prefer authoritative user_type when available
+        // If user has global/all-branch access, skip frontend role defaults (backend will handle visibility)
+        const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
+        const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
+
+        const isCheckerUser = (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c')) || role.includes('checker');
+
+        if (!hasAllBranchAccess || isCheckerUser) {
+          if (userType) {
+            if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
+              status = ['Ongoing', 'Checked'].join(',');
+            } else if (userType === 'a1') {
+              // Branch Manager (A1) - do NOT set frontend default here; backend will apply BM defaults.
+              status = '';
+            } else if (userType === 'a2') {
+              status = ['BM Approved', 'Ac_Acknowledged'].join(',');
+            } else if (userType === 'ac') {
+              // For account users, include Operation Manager Approved (OPApproved) in default filter
+              status = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
+            }
+          } else {
+            // Fallback to role string detection
+          // Fallback to role string detection
+          if (role.includes('checker')) {
+            status = ['Ongoing', 'Checked'].join(',');
+          } else if (role.includes('approver') || role.includes('branch manager')) {
+            status = ['Checked', 'BM Approved'].join(',');
+          } else if (role.includes('operation manager') || role.includes('op manager')) {
+            status = ['BM Approved', 'Ac_Acknowledged'].join(',');
+          } else if (role.includes('account') || role.includes('branch account')) {
+            // For account roles, include OPApproved (Operation Manager Approved) in default filter
+            status = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
+          }
+          }
         }
       } catch (e) {
         // ignore
@@ -860,6 +888,18 @@ const Dashboard = () => {
       
       if (hasUrlParams) {
         setFilters(urlFilters);
+      } else {
+        // No URL params — apply sensible defaults per role
+        try {
+          const u = currentUser || JSON.parse(localStorage.getItem('user') || '{}');
+          const roleText = (u?.role || u?.role_name || u?.roleName || '').toString().toLowerCase();
+          const userType = (u?.user_type || u?.userType || '').toString().toLowerCase();
+          const isBranchManager = userType === 'a1' || roleText.includes('branch manager') || roleText.includes('bm') || roleText.includes('approver');
+
+          // Note: Branch Manager defaults are applied on the backend. Do not set frontend defaults here.
+        } catch (e) {
+          // ignore parse issues
+        }
       }
       filtersInitializedRef.current = true;
     } else if (filtersInitializedRef.current && filters.branch && filters.branch.value && !filters.branch.label) {

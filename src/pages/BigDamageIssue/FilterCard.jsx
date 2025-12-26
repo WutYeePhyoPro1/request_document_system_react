@@ -18,8 +18,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     { value: 'Ongoing', label: 'Ongoing' },
     { value: 'Checked', label: 'Checked' },
     { value: 'BM Approved', label: 'BM Approved' },
-    { value: 'OPApproved', label: 'OP Approved' },
-    { value: 'Ac_Acknowledged', label: 'Acknowledged' },
+    { value: 'OPApproved', label: 'Operation Manager Approved' },
+    { value: 'Ac_Acknowledged', label: 'Ac_Acknowledged' },
     { value: 'Approved', label: 'Approved' },
     { value: 'Completed', label: 'Completed' },
     { value: 'Cancel', label: 'Cancel' },
@@ -326,7 +326,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       'OP Approved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
       'Approved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
       'Ac_Acknowledged': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
-      'Acknowledged': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
+      'Operation Manager Approved': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
       'Completed': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
       'Issued': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
       'SupervisorIssued': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
@@ -442,6 +442,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   useEffect(() => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      // Prefer explicit user_type when available; fall back to role string only if user_type absent
+      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
       const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
       // If filters already provided a status, don't override
       if (filters && (filters.status || (localFilters && Array.isArray(localFilters.status) && localFilters.status.length > 0))) {
@@ -449,14 +451,45 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       }
 
       let defaultStatuses = [];
-      if (role.includes('checker') || (storedUser?.user_type || '').toString().toLowerCase() === 'c') {
-        defaultStatuses = ['Ongoing', 'Checked'];
-      } else if (role.includes('approver') || role.includes('branch manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a1') {
-        defaultStatuses = ['Checked', 'BM Approved'];
-      } else if (role.includes('operation manager') || role.includes('op manager') || (storedUser?.user_type || '').toString().toLowerCase() === 'a2') {
-        defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
-      } else if (role.includes('account') || role.includes('branch account') || (storedUser?.user_type || '').toString().toLowerCase() === 'ac') {
-        defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
+      // If user has all-branch access, skip frontend defaults for most users because backend will handle visibility.
+      // Exception: Operation Manager (A2) and Checker users should still get frontend defaults.
+      const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
+      const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
+      const roleText = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
+      const isCheckerUser = (Array.isArray(userType) ? false : (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c'))) || roleText.includes('checker');
+
+      // If user has all-branch access, do not apply frontend defaults — backend handles visibility
+      if (hasAllBranchAccess) {
+        return;
+      }
+
+      if (userType) {
+        // Use user_type as authoritative source
+        if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
+          defaultStatuses = ['Ongoing', 'Checked'];
+        } else if (userType === 'a1') {
+          // user_type 'A1' maps to Branch Manager/Approver — do NOT apply frontend defaults here.
+          // Backend will apply Checked/BM Approved for branch managers.
+          // Intentionally left blank.
+        } else if (userType === 'a2') {
+          defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
+        } else if (userType === 'ac') {
+          // For account users include Operation Manager Approved (OPApproved) in defaults
+          defaultStatuses = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'];
+        }
+      } else {
+        // Fallback to role name detection if user_type is not present
+        if (role.includes('checker')) {
+          defaultStatuses = ['Ongoing', 'Checked'];
+        } else if (role.includes('approver')) {
+          // Approver (BM) should get defaults, but explicit branch-manager roles are handled by backend.
+          defaultStatuses = ['Checked', 'BM Approved'];
+        } else if (role.includes('operation manager') || role.includes('op manager')) {
+          defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
+          } else if (role.includes('account') || role.includes('branch account')) {
+            // For account role names include OPApproved in defaults
+            defaultStatuses = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'];
+          }
       }
 
       if (defaultStatuses.length > 0) {
@@ -611,7 +644,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
             </label>
             <Select
               name="status"
-              value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? (Array.isArray(localFilters.status) ? localFilters.status : [localFilters.status]) : [])}
+              // Always show selected status chips so both OPApproved and Ac_Acknowledged are visible
+              value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? [localFilters.status] : [])}
               onChange={(selected) => handleSelectChange(selected, { name: 'status' })}
               options={statusOptions}
               placeholder=""

@@ -2594,7 +2594,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // Check if user is an approver role (for Add Product button visibility)
   const isApproverRole = ['bm', 'abm', 'approver', 'manager', 'checker', 'supervisor'].some(r => userRoleLower.includes(r));
   const isUserRole = userRoleLower === 'user';
-  const isCheckerRole = userRoleLower.includes('check') || userRoleLower === 'c' || userRoleLower === 'cs';
+  const isCheckerRole = userRoleLower.includes('check') || userRoleLower === 'c' || userRoleLower === 'cs' || Number(currentUser?.role_id) === 2;
   // Robust regular-user detection:
   // - explicit 'user' in role/user_type OR
   // - when no explicit role string is available (userRoleLower is empty) and the user is not any approver/manager/account/checker
@@ -2614,7 +2614,8 @@ const isOpStageForButtons = (resolvedStatusLower === 'bm approved' || resolvedSt
   // Hide Back To Previous for BM in Ongoing status
   const shouldShowBackToPrevious = !isBMViewingOwnApprovedForm && 
                                    !shouldHideButtonsForBMInOngoing &&
-                                   !!actions.backToPrevious && 
+                                   !!actions.backToPrevious &&
+                                   !isCheckerRole &&
                                    (isBranchAccount && isBranchAccountStage ? 
                                      // Branch account at branch account stage (including BM Approved) - always show
                                      true :
@@ -2629,7 +2630,8 @@ const shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager &
   // Hide Cancel for BM in Ongoing status
   const shouldShowCancel = !isBMViewingOwnApprovedForm && 
                           !shouldHideButtonsForBMInOngoing &&
-                          !!actions.cancel && 
+                          !!actions.cancel &&
+                          !isCheckerRole &&
                           (isBranchAccount && isBranchAccountStage ? 
                             // Branch account at branch account stage (including BM Approved) - always show
                             true :

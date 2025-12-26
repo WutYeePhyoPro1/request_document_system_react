@@ -15,7 +15,36 @@ const Notification = ({ notifications, formBasedCount = null }) => {
     const fetchNoti = async () => {
       try {
         const response = await badgeNoti(token);
-        setUpperNoti(response);
+        // Log response shape for debugging
+        // eslint-disable-next-line no-console
+        console.log('[Notification] badgeNoti response:', response);
+
+        // Normalize incoming shape
+        const incomingFormData = Array.isArray(response) ? [] : response.formData || [];
+        const incomingNoti = Array.isArray(response) ? response : response.getUnreadNoti || [];
+
+        setUpperNoti((prev) => {
+          // If incoming is empty but we already have notifications, preserve existing state
+          if ((!incomingNoti || incomingNoti.length === 0) && prev && prev.getUnreadNoti && prev.getUnreadNoti.length > 0) {
+            // eslint-disable-next-line no-console
+            console.log('[Notification] preserving existing notifications because incoming badge response is empty');
+            return prev;
+          }
+
+          // Merge notifications by id to avoid duplicates
+          const mergedNotiMap = new Map();
+          (prev?.getUnreadNoti || []).forEach((n) => mergedNotiMap.set(n.id || JSON.stringify(n), n));
+          (incomingNoti || []).forEach((n) => mergedNotiMap.set(n.id || JSON.stringify(n), n));
+          const mergedNoti = Array.from(mergedNotiMap.values());
+
+          // Merge formData by id
+          const mergedFormMap = new Map();
+          (prev?.formData || []).forEach((f) => mergedFormMap.set(f.id || JSON.stringify(f), f));
+          (incomingFormData || []).forEach((f) => mergedFormMap.set(f.id || JSON.stringify(f), f));
+          const mergedFormData = Array.from(mergedFormMap.values());
+
+          return { formData: mergedFormData, getUnreadNoti: mergedNoti };
+        });
       } catch (error) {
         console.error(error);
       }
@@ -71,9 +100,18 @@ const handleNotiClick = (path) => {
       <div className="max-h-[420px] overflow-y-auto">
         {countNotiUpperNoti > 0 ? (
           unreadNotiUpperNoti.map((noti, index) => {
-            const matchedForm = formDataUpperNoti.find(
-              (form) => form.id === noti.data.form_id
-            );
+            const matchedForm = formDataUpperNoti.find((form) => {
+              try {
+                return Number(form.id) === Number(noti.data.form_id);
+              } catch (e) {
+                return form.id === noti.data.form_id;
+              }
+            });
+            if (!matchedForm) {
+              // Debug: unmatched notification -> may be type mismatch or missing formData
+              // eslint-disable-next-line no-console
+              console.warn('[Notification] unmatched noti, formDataUpperNoti:', formDataUpperNoti, 'noti:', noti);
+            }
             if (!matchedForm) return null;
 
             return (
