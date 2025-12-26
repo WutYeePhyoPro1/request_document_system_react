@@ -108,8 +108,7 @@ const handleNotiClick = (path) => {
               }
             });
             if (!matchedForm) {
-              // Debug: unmatched notification -> may be type mismatch or missing formData
-              // eslint-disable-next-line no-console
+
               console.warn('[Notification] unmatched noti, formDataUpperNoti:', formDataUpperNoti, 'noti:', noti);
             }
             if (!matchedForm) return null;
@@ -147,9 +146,22 @@ const handleNotiClick = (path) => {
                     </span>
 
                     {/* Status badge */}
-                    <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
-                      {noti.general_status ?? "Checked"}
-                    </span>
+                    {(() => {
+                      // Determine a user-friendly display status, mapping backend statuses to clearer labels
+                      const rawStatus = noti.general_status || noti.data?.general_status || noti.data?.status || "Checked";
+                      const normalized = (rawStatus || "").toString().toLowerCase().trim();
+                      let displayStatus = rawStatus;
+                      // Map Ac_Acknowledged -> Operation Manager Approved
+                      if (normalized === "ac_acknowledged" || normalized === "ac acknowledged" || normalized === "ac_ack") {
+                        displayStatus = "Operation Manager Approved";
+                      }
+                      // Other normalization could go here if needed
+                      return (
+                        <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
+                          {displayStatus}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

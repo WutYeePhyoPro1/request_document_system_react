@@ -84,6 +84,11 @@ const router = createBrowserRouter([
                 element: <DamageDetail />
             },
             {
+                // Backwards-compatible alias used by notifications (underscore style)
+                path: "big_damage_issue_detail/:id",
+                element: <DamageDetail />
+            },
+            {
                 path: "big-damage-issue-filter",
                 element: <FilterCard />
             },

@@ -44,7 +44,8 @@ const Dashboard = () => {
 
             try {
                 // Fetch form list with minimal data (just status and IDs) - same as Navbar
-                const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue`, {
+                // Request include_total to ensure backend attaches general_form/total_amount where available
+                const res = await fetch(`/api/big-damage-issues?per_page=1000&form_type=big_damage_issue&include_total=true`, {
                     headers: { 
                         'Authorization': `Bearer ${token}`,
                         'Accept': 'application/json',
@@ -210,7 +211,14 @@ const Dashboard = () => {
                 let count = 0;
                 formListData.forEach(row => {
                     const gf = row?.general_form || row;
-                    const status = gf?.status || row?.status;
+                    // Try multiple places for status — some endpoints return status on nested general_form,
+                    // others return it on the top-level row (or as general_status). Support all.
+                    let status = gf?.status || row?.status || row?.general_status || (row?.general_form && row.general_form.status) || null;
+                    if (!status && row?.general_form_id && row?.status) {
+                        status = row.status;
+                    }
+                    // Normalized status for consistent comparisons below
+                    const normalizedStatus = status ? status.toString().toLowerCase().trim() : '';
                     
                     if (!status) return;
                     
@@ -229,8 +237,15 @@ const Dashboard = () => {
                         const { userType: curUserType, userRole: curUserRole } = extractUserRoleInfo(currentUser);
                         const isOp = curUserType === 'a2' || curUserRole.includes('operation manager') || curUserRole.includes('op manager');
                         if (isOp) {
-                            const isBMApprovedStatus = status === 'bm approved' || status === 'bmapproved' || status.includes('bm approved') || status.includes('bmapproved');
-                            const total = parseFloat((gf && (gf.total_amount || gf.total)) || 0) || 0;
+                            const isBMApprovedStatus = normalizedStatus === 'bm approved' || normalizedStatus === 'bmapproved' || normalizedStatus.includes('bm approved') || normalizedStatus.includes('bmapproved');
+                            // Check multiple possible fields for total amount: nested general_form, top-level row, or legacy names.
+                            const total = parseFloat(
+                                (gf && (gf.total_amount || gf.total)) ||
+                                row?.total_amount ||
+                                row?.total ||
+                                row?.amount ||
+                                0
+                            ) || 0;
                             if (isBMApprovedStatus && total > 500000) {
                                 // Debug: log which GF contributed to OP count
                                 // eslint-disable-next-line no-console
