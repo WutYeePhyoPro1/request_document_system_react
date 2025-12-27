@@ -77,7 +77,7 @@ export default function Demo() {
             branch: data?.branch,
             user_branches: data?.user_branches,
             noti_data: data?.noti_data,
-            authBranch: data?.authBranch ,
+            authBranch: data?.authBranch,
           },
           data: parsed.data, // load cached table data
         });
@@ -112,7 +112,7 @@ export default function Demo() {
           branch: data?.branch,
           user_branches: data?.user_branches,
           noti_data: data?.noti_data,
-          authBranch: data?.authBranch ,
+          authBranch: data?.authBranch,
         },
         data: data?.data,
       });
@@ -123,33 +123,33 @@ export default function Demo() {
       setLoading(false);
     }
   };
-  
-    const handleSearch = async () => {
+
+  const handleSearch = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
-    
+
     // if(searchTerm == null)
     const isEmptySearch = (searchTerm: any) => {
-  return (
-    !searchTerm.form_doc_no &&
-    !searchTerm.product_category &&
-    !searchTerm.branch_id &&
-    !searchTerm.from_date &&
-    !searchTerm.to_date &&
-    (!searchTerm.status || searchTerm.status.length === 0)
-  );
-};
- if (isEmptySearch(searchTerm)) {
-    Swal.fire({
-      icon: "warning",
-      title: "Search required",
-      text: "Please fill at least one field to search",
-      confirmButtonText: "OK",
-      confirmButtonColor: "#3085d6",
-    });
-    return;
-  }
-setLoading(true);
+      return (
+        !searchTerm.form_doc_no &&
+        !searchTerm.product_category &&
+        !searchTerm.branch_id &&
+        !searchTerm.from_date &&
+        !searchTerm.to_date &&
+        (!searchTerm.status || searchTerm.status.length === 0)
+      );
+    };
+    if (isEmptySearch(searchTerm)) {
+      Swal.fire({
+        icon: "warning",
+        title: "Search required",
+        text: "Please fill at least one field to search",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#3085d6",
+      });
+      return;
+    }
+    setLoading(true);
     // console.log("SeaarchTerm>>", searchTerm) ;
     try {
       const results = await searchDiscountProduct(token, searchTerm);
@@ -304,11 +304,10 @@ setLoading(true);
                   (err) => console.log("Copy Failed:", err)
                 );
               }}
-              className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
-                isCopied
+              className={`ml-2 px-2 py-1 text-xs rounded transition-all ${isCopied
                   ? "text-green-600 bg-green-50"
                   : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
-              }`}
+                }`}
               title={isCopied ? "Copied!" : "Copy ID"}
               disabled={isCopied}
             >
@@ -363,18 +362,18 @@ setLoading(true);
           <h2 className="text-xl font-semibold">Request Discount Form</h2>
           {(discountData?.meta?.authenticatedUser?.role_id == 1 ||
             discountData?.meta?.authenticatedUser?.role_id == 10) && (
-            <Link
-              to="/request-discount-create"
-              className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
-              style={{
-                backgroundColor: "#2ea2d1",
-              }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = "#2ea2d1")}
-            >
-              Add
-            </Link>
-          )}
+              <Link
+                to="/request-discount-create"
+                className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
+                style={{
+                  backgroundColor: "#2ea2d1",
+                }}
+                onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
+                onMouseLeave={(e) => (e.target.style.backgroundColor = "#2ea2d1")}
+              >
+                Add
+              </Link>
+            )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 text-sm mt-4">
           <div className="flex flex-col">
@@ -487,8 +486,8 @@ setLoading(true);
               Branch
             </label>
             {discountData?.meta?.authenticatedUser?.emp_id == "000-000046" ||
-            discountData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
-            discountData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
+              discountData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
+              discountData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
               <Select
                 id="branch_id"
                 searchable
@@ -577,7 +576,7 @@ setLoading(true);
         </div>
       </div>
       <div className="mx-auto mt-6  items-center  px-4">
-       
+
 
         <Pagination
           total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
@@ -586,12 +585,12 @@ setLoading(true);
           boundaries={1}
         />
         <div className="flex justify-center items-center gap-2 text-sm text-gray-600 font-bold">
-  <span>Total</span>
-  <span className="text-red-700 fw-bold">
-    {discountData?.data?.length ?? 0}
-  </span>
-  <span>Rows</span>
-</div>
+          <span>Total</span>
+          <span className="text-red-700 fw-bold">
+            {discountData?.data?.length ?? 0}
+          </span>
+          <span>Rows</span>
+        </div>
 
       </div>
     </div>

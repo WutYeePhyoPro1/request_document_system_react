@@ -287,6 +287,26 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   };
 
   const handleSearch = () => {
+    // Prevent search when no filters applied
+    if (!isAnyFilterApplied) {
+      // Show error box prompting user to fill some filters
+      try {
+        // Prefer nicer UI if available
+        if (typeof window !== 'undefined' && window?.Swal) {
+          window.Swal.fire({
+            icon: 'error',
+            title: 'Please fill at least one filter',
+            text: 'Please fill some filter fields before searching.'
+          });
+        } else {
+          alert('Please fill at least one filter before searching.');
+        }
+      } catch (e) {
+        alert('Please fill at least one filter before searching.');
+      }
+      return;
+    }
+
     // Apply filters when search button is clicked
     onFilter(localFilters);
   };

@@ -15,36 +15,7 @@ const Notification = ({ notifications, formBasedCount = null }) => {
     const fetchNoti = async () => {
       try {
         const response = await badgeNoti(token);
-        // Log response shape for debugging
-        // eslint-disable-next-line no-console
-        console.log('[Notification] badgeNoti response:', response);
-
-        // Normalize incoming shape
-        const incomingFormData = Array.isArray(response) ? [] : response.formData || [];
-        const incomingNoti = Array.isArray(response) ? response : response.getUnreadNoti || [];
-
-        setUpperNoti((prev) => {
-          // If incoming is empty but we already have notifications, preserve existing state
-          if ((!incomingNoti || incomingNoti.length === 0) && prev && prev.getUnreadNoti && prev.getUnreadNoti.length > 0) {
-            // eslint-disable-next-line no-console
-            console.log('[Notification] preserving existing notifications because incoming badge response is empty');
-            return prev;
-          }
-
-          // Merge notifications by id to avoid duplicates
-          const mergedNotiMap = new Map();
-          (prev?.getUnreadNoti || []).forEach((n) => mergedNotiMap.set(n.id || JSON.stringify(n), n));
-          (incomingNoti || []).forEach((n) => mergedNotiMap.set(n.id || JSON.stringify(n), n));
-          const mergedNoti = Array.from(mergedNotiMap.values());
-
-          // Merge formData by id
-          const mergedFormMap = new Map();
-          (prev?.formData || []).forEach((f) => mergedFormMap.set(f.id || JSON.stringify(f), f));
-          (incomingFormData || []).forEach((f) => mergedFormMap.set(f.id || JSON.stringify(f), f));
-          const mergedFormData = Array.from(mergedFormMap.values());
-
-          return { formData: mergedFormData, getUnreadNoti: mergedNoti };
-        });
+        setUpperNoti(response);
       } catch (error) {
         console.error(error);
       }
@@ -100,30 +71,19 @@ const handleNotiClick = (path) => {
       <div className="max-h-[420px] overflow-y-auto">
         {countNotiUpperNoti > 0 ? (
           unreadNotiUpperNoti.map((noti, index) => {
-            const matchedForm = formDataUpperNoti.find((form) => {
-              try {
-                return Number(form.id) === Number(noti.data.form_id);
-              } catch (e) {
-                return form.id === noti.data.form_id;
-              }
-            });
-            if (!matchedForm) {
-
-              console.warn('[Notification] unmatched noti, formDataUpperNoti:', formDataUpperNoti, 'noti:', noti);
-            }
+            const matchedForm = formDataUpperNoti.find(
+              (form) => form.id === noti.data.form_id
+            );
             if (!matchedForm) return null;
-
-            // Determine target path: prefer explicit url returned from API, otherwise fall back to legacy route pattern
-            const targetPath = matchedForm.url
-              ? (matchedForm.url.includes('{id}') || matchedForm.url.includes(':id')
-                  ? matchedForm.url.replace('{id}', noti.data.specific_form_id).replace(':id', noti.data.specific_form_id)
-                  : `${matchedForm.url}`)
-              : `/${matchedForm.route}_detail/${noti.data.specific_form_id}`;
 
             return (
               <div
                 key={index}
-                onClick={() => handleNotiClick(targetPath)}
+                onClick={() =>
+                  handleNotiClick(
+                    `/${matchedForm.route}_detail/${noti.data.specific_form_id}`
+                  )
+                }
                 className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b"
               >
                 {/* Icon */}
@@ -149,22 +109,9 @@ const handleNotiClick = (path) => {
                     </span>
 
                     {/* Status badge */}
-                    {(() => {
-                      // Determine a user-friendly display status, mapping backend statuses to clearer labels
-                      const rawStatus = noti.general_status || noti.data?.general_status || noti.data?.status || "Checked";
-                      const normalized = (rawStatus || "").toString().toLowerCase().trim();
-                      let displayStatus = rawStatus;
-                      // Map Ac_Acknowledged -> Operation Manager Approved
-                      if (normalized === "ac_acknowledged" || normalized === "ac acknowledged" || normalized === "ac_ack") {
-                        displayStatus = "Operation Manager Approved";
-                      }
-                      // Other normalization could go here if needed
-                      return (
-                        <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
-                          {displayStatus}
-                        </span>
-                      );
-                    })()}
+                    <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
+                      {noti.general_status ?? "Checked"}
+                    </span>
                   </div>
                 </div>
               </div>
