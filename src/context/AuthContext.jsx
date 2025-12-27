@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { confirmAlert } from 'react-confirm-alert';
 import { jwtDecode } from 'jwt-decode';
 import 'react-confirm-alert/src/react-confirm-alert.css';
@@ -17,8 +17,8 @@ const getUserFromStorage = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(getUserFromStorage());
-// console.log("USer Data>>" , user) ;
+    const [user, setUser] = useState('');
+
     const login = async (employee_number, password, remember = false) => {
         try {
             const response = await fetch("/api/login", {
@@ -28,25 +28,16 @@ export const AuthProvider = ({ children }) => {
                     "Accept": "application/json",
                     "X-Requested-With": "XMLHttpRequest"
                 },
-                credentials: 'include', // ✅ CRITICAL: Include cookies for Laravel session
+                credentials: 'include', 
                 body: JSON.stringify({ employee_number, password, remember }),
             });
             
             const data = await response.json();
 
             if (response.ok) {
-                // Ensure user_type is present in localStorage (infer when missing)
-                const enriched = { ...data.user };
-                if (!enriched.user_type) {
-                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
-                    enriched.user_type = 'A2';
-                  } else if (Number(enriched.role_id) === 3) {
-                    enriched.user_type = 'A1';
-                  }
-                }
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(enriched));
-                setUser(enriched);
+                localStorage.setItem('user', JSON.stringify(data.user));
+                setUser(data.user);
                 return true;
             } else {
                 confirmAlert({
@@ -67,44 +58,14 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    // const logout = () => {
-    //     setUser(null);
-    //     localStorage.removeItem('token');
-    //     localStorage.removeItem('user');
-    //     localStorage.removeItem('notifications');
-    //     window.location.href = "/login"; // ✅ Safe redirect
-    // };
-    const logout = async () => {
-  try {
-    // 🔹 Call backend logout (important)
-    await axios.post('/api/logout', {}, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem('token')}`,
-      },
-      withCredentials: true,
-    });
-  } catch (error) {
-    console.warn("Backend logout failed, clearing locally anyway");
-  }
-
-  // 🔥 CLEAR EVERYTHING
-  setUser(null);
-
-  localStorage.clear();      // ✅ clears token, user, notifications, etc
-  sessionStorage.clear();    // ✅ clears discount_cache, search cache, etc
-
-  // Optional: clear cookies if needed
-  document.cookie.split(";").forEach((c) => {
-    document.cookie = c
-      .replace(/^ +/, "")
-      .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-  });
-
-  window.location.href = "/login"; // ✅ hard redirect (safest)
-};
-
-
-    // ⏰ Auto logout when JWT token expires
+    const logout = () => {
+        setUser(null);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('notifications');
+        window.location.href = "/login"; // ✅ Safe redirect
+    };
+    
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -145,17 +106,9 @@ export const AuthProvider = ({ children }) => {
                 withCredentials: true // ✅ Include cookies for Laravel session
             }); // Adjust endpoint as needed
             if (response.data && response.data.user) {
-                const enriched = { ...response.data.user };
-                if (!enriched.user_type) {
-                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
-                    enriched.user_type = 'A2';
-                  } else if (Number(enriched.role_id) === 3) {
-                    enriched.user_type = 'A1';
-                  }
-                }
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(enriched));
-                setUser(enriched);
+                localStorage.setItem('user', JSON.stringify(response.data.user));
+                setUser(response.data.user);
                 return true;
 
                 // setUser(response.data.user);
