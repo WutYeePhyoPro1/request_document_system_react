@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import useSWR from 'swr';
 import useSWRImmutable from 'swr/immutable';
 import { Link, useSearchParams, useLocation } from "react-router-dom";
-import { PlusCircleIcon, FunnelIcon, PlusIcon } from '@heroicons/react/24/solid';
+import { PlusCircleIcon, FunnelIcon, PlusIcon, XMarkIcon } from '@heroicons/react/24/solid';
 // import { PlusSquareIcon } from '@heroicons/react/24/outline';
 import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
@@ -1019,6 +1019,119 @@ const Dashboard = () => {
     );
   }, [filters]);
 
+  // Extracted filter apply/clear handlers so they can be reused for desktop and mobile
+  const applyFilters = (v) => {
+    // Set filtering flag FIRST to prevent useEffect from interfering
+    isFilteringRef.current = true;
+
+    // Clear any existing timeout
+    if (filterTimeoutRef.current) {
+      clearTimeout(filterTimeoutRef.current);
+    }
+
+    // Update filters state synchronously (before URL update)
+    setFilters(v);
+
+    // Update URL params with filter values
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('page'); // Reset to page 1 when filters change
+
+    // Set product name filter in URL (use 'search' parameter)
+    if (v.productName && v.productName.trim()) {
+      newSearchParams.set('search', v.productName.trim());
+    } else {
+      newSearchParams.delete('search');
+      newSearchParams.delete('product_name');
+      newSearchParams.delete('product_code');
+    }
+
+    // Set form doc no filter
+    if (v.formDocNo && v.formDocNo.trim()) {
+      newSearchParams.set('form_doc_no', v.formDocNo.trim());
+    } else {
+      newSearchParams.delete('form_doc_no');
+    }
+
+    // Set date filters
+    if (v.fromDate && v.fromDate.trim()) {
+      newSearchParams.set('start_date', v.fromDate.trim());
+    } else {
+      newSearchParams.delete('start_date');
+      newSearchParams.delete('from_date');
+    }
+
+    if (v.toDate && v.toDate.trim()) {
+      newSearchParams.set('end_date', v.toDate.trim());
+    } else {
+      newSearchParams.delete('end_date');
+      newSearchParams.delete('to_date');
+    }
+
+    // Set status filter (now a string)
+    if (v.status && v.status.trim()) {
+      newSearchParams.set('status', v.status.trim());
+    } else {
+      newSearchParams.delete('status');
+    }
+
+    // Set branch filter
+    if (v.branch && v.branch.value) {
+      newSearchParams.set('branch', v.branch.value);
+    } else {
+      newSearchParams.delete('branch');
+    }
+
+    // Update URL params (this won't trigger filter update because isFilteringRef is true)
+    setSearchParams(newSearchParams, { replace: true });
+
+    // Reset filtering flag after a delay to allow data to load
+    filterTimeoutRef.current = setTimeout(() => {
+      isFilteringRef.current = false;
+    }, 1000); // Wait 1 second after filter change before allowing notification updates
+  };
+
+  const clearAllFilters = () => {
+    // Set filtering flag to prevent useEffect from interfering
+    isFilteringRef.current = true;
+
+    // Clear any existing timeout
+    if (filterTimeoutRef.current) {
+      clearTimeout(filterTimeoutRef.current);
+    }
+
+    const clearedFilters = {
+      productName: "",
+      formDocNo: "",
+      fromDate: "",
+      toDate: "",
+      status: "",
+      branch: null,
+    };
+
+    // Update filters state first
+    setFilters(clearedFilters);
+
+    // Clear all filter params from URL and reset to page 1
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.delete('page');
+    newSearchParams.delete('search');
+    newSearchParams.delete('product_name');
+    newSearchParams.delete('product_code');
+    newSearchParams.delete('form_doc_no');
+    newSearchParams.delete('start_date');
+    newSearchParams.delete('from_date');
+    newSearchParams.delete('end_date');
+    newSearchParams.delete('to_date');
+    newSearchParams.delete('status');
+    newSearchParams.delete('branch');
+    setSearchParams(newSearchParams, { replace: true });
+
+    // Reset filtering flag after a delay
+    filterTimeoutRef.current = setTimeout(() => {
+      isFilteringRef.current = false;
+    }, 1000);
+  };
+
   // Function to update page in URL
   const handlePageChange = (newPage) => {
     const newSearchParams = new URLSearchParams(searchParams);
@@ -1189,124 +1302,58 @@ const Dashboard = () => {
       <div className="px-6 mb-4">
         <div ref={filterRef} className="relative w-full">
           <div className="w-full">
-            <FilterCard
-          filters={filters}
-          onFilter={(v) => {
-            // Set filtering flag FIRST to prevent useEffect from interfering
-            isFilteringRef.current = true;
-            
-            // Clear any existing timeout
-            if (filterTimeoutRef.current) {
-              clearTimeout(filterTimeoutRef.current);
-            }
-            
-            // Update filters state synchronously (before URL update)
-            setFilters(v);
-            
-            // Update URL params with filter values
-            const newSearchParams = new URLSearchParams(searchParams);
-            newSearchParams.delete('page'); // Reset to page 1 when filters change
-            
-            // Set product name filter in URL (use 'search' parameter)
-            if (v.productName && v.productName.trim()) {
-              newSearchParams.set('search', v.productName.trim());
-            } else {
-              newSearchParams.delete('search');
-              newSearchParams.delete('product_name');
-              newSearchParams.delete('product_code');
-            }
-            
-            // Set form doc no filter
-            if (v.formDocNo && v.formDocNo.trim()) {
-              newSearchParams.set('form_doc_no', v.formDocNo.trim());
-            } else {
-              newSearchParams.delete('form_doc_no');
-            }
-            
-            // Set date filters
-            if (v.fromDate && v.fromDate.trim()) {
-              newSearchParams.set('start_date', v.fromDate.trim());
-            } else {
-              newSearchParams.delete('start_date');
-              newSearchParams.delete('from_date');
-            }
-            
-            if (v.toDate && v.toDate.trim()) {
-              newSearchParams.set('end_date', v.toDate.trim());
-            } else {
-              newSearchParams.delete('end_date');
-              newSearchParams.delete('to_date');
-            }
-            
-            // Set status filter (now a string)
-            if (v.status && v.status.trim()) {
-              newSearchParams.set('status', v.status.trim());
-            } else {
-              newSearchParams.delete('status');
-            }
-            
-            // Set branch filter
-            if (v.branch && v.branch.value) {
-              newSearchParams.set('branch', v.branch.value);
-            } else {
-              newSearchParams.delete('branch');
-            }
-            
-            // Update URL params (this won't trigger filter update because isFilteringRef is true)
-            setSearchParams(newSearchParams, { replace: true });
-            
-            // Reset filtering flag after a delay to allow data to load
-            filterTimeoutRef.current = setTimeout(() => {
-              isFilteringRef.current = false;
-            }, 1000); // Wait 1 second after filter change before allowing notification updates
-          }}
-          onClear={() => {
-            // Set filtering flag to prevent useEffect from interfering
-            isFilteringRef.current = true;
-            
-            // Clear any existing timeout
-            if (filterTimeoutRef.current) {
-              clearTimeout(filterTimeoutRef.current);
-            }
-            
-            const clearedFilters = {
-              productName: "",
-              formDocNo: "",
-              fromDate: "",
-              toDate: "",
-              status: "",
-              branch: null,
-            };
-            
-            // Update filters state first
-            setFilters(clearedFilters);
-            
-            // Clear all filter params from URL and reset to page 1
-            const newSearchParams = new URLSearchParams(searchParams);
-            newSearchParams.delete('page');
-            newSearchParams.delete('search');
-            newSearchParams.delete('product_name');
-            newSearchParams.delete('product_code');
-            newSearchParams.delete('form_doc_no');
-            newSearchParams.delete('start_date');
-            newSearchParams.delete('from_date');
-            newSearchParams.delete('end_date');
-            newSearchParams.delete('to_date');
-            newSearchParams.delete('status');
-            newSearchParams.delete('branch');
-            setSearchParams(newSearchParams, { replace: true });
-            
-            // Reset filtering flag after a delay
-            filterTimeoutRef.current = setTimeout(() => {
-              isFilteringRef.current = false;
-            }, 1000);
-          }}
-          externalBranchOptions={branchOptions}
-          allowAllBranchSelection={canViewAllBranchesAccess}
-          />
+            {/* Desktop / larger screens: show inline filter card */}
+            <div className="hidden md:block">
+              <FilterCard
+                filters={filters}
+                onFilter={applyFilters}
+                onClear={clearAllFilters}
+                externalBranchOptions={branchOptions}
+                allowAllBranchSelection={canViewAllBranchesAccess}
+              />
+            </div>
+            {/* Mobile: nothing inline, use floating button to open modal */}
           </div>
+        </div>
       </div>
-      </div>
+
+      {/* Mobile filter floating button */}
+      <button
+        type="button"
+        onClick={() => setIsFilterOpen(true)}
+        className="fixed bottom-6 left-6 z-40 inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-800 text-white shadow-xl md:hidden"
+        aria-label="Open filters"
+      >
+        <FunnelIcon className="h-6 w-6" />
+      </button>
+
+      {/* Mobile filter modal / side panel */}
+      {isFilterOpen && (
+        <div className="fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black opacity-40" onClick={() => setIsFilterOpen(false)} />
+          <div className="relative ml-auto w-full max-w-md bg-white h-full shadow-xl overflow-auto p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-[#012970]">Filters</h3>
+              <button onClick={() => setIsFilterOpen(false)} className="p-2 rounded bg-gray-100">
+                <XMarkIcon className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+            <FilterCard
+              filters={filters}
+              onFilter={(v) => {
+                applyFilters(v);
+                setIsFilterOpen(false);
+              }}
+              onClear={() => {
+                clearAllFilters();
+                setIsFilterOpen(false);
+              }}
+              externalBranchOptions={branchOptions}
+              allowAllBranchSelection={canViewAllBranchesAccess}
+            />
+          </div>
+        </div>
+      )}
       
       {/* Error message banner for 429 and other errors */}
       {errorMessage && (

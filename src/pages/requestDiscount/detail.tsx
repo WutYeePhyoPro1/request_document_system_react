@@ -150,11 +150,10 @@ const Detail: React.FC = () => {
                   )
                   <button
                     onClick={onCopyClick}
-                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
-                      copied
+                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
                         ? "text-green-600 bg-green-50"
                         : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
-                    }`}
+                      }`}
                     title={copied ? "Copied!" : "Copy ID"}
                     disabled={copied}
                   >
@@ -269,15 +268,15 @@ const Detail: React.FC = () => {
                                   {["Ongoing", "BM Approved"].includes(
                                     detailData?.form?.status
                                   ) && (
-                                    <Button
-                                      onClick={() => handleDete(file.id)}
-                                      color="red"
-                                      variant="filled"
-                                      size="xs"
-                                    >
-                                      Delete
-                                    </Button>
-                                  )}
+                                      <Button
+                                        onClick={() => handleDete(file.id)}
+                                        color="red"
+                                        variant="filled"
+                                        size="xs"
+                                      >
+                                        Delete
+                                      </Button>
+                                    )}
                                 </div>
                               );
                             })}
@@ -285,60 +284,60 @@ const Detail: React.FC = () => {
                         </Modal>
 
                         {detailData?.files?.length > 0 && (() => {
-  const latestFile =
-    detailData.files[detailData.files.length - 1];
+                          const latestFile =
+                            detailData.files[detailData.files.length - 1];
 
-  return (
-    <>
-      <a
-        href={latestFile.file_url}
-        className="text-blue-600 underline"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Operation Attach File
-      </a>
+                          return (
+                            <>
+                              <a
+                                href={latestFile.file_url}
+                                className="text-blue-600 underline"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Operation Attach File
+                              </a>
 
-      {isImageFile(latestFile.file_url) && (
-        <img
-          src={latestFile.file_url}
-          alt={latestFile.name || "Discount Attachment"}
-          className="w-40 h-40 object-cover rounded border cursor-pointer"
-          onClick={openFileModal}
-          loading="lazy"
-        />
-      )}
+                              {isImageFile(latestFile.file_url) && (
+                                <img
+                                  src={latestFile.file_url}
+                                  alt={latestFile.name || "Discount Attachment"}
+                                  className="w-40 h-40 object-cover rounded border cursor-pointer"
+                                  onClick={openFileModal}
+                                  loading="lazy"
+                                />
+                              )}
 
-      {isPdfFile(latestFile.file_url) && (
-        <div
-          className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
-          onClick={openFileModal}
-        >
-          <iframe
-            src={latestFile.file_url}
-            title="PDF Preview"
-            className="w-full h-full rounded"
-          />
-          <div className="absolute inset-0 z-10" />
-        </div>
-      )}
-    </>
-  );
-})()}
+                              {isPdfFile(latestFile.file_url) && (
+                                <div
+                                  className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
+                                  onClick={openFileModal}
+                                >
+                                  <iframe
+                                    src={latestFile.file_url}
+                                    title="PDF Preview"
+                                    className="w-full h-full rounded"
+                                  />
+                                  <div className="absolute inset-0 z-10" />
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
 
 
                         {["Ongoing"].includes(
                           detailData?.form?.status
                         ) && (
-                          <AddAttachFile
-                            generalFormId={id}
-                            onUploaded={() => {
-                              if (token && id) {
-                                dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
-                              }
-                            }}
-                          />
-                        )}
+                            <AddAttachFile
+                              generalFormId={id}
+                              onUploaded={() => {
+                                if (token && id) {
+                                  dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
+                                }
+                              }}
+                            />
+                          )}
                       </div>
                     </div>
                   </div>
