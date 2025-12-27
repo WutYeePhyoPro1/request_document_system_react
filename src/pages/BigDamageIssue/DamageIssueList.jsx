@@ -364,7 +364,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   );
 };
 
-function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {}, productFilter = '', notificationCounts = new Map() }) {
+function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {}, productFilter = '', notificationCounts = new Map(), suppressUnreadForFormIds = [] }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams(); // Use React Router's searchParams to react to URL changes
   
@@ -667,6 +667,29 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   const productCodeParam = searchParams.get('product_code');
   // Use prop first, then URL params - prop is more reliable as it comes directly from Dashboard state
   const productNameFilter = productFilter || searchFromParams || searchFromUrl || productNameParam || productCodeParam || '';
+
+  // Convert suppression list into a Set of string IDs for fast lookups
+  const suppressedUnreadSet = React.useMemo(() => {
+    try {
+      return new Set((suppressUnreadForFormIds || []).map(id => String(id)));
+    } catch (e) {
+      return new Set();
+    }
+  }, [suppressUnreadForFormIds]);
+
+  // Helper to check whether unread badge should be suppressed for this form (by id)
+  const isSuppressedForUnread = (row, gf) => {
+    const idCandidates = [
+      gf?.id,
+      row?.general_form_id,
+      gf?.general_form_id,
+      row?.id
+    ].map(id => id !== undefined && id !== null ? String(id) : '').filter(Boolean);
+    for (const id of idCandidates) {
+      if (suppressedUnreadSet.has(id)) return true;
+    }
+    return false;
+  };
   
   // Log warning if no data received
   React.useEffect(() => {
@@ -1181,6 +1204,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               // Check if form is relevant to user's role (using helper function)
                               const isRelevant = isFormRelevantToUser(gf);
 
+                              // Suppress unread badge if this form id is explicitly listed
+                              if (isSuppressedForUnread(row, gf)) {
+                                return null;
+                              }
                               // Determine OP local flag and BM-approved total to suppress badge for OPs on small forms
                               const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
                               const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();
@@ -1245,6 +1272,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                             const _compactStatus = _statusForBadge.replace(/[\s_]+/g, '');
                             const isBMApprovedStatus = _compactStatus.includes('bm') && _compactStatus.includes('approved');
 
+                            // Suppress unread badge if this form id is explicitly listed
+                            if (isSuppressedForUnread(row, gf)) {
+                              return null;
+                            }
                             // Explicit suppression: if current user is OP manager and this is a BM Approved form
                             // that does NOT exceed the OP threshold, never show the unread badge.
                             if (isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) <= 500000) {
@@ -1442,6 +1473,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           // Check if form is relevant to user's role
                           const isRelevantMobileIcon = isFormRelevantToUser(gf);
                           
+                          // Suppress unread badge if this form id is explicitly listed
+                          if (isSuppressedForUnread(row, gf)) {
+                            return null;
+                          }
                           // Determine OP local flag and BM-approved total to suppress badge for OPs on small forms
                           const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
                           const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();

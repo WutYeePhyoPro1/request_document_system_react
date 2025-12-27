@@ -113,14 +113,17 @@ const handleNotiClick = (path) => {
             }
             if (!matchedForm) return null;
 
+            // Determine target path: prefer explicit url returned from API, otherwise fall back to legacy route pattern
+            const targetPath = matchedForm.url
+              ? (matchedForm.url.includes('{id}') || matchedForm.url.includes(':id')
+                  ? matchedForm.url.replace('{id}', noti.data.specific_form_id).replace(':id', noti.data.specific_form_id)
+                  : `${matchedForm.url}`)
+              : `/${matchedForm.route}_detail/${noti.data.specific_form_id}`;
+
             return (
               <div
                 key={index}
-                onClick={() =>
-                  handleNotiClick(
-                    `/${matchedForm.route}_detail/${noti.data.specific_form_id}`
-                  )
-                }
+                onClick={() => handleNotiClick(targetPath)}
                 className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b"
               >
                 {/* Icon */}

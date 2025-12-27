@@ -2667,6 +2667,61 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     shouldShowCancelFinal = false;
   }
 
+  // Ensure OP Manager (user_type A2 / role op manager) sees Acknowledge, BackToPrevious and Cancel
+  // when form is BM Approved and total exceeds OP threshold (> 500,000).
+  try {
+    const currentUserTypeCheck = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+    const isOpUserType = currentUserTypeCheck === 'A2' || currentUserTypeCheck === 'OP';
+    const isOpRoleDetected = userRoleLower === 'op_manager' || userRoleLower === 'op' || userRoleLower.includes('operation manager') || userRoleLower.includes('op manager');
+    if ((isOpUserType || isOpRoleDetected) && isBMApprovedHigh && isHighAmount) {
+      // Allow OP to see Back and Cancel buttons even if other logic hid them
+      shouldShowBackToPreviousFinal = true;
+      shouldShowCancelFinal = true;
+      // Ensure actions exist so buttons will render (don't overwrite existing more permissive settings)
+      if (typeof actions !== 'undefined') {
+        if (!actions.backToPrevious) actions.backToPrevious = true;
+        if (!actions.cancel) actions.cancel = true;
+        if (!actions.approve) actions.approve = 'Ac_Acknowledged';
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Hide BackToPrevious and Cancel for regular users when form is at Ac_Acknowledged or OPApproved stages
+  try {
+    if (isRegularUser) {
+      const disallowedStatusesForRegular = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
+      if (disallowedStatusesForRegular.includes(resolvedStatusLower)) {
+        if (typeof actions !== 'undefined') {
+          actions.backToPrevious = false;
+          actions.cancel = false;
+        }
+        shouldShowBackToPreviousFinal = false;
+        shouldShowCancelFinal = false;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Additionally, hide BackToPrevious and Cancel for Branch Manager when form is at Ac_Acknowledged or OPApproved stages
+  try {
+    if (isBranchManager) {
+      const disallowedForBM = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
+      if (disallowedForBM.includes(resolvedStatusLower)) {
+        if (typeof actions !== 'undefined') {
+          actions.backToPrevious = false;
+          actions.cancel = false;
+        }
+        shouldShowBackToPreviousFinal = false;
+        shouldShowCancelFinal = false;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
   // Handle back button click - preserve pagination and filters
   const handleBack = () => {
     // First, try to get the return URL from sessionStorage (most reliable)
@@ -6011,8 +6066,10 @@ const resolveApproveAction = () => {
               const requiresOpManagerApproval = Number(totalAmountForRender) > 500000;
               const currentUserType = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
               // Only force acknowledge for OP when form requires OP Manager approval
-              const forcedOpAcknowledge = (currentUserType === 'A2' || currentUserType === 'OP') && (resolvedStatusLower === 'bm approved') && requiresOpManagerApproval;
-              const forcedOpByRole = (userRoleLower === 'op_manager' || userRoleLower === 'op') && (resolvedStatusLower === 'bm approved') && requiresOpManagerApproval;
+              // Be permissive when detecting BM Approved status variants (bmapproved, bmapproved, 'BM Approved')
+              const isResolvedBmApproved = resolvedStatusLower.includes('bm') && resolvedStatusLower.includes('approved');
+              const forcedOpAcknowledge = (currentUserType === 'A2' || currentUserType === 'OP') && isResolvedBmApproved && requiresOpManagerApproval;
+              const forcedOpByRole = (userRoleLower === 'op_manager' || userRoleLower === 'op') && isResolvedBmApproved && requiresOpManagerApproval;
               // If a regular user and BM Approved + high amount, do not show approve button
               try {
                 const normalizedStatusLocal = (formData.status || resolvedStatus || '').toString().trim().replace(/\s+/g, ' ');
@@ -6037,6 +6094,58 @@ const resolveApproveAction = () => {
                   totalAmount: formData.items && formData.items.length > 0 ? formData.items.reduce((acc,i)=>acc+(Number(i.amount)||Number(i.total)||0),0) : (formData?.general_form?.total_amount||formData?.total_amount||0)
                 });
               } catch (e) {}
+              
+              // Also emit a plain console.log and expose a window object for easier debugging in browsers
+              try {
+                const approveDebug = {
+                  shouldShowApprove,
+                  action,
+                  isSubmitting,
+                  formStatus: formData.status,
+                  resolvedStatus: resolvedStatus || null,
+                  resolvedStatusLower: resolvedStatusLower || null,
+                  totalAmount: formData.items && formData.items.length > 0 ? formData.items.reduce((acc,i)=>acc+(Number(i.amount)||Number(i.total)||0),0) : (formData?.general_form?.total_amount||formData?.total_amount||0),
+                  isInvestigationFilled: Boolean(isInvestigationFilled),
+                  actions: typeof actions !== 'undefined' ? actions : null,
+                  currentUser: typeof currentUser !== 'undefined' ? currentUser : null,
+                };
+                // Visible log level
+                console.log('[ApproveRender DEBUG]', approveDebug);
+                if (typeof window !== 'undefined') {
+                  window.__approveRenderDebug = approveDebug;
+                }
+              } catch (e) {
+                // ignore
+              }
+              
+              // Fallback: force-show Acknowledge button for Operation Manager user types on BM Approved high-value forms
+              try {
+                const isResolvedBmApprovedLocal = (resolvedStatusLower || '').includes('bm') && (resolvedStatusLower || '').includes('approved');
+                const currentUserTypeLocal = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+                const isOpUserLocal = currentUserTypeLocal === 'A2' || currentUserTypeLocal === 'OP' || userRoleLower === 'op_manager' || userRoleLower === 'op' || userRoleLower.includes('op manager');
+                const totalAmtLocal = totalAmountForRender;
+                const requiresOpLocal = Number(totalAmtLocal) > 500000;
+                // If OP manager and BM Approved + >500k, ensure button is rendered (may be disabled due to missing investigation)
+                if (isOpUserLocal && isResolvedBmApprovedLocal && requiresOpLocal) {
+                  const fallbackAction = 'Ac_Acknowledged';
+                  // Force-show when current user type is explicitly A2
+                  const forceShowForA2 = currentUserTypeLocal === 'A2';
+                  const disableDueToInvestigationFallback = !forceShowForA2 && ['Ac_Acknowledged','Acknowledged','OPApproved','opapproved'].includes(fallbackAction) && !isInvestigationFilled;
+                  return (
+                    <button 
+                      onClick={() => handleSubmitClick(fallbackAction)}
+                      disabled={isSubmitting || disableDueToInvestigationFallback}
+                      title={disableDueToInvestigationFallback ? t('messages.investigationRequired') : undefined}
+                      className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${getButtonColorClass(fallbackAction)} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${disableDueToInvestigationFallback ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
+                      style={{ fontSize: '15px' }}
+                    >
+                      <span>{prettyApprove(fallbackAction) || 'Acknowledge'}</span>
+                    </button>
+                  );
+                }
+              } catch (e) {
+                // ignore fallback errors
+              }
               // Don't render button if action is null or undefined, or if submitting (to avoid white disabled button)
               if (!action || isSubmitting) {
                 return null;
@@ -6063,6 +6172,47 @@ const resolveApproveAction = () => {
             {/* Removed supervisor Issue button */}
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
+            {/* EXTRA FALLBACK: Force-show Acknowledge for A2 users as a last resort (placement before Back/Cancel) */}
+            {(() => {
+              try {
+                const currentUserTypeNow = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+                const isA2Now = currentUserTypeNow === 'A2' || currentUserTypeNow === 'OP';
+                const statusNow = (formData.status || resolvedStatus || '').toString().toLowerCase();
+                const isBmApprovedNow = statusNow.includes('bm') && statusNow.includes('approved');
+                const totalNow = formData.items && formData.items.length > 0
+                  ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+                  : Number(
+                      formData?.general_form?.total_amount ??
+                      formData?.total_amount ??
+                      formData?.general_form?.totalAmount ??
+                      formData?.totalAmount ??
+                      formData?.general_form?.total ??
+                      formData?.total ??
+                      initialData?.general_form?.total_amount ??
+                      initialData?.total_amount ??
+                      initialData?.general_form?.total ??
+                      initialData?.total ??
+                      0
+                    );
+                if (isA2Now && isBmApprovedNow && Number(totalNow) > 500000) {
+                  // Render Acknowledge button (may be disabled if submitting)
+                  const fallbackActionNow = 'Ac_Acknowledged';
+                  return (
+                    <button
+                      onClick={() => handleSubmitClick(fallbackActionNow)}
+                      disabled={isSubmitting}
+                      className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${getButtonColorClass(fallbackActionNow)} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1`}
+                      style={{ fontSize: '15px' }}
+                    >
+                      <span>{prettyApprove(fallbackActionNow) || 'Acknowledge'}</span>
+                    </button>
+                  );
+                }
+              } catch (e) {
+                // ignore
+              }
+              return null;
+            })()}
             {/* Hide if Branch Manager is viewing a form they already approved */}
             {shouldShowBackToPreviousFinal && (
               <button 
