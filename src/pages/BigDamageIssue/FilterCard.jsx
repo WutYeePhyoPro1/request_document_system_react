@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import Select from 'react-select';
 import { MagnifyingGlassIcon, CalendarIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
@@ -291,17 +292,13 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     if (!isAnyFilterApplied) {
       // Show error box prompting user to fill some filters
       try {
-        // Prefer nicer UI if available
-        if (typeof window !== 'undefined' && window?.Swal) {
-          window.Swal.fire({
-            icon: 'error',
-            title: 'Please fill at least one filter',
-            text: 'Please fill some filter fields before searching.'
-          });
-        } else {
-          alert('Please fill at least one filter before searching.');
-        }
+        Swal.fire({
+          icon: 'error',
+          title: 'Please fill at least one filter',
+          text: 'Please fill some filter fields before searching.',
+        });
       } catch (e) {
+        // Fallback
         alert('Please fill at least one filter before searching.');
       }
       return;
@@ -332,6 +329,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       if (Array.isArray(val)) return val.length > 0;
       return typeof val === 'string' && val.trim() !== '';
     }
+    // Exclude branch from this check - branch may be auto-selected by dashboard logic
+    if (key === 'branch') return false;
     return val !== null && val !== undefined && val !== '';
   });
 

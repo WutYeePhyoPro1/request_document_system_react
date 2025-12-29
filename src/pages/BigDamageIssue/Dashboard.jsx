@@ -1021,6 +1021,37 @@ const Dashboard = () => {
 
   // Extracted filter apply/clear handlers so they can be reused for desktop and mobile
   const applyFilters = (v) => {
+    // Prevent search when no filters or branch is selected (show error)
+    const statusHasValue = Array.isArray(v.status) ? v.status.length > 0 :
+      (v.status && (typeof v.status === 'object' ? (v.status.value || v.status.value === 0) : (typeof v.status === 'string' && v.status.trim())));
+    const anyFilter = Boolean(
+      (v.productName && v.productName.trim()) ||
+      (v.formDocNo && v.formDocNo.trim()) ||
+      (v.fromDate && v.fromDate.trim()) ||
+      (v.toDate && v.toDate.trim()) ||
+      statusHasValue ||
+      (v.branch && v.branch.value)
+    );
+    if (!anyFilter) {
+      try {
+        // Use SweetAlert2 modal (dynamic import via promise)
+        import('sweetalert2')
+          .then((mod) => {
+            const Swal = mod.default || mod;
+            Swal.fire({
+              icon: 'error',
+              title: 'Please fill at least one filter',
+              text: 'Please fill some filter fields before searching.',
+            });
+          })
+          .catch(() => {
+            alert('Please fill some filter fields before searching.');
+          });
+      } catch (e) {
+        alert('Please fill some filter fields before searching.');
+      }
+      return;
+    }
     // Set filtering flag FIRST to prevent useEffect from interfering
     isFilteringRef.current = true;
 
@@ -1067,9 +1098,17 @@ const Dashboard = () => {
       newSearchParams.delete('to_date');
     }
 
-    // Set status filter (now a string)
-    if (v.status && v.status.trim()) {
-      newSearchParams.set('status', v.status.trim());
+    // Set status filter (convert from array/object to comma-separated string)
+    let statusParam = '';
+    if (Array.isArray(v.status)) {
+      statusParam = v.status.map(s => (s && (s.value || s.value === 0) ? (s.value + '') : (s + ''))).filter(Boolean).join(',');
+    } else if (v.status && typeof v.status === 'object' && (v.status.value || v.status.value === 0)) {
+      statusParam = String(v.status.value);
+    } else if (typeof v.status === 'string') {
+      statusParam = v.status;
+    }
+    if (statusParam && statusParam.trim()) {
+      newSearchParams.set('status', statusParam.trim());
     } else {
       newSearchParams.delete('status');
     }
