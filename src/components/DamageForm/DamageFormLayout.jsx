@@ -1891,8 +1891,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ? Number(value ?? 0)
         : value;
 
-      // Preserve category when updating other fields
+      // CRITICAL: Prevent request_qty from being updated when actual_qty changes
+      // request_qty should only be set once (when actual_qty is first entered) and then remain independent
       const currentItem = nextItems[index];
+      if (field === 'request_qty') {
+        // Only update request_qty if it hasn't been set yet (is null/undefined/empty string/0)
+        // Once request_qty has a non-zero value, it should remain independent
+        const existingRequestQty = currentItem.request_qty;
+        const isRequestQtyUnset = existingRequestQty === null || 
+                                  existingRequestQty === undefined || 
+                                  existingRequestQty === '' ||
+                                  existingRequestQty === 0 ||
+                                  (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
+        
+        if (!isRequestQtyUnset) {
+          // request_qty has been set, preserve it - don't update
+          return prev;
+        }
+      }
+
+      // Preserve category when updating other fields
       nextItems[index] = {
         ...currentItem,
         [field]: nextValue,
@@ -1994,9 +2012,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         name: info.product_name || "",
         unit: info.unit || "",
         system_qty: Number(sysQty) || 0,
-        request_qty: 0, // Initialize with 0, user will enter the value
-        actual_qty: 0, // Initialize with 0, user will enter the value
-        final_qty: 0, // Initialize with 0, user will enter the value
+        request_qty: '', // Initialize as empty string, will be set when user enters actual_qty
+        actual_qty: '', // Initialize as empty string, user will enter the value
+        final_qty: '', // Initialize as empty string, user will enter the value
         price,
         amount: 0, // Calculate initial amount (will be calculated when qty is entered)
         remark: "",
@@ -3150,11 +3168,11 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction) {
       // First check if base investigation is filled
       if (!isInvestigationFilled) {
-        setValidationErrorModal({
-          isOpen: true,
-          errors: [t('messages.investigationRequired')]
-        });
-        return;
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
+      return;
       }
       
       // Then check if Operation Manager Review percentages are filled
@@ -3241,11 +3259,11 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (isOpAckAction && isBMApprovedStatus) {
         // First check if base investigation is filled
         if (!isInvestigationFilled) {
-          setValidationErrorModal({
-            isOpen: true,
-            errors: [t('messages.investigationRequired')]
-          });
-          return;
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
+        return;
         }
         
         // Then check if Operation Manager Review percentages are filled
@@ -3416,29 +3434,60 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const normalizedItems = validItems.map((item, index) => {
         const productCode = (item?.product_code || item?.code || '').toString().trim();
         
-        // Try multiple fields to find quantity (for old forms compatibility)
-        // Priority: request_qty > actual_qty > final_qty > product_type
-        const rawQty = item?.request_qty ?? item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
-        const requestQty = safeNumber(rawQty);
+        // CRITICAL: Preserve request_qty from item state - it should be independent of actual_qty
+        // Only use fallback if request_qty is truly null/undefined/empty/0
+        // Priority: request_qty (if set to non-zero) > actual_qty (for initialization) > final_qty > product_type
+        let finalRequestQty;
+        const requestQtyValue = item?.request_qty;
+        // Treat 0 as unset because it's the default initialization value
+        const isRequestQtySet = requestQtyValue !== null && 
+                                requestQtyValue !== undefined && 
+                                requestQtyValue !== '' &&
+                                requestQtyValue !== 0 &&
+                                !(typeof requestQtyValue === 'string' && requestQtyValue.trim() === '');
         
-        // Use the actual requestQty value, don't force it to be at least 1
-        const finalRequestQty = requestQty;
+        if (isRequestQtySet) {
+          // request_qty has been explicitly set to a non-zero value, use it
+          finalRequestQty = safeNumber(requestQtyValue);
+        } else {
+          // request_qty hasn't been set yet (is null/undefined/empty/0), use actual_qty as fallback (for initialization)
+          const rawQty = item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
+          finalRequestQty = safeNumber(rawQty);
+        }
         
         const systemQty = safeNumber(item?.system_qty);
         const priceValue = Number(item?.price);
         const price = Number.isFinite(priceValue) ? priceValue : 0;
-        const computedAmount = price * finalRequestQty;
-        const parsedAmount = Number(item?.amount);
-        const amount = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : computedAmount;
         const remark = item?.remark ?? '';
         const productName = item?.product_name || item?.name || '';
         const unit = item?.unit || '';
 
-        // Resolve actual and final quantities, checking multiple fields for old form compatibility
-        const rawActual = item?.actual_qty ?? item?.request_qty ?? 0;
-        const rawFinal = item?.final_qty ?? item?.product_type ?? item?.request_qty ?? 0;
-        const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : finalRequestQty;
-        const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : finalRequestQty;
+        // Resolve actual and final quantities, preserving original values
+        // CRITICAL: Preserve request_qty and actual_qty from the item - don't use final_qty as fallback
+        // request_qty and actual_qty should remain unchanged when final_qty is modified
+        const resolvedActual = (item?.actual_qty !== undefined && item?.actual_qty !== null)
+          ? safeNumber(item.actual_qty)
+          : ((item?.request_qty !== undefined && item?.request_qty !== null)
+              ? safeNumber(item.request_qty)
+              : finalRequestQty);
+        
+        // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
+        const resolvedFinal = (item?.final_qty !== undefined && item?.final_qty !== null)
+          ? safeNumber(item.final_qty)
+          : ((item?.product_type !== undefined && item?.product_type !== null)
+              ? safeNumber(item.product_type)
+              : finalRequestQty);
+        
+        // CRITICAL: Amount/total should be calculated using request_qty
+        // request_qty is the original requested quantity which determines the final amount
+        const computedAmount = price * finalRequestQty;
+        const parsedAmount = Number(item?.amount);
+        // Only use parsedAmount if it matches the expected calculation (price * request_qty)
+        // This prevents stale amount values from being used
+        const expectedAmount = price * finalRequestQty;
+        const amount = (Number.isFinite(parsedAmount) && Math.abs(parsedAmount - expectedAmount) < 0.01) 
+          ? parsedAmount 
+          : computedAmount;
         const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
         const rawSpecificId = item?.specific_form_id ?? item?.id ?? item?.specific_id ?? '';
         

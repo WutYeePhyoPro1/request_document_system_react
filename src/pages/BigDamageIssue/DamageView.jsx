@@ -470,9 +470,16 @@ export default function DamageView() {
           // Items from list
           let items = list.map(r => {
             const price = Number(r.price ?? 0);
-            const qty = Number(r.product_type ?? r.actual_qty ?? r.final_qty ?? 0);
-            // Always recalculate amount to ensure accuracy
-            const amount = Number((price * qty).toFixed(2));
+            // CRITICAL: Preserve actual_qty from database - don't use product_type or final_qty as fallback
+            // actual_qty should remain as the original request quantity, even if final_qty changes
+            const actualQty = (r.actual_qty !== undefined && r.actual_qty !== null)
+              ? Number(r.actual_qty)
+              : ((r.request_qty !== undefined && r.request_qty !== null)
+                  ? Number(r.request_qty)
+                  : 0);
+            // Always recalculate amount to ensure accuracy (use final_qty for amount calculation)
+            const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
+            const amount = Number((price * finalQty).toFixed(2));
 
             const rawImages = Array.isArray(r.img) && r.img.length
               ? r.img
@@ -492,7 +499,7 @@ export default function DamageView() {
               system_qty: r.system_qty ?? 0,
               request_qty: r.request_qty ?? 0,
               final_qty: r.final_qty ?? 0,
-              actual_qty: qty,
+              actual_qty: actualQty,
               price: price,
               amount: amount,
               remark: r.remark || '',
@@ -553,9 +560,16 @@ export default function DamageView() {
           const rows = Array.isArray(listJson?.data) ? listJson.data : (Array.isArray(listJson) ? listJson : []);
           items = rows.map(r => {
             const price = Number(r.price ?? 0);
-            const qty = Number(r.product_type ?? r.actual_qty ?? r.final_qty ?? 0);
-            // Always recalculate amount to ensure accuracy
-            const amount = Number((price * qty).toFixed(2));
+            // CRITICAL: Preserve actual_qty from database - don't use product_type or final_qty as fallback
+            // actual_qty should remain as the original request quantity, even if final_qty changes
+            const actualQty = (r.actual_qty !== undefined && r.actual_qty !== null)
+              ? Number(r.actual_qty)
+              : ((r.request_qty !== undefined && r.request_qty !== null)
+                  ? Number(r.request_qty)
+                  : 0);
+            // Always recalculate amount to ensure accuracy (use final_qty for amount calculation)
+            const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
+            const amount = Number((price * finalQty).toFixed(2));
 
             const rawImages = Array.isArray(r.img) && r.img.length
               ? r.img
@@ -576,7 +590,7 @@ export default function DamageView() {
               system_qty: r.system_qty ?? 0,
               request_qty: r.request_qty ?? 0,
               final_qty: r.final_qty ?? 0,
-              actual_qty: qty,
+              actual_qty: actualQty,
               price: price,
               amount: amount,
               remark: r.remark || '',

@@ -123,9 +123,9 @@ const getStatusDisplayText = (status) => {
                     </span>
 
                     {/* Status badge */}
-                    <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
+                        <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
                       {getStatusDisplayText(noti.general_status)}
-                    </span>
+                        </span>
                   </div>
                 </div>
               </div>

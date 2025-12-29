@@ -58,10 +58,10 @@ const Dashboard = () => {
         await Promise.all(
           formsData.map(async (form) => {
             try {
-              const count = await countFormNoti(token, form.id);
+            const count = await countFormNoti(token, form.id);
               // Only set count if it's a valid number (not null/undefined)
               if (typeof count === 'number' && count >= 0) {
-                counts[form.id] = count;
+            counts[form.id] = count;
               }
               // Don't set anything if count is invalid - let it remain undefined
             } catch (error) {
@@ -83,7 +83,7 @@ const Dashboard = () => {
 
     // Only fetch once
     if (!hasFetchedRef.current) {
-      fetchAllForms();
+    fetchAllForms();
     }
   }, []);
 
