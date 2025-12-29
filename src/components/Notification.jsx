@@ -33,6 +33,20 @@ const handleNotiClick = (path) => {
   setIsDropdownOpen(false); // close dropdown
   navigate(path);          // navigate
 };
+
+// Map status to display text
+const getStatusDisplayText = (status) => {
+  if (!status) return "Checked";
+  const normalized = status.toString().trim();
+  
+  // Map Ac_Acknowledged to "Operation Manager Approved"
+  if (normalized === 'Ac_Acknowledged' || normalized === 'ac_acknowledged') {
+    return 'Operation Manager Approved';
+  }
+  
+  return status;
+};
+
 // console.log("FormUpperNoti>>" , formDataUpperNoti);
   return (
     <div className="relative">
@@ -110,7 +124,7 @@ const handleNotiClick = (path) => {
 
                     {/* Status badge */}
                     <span className="text-xs px-2 py-0.5 rounded bg-orange-100 text-orange-600 font-medium">
-                      {noti.general_status ?? "Checked"}
+                      {getStatusDisplayText(noti.general_status)}
                     </span>
                   </div>
                 </div>

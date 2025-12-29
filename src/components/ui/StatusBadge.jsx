@@ -50,14 +50,26 @@ export default function StatusBadge({ status, count }) {
     }
   };
 
-  const displayText = count !== undefined && count !== null ? `Total Count:${count} items` : status;
+  // Map status to display text
+  const getDisplayText = () => {
+    if (count !== undefined && count !== null) {
+      return `Total Count:${count} items`;
+    }
+    
+    // Map Ac_Acknowledged to "Operation Manager Approved"
+    if (normalized === 'ac_acknowledged' || normalized === 'acknowledged') {
+      return 'Operation Manager Approved';
+    }
+    
+    return status;
+  };
 
   return (
     <div className="flex flex-col mb-2">
       <span
         className={`rounded-full px-3 py-1 text-xs font-semibold w-fit ${getBadgeClass()}`}
       >
-        {displayText}
+        {getDisplayText()}
       </span>
     </div>
   );

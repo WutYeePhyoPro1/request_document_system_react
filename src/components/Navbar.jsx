@@ -547,8 +547,8 @@ export default function Navbar({ toggleSidebar }) {
                                     body = `${actorName}${actorRole ? ` (${actorRole})` : ''} approved your form ${formDocNo}`;
                                 } else if (action === 'acknowledged' || action === 'acknowledge' || action === 'op_acknowledged' ||
                                           status === 'ac_acknowledged' || status === 'acknowledged' || status.includes('acknowledge')) {
-                                    title = 'Form Acknowledged';
-                                    body = `${actorName}${actorRole ? ` (${actorRole})` : ''} acknowledged your form ${formDocNo}`;
+                                    title = 'Operation Manager Approved';
+                                    body = `${actorName}${actorRole ? ` (${actorRole})` : ''} approved your form ${formDocNo}`;
                                 } else if (action === 'issued' || action === 'issue' || action === 'completed' || action === 'complete' ||
                                           status === 'completed' || status === 'issued' || status === 'supervisorissued' || 
                                           status.includes('complete') || status.includes('issue')) {

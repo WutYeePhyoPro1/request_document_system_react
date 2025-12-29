@@ -1306,6 +1306,24 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     };
   }, [investigationData, normalizeInvestigationPct]);
 
+  const operationInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.op_company ?? investigationData.opCompanyPct),
+      normalizeInvestigationPct(investigationData.op_user ?? investigationData.opUserPct),
+      normalizeInvestigationPct(investigationData.op_income ?? investigationData.opIncomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
   const accountInvestigationValidation = useMemo(() => {
     if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
     const values = [
@@ -3129,12 +3147,34 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     // Operation Manager acknowledgment at BM Approved requires investigation percentages
     const isOpAckAction = action === 'Ac_Acknowledged' || action === 'OPApproved' || action === 'Acknowledged';
     const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
-    if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction && !isInvestigationFilled) {
-      setValidationErrorModal({
-        isOpen: true,
-        errors: [t('messages.investigationRequired')]
-      });
-      return;
+    if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction) {
+      // First check if base investigation is filled
+      if (!isInvestigationFilled) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
+        return;
+      }
+      
+      // Then check if Operation Manager Review percentages are filled
+      const operationSectionLabel = t('investigation.operationManagerReview', { defaultValue: 'Operation Manager Review' });
+      let operationError = '';
+      if (!operationInvestigationValidation.hasAny) {
+        operationError = t('investigation.percentagesRequiredForSection', { section: operationSectionLabel });
+      } else if (!operationInvestigationValidation.hasAll) {
+        operationError = t('investigation.percentagesMustIncludeForSection', { section: operationSectionLabel });
+      } else if (!operationInvestigationValidation.isValid) {
+        operationError = t('investigation.percentagesMustTotalForSection', { section: operationSectionLabel, total: operationInvestigationValidation.total.toFixed(2) });
+      }
+
+      if (operationError) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [operationError]
+        });
+        return;
+      }
     }
     
     // Check for empty fields before showing confirmation modal
@@ -3197,12 +3237,35 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const normalizedStatus = (statusRaw || '').toString().trim();
       const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
 
-      if (isOpAckAction && isBMApprovedStatus && !isInvestigationFilled) {
-        setValidationErrorModal({
-          isOpen: true,
-          errors: [t('messages.investigationRequired')]
-        });
-        return;
+      // Operation Manager must fill investigation form percentages before acknowledging
+      if (isOpAckAction && isBMApprovedStatus) {
+        // First check if base investigation is filled
+        if (!isInvestigationFilled) {
+          setValidationErrorModal({
+            isOpen: true,
+            errors: [t('messages.investigationRequired')]
+          });
+          return;
+        }
+        
+        // Then check if Operation Manager Review percentages are filled
+        const operationSectionLabel = t('investigation.operationManagerReview', { defaultValue: 'Operation Manager Review' });
+        let operationError = '';
+        if (!operationInvestigationValidation.hasAny) {
+          operationError = t('investigation.percentagesRequiredForSection', { section: operationSectionLabel });
+        } else if (!operationInvestigationValidation.hasAll) {
+          operationError = t('investigation.percentagesMustIncludeForSection', { section: operationSectionLabel });
+        } else if (!operationInvestigationValidation.isValid) {
+          operationError = t('investigation.percentagesMustTotalForSection', { section: operationSectionLabel, total: operationInvestigationValidation.total.toFixed(2) });
+        }
+
+        if (operationError) {
+          setValidationErrorModal({
+            isOpen: true,
+            errors: [operationError]
+          });
+          return;
+        }
       }
 
       await handleSubmit(actionToSubmit);
