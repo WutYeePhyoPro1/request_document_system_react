@@ -2,12 +2,127 @@
 import {  useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import dashboardPhoto from "../assets/images/reqBa.png";
+import companyLogo from "../assets/images/finallogo.png";
 import NavPath from "../components/NavPath";
 import { countFormNoti, getFormsList } from "../api/commonApi";
+
+// Animated Loading Component with Company Logo
+const LoadingScreen = () => {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
+      {/* Animated background gradient overlay */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
+        {/* Animated glow effects */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-glow"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-glow animation-delay-2000"></div>
+      </div>
+
+      {/* Logo container with animations */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Logo with glow and pulse animation */}
+        <div className="relative">
+          {/* Outer glow ring */}
+          <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-blue-500 via-blue-600 to-red-500 opacity-30 blur-xl animate-pulse"></div>
+          
+          {/* Logo container */}
+          <div className="relative p-8 bg-black/80 backdrop-blur-sm rounded-2xl border border-gray-800 shadow-2xl animate-float">
+            <img
+              src={companyLogo}
+              alt="Pro1 Global Home Center"
+              className="w-64 h-auto object-contain animate-logo-pulse drop-shadow-2xl"
+            />
+          </div>
+        </div>
+
+        {/* Tagline */}
+        <div className="mt-6 animate-fade-in">
+          <p className="text-red-500 text-xl italic font-semibold tracking-wide animate-shimmer">
+            "One Place, Get All."
+          </p>
+        </div>
+
+        {/* Loading text with animated dots */}
+        <div className="mt-8 flex flex-col items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-2xl font-bold text-white animate-text-glow">
+              Loading
+            </span>
+            <span className="flex gap-1.5 ml-1">
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce-dot shadow-lg shadow-blue-500/50" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce-dot shadow-lg shadow-blue-600/50" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-bounce-dot shadow-lg shadow-red-500/50" style={{ animationDelay: '300ms' }}></span>
+            </span>
+          </div>
+          <p className="mt-3 text-gray-400 text-sm animate-fade-in-up tracking-wider">
+            Preparing your dashboard
+          </p>
+        </div>
+
+        {/* Progress bar with glow */}
+        <div className="mt-8 w-72 h-2 bg-gray-800 rounded-full overflow-hidden shadow-inner">
+          <div className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-red-500 rounded-full animate-progress-bar shadow-lg"></div>
+        </div>
+      </div>
+
+      {/* Custom styles for animations */}
+      <style>{`
+        @keyframes glow {
+          0%, 100% { transform: scale(1); opacity: 0.2; }
+          50% { transform: scale(1.2); opacity: 0.3; }
+        }
+        @keyframes float {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-15px) scale(1.02); }
+        }
+        @keyframes logo-pulse {
+          0%, 100% { transform: scale(1); filter: brightness(1); }
+          50% { transform: scale(1.03); filter: brightness(1.1); }
+        }
+        @keyframes bounce-dot {
+          0%, 80%, 100% { transform: translateY(0) scale(1); }
+          40% { transform: translateY(-12px) scale(1.2); }
+        }
+        @keyframes fade-in {
+          0% { opacity: 0; transform: translateY(20px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fade-in-up {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes progress-bar {
+          0% { width: 0%; }
+          50% { width: 70%; }
+          100% { width: 100%; }
+        }
+        @keyframes shimmer {
+          0%, 100% { opacity: 0.8; }
+          50% { opacity: 1; text-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+        }
+        @keyframes text-glow {
+          0%, 100% { text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+          50% { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 0 0 30px rgba(59, 130, 246, 0.3); }
+        }
+        .animate-glow { animation: glow 4s ease-in-out infinite; }
+        .animation-delay-2000 { animation-delay: 2s; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-logo-pulse { animation: logo-pulse 2.5s ease-in-out infinite; }
+        .animate-bounce-dot { animation: bounce-dot 1.4s infinite ease-in-out both; }
+        .animate-fade-in { animation: fade-in 1s ease-out forwards; }
+        .animate-fade-in-up { animation: fade-in-up 0.8s ease-out forwards; animation-delay: 0.3s; opacity: 0; }
+        .animate-progress-bar { animation: progress-bar 2.5s ease-in-out infinite; }
+        .animate-shimmer { animation: shimmer 2s ease-in-out infinite; }
+        .animate-text-glow { animation: text-glow 2s ease-in-out infinite; }
+      `}</style>
+    </div>
+  );
+};
+
 const Dashboard = () => {
     const [allForm , setAllForm ] = useState([]) ;
     const [formCounts , setFormCounts] = useState({}) ;
-    const [loading , setLoading] = useState(false) ;
+    const [loading , setLoading] = useState(true) ;
     const hasFetchedRef = useRef(false);
     
      useEffect(() => {
@@ -141,7 +256,7 @@ const Dashboard = () => {
   }))
   console.log("Request Data>>" , requests) ;
     if (loading) {
-        return <div className="p-6 text-gray-600">Loading dashboard...</div>;
+        return <LoadingScreen />;
     }
 
     return (

@@ -1544,8 +1544,23 @@ const normalizeImageEntries = (list) => {
 
   const cancelRemove = () => setShowConfirm(false);
 
+  // Calculate total based on status:
+  // - BM Approved: sum of (price * actual_qty)
+  // - Other statuses: sum of item.amount (which uses final_qty)
+  const isBMApprovedStatus = status === 'BM Approved' || status === 'BMApproved';
   const total = items.reduce(
-    (sum, item) => sum + Number(item.amount || 0),
+    (sum, item) => {
+      if (isBMApprovedStatus) {
+        const price = toSafeNumber(item.price);
+        const actualQty = toSafeNumber(item.actual_qty);
+        const systemQty = toSafeNumber(item.system_qty);
+        const qtyForAmount = systemQty > 0 && actualQty > systemQty
+          ? systemQty
+          : (systemQty === 0 ? 0 : actualQty);
+        return sum + (price * qtyForAmount);
+      }
+      return sum + Number(item.amount || 0);
+    },
     0
   );
 
@@ -2421,20 +2436,31 @@ const normalizeImageEntries = (list) => {
                       })()}
                     </td>
                   )}
-                  {/* Amount - calculated using final_qty (or min of system_qty and final_qty) */}
+                  {/* Amount - calculated based on status:
+                      - Checked: price * final_qty
+                      - BM Approved: price * actual_qty */}
                   <td className="px-2 py-2 whitespace-nowrap text-[13px]">
                     {(() => {
                       const systemQty = toSafeNumber(item.system_qty);
+                      const actualQty = toSafeNumber(item.actual_qty);
                       const finalQty = toSafeNumber(item.final_qty ?? item.actual_qty);
                       const price = toSafeNumber(item.price);
 
-                      const qtyForAmount = systemQty > 0 && finalQty > systemQty
+                      // For BM Approved status, use actual_qty; otherwise use final_qty
+                      const isBMApproved = status === 'BM Approved' || status === 'BMApproved';
+                      const baseQty = isBMApproved ? actualQty : finalQty;
+                      
+                      const qtyForAmount = systemQty > 0 && baseQty > systemQty
                         ? systemQty
-                        : (systemQty === 0 ? 0 : finalQty);
+                        : (systemQty === 0 ? 0 : baseQty);
 
                       const calculatedAmount = qtyForAmount * price;
-                      // Prefer explicit total from backend if available, then amount, otherwise fall back to calculated
-                      const displayAmount = (item.total ?? item.amount) ?? calculatedAmount;
+                      
+                      // For BM Approved, always use calculated amount (price * actual_qty)
+                      // For other statuses, prefer explicit total from backend if available
+                      const displayAmount = isBMApproved 
+                        ? calculatedAmount 
+                        : ((item.total ?? item.amount) ?? calculatedAmount);
 
                       return formatAmount(displayAmount);
                     })()}

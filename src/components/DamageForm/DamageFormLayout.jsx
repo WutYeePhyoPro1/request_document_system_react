@@ -3478,13 +3478,17 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               ? safeNumber(item.product_type)
               : finalRequestQty);
         
-        // CRITICAL: Amount/total should be calculated using request_qty
-        // request_qty is the original requested quantity which determines the final amount
-        const computedAmount = price * finalRequestQty;
+        // CRITICAL: Amount/total calculation depends on the form status:
+        // - Checked: price * final_qty
+        // - BM Approved: price * actual_qty
+        const currentFormStatus = (formData.status || '').trim();
+        const isBMApprovedStatus = currentFormStatus === 'BM Approved' || currentFormStatus === 'BMApproved';
+        const qtyForAmount = isBMApprovedStatus ? resolvedActual : resolvedFinal;
+        const computedAmount = price * qtyForAmount;
         const parsedAmount = Number(item?.amount);
-        // Only use parsedAmount if it matches the expected calculation (price * request_qty)
+        // Only use parsedAmount if it matches the expected calculation
         // This prevents stale amount values from being used
-        const expectedAmount = price * finalRequestQty;
+        const expectedAmount = price * qtyForAmount;
         const amount = (Number.isFinite(parsedAmount) && Math.abs(parsedAmount - expectedAmount) < 0.01) 
           ? parsedAmount 
           : computedAmount;
