@@ -174,7 +174,7 @@ export default function Demo() {
   };
 
   console.log("Data Check>>", discountData);
-  const pageSize: number = 10;
+  const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
   const end = start + pageSize;
   // const paginateData = discountData?.data?.slice(start, end) ?? [];

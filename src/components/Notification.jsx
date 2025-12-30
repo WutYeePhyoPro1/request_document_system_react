@@ -1,38 +1,28 @@
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { badgeNoti } from "../api/badgeNoti";
 import finalLogo from "../assets/images/finallogo.png";
 import { FaBell, FaCheckDouble } from "react-icons/fa";
+import { NotificationContext } from "../context/NotificationContext";
 
-const Notification = ({ notifications, formBasedCount = null }) => {
+const Notification = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [upperNoti, setUpperNoti] = useState([]);
+  const { notifications  } = useContext(NotificationContext);
+
   const navigate = useNavigate();
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
-    const fetchNoti = async () => {
-      try {
-        const response = await badgeNoti(token);
-        setUpperNoti(response);
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    fetchNoti();
-  }, []);
+  
   const toggleDropdown = () => {
     setIsDropdownOpen((prev) => !prev);
   };
-  const formDataUpperNoti = upperNoti?.formData ?? [];
-  const unreadNotiUpperNoti = upperNoti?.getUnreadNoti ?? [];
-  const countNotiUpperNoti = unreadNotiUpperNoti.length;
+ const formDataUpperNoti = notifications?.formData ?? [];
+const unreadNotiUpperNoti = notifications?.getUnreadNoti ?? [];
+const countNotiUpperNoti = unreadNotiUpperNoti.length;
+
 const handleNotiClick = (path) => {
   setIsDropdownOpen(false); // close dropdown
   navigate(path);          // navigate
 };
+
 // console.log("FormUpperNoti>>" , formDataUpperNoti);
   return (
     <div className="relative">

@@ -108,7 +108,7 @@ const Detail: React.FC = () => {
     navigate(-1);
     // detailData(null);
   };
-  console.log("Detail Data>>", detailData?.form_rejected);
+  // console.log("Detail Data>>", detailData?.form_rejected);
   // const showLoading = loading || pageLoading || !detailData?.form;
 
   return (
@@ -141,13 +141,14 @@ const Detail: React.FC = () => {
                 ]}
               />
 
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-2">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold">
                   Request Discount Form(
                   {detailData?.form?.form_doc_no
                     ? detailData?.form?.form_doc_no
                     : ""}
                   )
+                  
                   <button
                     onClick={onCopyClick}
                     className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
@@ -165,12 +166,24 @@ const Detail: React.FC = () => {
                     }
                   />
                 </h2>
+                
                 <div className="text-gray-600 text-sm sm:text-base">
                   {detailData?.form?.created_at
                     ? dateFormat(detailData?.form?.created_at)
                     : ""}
                 </div>
+                
               </div>
+                    <div className="bg-red-300 text-white rounded-lg p-4 ">
+  <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+    {detailData?.form?.remark || "hello hpw rare what want to previous back"}
+  </p>
+</div>
+
+                {detailData?.form?.remark && (
+                    // <div className="mb-6">{detailData?.form?.remark}</div>
+                    <div className="">hello jh sjdejh sjdejg</div>
+                  )}
               <div className="mb-6">
                 <div className="font-medium mb-2">
                   Request Manual Discount Detail

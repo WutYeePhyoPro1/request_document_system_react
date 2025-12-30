@@ -17,7 +17,7 @@ import {
   Pagination,
 } from "@mantine/core";
 import "@mantine/core/styles.css";
-import { IconFile, IconX } from "@tabler/icons-react";
+import { IconFile, IconFileText, IconX } from "@tabler/icons-react";
 import { v4 as uuidv4 } from "uuid";
 import {
   getCreateData,
@@ -206,20 +206,71 @@ const paginateData = detailInvoice.slice(start , end) ;
           item.netamount,
         ]),
   };
+  // const addInvoiceFile = () => {
+  //   console.log("Add File");
+  //   setInvoiceFile([...invoiceFile, { id: uuidv4(), file: null }]);
+  // };
+  // const removeInvoiceFile = (id: string) => {
+  //   if (invoiceFile.length > 1) {
+  //     setInvoiceFile(invoiceFile.filter((f) => f.id !== id));
+  //   }
+  // };
+  // const updateFile = (id: string, file: File | null) => {
+  //   setInvoiceFile((prev) =>
+  //     prev.map((f) => (f.id === id ? { ...f, file } : f))
+  //   );
+  // };
   const addInvoiceFile = () => {
-    console.log("Add File");
-    setInvoiceFile([...invoiceFile, { id: uuidv4(), file: null }]);
-  };
-  const removeInvoiceFile = (id: string) => {
-    if (invoiceFile.length > 1) {
-      setInvoiceFile(invoiceFile.filter((f) => f.id !== id));
-    }
-  };
-  const updateFile = (id: string, file: File | null) => {
-    setInvoiceFile((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, file } : f))
-    );
-  };
+  setInvoiceFile((prev) => [
+    ...prev,
+    {
+      id: Date.now(),
+      file: null,
+      preview: null,
+      type: null,
+      name: null,
+    },
+  ]);
+};
+
+const removeInvoiceFile = (id) => {
+  setInvoiceFile((prev) =>
+    prev.filter((item) => {
+      if (item.id === id && item.preview) {
+        URL.revokeObjectURL(item.preview);
+      }
+      return item.id !== id;
+    })
+  );
+};
+
+  const updateFile = (id, file) => {
+  setInvoiceFile((prev) =>
+    prev.map((item) => {
+      if (item.id !== id) return item;
+
+      // cleanup old preview
+      if (item.preview) URL.revokeObjectURL(item.preview);
+
+      if (!file) {
+        return { ...item, file: null, preview: null, type: null, name: null };
+      }
+
+      const fileType = file.type;
+      const isImage = fileType.startsWith("image/");
+      const isPdf = fileType === "application/pdf";
+
+      return {
+        ...item,
+        file,
+        name: file.name,
+        type: isImage ? "image" : isPdf ? "pdf" : "other",
+        preview: isImage || isPdf ? URL.createObjectURL(file) : null,
+      };
+    })
+  );
+};
+
   // console.log("InvoiceFile>>" , invoiceFile[0].file) ;
   const fetchData = async (): Promise<void> => {
     const token = localStorage.getItem("token");
@@ -409,7 +460,7 @@ const paginateData = detailInvoice.slice(start , end) ;
               searchable
             />
             {/* Dynamic File Inputs in flex-row */}
-            <div className="flex flex-col items-end gap-3">
+            {/* <div className="flex flex-col items-end gap-3">
               {invoiceFile.map((fileField, index) => (
                 <div
                   key={fileField.id}
@@ -439,7 +490,86 @@ const paginateData = detailInvoice.slice(start , end) ;
                   )}
                 </div>
               ))}
+            </div> */}
+          <div className="flex flex-col gap-4">
+  {/* FILE INPUTS */}
+  {invoiceFile.map((fileField, index) => (
+    <div key={fileField.id} className="flex flex-col gap-2">
+      <div className="flex items-end gap-2 w-full">
+        <FileInput
+          withAsterisk
+          leftSection={fileIcon}
+          label={index === 0 ? "Upload Invoice or Slip" : undefined}
+          placeholder="Upload file"
+          leftSectionPointerEvents="none"
+          className="w-3/4"
+          onChange={(file) => updateFile(fileField.id, file)}
+        />
+
+        {index === 0 ? (
+          <Button onClick={addInvoiceFile}>Add</Button>
+        ) : (
+          <Button
+            color="red"
+            onClick={() => removeInvoiceFile(fileField.id)}
+          >
+            <IconX size={16} />
+          </Button>
+        )}
+      </div>
+    </div>
+  ))}
+
+  {/* 🔽 PREVIEW SECTION (ALL FILES TOGETHER) */}
+  <div className="flex flex-wrap gap-3 mt-2">
+    {invoiceFile
+      .filter((f) => f.file)
+      .map((fileField) => (
+        <div
+          key={`preview-${fileField.id}`}
+          className="w-20 p-2 border rounded-md flex items-center justify-center"
+        >
+          {/* IMAGE */}
+          {fileField.type === "image" && (
+            <a href={fileField.preview} target="_blank" rel="noreferrer">
+              <img
+                src={fileField.preview}
+                alt="Preview"
+                className=" "
+              />
+            </a>
+          )}
+
+          {/* PDF */}
+          {fileField.type === "pdf" && (
+            <a
+              href={fileField.preview}
+              target="_blank"
+              rel="noopener noreferrer"
+              className=" "
+            >
+              <IconFileText size={32} className="text-red-500" />
+              <span className="text-xs break-all">
+                {fileField.name}
+              </span>
+            </a>
+          )}
+
+          {/* OTHER FILE */}
+          {fileField.type === "other" && (
+            <div className="flex flex-col items-center gap-2 text-center">
+              <IconFile size={32} className="text-gray-500" />
+              <span className="text-xs break-all">
+                {fileField.name}
+              </span>
             </div>
+          )}
+        </div>
+      ))}
+  </div>
+</div>
+
+
 
             <Textarea
               withAsterisk

@@ -1,5 +1,5 @@
 // ApproveForm.tsx
-import React, { useEffect, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
 import { Button, FileInput, Modal, Textarea } from "@mantine/core";
@@ -21,8 +21,11 @@ import type { InvoiceFile } from "../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import { useForm } from "@mantine/form";
 import { useDisclosure } from "@mantine/hooks";
+import { NotificationContext } from "../../context/NotificationContext";
 
 const ApproveForm: React.FC = () => {
+  const { refreshNotifications } = useContext(NotificationContext);
+
   const [opened, { open, close }] = useDisclosure(false);
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);
@@ -126,12 +129,20 @@ const ApproveForm: React.FC = () => {
       category_discount: checkedItems.map((v) => v.category_discount),
       check: checkedItems.map((v) => v.check),
     };
-    const isCateCheck = statusValue === "cateCheck";
+    const isCateCheck = statusValue === "cateCheck" ;
+    const isBack = statusValue === "bracc_btp" || statusValue === "cat_btp" || statusValue === "mer_btp" ;
+    let confirmText;
+
+if (isCateCheck) {
+  confirmText = "Want to check this form?";
+} else if (isBack) {
+  confirmText = "Want back to previous this form?";
+} else {
+  confirmText = `Want to ${statusValue} this form`;
+}
     const confirmBox = await Swal.fire({
       title: "Are you Sure?",
-      text: isCateCheck
-        ? "Want to check this form?"
-        : `Want to ${statusValue} this form`,
+     text: confirmText ,
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#30856d",
@@ -171,6 +182,7 @@ const ApproveForm: React.FC = () => {
             ? " Form has been checked successfully!"
             : `Form has been ${statusValue} successfully!`,
         });
+        await refreshNotifications();
         console.log("Submit Data", submitData);
 
         const token = localStorage.getItem("token");
@@ -287,7 +299,7 @@ const ApproveForm: React.FC = () => {
       return;
     }
     dispatch(setComment(e.target.value));
-    console.log(setComment(e.target.value));
+    console.log("Test Comment>>" ,setComment(e.target.value));
   };
   const addDiscountFile = () => {
     console.log("Add File");
@@ -323,7 +335,7 @@ const ApproveForm: React.FC = () => {
                   resize="vertical"
                   name="comment"
                   placeholder="Your comment"
-                  value={formData.comment || ""}
+                  // value={formData.comment || ""}
                   onChange={handleCommentChange}
                 />
               </div>
@@ -373,7 +385,7 @@ const ApproveForm: React.FC = () => {
                   resize="vertical"
                   name="comment"
                   placeholder="Your comment"
-                  value={formData.comment || ""}
+                  // value={formData.comment || ""}
                   onChange={handleCommentChange}
                 />
               </div>
@@ -408,7 +420,7 @@ const ApproveForm: React.FC = () => {
                   resize="vertical"
                   name="comment"
                   placeholder="Your comment"
-                  value={formData.comment || ""}
+                  // value={formData.comment || ""}
                   onChange={handleCommentChange}
                 />
               </div>
@@ -598,7 +610,7 @@ const ApproveForm: React.FC = () => {
                     resize="vertical"
                     name="comment"
                     placeholder="Your comment"
-                    value={formData.comment || ""}
+                    // value={formData.comment || ""}
                     onChange={handleCommentChange}
                   />
                 </div>
