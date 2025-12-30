@@ -15,10 +15,11 @@ const getUserFromStorage = () => {
         return null;
     }
 };
+const getTokenFromStorage = () => localStorage.getItem("token") || null;
 
-export const AuthProvider = ({ children }) => {
+    export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(getUserFromStorage());
-
+   const [token, setToken] = useState(getTokenFromStorage());
     const login = async (employee_number, password, remember = false) => {
         try {
             const response = await fetch("/api/login", {
@@ -28,11 +29,12 @@ export const AuthProvider = ({ children }) => {
             });
             
             const data = await response.json();
-// console.log("ApiData>>" , response.data) ;
-// console.log("ApiUser" , data) ;
+            console.log("ApiData>>" , response.data) ;
+
             if (response.ok) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
+               
                 setUser(data.user);
                 return true;
             } else {
@@ -104,6 +106,7 @@ export const AuthProvider = ({ children }) => {
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('user', JSON.stringify(response.data.user));
                 setUser(response.data.user);
+                setToken(response.data.token);
                 return true;
 
                 // setUser(response.data.user);
@@ -118,7 +121,7 @@ export const AuthProvider = ({ children }) => {
 
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loginWithToken }}>
+        <AuthContext.Provider value={{ user, login, logout, loginWithToken , token}}>
             {children}
         </AuthContext.Provider>
     );

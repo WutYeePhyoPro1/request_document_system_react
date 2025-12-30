@@ -8,14 +8,29 @@ import { NotificationContext } from "../context/NotificationContext";
 const Notification = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const { notifications  } = useContext(NotificationContext);
-
+// const [upperNoti, setUpperNoti] = useState([]);
   const navigate = useNavigate();
+  // useEffect(() => {
+  //   const token = localStorage.getItem("token");
+  //   if (!token) return;
+
+  //   const fetchNoti = async () => {
+  //     try {
+  //       const response = await badgeNoti(token);
+  //       setUpperNoti(response);
+  //     } catch (error) {
+  //       console.error(error);
+  //     }
+  //   };
+
+  //   fetchNoti();
+  // }, []);
   
   const toggleDropdown = () => {
     setIsDropdownOpen((prev) => !prev);
   };
  const formDataUpperNoti = notifications?.formData ?? [];
-const unreadNotiUpperNoti = notifications?.getUnreadNoti ?? [];
+const unreadNotiUpperNoti = notifications?.getUnreadNoti  ?? [];
 const countNotiUpperNoti = unreadNotiUpperNoti.length;
 
 const handleNotiClick = (path) => {

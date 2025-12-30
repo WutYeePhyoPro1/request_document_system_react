@@ -174,15 +174,16 @@ const Detail: React.FC = () => {
                 </div>
                 
               </div>
-                    <div className="bg-red-300 text-white rounded-lg p-4 ">
+                    
+
+                {detailData?.form?.remark && (
+                    // <div className="mb-6">{detailData?.form?.remark}</div>
+                    // <div className="">hello jh sjdejh sjdejg</div>
+                    <div className="bg-red-300 text-white rounded-lg p-4 mb-4 ">
   <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
     {detailData?.form?.remark || "hello hpw rare what want to previous back"}
   </p>
 </div>
-
-                {detailData?.form?.remark && (
-                    // <div className="mb-6">{detailData?.form?.remark}</div>
-                    <div className="">hello jh sjdejh sjdejg</div>
                   )}
               <div className="mb-6">
                 <div className="font-medium mb-2">

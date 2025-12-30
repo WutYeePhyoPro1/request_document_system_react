@@ -17,7 +17,7 @@ import { canViewAllBranches } from '../utils/userAccess';
 export default function Navbar({ toggleSidebar }) {
     const { t } = useTranslation();
     const { user, logout } = useAuth();
-    const { notifications, setNotifications } = useContext(NotificationContext); // ✅
+    const { notifications } = useContext(NotificationContext); 
     const token = localStorage.getItem("token");
     const userRoleId = user?.id;
 
@@ -53,64 +53,62 @@ export default function Navbar({ toggleSidebar }) {
     };
 
 
-    useEffect(() => {
-        const fetchNotifications = async () => {
-            if (!user || !token) return;
-            try {
-                const res = await fetch(`/api/notifications/${userRoleId}`, {
-                    headers: { 
-                        'Authorization': `Bearer ${token}`,
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'include'
-                });
+    // useEffect(() => {
+    //     const fetchNotifications = async () => {
+    //         if (!user || !token) return;
+    //         try {
+    //             const res = await fetch(`/api/notifications/${userRoleId}`, {
+    //                 headers: { 
+    //                     'Authorization': `Bearer ${token}`,
+    //                     'Accept': 'application/json',
+    //                     'Content-Type': 'application/json',
+    //                     'X-Requested-With': 'XMLHttpRequest'
+    //                 },
+    //                 credentials: 'include'
+    //             });
                 
-                if (!res.ok) {
-                    const errorData = await res.json().catch(() => ({}));
-                    if (res.status === 401) {
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('user');
-                        window.location.href = '/login';
-                        return;
-                    }
-                    throw new Error(errorData.message || 'Failed to fetch notifications');
-                }
+    //             if (!res.ok) {
+    //                 const errorData = await res.json().catch(() => ({}));
+    //                 if (res.status === 401) {
+    //                     localStorage.removeItem('token');
+    //                     localStorage.removeItem('user');
+    //                     window.location.href = '/login';
+    //                     return;
+    //                 }
+    //                 throw new Error(errorData.message || 'Failed to fetch notifications');
+    //             }
 
-                const data = await res.json();
+    //             const data = await res.json();
                 
-                if (!Array.isArray(data)) {
-                    return;
-                }
+    //             if (!Array.isArray(data)) {
+    //                 return;
+    //             }
 
-                const parsed = data.map(n => ({
-                    form_id: n.data?.form_id,
-                    specific_form_id: n.data?.specific_form_id,
-                    form_doc_no: n.data?.form_doc_no,
-                    created_at: n.created_at,
-                    form_name: n.form_name || 'Unknown Form',
-                    status: n.status || 'pending',
-                }));
+    //             const parsed = data.map(n => ({
+    //                 form_id: n.data?.form_id,
+    //                 specific_form_id: n.data?.specific_form_id,
+    //                 form_doc_no: n.data?.form_doc_no,
+    //                 created_at: n.created_at,
+    //                 form_name: n.form_name || 'Unknown Form',
+    //                 status: n.status || 'pending',
+    //             }));
 
-                setNotifications(parsed);
-                localStorage.setItem("notifications", JSON.stringify(parsed));
-            } catch (err) {
-                // Don't throw to prevent uncaught promise rejection
-            }
-        };
+    //             setNotifications(parsed);
+    //             localStorage.setItem("notifications", JSON.stringify(parsed));
+    //         } catch (err) {
+    //             // Don't throw to prevent uncaught promise rejection
+    //         }
+    //     };
 
-        fetchNotifications();
-        subscribeToPush();
-        const interval = setInterval(fetchNotifications, 30000);
-        return () => clearInterval(interval);
-    }, [userRoleId, token, setNotifications]);
+    //     fetchNotifications();
+    //     subscribeToPush();
+    //     const interval = setInterval(fetchNotifications, 30000);
+    //     return () => clearInterval(interval);
+    // }, [userRoleId, token, setNotifications]);
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
     };
-console.log("AuthUser>>>" , user) ;
 
     return (
         <nav className="bg-gradient-to-r from-blue-50 via-cyan-50 to-blue-50 backdrop-blur-sm border-b border-blue-100/50 text-gray-800 py-3 sm:py-4 px-4 sm:px-6 flex items-center gap-2 sm:gap-3 relative shadow-sm z-50">
@@ -128,7 +126,7 @@ console.log("AuthUser>>>" , user) ;
             {/* Right Side Actions */}
             <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-shrink-0 ml-auto">
                 <LanguageSwitcher />
-                <NotificationIcon   />
+                <NotificationIcon notifications={notifications}  />
                 <div className="relative z-50" ref={dropdownRef}>
                     <button
                         onClick={() => setMenuOpen(!menuOpen)}
