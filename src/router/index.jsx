@@ -1,7 +1,8 @@
 // src/routes/router.jsx
 import {
     createBrowserRouter,
-    Navigate
+    Navigate,
+    useParams
 } from "react-router-dom";
 
 import Home from '../pages/Home.jsx'
@@ -31,6 +32,11 @@ import GeneratorCreate from "../pages/MAndE/Generator/generatorCreate.js";
 const LoginRoute = () => {
     const token = localStorage.getItem('token');
     return token ? <Navigate to="/dashboard" /> : <Login />;
+};
+
+const BigDamageRedirect = () => {
+    const { id } = useParams();
+    return <Navigate to={`/big-damage-issue-add/${id}`} replace />;
 };
 const router = createBrowserRouter([
     {
@@ -84,9 +90,9 @@ const router = createBrowserRouter([
                 element: <DamageDetail />
             },
             {
-                // Backwards-compatible alias used by notifications (underscore style)
+                // Redirect notifications from underscore style to the correct URL format
                 path: "big_damage_issue_detail/:id",
-                element: <DamageDetail />
+                element: <BigDamageRedirect />
             },
             {
                 path: "big-damage-issue-filter",

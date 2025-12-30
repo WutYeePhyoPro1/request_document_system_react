@@ -994,44 +994,12 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const hasOpApprovalEntry = Boolean(opApproval);
     const result = hasOpApprovalEntry && currentUser;
     
-    // Debug logging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[isOpManagerByApproval] Check result:', {
-        hasOpApprovalEntry,
-        currentUser: Boolean(currentUser),
-        result,
-        formStatus: formData?.status,
-        totalAmount: Number(
-          formData?.general_form?.total_amount
-          ?? formData?.total_amount
-          ?? formData?.general_form?.totalAmount
-          ?? formData?.totalAmount
-          ?? 0
-        ),
-        approvalsCount: Array.isArray(formData?.approvals) ? formData.approvals.length : 0
-      });
-    }
-    
     return Boolean(result);
   }, [currentUser, formData.approvals, formData.status, formData.general_form_id, formData.generalFormId, formData.id, initialData?.id, initialData?.generalFormId, initialData?.general_form_id]);
 
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
   
-  // Debug logging for Operation Manager detection
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[Operation Manager Detection]', {
-      userRole,
-      isOpManagerByApproval,
-      isOpManager,
-      currentUserId: currentUser?.id || currentUser?.admin_id || currentUser?.userId,
-      approvalsCount: Array.isArray(formData?.approvals) ? formData.approvals.length : 0,
-      opApprovals: Array.isArray(formData?.approvals) ? formData.approvals.filter(a => {
-        const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
-        return userType === 'OP' || userType === 'A2';
-      }) : []
-    });
-  }
   
 
   // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
@@ -1141,30 +1109,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return Boolean(isDocumentOwner && isOngoing && isViewMode);
   }, [isDocumentOwner, formData?.status, mode, formData?.id]);
 
-  // Debug: log key values to help diagnose why Add/Remark/Attach still appear
-  React.useEffect(() => {
-    try {
-      console.debug('[DamageFormLayout DEBUG]', {
-        mode,
-        formId: formData?.id,
-        formStatus: formData?.status,
-        currentUserId: currentUser?.id,
-        currentUserName: currentUser?.name,
-        currentUserEmail: currentUser?.email,
-        isDocumentOwner,
-        isDocumentOwnerViewingOngoingBack,
-        isCheckerWhoApproved,
-        showRemarkProp: mode !== 'add' &&
-          !((getUserRole() === 'bm' || getUserRole() === 'abm') && (formData.status === 'BM Approved' || formData.status === 'BMApproved')) &&
-          !(isCheckerWhoApproved && (formData.status === 'Checked' || formData.status === 'checked')) &&
-          !isDocumentOwnerViewingOngoingBack,
-        showAttachmentsProp: !isCheckerWhoApproved && !isDocumentOwnerViewingOngoingBack,
-        readOnlyProp: (isCheckerWhoApproved && (formData.status === 'Checked' || formData.status === 'checked')) || isDocumentOwnerViewingOngoingBack,
-      });
-    } catch (e) {
-      // swallow
-    }
-  }, [mode, formData?.id, formData?.status, currentUser, isDocumentOwner, isDocumentOwnerViewingOngoingBack, isCheckerWhoApproved]);
   
   // Fix incorrect "Checked by" name if current user is supervisor and their name is in Checked by
   useEffect(() => {
@@ -1294,6 +1238,24 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       normalizeInvestigationPct(investigationData.bm_company ?? investigationData.companyPct),
       normalizeInvestigationPct(investigationData.bm_user ?? investigationData.userPct),
       normalizeInvestigationPct(investigationData.bm_income ?? investigationData.incomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
+  const operationInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.op_company ?? investigationData.opCompanyPct),
+      normalizeInvestigationPct(investigationData.op_user ?? investigationData.opUserPct),
+      normalizeInvestigationPct(investigationData.op_income ?? investigationData.opIncomePct),
     ];
     const hasAny = values.some(v => v !== null);
     const hasAll = values.every(v => v !== null);
@@ -1814,10 +1776,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const handleCloseAddProductModal = () => setIsAddProductModalOpen(false);
 
   const handleAddItem = item => {
-    console.log('Adding item to form:', item);
     setFormData(prev => {
       const newItems = [...prev.items, item];
-      console.log('Total items after add:', newItems.length);
       return { ...prev, items: newItems };
     });
   };
@@ -1873,8 +1833,26 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ? Number(value ?? 0)
         : value;
 
-      // Preserve category when updating other fields
+      // CRITICAL: Prevent request_qty from being updated when actual_qty changes
+      // request_qty should only be set once (when actual_qty is first entered) and then remain independent
       const currentItem = nextItems[index];
+      if (field === 'request_qty') {
+        // Only update request_qty if it hasn't been set yet (is null/undefined/empty string/0)
+        // Once request_qty has a non-zero value, it should remain independent
+        const existingRequestQty = currentItem.request_qty;
+        const isRequestQtyUnset = existingRequestQty === null || 
+                                  existingRequestQty === undefined || 
+                                  existingRequestQty === '' ||
+                                  existingRequestQty === 0 ||
+                                  (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
+        
+        if (!isRequestQtyUnset) {
+          // request_qty has been set, preserve it - don't update
+          return prev;
+        }
+      }
+
+      // Preserve category when updating other fields
       nextItems[index] = {
         ...currentItem,
         [field]: nextValue,
@@ -1976,9 +1954,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         name: info.product_name || "",
         unit: info.unit || "",
         system_qty: Number(sysQty) || 0,
-        request_qty: 0, // Initialize with 0, user will enter the value
-        actual_qty: 0, // Initialize with 0, user will enter the value
-        final_qty: 0, // Initialize with 0, user will enter the value
+        request_qty: '', // Initialize as empty string, will be set when user enters actual_qty
+        actual_qty: '', // Initialize as empty string, user will enter the value
+        final_qty: '', // Initialize as empty string, user will enter the value
         price,
         amount: 0, // Calculate initial amount (will be calculated when qty is entered)
         remark: "",
@@ -2154,25 +2132,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
               qtyInput.select(); // Select the text so user can type immediately
               // Scroll into view to ensure the field is visible
               qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              console.log('[DamageFormLayout] Successfully focused on qty field:', {
-                itemId: newItem.id,
-                field: qtyInput.getAttribute('data-field'),
-                value: qtyInput.value,
-                status: currentStatus,
-                isCheckedStage,
-                isOngoingStage
-              });
             });
             return true; // Successfully focused
           } else if (attempt < maxAttempts) {
             // Retry with longer delay
-            console.log(`[DamageFormLayout] Qty field not found, retrying (attempt ${attempt}/${maxAttempts})...`);
             tryFocusQtyField(attempt + 1, maxAttempts);
-          } else {
-            console.warn('[DamageFormLayout] Failed to find qty field after all attempts:', {
-              itemId: newItem.id,
-              allInputs: document.querySelectorAll('input[data-item-id]').length
-            });
           }
           return false;
         }, attempt * 200); // Increase delay with each attempt: 200ms, 400ms, 600ms, etc.
@@ -2262,10 +2226,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                     qtyInput.focus();
                     qtyInput.select();
                     qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    console.log('[DamageFormLayout] Successfully focused on qty field after modal close:', {
-                      field: qtyInput.getAttribute('data-field'),
-                      itemId: newItem.id
-                    });
                   });
                 } else if (attempt < maxAttempts) {
                   retryFocus(attempt + 1, maxAttempts);
@@ -2347,10 +2307,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                   qtyInput.focus();
                   qtyInput.select();
                   qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  console.log('[DamageFormLayout] Successfully focused on qty field after modal auto-close:', {
-                    field: qtyInput.getAttribute('data-field'),
-                    itemId: newItem.id
-                  });
                 });
               } else if (attempt < maxAttempts) {
                 retryFocus(attempt + 1, maxAttempts);
@@ -2790,18 +2746,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       // The route is /api/big-damage-issues/{general_form_id}/print
       const pdfUrl = `${API_BASE_URL}/big-damage-issues/${generalFormId}/print`;
       
-      console.log('[PDF Download] Starting PDF download', { pdfUrl, generalFormId });
       
       let timeoutId = null;
       try {
         // Create an AbortController for timeout
         const controller = new AbortController();
         timeoutId = setTimeout(() => {
-          console.error('[PDF Download] Request timeout after 60 seconds');
           controller.abort();
         }, 60000); // 60 second timeout
         
-        console.log('[PDF Download] Fetching PDF...');
         // Fetch PDF with Bearer token authentication (API route)
         const response = await fetch(pdfUrl, {
           method: 'GET',
@@ -2814,13 +2767,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         });
         
         if (timeoutId) clearTimeout(timeoutId);
-
-        console.log('[PDF Download] Response received', { 
-          status: response.status, 
-          statusText: response.statusText,
-          contentType: response.headers.get('content-type'),
-          ok: response.ok 
-        });
 
         // Check content type first
         const contentType = response.headers.get('content-type') || '';
@@ -2864,17 +2810,10 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         }
         
         // Get the PDF blob
-        console.log('[PDF Download] Converting response to blob...');
         const blob = await response.blob();
-        
-        console.log('[PDF Download] Blob created', { 
-          type: blob.type, 
-          size: blob.size 
-        });
         
         // Verify it's actually a PDF (check blob type and size)
         if (blob.size === 0) {
-          console.error('[PDF Download] Blob is empty');
           throw new Error(t('messages.errors.pdfInvalidResponse'));
         }
         
@@ -2894,7 +2833,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         }
         
         // Create a blob URL and download
-        console.log('[PDF Download] Creating download link...');
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
@@ -2906,7 +2844,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         // Clean up the blob URL
         window.URL.revokeObjectURL(blobUrl);
         
-        console.log('[PDF Download] PDF download completed successfully');
         setSuccessModalMessage(t('messages.pdfGenerated'));
         setSuccessModalAction('submit');
         setIsSuccessModalOpen(true);
@@ -2922,22 +2859,13 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const errorMessage = error.message || t('messages.pdfGenerateFailed');
       setErrorModalMessage(errorMessage);
       setIsErrorModalOpen(true);
-      console.error('PDF download error:', error);
     }
   };
 
   // Show confirmation modal before submitting
   const handleSubmitClick = (action) => {
-    console.log('[handleSubmitClick] Called with:', { 
-      action, 
-      formStatus: formData.status,
-      formReason: formData.reason,
-      itemsCount: formData.items?.length 
-    });
-    
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
-      console.warn('Form submission already in progress, ignoring duplicate click');
       return;
     }
     
@@ -3001,25 +2929,11 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     const status = (formData.status || '').toString().trim();
     const normalizedStatus = status.replace(/\s+/g, ' ');
     
-    console.log('[handleSubmitClick] Status check:', { 
-      status, 
-      normalizedStatus,
-      action 
-    });
-    
     // Validate remark and images when checking form in Ongoing status
     const isCheckAction = action === 'Checked' || action === 'Check' || action === 'BMApprovedMem' || action === 'checked' || action === 'bmapprovedmem';
-    console.log('[handleSubmitClick] isCheckAction:', isCheckAction, 'action:', action);
     const isOngoingStatus = normalizedStatus === 'Ongoing' || normalizedStatus === 'ongoing';
     
     if (isCheckAction && isOngoingStatus) {
-      console.log('[Validation] Checking form in Ongoing status', { 
-        action, 
-        status: normalizedStatus, 
-        formData,
-        items: formData.items 
-      });
-      
       const checkErrors = [];
       
       // Validation for supporting info remark, product images, and remarks removed
@@ -3027,7 +2941,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       
       // If there are validation errors, show modal and return
       if (checkErrors.length > 0) {
-        console.log('[Validation] Validation failed, showing errors:', checkErrors);
         setValidationErrorModal({
           isOpen: true,
           errors: checkErrors
@@ -3035,7 +2948,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         return;
       }
       
-      console.log('[Validation] All validations passed');
     }
     const role = getUserRole();
     const isCheckedStatus = normalizedStatus === 'Checked';
@@ -3129,12 +3041,34 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     // Operation Manager acknowledgment at BM Approved requires investigation percentages
     const isOpAckAction = action === 'Ac_Acknowledged' || action === 'OPApproved' || action === 'Acknowledged';
     const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
-    if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction && !isInvestigationFilled) {
+    if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction) {
+      // First check if base investigation is filled
+      if (!isInvestigationFilled) {
       setValidationErrorModal({
         isOpen: true,
         errors: [t('messages.investigationRequired')]
       });
       return;
+      }
+      
+      // Then check if Operation Manager Review percentages are filled
+      const operationSectionLabel = t('investigation.operationManagerReview', { defaultValue: 'Operation Manager Review' });
+      let operationError = '';
+      if (!operationInvestigationValidation.hasAny) {
+        operationError = t('investigation.percentagesRequiredForSection', { section: operationSectionLabel });
+      } else if (!operationInvestigationValidation.hasAll) {
+        operationError = t('investigation.percentagesMustIncludeForSection', { section: operationSectionLabel });
+      } else if (!operationInvestigationValidation.isValid) {
+        operationError = t('investigation.percentagesMustTotalForSection', { section: operationSectionLabel, total: operationInvestigationValidation.total.toFixed(2) });
+      }
+
+      if (operationError) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [operationError]
+        });
+        return;
+      }
     }
     
     // Check for empty fields before showing confirmation modal
@@ -3180,7 +3114,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
   const handleConfirmSubmit = async () => {
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
-      console.warn('Form submission already in progress, ignoring duplicate confirmation');
       return;
     }
     
@@ -3197,12 +3130,35 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const normalizedStatus = (statusRaw || '').toString().trim();
       const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
 
-      if (isOpAckAction && isBMApprovedStatus && !isInvestigationFilled) {
+      // Operation Manager must fill investigation form percentages before acknowledging
+      if (isOpAckAction && isBMApprovedStatus) {
+        // First check if base investigation is filled
+        if (!isInvestigationFilled) {
         setValidationErrorModal({
           isOpen: true,
           errors: [t('messages.investigationRequired')]
         });
         return;
+        }
+        
+        // Then check if Operation Manager Review percentages are filled
+        const operationSectionLabel = t('investigation.operationManagerReview', { defaultValue: 'Operation Manager Review' });
+        let operationError = '';
+        if (!operationInvestigationValidation.hasAny) {
+          operationError = t('investigation.percentagesRequiredForSection', { section: operationSectionLabel });
+        } else if (!operationInvestigationValidation.hasAll) {
+          operationError = t('investigation.percentagesMustIncludeForSection', { section: operationSectionLabel });
+        } else if (!operationInvestigationValidation.isValid) {
+          operationError = t('investigation.percentagesMustTotalForSection', { section: operationSectionLabel, total: operationInvestigationValidation.total.toFixed(2) });
+        }
+
+        if (operationError) {
+          setValidationErrorModal({
+            isOpen: true,
+            errors: [operationError]
+          });
+          return;
+        }
       }
 
       await handleSubmit(actionToSubmit);
@@ -3221,12 +3177,10 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
-      console.warn(`[DUPLICATE PREVENTION] Form submission already in progress (ID: ${submissionIdRef.current}), ignoring duplicate request (ID: ${currentSubmissionId})`);
       return;
     }
    
     try {
-      console.log(`[FORM SUBMISSION START] Submission ID: ${currentSubmissionId}, Action: ${action}`);
       submissionIdRef.current = currentSubmissionId;
       setError('');
       setSuccessMessage('');
@@ -3330,10 +3284,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         return qty > 0;
       });
 
-      console.log('Form submission - Total items:', items.length);
-      console.log('Form submission - Valid items:', validItems.length);
-      console.log('Form submission - Items data:', items);
-      console.log('Form submission - Valid items data:', validItems);
 
       // Critical validation - items are still required (blocking error)
       if (validItems.length === 0) {
@@ -3353,29 +3303,64 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const normalizedItems = validItems.map((item, index) => {
         const productCode = (item?.product_code || item?.code || '').toString().trim();
         
-        // Try multiple fields to find quantity (for old forms compatibility)
-        // Priority: request_qty > actual_qty > final_qty > product_type
-        const rawQty = item?.request_qty ?? item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
-        const requestQty = safeNumber(rawQty);
+        // CRITICAL: Preserve request_qty from item state - it should be independent of actual_qty
+        // Only use fallback if request_qty is truly null/undefined/empty/0
+        // Priority: request_qty (if set to non-zero) > actual_qty (for initialization) > final_qty > product_type
+        let finalRequestQty;
+        const requestQtyValue = item?.request_qty;
+        // Treat 0 as unset because it's the default initialization value
+        const isRequestQtySet = requestQtyValue !== null && 
+                                requestQtyValue !== undefined && 
+                                requestQtyValue !== '' &&
+                                requestQtyValue !== 0 &&
+                                !(typeof requestQtyValue === 'string' && requestQtyValue.trim() === '');
         
-        // Use the actual requestQty value, don't force it to be at least 1
-        const finalRequestQty = requestQty;
+        if (isRequestQtySet) {
+          // request_qty has been explicitly set to a non-zero value, use it
+          finalRequestQty = safeNumber(requestQtyValue);
+        } else {
+          // request_qty hasn't been set yet (is null/undefined/empty/0), use actual_qty as fallback (for initialization)
+          const rawQty = item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
+          finalRequestQty = safeNumber(rawQty);
+        }
         
         const systemQty = safeNumber(item?.system_qty);
         const priceValue = Number(item?.price);
         const price = Number.isFinite(priceValue) ? priceValue : 0;
-        const computedAmount = price * finalRequestQty;
-        const parsedAmount = Number(item?.amount);
-        const amount = Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : computedAmount;
         const remark = item?.remark ?? '';
         const productName = item?.product_name || item?.name || '';
         const unit = item?.unit || '';
 
-        // Resolve actual and final quantities, checking multiple fields for old form compatibility
-        const rawActual = item?.actual_qty ?? item?.request_qty ?? 0;
-        const rawFinal = item?.final_qty ?? item?.product_type ?? item?.request_qty ?? 0;
-        const resolvedActual = safeNumber(rawActual) > 0 ? safeNumber(rawActual) : finalRequestQty;
-        const resolvedFinal = safeNumber(rawFinal) > 0 ? safeNumber(rawFinal) : finalRequestQty;
+        // Resolve actual and final quantities, preserving original values
+        // CRITICAL: Preserve request_qty and actual_qty from the item - don't use final_qty as fallback
+        // request_qty and actual_qty should remain unchanged when final_qty is modified
+        const resolvedActual = (item?.actual_qty !== undefined && item?.actual_qty !== null)
+          ? safeNumber(item.actual_qty)
+          : ((item?.request_qty !== undefined && item?.request_qty !== null)
+              ? safeNumber(item.request_qty)
+              : finalRequestQty);
+        
+        // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
+        const resolvedFinal = (item?.final_qty !== undefined && item?.final_qty !== null)
+          ? safeNumber(item.final_qty)
+          : ((item?.product_type !== undefined && item?.product_type !== null)
+              ? safeNumber(item.product_type)
+              : finalRequestQty);
+        
+        // CRITICAL: Amount/total calculation depends on the form status:
+        // - Checked: price * final_qty
+        // - BM Approved: price * actual_qty
+        const currentFormStatus = (formData.status || '').trim();
+        const isBMApprovedStatus = currentFormStatus === 'BM Approved' || currentFormStatus === 'BMApproved';
+        const qtyForAmount = isBMApprovedStatus ? resolvedActual : resolvedFinal;
+        const computedAmount = price * qtyForAmount;
+        const parsedAmount = Number(item?.amount);
+        // Only use parsedAmount if it matches the expected calculation
+        // This prevents stale amount values from being used
+        const expectedAmount = price * qtyForAmount;
+        const amount = (Number.isFinite(parsedAmount) && Math.abs(parsedAmount - expectedAmount) < 0.01) 
+          ? parsedAmount 
+          : computedAmount;
         const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
         const rawSpecificId = item?.specific_form_id ?? item?.id ?? item?.specific_id ?? '';
         
@@ -4006,7 +3991,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           .map(file => file.id || file.file || file.downloadUrl)
           .filter(Boolean);
         if (deletedFileIds.length > 0) {
-          console.log(`[Form Submission] Sending ${deletedFileIds.length} deleted file ID(s):`, deletedFileIds);
           formDataToSend.append('deleted_file_ids', JSON.stringify(deletedFileIds));
           // Also try alternative key names that backend might expect
           deletedFileIds.forEach((fileId, index) => {
@@ -4019,7 +4003,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (formData.attachments && Array.isArray(formData.attachments)) {
         const filesToSend = formData.attachments.filter(attachment => attachment?.fileObject instanceof File);
         if (filesToSend.length > 0) {
-          console.log(`[Form Submission] Sending ${filesToSend.length} attachment(s) with key 'file1[]'`);
           filesToSend.forEach((attachment) => {
             formDataToSend.append('file1[]', attachment.fileObject);
           });
@@ -4090,7 +4073,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           // For back to previous, send btp value as 'btp' field
           // Backend expects: op_btp, bm_btp, or bracc_btp
           if (backendStatus === 'op_btp' || backendStatus === 'bm_btp' || backendStatus === 'bracc_btp') {
-            console.log('[BackToPrevious] Sending btp value:', backendStatus);
             formDataToSend.append('btp', backendStatus);
             
             // Determine target status based on btp value
@@ -4116,11 +4098,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
             
             // Send target status
             if (targetStatus) {
-              console.log('[BackToPrevious] Sending target status:', targetStatus);
               formDataToSend.append('status', targetStatus);
             }
           } else {
-            console.warn('[BackToPrevious] Invalid btp value:', backendStatus);
           }
         } else if (backendStatus) {
           // For other actions, send status normally
@@ -4209,12 +4189,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
       try {
         // Log before making API call to detect duplicate calls
-        console.log(`[API CALL] About to make API call - Submission ID: ${submissionIdRef.current}, Request ID: ${requestId}, Endpoint: ${endpoint}, Method: ${method}, Items count: ${normalizedItems.length}`);
-        console.log(`[API CALL] isSubmittingRef.current: ${isSubmittingRef.current}, isSubmitting state: ${isSubmitting}`);
         
         // CRITICAL: Double-check we're not already submitting right before API call
         if (!isSubmittingRef.current) {
-          console.error(`[CRITICAL ERROR] isSubmittingRef was false right before API call! This should never happen.`);
           isSubmittingRef.current = true; // Force set it
         }
         
@@ -4268,19 +4245,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
             ?? response?.data?.general_form?.id
             ?? null;
           
-          // Debug: log response so we can trace Issue -> backend roundtrip easily in browser console
-          console.log('[API CALL] Response received', {
-            requestId,
-            endpoint,
-            method,
-            responseSummary: {
-              general_form_id: responseGeneralFormId,
-              status: response?.status || response?.form_status || null,
-              redirect: response?.redirect || null,
-              ok: true
-            },
-            fullResponse: response
-          });
           // Get form status from response - avoid response.status (HTTP status code)
           // Check form status fields first, then fallback to current formData.status
           const nextStatus = response?.form_status
@@ -4403,21 +4367,11 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           
           // Resolve attachments from response - these are the files that were uploaded and saved by the backend
           const responseAttachments = resolveInitialAttachments(response, []);
-          console.log('[Form Submission] Attachments in response:', responseAttachments.length, responseAttachments);
-          
-          console.log('[Form Submission] General Form ID:', responseGeneralFormId);
-          console.log('[Form Submission] Response structure:', {
-            hasAttachments: !!response?.attachments,
-            hasOperationFiles: !!response?.operation_files,
-            hasGeneralFormFiles: !!response?.general_form?.files,
-            hasGeneralFormFiles2: !!response?.general_form_files,
-          });
           
           // If no attachments in response but we have a general_form_id, fetch them from the backend
           // This is needed because files are stored separately and may not be in the submission response
           let finalAttachments = responseAttachments;
           if (responseAttachments.length === 0 && responseGeneralFormId) {
-            console.log('[Form Submission] No attachments in response, fetching from get-image endpoint...');
             try {
               const token = localStorage.getItem("token");
               if (token) {
@@ -4433,10 +4387,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                   })
                 });
                 
-                console.log('[Form Submission] Files response from get-image:', filesResponse);
                 const operationFilesData = filesResponse?.img || [];
                 if (Array.isArray(operationFilesData) && operationFilesData.length > 0) {
-                  console.log(`[Form Submission] Found ${operationFilesData.length} file(s) from get-image endpoint`);
                   finalAttachments = operationFilesData.map(file => ({
                     id: file.id || `doc_${file.file}`,
                     name: file.name || file.file,
@@ -4448,16 +4400,13 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                     isRemote: true, // Mark as remote file
                   }));
                 } else {
-                  console.log('[Form Submission] No files found in get-image response');
                 }
               }
             } catch (error) {
               // Log error for debugging
-              console.error('[Form Submission] Failed to fetch operation files after submission:', error);
             }
           }
           
-          console.log('[Form Submission] Final attachments to save:', finalAttachments.length, finalAttachments);
           
           // Update originalAttachments with the final attachments (so we can track deletions in future edits)
           if (finalAttachments.length > 0) {
@@ -4507,9 +4456,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                     layout_id: layoutId
                   })
                 });
-                console.log('[Form Submission] sys_update called successfully for', responseGeneralFormId);
               } catch (e) {
-                console.warn('[Form Submission] sys_update failed (ignored):', e);
               }
 
               // 2) Call optional finalize endpoint (if backend expects an explicit finalize)
@@ -4517,10 +4464,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                 await apiRequest(`/api/big-damage-issues/${responseGeneralFormId}/finalize`, {
                   method: 'POST',
                 });
-                console.log('[Form Submission] finalize called successfully for', responseGeneralFormId);
               } catch (e) {
                 // Not all backends expose this endpoint; ignore failures
-                console.warn('[Form Submission] finalize call failed or not available (ignored):', e);
               }
 
               // 3) Explicitly trigger other-income processing for API clients to ensure parity with Blade flow
@@ -4530,10 +4475,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                     method: 'POST',
                     body: JSON.stringify({ actual_user_id: formData.user_id || formData.actual_user_id || null })
                   });
-                  console.log('[Form Submission] process-other-income triggered for', responseGeneralFormId);
                 }
               } catch (e) {
-                console.warn('[Form Submission] process-other-income failed (ignored):', e);
               }
               
               // 4) Ensure general_forms.total_amount is persisted in backend.
@@ -4558,15 +4501,12 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                         method: 'PATCH',
                         body: JSON.stringify({ total_amount: computedTotal })
                       });
-                      console.log('[Form Submission] Synced general_form.total_amount ->', computedTotal, 'for', responseGeneralFormId);
                     } catch (innerErr) {
                       // Not critical - log and continue
-                      console.warn('[Form Submission] Failed to persist general_form.total_amount (ignored):', innerErr);
                     }
                   }
                 }
               } catch (e) {
-                console.warn('[Form Submission] Error while attempting to persist general form total (ignored):', e);
               }
   
           // Notify other parts of the app (lists/dashboards) to refresh their data
@@ -4575,7 +4515,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               window.dispatchEvent(new CustomEvent('big-damage-updated', {
                 detail: { generalFormId: responseGeneralFormId }
               }));
-              console.log('[Form Submission] dispatched big-damage-updated event for', responseGeneralFormId);
             }
           } catch (e) {
             // ignore
@@ -4583,7 +4522,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
           // 4) Check if backend wants us to redirect (e.g., for Other Income Sell forms)
           if (response?.redirect?.should_redirect && response?.redirect?.redirect_to) {
-            console.log('[Form Submission] Backend requested redirect to:', response.redirect.redirect_to);
             // Give a brief moment for events to propagate, then redirect
             setTimeout(() => {
               window.location.href = response.redirect.redirect_to;
@@ -4591,7 +4529,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
             return; // Don't proceed with normal success handling if redirecting
           }
             } catch (err) {
-              console.error('[Form Submission] Post-completion follow-up failed:', err);
             }
           })();
 
@@ -4651,7 +4588,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
                   credentials: 'include',
                   body: JSON.stringify(payload)
                 }).catch(err => {
-                  console.warn('[DamageFormLayout] Failed to mark notifications as read:', err);
                 });
               });
               
@@ -4661,7 +4597,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               }));
             }
           } catch (error) {
-            console.warn('[DamageFormLayout] Error marking notifications as read:', error);
           }
         }
         
@@ -4798,7 +4733,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       
       throw error;
     } finally {
-      console.log(`[FORM SUBMISSION END] Submission ID: ${submissionIdRef.current}, Resetting submission state`);
       isSubmittingRef.current = false; // Reset ref
       submissionIdRef.current = null; // Clear submission ID
       setIsSubmitting(false);
@@ -5069,20 +5003,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       
     }
     // Supervisor should NOT see approve button - they have a separate Issue button
-    // Debug output to help trace why approve button is hidden
-    try {
-      console.debug('[showApproveButton DEBUG]', {
-        currentUser: { id: currentUser?.id, role_id: currentUser?.role_id, user_type: currentUser?.user_type },
-        role,
-        normalizedStatus,
-        totalAmount,
-        requiresOpManagerApproval,
-        isOpManagerFinal,
-        hasOpApprovalAssignment,
-        approvalsCount: Array.isArray(formData?.approvals) ? formData.approvals.length : 0,
-        result
-      });
-    } catch (e) {}
     return !!result; // Ensure boolean return value
   };
 
@@ -5200,7 +5120,6 @@ const resolveApproveAction = () => {
           // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
           const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
           if (!systemQtyUpdated) {
-            console.log('[resolveApproveAction] Status is Ac_Acknowledged but systemQtyUpdated is false - not showing Issue button');
             return null; // Don't show Issue button until system quantity is updated
           }
           // Status indicates acknowledgment and system quantity is updated - allow Issue button
@@ -5482,6 +5401,7 @@ const resolveApproveAction = () => {
             statusOverride={formData.status}
             onDownloadPdf={handleDownloadPdf}
             issueRemarks={formData.issue_remarks || []}
+            btpRemark={formData.general_form?.remark || initialData?.general_form?.remark || ''}
           />
         );
       })()}
@@ -5782,15 +5702,6 @@ const resolveApproveAction = () => {
                       return idA - idB;
                     });
                     
-                    // Log for debugging (can be removed later)
-                    if (uniqueItems.length !== transformedItems.length) {
-                      console.warn('Deduplication removed duplicates:', {
-                        original: transformedItems.length,
-                        unique: uniqueItems.length,
-                        duplicates: transformedItems.length - uniqueItems.length
-                      });
-                    }
-                    
                     return {
                       ...prev,
                       items: uniqueItems,
@@ -5929,16 +5840,6 @@ const resolveApproveAction = () => {
         }
         return null;
       })()}
-
-      {console.debug && console.debug('[DamageFormLayout DEBUG role]', {
-        userRoleLower,
-        userRole,
-        currentUserSnapshot: { id: currentUser?.id, role_id: currentUser?.role_id, role: currentUser?.role, user_type: currentUser?.user_type },
-        isRegularUser,
-        isCurrentUserChecker,
-        resolvedStatusLower,
-        formDataStatus: formData.status
-      })}
 
       <SupportingInfo
         status={resolvedStatus || formData.status}
@@ -6084,40 +5985,6 @@ const resolveApproveAction = () => {
               if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
                 action = 'Ac_Acknowledged';
               }
-              // debug render state (always log)
-              try {
-                console.debug('[ApproveRender DEBUG]', {
-                  shouldShowApprove,
-                  action,
-                  isSubmitting,
-                  formStatus: formData.status,
-                  totalAmount: formData.items && formData.items.length > 0 ? formData.items.reduce((acc,i)=>acc+(Number(i.amount)||Number(i.total)||0),0) : (formData?.general_form?.total_amount||formData?.total_amount||0)
-                });
-              } catch (e) {}
-              
-              // Also emit a plain console.log and expose a window object for easier debugging in browsers
-              try {
-                const approveDebug = {
-                  shouldShowApprove,
-                  action,
-                  isSubmitting,
-                  formStatus: formData.status,
-                  resolvedStatus: resolvedStatus || null,
-                  resolvedStatusLower: resolvedStatusLower || null,
-                  totalAmount: formData.items && formData.items.length > 0 ? formData.items.reduce((acc,i)=>acc+(Number(i.amount)||Number(i.total)||0),0) : (formData?.general_form?.total_amount||formData?.total_amount||0),
-                  isInvestigationFilled: Boolean(isInvestigationFilled),
-                  actions: typeof actions !== 'undefined' ? actions : null,
-                  currentUser: typeof currentUser !== 'undefined' ? currentUser : null,
-                };
-                // Visible log level
-                console.log('[ApproveRender DEBUG]', approveDebug);
-                if (typeof window !== 'undefined') {
-                  window.__approveRenderDebug = approveDebug;
-                }
-              } catch (e) {
-                // ignore
-              }
-              
               // Fallback: force-show Acknowledge button for Operation Manager user types on BM Approved high-value forms
               try {
                 const isResolvedBmApprovedLocal = (resolvedStatusLower || '').includes('bm') && (resolvedStatusLower || '').includes('approved');

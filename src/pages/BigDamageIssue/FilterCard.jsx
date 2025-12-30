@@ -123,7 +123,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
       setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [{ value: '', label: 'All Branch' }]);
     } catch (e) {
-      console.error('Error filtering branches by user:', e);
       // On error, preserve selected branch if possible
       const currentBranch = selectedBranch || localFilters.branch || filters.branch;
       if (currentBranch && currentBranch.value) {

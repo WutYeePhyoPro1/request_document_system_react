@@ -151,7 +151,6 @@ const Dashboard = () => {
     // Request total amount in response
     params.set("include_total", "true");
     
-    console.log('[Dashboard] Building query with filters:', filters);
     
     // Add other filters
     // NOTE: Do NOT send product filter to backend when doing client-side filtering
@@ -194,14 +193,12 @@ const Dashboard = () => {
     // params.set("page", currentPage); // Removed for client-side pagination
     
     const queryString = params.toString();
-    console.log('[Dashboard] Final query string:', queryString);
     return queryString;
   };
 
  const query = useMemo(() => buildQuery(), [filters, currentPage]);
 
   const fetcher = async (url) => {
-    console.log('[Dashboard] Fetching:', url);
     const res = await fetch(url, {
       headers: { 
         'Authorization': `Bearer ${token}`, 
@@ -213,7 +210,6 @@ const Dashboard = () => {
     });
     
     if (!res.ok) {
-      console.error('[Dashboard] Fetch failed with status:', res.status);
       // Handle 429 Too Many Requests with user-friendly error
       if (res.status === 429) {
         const error = new Error('Too many requests. Please wait a moment and try again.');
@@ -228,11 +224,6 @@ const Dashboard = () => {
     }
     
     const data = await res.json();
-    console.log('[Dashboard] Fetched data:', {
-      dataType: Array.isArray(data) ? 'array' : typeof data,
-      dataLength: Array.isArray(data) ? data.length : (data?.data?.length || 'N/A'),
-      dataSample: Array.isArray(data) ? data[0] : data?.data?.[0]
-    });
     return data;
   };
 
@@ -284,7 +275,6 @@ const Dashboard = () => {
           mutate();
         }
       } catch (e) {
-        console.warn('[Dashboard] failed to revalidate after external update', e);
       }
     };
     window.addEventListener('big-damage-updated', handler);
@@ -306,21 +296,11 @@ const Dashboard = () => {
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        console.warn('[Dashboard] No user found in localStorage');
         return null;
       }
       const user = JSON.parse(userStr);
-      console.log('[Dashboard] Current user:', user);
-      console.log('[Dashboard] canViewAllBranches:', canViewAllBranches(user));
-      console.log('[Dashboard] User fields:', {
-        all_branch: user.all_branch,
-        emp_id: user.emp_id,
-        role_id: user.role_id,
-        from_branch_id: user.from_branch_id
-      });
       return user;
     } catch (e) {
-      console.error('[Dashboard] Error parsing user from localStorage:', e);
       return null;
     }
   });
@@ -336,7 +316,6 @@ const Dashboard = () => {
       
       if (!needsRefresh) return;
       
-      console.log('[Dashboard] Critical fields missing, fetching fresh user data from /api/me');
       try {
         const response = await fetch('/api/me', {
           headers: {
@@ -349,9 +328,7 @@ const Dashboard = () => {
         
         if (response.ok) {
           const data = await response.json();
-          console.log('[Dashboard] Response from /api/me:', data);
           if (data?.user) {
-            console.log('[Dashboard] Updated user from /api/me:', data.user);
             const enrichedUser = { ...data.user };
             if (!enrichedUser.user_type) {
               if (enrichedUser.employee_number === '666-666666' || enrichedUser.emp_id === '666-666666') {
@@ -366,10 +343,8 @@ const Dashboard = () => {
             window.location.reload();
           }
         } else {
-          console.error('[Dashboard] Failed to fetch /api/me:', response.status);
         }
       } catch (error) {
-        console.error('[Dashboard] Failed to refresh user data:', error);
       }
     };
     
@@ -412,7 +387,6 @@ const Dashboard = () => {
   // - Branch Account: Show "BM Approved" and "Acknowledged" until it becomes "Completed" or beyond
   const shouldShowNotificationForRole = (user, formStatus, formRow) => {
     if (!user || !formStatus) {
-      console.warn('[Dashboard] shouldShowNotificationForRole: Missing user or status', { user, formStatus });
       return false;
     }
     
@@ -530,12 +504,10 @@ const Dashboard = () => {
             user = JSON.parse(userStr);
           }
       } catch (e) {
-        console.error('[Dashboard] Error loading user from localStorage:', e);
       }
     }
     
     if (!user) {
-      console.warn('[Dashboard] No user available for notification counting');
       return new Map();
     }
     
@@ -552,7 +524,6 @@ const Dashboard = () => {
     }
     
     if (!formListData || !Array.isArray(formListData) || formListData.length === 0) {
-      console.warn('[Dashboard] No form list data available for notification counting');
       return new Map();
     }
     
@@ -770,14 +741,6 @@ const Dashboard = () => {
       }
       // Case 4: Try to find data in other common locations
       else {
-        console.warn('[Dashboard] Unexpected data structure:', {
-          listPayload,
-          hasData: !!listPayload.data,
-          hasItems: !!listPayload.items,
-          isArray: Array.isArray(listPayload),
-          keys: Object.keys(listPayload || {})
-        });
-        
         // Try to extract data from common alternative structures
         if (listPayload.results && Array.isArray(listPayload.results)) {
           allRows = listPayload.results;
@@ -821,11 +784,6 @@ const Dashboard = () => {
       };
       
     } catch (error) {
-      console.error('[Dashboard] Error processing list data:', error, {
-        listPayload,
-        errorMessage: error.message,
-        errorStack: error.stack
-      });
       return { 
         rows: [], 
         meta: { 
@@ -838,15 +796,6 @@ const Dashboard = () => {
     }
   }, [listPayload, currentPage, perPage, bigDamageNotificationIds, hasUnreadNotifications, searchParams, filters, listLoading]);
   
-  // Debug logging for listData
-  useEffect(() => {
-    if (listData.rows.length === 0) {
-      console.warn('[Dashboard] No rows in listData!', {
-        listPayload: listPayload?.data?.length || 0,
-        hasProductFilter: !!(filters.productName && filters.productName.trim())
-      });
-    }
-  }, [listData, filters.productName, searchParams]);
 
   const branchList = useMemo(() => {
     const json = branchesPayload || {};
@@ -1487,14 +1436,8 @@ const Dashboard = () => {
               const filteredRaw = filterFormsByRole(rawRows || [], userForFilter);
               const fullFormIdSet = new Set((filteredRaw || []).map(r => r?.general_form?.id || r?.general_form_id || r?.id).filter(Boolean));
               totalFormCount = fullFormIdSet.size;
-
-              if (console && console.debug) {
-                console.debug('[Dashboard DEBUG] listData.meta:', listData?.meta || null);
-                console.debug('[Dashboard DEBUG] rawRows.length:', rawRows.length, 'distinctForms(all):', totalFormCount, 'sampleFormIds:', Array.from(fullFormIdSet).slice(0,10));
-              }
             }
           } catch (e) {
-            console.warn('[Dashboard] Failed to compute totalFormCount from payload:', e);
             totalFormCount = listData?.meta?.total || 0;
           }
 

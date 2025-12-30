@@ -1101,6 +1101,10 @@ const handleInputChange = (id, field, value) => {
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
 
+      // CRITICAL: Preserve original request_qty BEFORE any updates
+      // This ensures request_qty remains independent of actual_qty changes in view mode
+      const originalRequestQty = item.request_qty;
+
       const updatedItem = {
         ...item,
         // Explicitly preserve category and category_id
@@ -1111,17 +1115,47 @@ const handleInputChange = (id, field, value) => {
       };
 
       if (qtyType === 'actual_qty') {
-        // In add mode, updating actual_qty
+        // Updating actual_qty
         updatedItem.actual_qty = qtyNumeric;
+        
+        // CRITICAL: In view mode, request_qty should NEVER change when actual_qty changes
+        // They are completely independent - request_qty is the original request, actual_qty can be modified
+        if (mode === 'view') {
+          // In view mode, explicitly preserve the ORIGINAL request_qty value
+          // This ensures request_qty is completely independent of actual_qty changes
+          updatedItem.request_qty = originalRequestQty;
+        } else {
+          // In add mode: request_qty should be independent of actual_qty changes
+          // Only initialize request_qty to actual_qty if it's truly undefined/null/empty string/0
+          // Once request_qty has been set to a non-zero value, it should remain independent
+          const existingRequestQty = item.request_qty;
+          // Check if request_qty hasn't been set yet (null, undefined, empty string, or 0)
+          // Treat 0 as unset because it's the default initialization value
+          const isRequestQtyUnset = existingRequestQty === null || 
+                                    existingRequestQty === undefined || 
+                                    existingRequestQty === '' ||
+                                    existingRequestQty === 0 ||
+                                    (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
+          
+          if (isRequestQtyUnset) {
+            // request_qty hasn't been set yet, initialize it to actual_qty
         updatedItem.request_qty = qtyNumeric;
+          } else {
+            // request_qty has been set to a non-zero value, preserve it independently
+            // This ensures that once request_qty is established, it doesn't change when actual_qty changes
+            updatedItem.request_qty = existingRequestQty;
+          }
+          
         // In add mode, if final_qty is not set, initialize it to actual_qty
-        if (mode === 'add' && (updatedItem.final_qty === undefined || updatedItem.final_qty === null)) {
+          // But don't overwrite if final_qty is already set
+          if (updatedItem.final_qty === undefined || updatedItem.final_qty === null || updatedItem.final_qty === 0) {
           updatedItem.final_qty = qtyNumeric;
+          }
         }
       } else if (qtyType === 'final_qty') {
         // Updating final_qty (in both add and view mode)
         updatedItem.final_qty = finalQty;
-        // Don't change actual_qty (it's the original request)
+        // Don't change actual_qty or request_qty (they are the original request)
       }
 
       if (updatedItem.originalItem) {
@@ -1132,10 +1166,34 @@ const handleInputChange = (id, field, value) => {
       newItems[index] = updatedItem;
 
       if (qtyType === 'actual_qty') {
+        // CRITICAL: In view mode, NEVER update request_qty when actual_qty changes
+        if (mode === 'view') {
+          // In view mode, only update actual_qty, never touch request_qty
+          onItemChange(index, 'actual_qty', qtyNumeric);
+        } else {
+          // In add mode: request_qty should be independent of actual_qty changes
+          // Only initialize request_qty if it's truly undefined/null/empty string/0
+          // Once request_qty has been set to a non-zero value, it should remain independent
+          const existingRequestQty = item.request_qty;
+          // Check if request_qty hasn't been set yet (null, undefined, empty string, or 0)
+          // Treat 0 as unset because it's the default initialization value
+          const isRequestQtyUnset = existingRequestQty === null || 
+                                    existingRequestQty === undefined || 
+                                    existingRequestQty === '' ||
+                                    existingRequestQty === 0 ||
+                                    (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
+          
+          if (isRequestQtyUnset) {
+            // Initialize request_qty only if it hasn't been set (is null/undefined/empty string/0)
         onItemChange(index, 'request_qty', qtyNumeric);
+          }
+          // If request_qty is already set to a non-zero value, don't update it
+          
         onItemChange(index, 'actual_qty', qtyNumeric);
-        if (mode === 'add') {
+          // Only initialize final_qty if it hasn't been set
+          if (item.final_qty === undefined || item.final_qty === null || item.final_qty === 0) {
           onItemChange(index, 'final_qty', qtyNumeric);
+          }
         }
       } else if (qtyType === 'final_qty') {
         onItemChange(index, 'final_qty', finalQty);
@@ -1486,8 +1544,23 @@ const normalizeImageEntries = (list) => {
 
   const cancelRemove = () => setShowConfirm(false);
 
+  // Calculate total based on status:
+  // - BM Approved: sum of (price * actual_qty)
+  // - Other statuses: sum of item.amount (which uses final_qty)
+  const isBMApprovedStatus = status === 'BM Approved' || status === 'BMApproved';
   const total = items.reduce(
-    (sum, item) => sum + Number(item.amount || 0),
+    (sum, item) => {
+      if (isBMApprovedStatus) {
+        const price = toSafeNumber(item.price);
+        const actualQty = toSafeNumber(item.actual_qty);
+        const systemQty = toSafeNumber(item.system_qty);
+        const qtyForAmount = systemQty > 0 && actualQty > systemQty
+          ? systemQty
+          : (systemQty === 0 ? 0 : actualQty);
+        return sum + (price * qtyForAmount);
+      }
+      return sum + Number(item.amount || 0);
+    },
     0
   );
 
@@ -1771,7 +1844,6 @@ const normalizeImageEntries = (list) => {
       // Only trigger refetch once
       onSystemQtyStatusChange(true);
     } catch (error) {
-      console.error('Error updating system quantities:', error);
       setErrorModal({
         isOpen: true,
         message: error.message || 'Failed to update system quantities. Please try again.'
@@ -2099,9 +2171,8 @@ const normalizeImageEntries = (list) => {
                         />
                       </div>
                     ) : (
-                      // In view mode, actual_qty is read-only (shows original request)
-                      // Always show actual_qty, don't fallback to request_qty if actual_qty exists
-                      <span>{formatQuantity(item.actual_qty !== undefined && item.actual_qty !== null ? item.actual_qty : (item.request_qty ?? 0))}</span>
+                      // In view mode, Request Qty column shows request_qty (the original request quantity)
+                      <span>{formatQuantity(item.request_qty ?? 0)}</span>
                     )}
                   </td>
                   {mode !== 'add' && (
@@ -2207,16 +2278,16 @@ const normalizeImageEntries = (list) => {
                     <td className="px-2 py-2 text-[13px]" onClick={(e) => e.stopPropagation()}>
                       {(() => {
                         const systemQty = toSafeNumber(item.system_qty);
-                        const finalQty = toSafeNumber(item.final_qty ?? item.actual_qty);
-                        let actualQty = finalQty;
+                        // CRITICAL: Display actual_qty directly from the item, not product_type
+                        // actual_qty is the original request quantity and should be displayed as-is
+                        let actualQty = toSafeNumber(item.actual_qty ?? item.request_qty);
                         if (systemQty === 0) {
                           actualQty = 0;
-                        } else if (finalQty > systemQty) {
+                        } else if (actualQty > systemQty) {
                           actualQty = systemQty;
                         }
-                        const displayQty = item.product_type !== undefined && item.product_type !== null
-                          ? item.product_type
-                          : actualQty;
+                        // Display actual_qty, not product_type
+                        const displayQty = actualQty;
                         
                         // Account can edit product_type at OP Approved stage (matching Laravel blade)
                         // Supervisor cannot edit product_type (read-only)
@@ -2364,20 +2435,31 @@ const normalizeImageEntries = (list) => {
                       })()}
                     </td>
                   )}
-                  {/* Amount - calculated using final_qty (or min of system_qty and final_qty) */}
+                  {/* Amount - calculated based on status:
+                      - Checked: price * final_qty
+                      - BM Approved: price * actual_qty */}
                   <td className="px-2 py-2 whitespace-nowrap text-[13px]">
                     {(() => {
                       const systemQty = toSafeNumber(item.system_qty);
+                      const actualQty = toSafeNumber(item.actual_qty);
                       const finalQty = toSafeNumber(item.final_qty ?? item.actual_qty);
                       const price = toSafeNumber(item.price);
 
-                      const qtyForAmount = systemQty > 0 && finalQty > systemQty
+                      // For BM Approved status, use actual_qty; otherwise use final_qty
+                      const isBMApproved = status === 'BM Approved' || status === 'BMApproved';
+                      const baseQty = isBMApproved ? actualQty : finalQty;
+                      
+                      const qtyForAmount = systemQty > 0 && baseQty > systemQty
                         ? systemQty
-                        : (systemQty === 0 ? 0 : finalQty);
+                        : (systemQty === 0 ? 0 : baseQty);
 
                       const calculatedAmount = qtyForAmount * price;
-                      // Prefer explicit total from backend if available, then amount, otherwise fall back to calculated
-                      const displayAmount = (item.total ?? item.amount) ?? calculatedAmount;
+                      
+                      // For BM Approved, always use calculated amount (price * actual_qty)
+                      // For other statuses, prefer explicit total from backend if available
+                      const displayAmount = isBMApproved 
+                        ? calculatedAmount 
+                        : ((item.total ?? item.amount) ?? calculatedAmount);
 
                       return formatAmount(displayAmount);
                     })()}

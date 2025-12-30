@@ -1,5 +1,5 @@
 
-import {  useEffect, useState, useRef } from "react";
+import {  useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import dashboardPhoto from "../assets/images/reqBa.png";
 import companyLogo from "../assets/images/finallogo.png";
@@ -97,9 +97,8 @@ const Dashboard = () => {
     const [allForm , setAllForm ] = useState([]) ;
     const [formCounts , setFormCounts] = useState({}) ;
     const [loading , setLoading] = useState(true) ;
-    const hasFetchedRef = useRef(false);
     
-    useEffect(() => {
+useEffect(() => {
     const fetchAllForms = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
