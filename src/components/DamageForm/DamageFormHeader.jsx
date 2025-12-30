@@ -90,7 +90,8 @@ export default function DamageFormHeader({
   statusOverride = null,
   mode = 'view',
   onDownloadPdf = null,
-  issueRemarks = [] // Add issueRemarks prop for ISS remark type display
+  issueRemarks = [], // Add issueRemarks prop for ISS remark type display
+  btpRemark = '' // Back to Previous remark from general_form.remark
 }) {
   const { t } = useTranslation();
   // Set the branch from user's session on component mount
@@ -439,6 +440,16 @@ export default function DamageFormHeader({
             </span>
           </div>
         </div>
+
+        {/* Back to Previous Remark - displayed with yellow background like in Blade templates */}
+        {btpRemark && btpRemark.trim() !== '' && (
+          <div className="mt-2 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-yellow-800 font-semibold text-sm whitespace-nowrap">Back to Previous Remark:</span>
+              <span className="text-yellow-900 text-sm">{btpRemark}</span>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between mt-2">
           {/* Hide datetime in add mode */}

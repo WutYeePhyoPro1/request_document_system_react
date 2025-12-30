@@ -5401,6 +5401,7 @@ const resolveApproveAction = () => {
             statusOverride={formData.status}
             onDownloadPdf={handleDownloadPdf}
             issueRemarks={formData.issue_remarks || []}
+            btpRemark={formData.general_form?.remark || initialData?.general_form?.remark || ''}
           />
         );
       })()}
