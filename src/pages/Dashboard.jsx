@@ -9,35 +9,24 @@ import { countFormNoti, getFormsList } from "../api/commonApi";
 // Animated Loading Component with Company Logo
 const LoadingScreen = () => {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black">
-      {/* Animated background gradient overlay */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black"></div>
-        {/* Animated glow effects */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-glow"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-red-600 rounded-full mix-blend-screen filter blur-3xl opacity-20 animate-glow animation-delay-2000"></div>
-      </div>
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
+      {/* Blur backdrop background - frosted glass effect */}
+      <div className="absolute inset-0 backdrop-blur-xl bg-gray-100/30"></div>
 
       {/* Logo container with animations */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* Logo with glow and pulse animation */}
-        <div className="relative">
-          {/* Outer glow ring */}
-          <div className="absolute -inset-4 rounded-3xl bg-gradient-to-r from-blue-500 via-blue-600 to-red-500 opacity-30 blur-xl animate-pulse"></div>
-          
-          {/* Logo container */}
-          <div className="relative p-8 bg-black/80 backdrop-blur-sm rounded-2xl border border-gray-800 shadow-2xl animate-float">
-            <img
-              src={companyLogo}
-              alt="Pro1 Global Home Center"
-              className="w-64 h-auto object-contain animate-logo-pulse drop-shadow-2xl"
-            />
-          </div>
+        {/* Logo with animation */}
+        <div className="relative animate-float">
+          <img
+            src={companyLogo}
+            alt="Pro1 Global Home Center"
+            className="w-72 h-auto object-contain animate-logo-pulse"
+          />
         </div>
 
         {/* Tagline */}
-        <div className="mt-6 animate-fade-in">
-          <p className="text-red-500 text-xl italic font-semibold tracking-wide animate-shimmer">
+        <div className="mt-4 animate-fade-in">
+          <p className="text-red-500 text-xl italic font-semibold tracking-wide">
             "One Place, Get All."
           </p>
         </div>
@@ -45,46 +34,42 @@ const LoadingScreen = () => {
         {/* Loading text with animated dots */}
         <div className="mt-8 flex flex-col items-center">
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-white animate-text-glow">
+            <span className="text-2xl font-bold text-gray-700">
               Loading
             </span>
             <span className="flex gap-1.5 ml-1">
-              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce-dot shadow-lg shadow-blue-500/50" style={{ animationDelay: '0ms' }}></span>
-              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce-dot shadow-lg shadow-blue-600/50" style={{ animationDelay: '150ms' }}></span>
-              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-bounce-dot shadow-lg shadow-red-500/50" style={{ animationDelay: '300ms' }}></span>
+              <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>
+              <span className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce-dot" style={{ animationDelay: '150ms' }}></span>
+              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-bounce-dot" style={{ animationDelay: '300ms' }}></span>
             </span>
           </div>
-          <p className="mt-3 text-gray-400 text-sm animate-fade-in-up tracking-wider">
+          <p className="mt-3 text-gray-500 text-sm animate-fade-in-up tracking-wider">
             Preparing your dashboard
           </p>
         </div>
 
-        {/* Progress bar with glow */}
-        <div className="mt-8 w-72 h-2 bg-gray-800 rounded-full overflow-hidden shadow-inner">
-          <div className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-red-500 rounded-full animate-progress-bar shadow-lg"></div>
+        {/* Progress bar */}
+        <div className="mt-8 w-72 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-blue-500 via-blue-600 to-red-500 rounded-full animate-progress-bar"></div>
         </div>
       </div>
 
       {/* Custom styles for animations */}
       <style>{`
-        @keyframes glow {
-          0%, 100% { transform: scale(1); opacity: 0.2; }
-          50% { transform: scale(1.2); opacity: 0.3; }
-        }
         @keyframes float {
-          0%, 100% { transform: translateY(0px) scale(1); }
-          50% { transform: translateY(-15px) scale(1.02); }
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-10px); }
         }
         @keyframes logo-pulse {
-          0%, 100% { transform: scale(1); filter: brightness(1); }
-          50% { transform: scale(1.03); filter: brightness(1.1); }
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.03); }
         }
         @keyframes bounce-dot {
-          0%, 80%, 100% { transform: translateY(0) scale(1); }
-          40% { transform: translateY(-12px) scale(1.2); }
+          0%, 80%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-10px); }
         }
         @keyframes fade-in {
-          0% { opacity: 0; transform: translateY(20px); }
+          0% { opacity: 0; transform: translateY(15px); }
           100% { opacity: 1; transform: translateY(0); }
         }
         @keyframes fade-in-up {
@@ -96,24 +81,12 @@ const LoadingScreen = () => {
           50% { width: 70%; }
           100% { width: 100%; }
         }
-        @keyframes shimmer {
-          0%, 100% { opacity: 0.8; }
-          50% { opacity: 1; text-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
-        }
-        @keyframes text-glow {
-          0%, 100% { text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
-          50% { text-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 0 0 30px rgba(59, 130, 246, 0.3); }
-        }
-        .animate-glow { animation: glow 4s ease-in-out infinite; }
-        .animation-delay-2000 { animation-delay: 2s; }
         .animate-float { animation: float 3s ease-in-out infinite; }
         .animate-logo-pulse { animation: logo-pulse 2.5s ease-in-out infinite; }
         .animate-bounce-dot { animation: bounce-dot 1.4s infinite ease-in-out both; }
         .animate-fade-in { animation: fade-in 1s ease-out forwards; }
         .animate-fade-in-up { animation: fade-in-up 0.8s ease-out forwards; animation-delay: 0.3s; opacity: 0; }
         .animate-progress-bar { animation: progress-bar 2.5s ease-in-out infinite; }
-        .animate-shimmer { animation: shimmer 2s ease-in-out infinite; }
-        .animate-text-glow { animation: text-glow 2s ease-in-out infinite; }
       `}</style>
     </div>
   );
