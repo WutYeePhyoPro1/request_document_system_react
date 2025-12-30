@@ -243,7 +243,6 @@ export default function DamageFormHeader({
         notification.remove();
       }, 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
     }
   };
 

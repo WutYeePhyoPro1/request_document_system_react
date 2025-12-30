@@ -271,29 +271,6 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     const shouldShowAcknowledged = requiresOpManagerApproval || 
       (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet));
     
-    // Debug logging
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('[ApprovalSection] Acknowledged by check (Laravel logic):', {
-        totalAmount: numericTotalAmount,
-        requiresOpManagerApproval,
-        status: normalizedStatus,
-        hasAcAcknowledgedApproval,
-        acAcknowledgedApproval: acAcknowledgedApproval ? {
-          user_type: acAcknowledgedApproval.user_type || acAcknowledgedApproval.raw?.user_type,
-          status: acAcknowledgedApproval.status || acAcknowledgedApproval.raw?.status,
-          actual_user_id: acAcknowledgedApproval.actual_user_id || acAcknowledgedApproval.raw?.actual_user_id
-        } : null,
-        statusMatches,
-        cancelConditionMet,
-        shouldShowAcknowledged,
-        allApprovals: safeApprovals.map(a => ({
-          user_type: a?.user_type || a?.raw?.user_type,
-          label: resolveLabel(a),
-          status: a?.status || a?.raw?.status
-        }))
-      });
-    }
-    
     if (shouldShowAcknowledged) {
       approvalsToShow.push({ label: "Acknowledged by", key: "acknowledged", approval: acAcknowledgedApproval });
     }

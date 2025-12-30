@@ -248,29 +248,6 @@ export default function SupportingInfo({
   // Hide attachments if completed, or if status is one of the restricted statuses, or per role rules above
   const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved'));
 
-  // Debugging: log resolved values to help diagnose why UI might still appear
-  React.useEffect(() => {
-    try {
-      console.debug('[SupportingInfo DEBUG]', {
-        status,
-        statusLower,
-        currentUserRole,
-        resolvedRoleLower,
-        isCurrentUserChecker,
-        isRegularUser,
-        resolvedIsChecker,
-        resolvedIsRegularUser,
-        showRemark,
-        showAttachments,
-        shouldShowRemark,
-        shouldShowAttachments,
-        readOnly,
-      });
-    } catch (e) {
-      // swallow
-    }
-  }, [status, currentUserRole, isCurrentUserChecker, isRegularUser, showRemark, showAttachments, readOnly, shouldShowRemark, shouldShowAttachments]);
-
   // Effective readonly: if parent told us readOnly, or if viewer is a regular user viewing an Ongoing form,
   // treat as readonly so delete buttons are disabled even when attachments are shown.
   const effectiveReadOnly = Boolean(readOnly || (resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved')));

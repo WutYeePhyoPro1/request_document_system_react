@@ -1844,7 +1844,6 @@ const normalizeImageEntries = (list) => {
       // Only trigger refetch once
       onSystemQtyStatusChange(true);
     } catch (error) {
-      console.error('Error updating system quantities:', error);
       setErrorModal({
         isOpen: true,
         message: error.message || 'Failed to update system quantities. Please try again.'

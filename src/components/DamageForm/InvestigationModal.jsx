@@ -206,25 +206,7 @@ const InvestigationFormModal = ({
       || initialData?.general_form?.investigate
       || null;
 
-    console.log('[InvestigationModal] useEffect - Checking investigation data:', {
-      isOpen,
-      hasFormDataInvestigation: Boolean(formData?.investigation),
-      hasFormDataInvestigate: Boolean(formData?.investigate),
-      hasGeneralFormInvestigation: Boolean(formData?.general_form?.investigation),
-      hasGeneralFormInvestigate: Boolean(formData?.general_form?.investigate),
-      hasInitialDataInvestigation: Boolean(initialData?.investigation),
-      hasInitialDataGeneralFormInvestigation: Boolean(initialData?.general_form?.investigation),
-      existingFound: Boolean(existing),
-      existingData: existing ? {
-        id: existing.id,
-        bdi_reason: existing.bdi_reason,
-        bm_reason: existing.bm_reason,
-        bm_company: existing.bm_company
-      } : null,
-    });
-
     if (!existing) {
-      console.log('[InvestigationModal] No investigation data found');
       setInvestigationId(null);
       return;
     }
@@ -234,15 +216,6 @@ const InvestigationFormModal = ({
     // Always update state when investigation data changes (not just when ID changes)
     // This ensures the modal shows the latest data after save
     if (existingId !== investigationId || investigationId === null) {
-      console.log('[InvestigationModal] useEffect - Updating modal state from existing data:', {
-        existingId,
-        currentInvestigationId: investigationId,
-        bmReason: existing.bm_reason,
-        bmCompany: existing.bm_company,
-        opCompany: existing.op_company,
-        accCompany: existing.acc_company,
-      });
-      
       // Normalize bdi_reason to one of our category IDs (matches `categories[].id`)
       const mapReasonToCategoryId = (reasonRaw) => {
         if (!reasonRaw) return 'Thief';
@@ -483,7 +456,6 @@ const InvestigationFormModal = ({
     const generalFormId = resolveGeneralFormId();
     
     if (!generalFormId) {
-      console.error('[InvestigationModal] buildRequestBody: No generalFormId found!');
       throw new Error('General form ID is required');
     }
     
@@ -576,21 +548,6 @@ const InvestigationFormModal = ({
   );
       
   const requiresOpManagerApproval = totalAmountForDisplay > 500000;
-  
-  // Debug logging (after totalAmountForDisplay is defined)
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[InvestigationModal] Operation Manager section check:', {
-      totalAmountForDisplay,
-      requiresOpManagerApproval,
-      hasOperationManagerStage,
-      showOperationManagerFields,
-      status,
-      isOpManager,
-      isOpManagerByApproval,
-      normalizedUserRole,
-      hasOpPercentages: Boolean(opCompanyPct || opUserPct || opIncomePct)
-    });
-  }
   
   // Show Operation Manager section only if:
   // 1. hasOperationManagerStage is true (which already checks amount > 500000), OR
@@ -750,29 +707,9 @@ const InvestigationFormModal = ({
     }
 
     const body = buildRequestBody(payload);
-    
-    // Debug: Log the FormData being sent
-    console.log('[InvestigationModal] Request payload:', {
-      generalFormId,
-      role,
-      investigationId,
-      payload,
-      canEditOperationFields,
-      canEditAccountFields: role === 3,
-    });
-    
-    // Debug: Log FormData contents
-    if (body instanceof FormData) {
-      const formDataEntries = {};
-      for (const [key, value] of body.entries()) {
-        formDataEntries[key] = value;
-      }
-      console.log('[InvestigationModal] FormData contents:', formDataEntries);
-    }
 
     setIsSubmitting(true);
     try {
-      console.log('[InvestigationModal] Sending request to:', '/api/big-damage-issues/investigation');
       
       // apiRequest already parses JSON and throws on error, so we don't need to check response.ok
       const responseData = await apiRequest('/api/big-damage-issues/investigation', {
@@ -783,13 +720,6 @@ const InvestigationFormModal = ({
       // Extract investigation data from response
       // Laravel returns: { message: '...', data: investigation }
       const investigationData = responseData?.data || responseData?.investigation || responseData;
-    
-      console.log('[InvestigationModal] Save response:', {
-        responseData,
-        investigationData,
-        hasData: Boolean(investigationData),
-        investigationId: investigationData?.id || investigationData?.investi_id,
-      });
     
       // Show success modal
       setSuccessModalMessage(responseData?.message || t('investigation.updateSuccess'));
@@ -829,26 +759,10 @@ const InvestigationFormModal = ({
           const categoryId = mapReasonToCategoryId(investigationData.bdi_reason);
           setSelectedCategory(categoryId || 'Thief');
         }
-        
-        console.log('[InvestigationModal] Updated modal state:', {
-          investigationId: newInvestigationId,
-          bmReason: investigationData.bm_reason,
-          bmCompany: investigationData.bm_company,
-          bmUser: investigationData.bm_user,
-          bmIncome: investigationData.bm_income,
-          opCompany: investigationData.op_company,
-          opUser: investigationData.op_user,
-          opIncome: investigationData.op_income,
-          accCompany: investigationData.acc_company,
-          accUser: investigationData.acc_user,
-          accIncome: investigationData.acc_income,
-          bdiReason: investigationData.bdi_reason,
-        });
       }
       
       // Call onSave callback AFTER updating modal state to refresh formData in parent
       if (onSave && typeof onSave === 'function') {
-        console.log('[InvestigationModal] Calling onSave callback with:', { investigation: investigationData });
         onSave({ investigation: investigationData });
       }
       
@@ -860,14 +774,6 @@ const InvestigationFormModal = ({
         }, 500);
       }, 1000);
     } catch (error) {
-      console.error('[InvestigationModal] Save error:', {
-        error,
-        message: error.message,
-        response: error.response,
-        responseData: error.response?.data,
-        stack: error.stack,
-      });
-      
       // Show specific error message from backend if available
       const errorMessage = error.message || error.response?.data?.message || error.response?.data?.error || t('investigation.updateFailed');
       setErrorModalMessage(errorMessage);
