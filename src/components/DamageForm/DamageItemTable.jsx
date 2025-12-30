@@ -1078,6 +1078,13 @@ const handleInputChange = (id, field, value) => {
       // Ensure proper parsing - handle string numbers correctly
       const qtyNumeric = value === '' ? 0 : (isNaN(parseFloat(value)) ? 0 : parseFloat(value));
       
+      // CRITICAL: In Checked stage, all quantity changes should update actual_qty, not final_qty
+      const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+      if (isCheckedStage && qtyType === 'final_qty') {
+        // Redirect final_qty changes to actual_qty in Checked stage
+        qtyType = 'actual_qty';
+      }
+      
       // Validate all quantity fields against system_qty - don't auto-cap, return early if invalid
       // The onChange handler will show error modal and prevent the change
       if (systemQty > 0 && qtyNumeric > systemQty) {
@@ -1095,8 +1102,16 @@ const handleInputChange = (id, field, value) => {
       }
       
       const price = parseFloat(item.price) || 0;
-      // Calculate amount using final_qty (or actual_qty in add mode)
-      const qtyForAmount = qtyType === 'final_qty' ? finalQty : qtyNumeric;
+      // CRITICAL: In Checked stage, calculate amount using actual_qty
+      // For other stages: use final_qty (or actual_qty in add mode)
+      let qtyForAmount;
+      if (isCheckedStage) {
+        // In Checked stage, always use actual_qty for amount calculation
+        qtyForAmount = qtyType === 'actual_qty' ? qtyNumeric : (parseFloat(item.actual_qty) || 0);
+      } else {
+        // For other stages, use the quantity type being changed
+        qtyForAmount = qtyType === 'final_qty' ? finalQty : qtyNumeric;
+      }
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
@@ -1104,6 +1119,10 @@ const handleInputChange = (id, field, value) => {
       // CRITICAL: Preserve original request_qty BEFORE any updates
       // This ensures request_qty remains independent of actual_qty changes in view mode
       const originalRequestQty = item.request_qty;
+
+      // CRITICAL: Preserve original actual_qty BEFORE any updates
+      // This ensures actual_qty remains independent of final_qty changes, especially in Checked stage
+      const originalActualQty = item.actual_qty;
 
       const updatedItem = {
         ...item,
@@ -1155,7 +1174,36 @@ const handleInputChange = (id, field, value) => {
       } else if (qtyType === 'final_qty') {
         // Updating final_qty (in both add and view mode)
         updatedItem.final_qty = finalQty;
-        // Don't change actual_qty or request_qty (they are the original request)
+        
+        // CRITICAL: In Ongoing stage, when final_qty changes, also update actual_qty to match
+        // In Checked stage, actual_qty should NOT be reset to 0 when final_qty changes
+        const isOngoingStage = (status === 'Ongoing' || status === 'ongoing') && !isCompleted;
+        const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+        
+        if (isOngoingStage) {
+          // In Ongoing stage: when final_qty changes, update actual_qty to match
+          updatedItem.actual_qty = finalQty;
+        } else {
+          // For other stages (including Checked): preserve actual_qty independently
+          // Only initialize actual_qty if it's truly undefined/null/empty string/0
+          const existingActualQty = item.actual_qty;
+          const isActualQtyUnset = existingActualQty === null || 
+                                    existingActualQty === undefined || 
+                                    existingActualQty === '' ||
+                                    existingActualQty === 0 ||
+                                    (typeof existingActualQty === 'string' && existingActualQty.trim() === '');
+          
+          if (isActualQtyUnset) {
+            // If actual_qty is not set, initialize it to final_qty (for new items)
+            updatedItem.actual_qty = finalQty;
+          } else {
+            // actual_qty is already set, preserve it independently
+            // This ensures that in Checked stage, actual_qty doesn't get reset to 0 when final_qty changes
+            updatedItem.actual_qty = originalActualQty;
+          }
+        }
+        // Also preserve request_qty independently
+        updatedItem.request_qty = originalRequestQty;
       }
 
       if (updatedItem.originalItem) {
@@ -1196,7 +1244,20 @@ const handleInputChange = (id, field, value) => {
           }
         }
       } else if (qtyType === 'final_qty') {
-        onItemChange(index, 'final_qty', finalQty);
+        // CRITICAL: In Checked stage, don't update final_qty (it's read-only)
+        // If we're here, it means the qtyType was redirected to actual_qty above
+        // So we should not update final_qty in Checked stage
+        const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+        const isOngoingStage = (status === 'Ongoing' || status === 'ongoing') && !isCompleted;
+        
+        if (!isCheckedStage) {
+          onItemChange(index, 'final_qty', finalQty);
+          
+          // CRITICAL: In Ongoing stage, also update actual_qty to match final_qty
+          if (isOngoingStage) {
+            onItemChange(index, 'actual_qty', finalQty);
+          }
+        }
       }
       onItemChange(index, 'amount', amountNumeric);
       onItemChange(index, 'total', amountNumeric);
@@ -2436,8 +2497,9 @@ const normalizeImageEntries = (list) => {
                     </td>
                   )}
                   {/* Amount - calculated based on status:
-                      - Checked: price * final_qty
-                      - BM Approved: price * actual_qty */}
+                      - Checked (after BTP): price * actual_qty (backend recalculated using actual_qty)
+                      - BM Approved: price * actual_qty
+                      - Other statuses: price * final_qty */}
                   <td className="px-2 py-2 whitespace-nowrap text-[13px]">
                     {(() => {
                       const systemQty = toSafeNumber(item.system_qty);
@@ -2445,9 +2507,16 @@ const normalizeImageEntries = (list) => {
                       const finalQty = toSafeNumber(item.final_qty ?? item.actual_qty);
                       const price = toSafeNumber(item.price);
 
-                      // For BM Approved status, use actual_qty; otherwise use final_qty
+                      // CRITICAL: After BTP, backend recalculates using actual_qty
+                      // So for Checked status (after BTP), we should use actual_qty for amount
+                      // For BM Approved, also use actual_qty
+                      // For other statuses, use final_qty
                       const isBMApproved = status === 'BM Approved' || status === 'BMApproved';
-                      const baseQty = isBMApproved ? actualQty : finalQty;
+                      const isChecked = status === 'Checked' || status === 'checked';
+                      
+                      // Use actual_qty for BM Approved and Checked (after BTP)
+                      // This ensures amounts match backend calculation which uses actual_qty
+                      const baseQty = (isBMApproved || isChecked) ? actualQty : finalQty;
                       
                       const qtyForAmount = systemQty > 0 && baseQty > systemQty
                         ? systemQty
@@ -2455,9 +2524,30 @@ const normalizeImageEntries = (list) => {
 
                       const calculatedAmount = qtyForAmount * price;
                       
-                      // For BM Approved, always use calculated amount (price * actual_qty)
+                      // DEBUG: Log amount calculation
+                      if (item.product_code) {
+                        console.log('[AMOUNT_DEBUG] Item amount calculation', {
+                          product_code: item.product_code,
+                          status: status,
+                          isBMApproved: isBMApproved,
+                          isChecked: isChecked,
+                          price: price,
+                          actual_qty: actualQty,
+                          final_qty: finalQty,
+                          baseQty: baseQty,
+                          qtyForAmount: qtyForAmount,
+                          calculatedAmount: calculatedAmount,
+                          item_amount: item.amount,
+                          item_total: item.total,
+                          displayAmount: (isBMApproved || isChecked) 
+                            ? calculatedAmount 
+                            : ((item.total ?? item.amount) ?? calculatedAmount),
+                        });
+                      }
+                      
+                      // For BM Approved and Checked, always use calculated amount (price * actual_qty)
                       // For other statuses, prefer explicit total from backend if available
-                      const displayAmount = isBMApproved 
+                      const displayAmount = (isBMApproved || isChecked)
                         ? calculatedAmount 
                         : ((item.total ?? item.amount) ?? calculatedAmount);
 

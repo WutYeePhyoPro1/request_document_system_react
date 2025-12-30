@@ -2325,9 +2325,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 };
 
   // Calculate totalAmount from items, but also check general_form.total_amount as fallback
-  const totalAmount = formData.items.length > 0 
-    ? formData.items.reduce((acc, i) => acc + (i.amount || 0), 0)
-    : Number(
+  const itemsTotal = formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => {
+        const amount = Number(i.amount || i.total || i.total_amount || 0);
+        return acc + (Number.isFinite(amount) ? amount : 0);
+      }, 0)
+    : 0;
+  
+  const dbTotal = Number(
         formData?.general_form?.total_amount
         ?? formData?.total_amount
         ?? formData?.general_form?.totalAmount
@@ -2340,6 +2345,37 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         ?? initialData?.total
         ?? 0
       );
+  
+  // CRITICAL: Prioritize database total_amount over items total
+  // After BTP, backend recalculates using actual_qty, but items array might have amounts
+  // calculated from final_qty. Always trust the database total_amount when available.
+  const totalAmount = dbTotal > 0 ? dbTotal : itemsTotal;
+  
+  // DEBUG: Log total calculation for troubleshooting
+  if (formData.general_form_id || formData.generalFormId) {
+    console.log('[TOTAL_DEBUG] Total amount calculation', {
+      general_form_id: formData.general_form_id || formData.generalFormId,
+      items_count: formData.items?.length || 0,
+      items_total: itemsTotal,
+      db_total: dbTotal,
+      final_total: totalAmount,
+      using_db_total: dbTotal > 0,
+      using_items_total: dbTotal <= 0 && itemsTotal > 0,
+      items_detail: formData.items?.map(item => ({
+        product_code: item.product_code,
+        amount: item.amount,
+        total: item.total,
+        total_amount: item.total_amount,
+        price: item.price,
+        actual_qty: item.actual_qty,
+        final_qty: item.final_qty,
+        calculated_from_actual: (Number(item.price) || 0) * (Number(item.actual_qty) || 0),
+        calculated_from_final: (Number(item.price) || 0) * (Number(item.final_qty) || 0),
+      })) || [],
+      general_form_total: formData?.general_form?.total_amount,
+      root_total: formData?.total_amount,
+    });
+  }
   const apiActions = initialData?.actions || {};
   const statusText = (formData.status || '').trim();
   const normalize = s => (s || '').toString();
@@ -3348,11 +3384,14 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               : finalRequestQty);
         
         // CRITICAL: Amount/total calculation depends on the form status:
-        // - Checked: price * final_qty
+        // - Checked: price * actual_qty (user edits actual_qty in Checked stage)
         // - BM Approved: price * actual_qty
+        // - Other stages: price * final_qty
         const currentFormStatus = (formData.status || '').trim();
         const isBMApprovedStatus = currentFormStatus === 'BM Approved' || currentFormStatus === 'BMApproved';
-        const qtyForAmount = isBMApprovedStatus ? resolvedActual : resolvedFinal;
+        const isCheckedStatus = currentFormStatus === 'Checked' || currentFormStatus === 'checked';
+        // Use actual_qty for BM Approved and Checked stages, final_qty for other stages
+        const qtyForAmount = (isBMApprovedStatus || isCheckedStatus) ? resolvedActual : resolvedFinal;
         const computedAmount = price * qtyForAmount;
         const parsedAmount = Number(item?.amount);
         // Only use parsedAmount if it matches the expected calculation
@@ -3616,10 +3655,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const remarks = normalizedItems.map((item) => item.remark ?? '');
       const productTypes = normalizedItems.map((item) => item.product_type ?? 'Damage');
       const productCategoryIds = normalizedItems.map((item) => item.product_category_id ?? null);
-      const specificFormIds = normalizedItems.map((item, index) => {
-        const fallback = items[index]?.specific_form_id ?? items[index]?.id ?? '';
-        return item.specific_form_id ?? fallback;
-      });
+      // CRITICAL: specific_form_id array should ONLY contain valid IDs of existing items
+      // New items should NOT have their (empty) specific_form_id in this array
+      // The backend uses count(specific_form_id) to determine where existing items end and new items begin
+      const specificFormIds = normalizedItems
+        .map((item, index) => {
+          const fallback = items[index]?.specific_form_id ?? items[index]?.id ?? '';
+          return item.specific_form_id ?? fallback;
+        })
+        .filter(id => id !== '' && id !== null && id !== undefined && id !== 0 && id !== '0');
       const accountCodeLines = normalizedItems.map((item) => item.acc_code1 ?? '');
       
       // Append all arrays
@@ -4422,6 +4466,30 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               ? finalAttachments 
               : prev.attachments;
             
+            // Update general_form with remark and total_amount from BTP response if available
+            const responseTotalAmount = response?.total_amount;
+            const prevTotalAmount = prev?.general_form?.total_amount ?? prev?.total_amount;
+            
+            // DEBUG: Log total_amount update
+            if (responseTotalAmount !== undefined) {
+              console.log('[BTP] Frontend: Updating total_amount from response', {
+                general_form_id: responseGeneralFormId,
+                response_total_amount: responseTotalAmount,
+                previous_total_amount: prevTotalAmount,
+                difference: responseTotalAmount - (prevTotalAmount || 0),
+                response_keys: Object.keys(response || {}),
+              });
+            }
+            
+            const updatedGeneralForm = {
+              ...(prev.general_form || {}),
+              status: nextStatus,
+              // Update remark from BTP response - this is the "Back to Previous" remark
+              ...(response?.remark !== undefined ? { remark: response.remark } : {}),
+              // CRITICAL: Update total_amount from BTP response to reflect recalculated amount
+              ...(responseTotalAmount !== undefined ? { total_amount: responseTotalAmount } : {}),
+            };
+            
             const updated = {
               ...prev,
               status: nextStatus,
@@ -4433,11 +4501,29 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               items: responseItems ?? formData.items, // Use response items if available (they contain updated account codes)
               // Update attachments - use fetched files from backend
               attachments: mergedAttachments,
+              // Update general_form with BTP remark and total_amount
+              general_form: updatedGeneralForm,
+              // Also update total_amount at root level for compatibility
+              ...(responseTotalAmount !== undefined ? { total_amount: responseTotalAmount } : {}),
               response: {
                 ...response,
                 approvals: finalApprovals
               },
             };
+            
+            // DEBUG: Log final state after update
+            if (responseTotalAmount !== undefined) {
+              console.log('[BTP] Frontend: Total amount after state update', {
+                general_form_id: responseGeneralFormId,
+                updated_general_form_total: updated.general_form?.total_amount,
+                updated_root_total: updated.total_amount,
+                items_count: updated.items?.length || 0,
+                items_total_calculated: updated.items?.reduce((sum, item) => {
+                  const amount = Number(item.amount || item.total || item.total_amount || 0);
+                  return sum + (Number.isFinite(amount) ? amount : 0);
+                }, 0) || 0,
+              });
+            }
             return updated;
           });
 

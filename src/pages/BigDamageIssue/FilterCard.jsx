@@ -160,8 +160,18 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       } else if (typeof filters.status === 'object' && filters.status.value) {
         statusValue = [filters.status];
       } else if (typeof filters.status === 'string' && filters.status.trim()) {
+        // CRITICAL: Split comma-separated string and ensure we always create valid objects
+        // This handles default status from clearAllFilters (e.g., "Ongoing,Checked")
         const parts = filters.status.split(',').map(p => p.trim()).filter(Boolean);
-        statusValue = parts.map(p => statusOptions.find(o => o.value.toLowerCase() === p.toLowerCase()) || { value: p, label: p });
+        statusValue = parts.map(p => {
+          const found = statusOptions.find(o => o.value.toLowerCase() === p.toLowerCase());
+          return found || { value: p, label: p };
+        });
+        // Ensure we have at least one item if the original string was non-empty
+        if (statusValue.length === 0 && filters.status.trim()) {
+          // Fallback: create a single object from the original string
+          statusValue = [{ value: filters.status.trim(), label: filters.status.trim() }];
+        }
       }
     }
     
@@ -287,22 +297,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   };
 
   const handleSearch = () => {
-    // Prevent search when no filters applied
-    if (!isAnyFilterApplied) {
-      // Show error box prompting user to fill some filters
-      try {
-        Swal.fire({
-          icon: 'error',
-          title: 'Please fill at least one filter',
-          text: 'Please fill some filter fields before searching.',
-        });
-      } catch (e) {
-        // Fallback
-        alert('Please fill at least one filter before searching.');
-      }
-      return;
-    }
-
+    // Allow search even without filters - will use default status based on user role
+    // No validation required - if no filters are set, default status will be applied
     // Apply filters when search button is clicked
     onFilter(localFilters);
   };
@@ -325,7 +321,11 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   const isAnyFilterApplied = Object.entries(localFilters).some(([key, val]) => {
     if (key === 'status') {
       // For status (multi-select), check if it's a non-empty array or string
-      if (Array.isArray(val)) return val.length > 0;
+      // Also check if it's an array with valid objects (even if empty array, check if it was originally a string)
+      if (Array.isArray(val)) {
+        // Check if array has items OR if the original filters.status was a string (default status)
+        return val.length > 0 || (filters.status && typeof filters.status === 'string' && filters.status.trim() !== '');
+      }
       return typeof val === 'string' && val.trim() !== '';
     }
     // Exclude branch from this check - branch may be auto-selected by dashboard logic

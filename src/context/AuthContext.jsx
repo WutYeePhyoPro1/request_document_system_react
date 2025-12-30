@@ -127,17 +127,32 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
 
     const loginWithToken = async (token) => {
         try {
-            const response = await axios.post('/api/auto-login', { token }); // Adjust endpoint as needed
+            // Clear any existing user data before auto-login
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            
+            const response = await axios.post('/api/auto-login', { token }, {
+                withCredentials: true // ✅ Include cookies for Laravel session
+            });
+            
             if (response.data && response.data.user) {
+                const enriched = { ...response.data.user };
+                if (!enriched.user_type) {
+                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
+                    enriched.user_type = 'A2';
+                  } else if (Number(enriched.role_id) === 3) {
+                    enriched.user_type = 'A1';
+                  }
+                }
+                
+                // Store new user data
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-                setUser(response.data.user);
-                setToken(response.data.token);
+                localStorage.setItem('user', JSON.stringify(enriched));
+                setUser(enriched);
+                
+                console.log('[AUTO-LOGIN] User logged in:', enriched.name, enriched.emp_id);
                 return true;
-
-                // setUser(response.data.user);
-                // localStorage.setItem('authToken', token); // optional
-                // return true;
             }
         } catch (error) {
             console.error('Auto-login failed:', error);

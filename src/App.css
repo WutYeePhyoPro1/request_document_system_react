@@ -3,6 +3,29 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global cursor pointer for interactive elements */
+button,
+a,
+[role="button"],
+[onclick],
+.clickable,
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+select,
+label[for],
+.btn,
+[class*="btn-"] {
+    cursor: pointer !important;
+}
+
+/* Ensure disabled elements don't have pointer cursor */
+button:disabled,
+[disabled],
+.disabled {
+    cursor: not-allowed !important;
+}
+
 /* Push Notification Animation */
 @keyframes slideUp {
   from {

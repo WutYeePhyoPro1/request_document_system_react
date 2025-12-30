@@ -970,37 +970,8 @@ const Dashboard = () => {
 
   // Extracted filter apply/clear handlers so they can be reused for desktop and mobile
   const applyFilters = (v) => {
-    // Prevent search when no filters or branch is selected (show error)
-    const statusHasValue = Array.isArray(v.status) ? v.status.length > 0 :
-      (v.status && (typeof v.status === 'object' ? (v.status.value || v.status.value === 0) : (typeof v.status === 'string' && v.status.trim())));
-    const anyFilter = Boolean(
-      (v.productName && v.productName.trim()) ||
-      (v.formDocNo && v.formDocNo.trim()) ||
-      (v.fromDate && v.fromDate.trim()) ||
-      (v.toDate && v.toDate.trim()) ||
-      statusHasValue ||
-      (v.branch && v.branch.value)
-    );
-    if (!anyFilter) {
-      try {
-        // Use SweetAlert2 modal (dynamic import via promise)
-        import('sweetalert2')
-          .then((mod) => {
-            const Swal = mod.default || mod;
-            Swal.fire({
-              icon: 'error',
-              title: 'Please fill at least one filter',
-              text: 'Please fill some filter fields before searching.',
-            });
-          })
-          .catch(() => {
-            alert('Please fill some filter fields before searching.');
-          });
-      } catch (e) {
-        alert('Please fill some filter fields before searching.');
-      }
-      return;
-    }
+    // Allow search even without filters - will use default status based on user role
+    // No validation required - if no filters are set, default status will be applied
     // Set filtering flag FIRST to prevent useEffect from interfering
     isFilteringRef.current = true;
 
@@ -1087,12 +1058,58 @@ const Dashboard = () => {
       clearTimeout(filterTimeoutRef.current);
     }
 
+    // Calculate default status based on user role (same logic as initializeFiltersFromUrl)
+    let defaultStatus = "";
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
+      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
+
+      // Prefer authoritative user_type when available
+      // If user has global/all-branch access, skip frontend role defaults (backend will handle visibility)
+      const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
+      const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
+
+      const isCheckerUser = (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c')) || role.includes('checker');
+
+      if (!hasAllBranchAccess || isCheckerUser) {
+        if (userType) {
+          if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
+            defaultStatus = ['Ongoing', 'Checked'].join(',');
+          } else if (userType === 'a1') {
+            // Branch Manager (A1) - do NOT set frontend default here; backend will apply BM defaults.
+            defaultStatus = '';
+          } else if (userType === 'a2') {
+            defaultStatus = ['BM Approved', 'Ac_Acknowledged'].join(',');
+          } else if (userType === 'ac') {
+            // For account users, include Operation Manager Approved (OPApproved) in default filter
+            defaultStatus = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
+          }
+        } else {
+          // Fallback to role string detection
+          if (role.includes('checker')) {
+            defaultStatus = ['Ongoing', 'Checked'].join(',');
+          } else if (role.includes('approver') || role.includes('branch manager')) {
+            defaultStatus = ['Checked', 'BM Approved'].join(',');
+          } else if (role.includes('operation manager') || role.includes('op manager')) {
+            defaultStatus = ['BM Approved', 'Ac_Acknowledged'].join(',');
+          } else if (role.includes('account') || role.includes('branch account')) {
+            // For account roles, include OPApproved (Operation Manager Approved) in default filter
+            defaultStatus = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
+          }
+        }
+      }
+    } catch (e) {
+      // ignore parse errors, use empty string as default
+      defaultStatus = "";
+    }
+
     const clearedFilters = {
       productName: "",
       formDocNo: "",
       fromDate: "",
       toDate: "",
-      status: "",
+      status: defaultStatus, // Reset to default status based on user role, not empty string
       branch: null,
     };
 
@@ -1110,7 +1127,7 @@ const Dashboard = () => {
     newSearchParams.delete('from_date');
     newSearchParams.delete('end_date');
     newSearchParams.delete('to_date');
-    newSearchParams.delete('status');
+    newSearchParams.delete('status'); // Delete status from URL so it will use defaults
     newSearchParams.delete('branch');
     setSearchParams(newSearchParams, { replace: true });
 

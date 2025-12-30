@@ -2,6 +2,7 @@ import React from "react";
 import { Provider as ReduxProvider } from "react-redux";
 import { MantineProvider } from "@mantine/core";
 import { NotificationProvider } from "./NotificationContext";
+import { AuthProvider } from "./AuthContext";
 import store from "../store/store";
 import { AuthProvider } from "./AuthContext";
 
