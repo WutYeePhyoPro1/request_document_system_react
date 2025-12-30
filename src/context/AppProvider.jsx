@@ -4,7 +4,7 @@ import { MantineProvider } from "@mantine/core";
 import { NotificationProvider } from "./NotificationContext";
 import { AuthProvider } from "./AuthContext";
 import store from "../store/store";
-import { AuthProvider } from "./AuthContext";
+// import { AuthProvider } from "./AuthContext";
 
 export default function AppProvider({ children }) {
   return (
