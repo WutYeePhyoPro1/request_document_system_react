@@ -48,7 +48,6 @@ const CopyButton = ({ text, size = 'small' }) => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
     }
   };
 
@@ -373,13 +372,11 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     try {
       const userStr = localStorage.getItem('user');
       if (!userStr) {
-        console.warn('[DamageIssueList] No user found in localStorage');
         return null;
       }
       const user = JSON.parse(userStr);
       return user;
     } catch (e) {
-      console.error('[DamageIssueList] Error parsing user from localStorage:', e);
       return null;
     }
   }, []);
@@ -506,12 +503,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
           user = JSON.parse(userStr);
         }
       } catch (e) {
-        console.error('[DamageIssueList] Error loading user from localStorage:', e);
       }
     }
     
     if (!user) {
-      console.warn('[DamageIssueList] No user available for isFormRelevantToUser');
       return false;
     }
     
@@ -694,7 +689,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   // Log warning if no data received
   React.useEffect(() => {
     if (typeof window !== 'undefined' && window.console && (!Array.isArray(data) || data.length === 0)) {
-      window.console.warn('[DamageIssueList] No data received!', { data });
     }
   }, [data]);
 
@@ -791,14 +785,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   const filteredForms = React.useMemo(() => {
     let forms = Array.from(formsWithItems.values());
     
-    if (typeof window !== 'undefined' && window.console) {
-      window.console.log('[DamageIssueList] Before filtering:', {
-        totalForms: forms.length,
-        productFilter: productNameFilterLower,
-        sampleFormItems: forms[0]?.items || []
-      });
-    }
-    
     if (productNameFilterLower) {
       const beforeFilterCount = forms.length;
       forms = forms.filter(formData => {
@@ -856,11 +842,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         return hasMatchingItem;
       });
       
-      if (forms.length === 0 && beforeFilterCount > 0) {
-        window.console.warn('[DamageIssueList] No forms matched filter!', {
-          filter: productNameFilterLower
-        });
-      }
     }
     
     return forms;
@@ -883,19 +864,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   
   // Calculate total after filtering (for pagination)
   const filteredTotal = allFilteredIssues.length;
-  
-  if (console && console.debug) {
-    try {
-      console.debug('[DamageIssueList DEBUG] props:', {
-        prop_totalRows: totalRows,
-        data_length: Array.isArray(data) ? data.length : 0,
-        perPage,
-        currentPage,
-        filteredTotal,
-        productNameFilterLower,
-      });
-    } catch (e) {}
-  }
 
   // No client-side pagination — always show all filtered issues in this list.
   // Pagination controls have been removed; server-side paging (if used) is handled upstream.
@@ -940,7 +908,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       // This ensures the list displays all forms unless the user applied an explicit status/product filter.
       return issues;
     } catch (e) {
-      console.error('[DamageIssueList] visibleIssues useMemo error:', e);
       return issues;
     }
   }, [issues, currentUser, productFilter]);
@@ -1255,17 +1222,6 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                             const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
                             const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();
                             const isOpManagerLocal = (currentUserType === 'a2') || curRoleLower.includes('operation') || curRoleLower.includes('op manager') || ((currentUser?.employee_number === '666-666666') && currentUser?.department_id === 8);
-                            // Debug notification visibility
-                            try {
-                              console.debug('[NotifBadge DEBUG]', {
-                                gfId: gf?.id || null,
-                                possibleFormIds,
-                                notiCount,
-                                isRelevant,
-                                isOpManagerLocal,
-                                totalAmount: typeof getTotalAmount === 'function' ? getTotalAmount(row, gf) : null
-                              });
-                            } catch (e) { /* ignore */ }
                             // Determine if OP should see badge for BM Approved forms exceeding OP threshold
                             const formTotalForNotif = (typeof getTotalAmount === 'function') ? getTotalAmount(row, gf) : null;
                             const _statusForBadge = ((gf?.status || row?.status || '') + '').toString().toLowerCase();

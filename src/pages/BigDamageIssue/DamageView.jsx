@@ -853,7 +853,6 @@ export default function DamageView() {
   useEffect(() => {
     const markFormAsViewed = async () => {
       if (!token) {
-        console.log('[DamageView] No token available, skipping notification marking');
         return;
       }
 
@@ -876,31 +875,18 @@ export default function DamageView() {
         const routeId = parseInt(id, 10);
         if (!isNaN(routeId)) {
           generalFormId = routeId;
-          console.log('[DamageView] Using route param id as generalFormId:', routeId);
         }
       }
-      
-      console.log('[DamageView] Attempting to mark form as viewed (notifications will remain unread until action is completed):', {
-        generalFormId,
-        id,
-        routeId: id ? parseInt(id, 10) : null,
-        hasViewData: !!viewData?.record,
-        viewDataGeneralFormId: viewData?.record?.general_form?.id,
-        isLoading,
-        hasMarked: hasMarkedNotificationRef.current
-      });
 
       if (!generalFormId) {
         // If we don't have the required data yet, return but don't mark as attempted
         // This allows it to retry when data becomes available
-        console.log('[DamageView] No generalFormId available yet, will retry when data loads');
         return;
       }
 
       // Prevent duplicate calls for the same form
       const viewKey = `form_viewed_${generalFormId}`;
       if (hasMarkedNotificationRef.current || sessionStorage.getItem(viewKey)) {
-        console.log('[DamageView] Already marked form as viewed, skipping');
         return;
       }
 
@@ -945,7 +931,6 @@ export default function DamageView() {
         // REMOVED: Multiple delayed dispatches and local refresh - these were causing the notification count to loop
         // The Navbar now has debouncing to handle rapid events and fetches notifications centrally
       } catch (error) {
-        console.error('[DamageView] Error marking form as viewed:', error);
         // Reset the flag so it can retry
         hasMarkedNotificationRef.current = false;
         sessionStorage.removeItem(viewKey);
@@ -967,24 +952,7 @@ export default function DamageView() {
     const shouldTryMark = (hasId || (hasViewData && isDataLoaded)) && !hasMarkedNotificationRef.current;
     
     if (shouldTryMark) {
-      console.log('[DamageView] Triggering form viewed marking (notifications will remain unread until action is completed)', {
-        hasId,
-        hasViewData,
-        isDataLoaded,
-        isLoading,
-        hasToken: !!token,
-        hasMarked: hasMarkedNotificationRef.current
-      });
       markFormAsViewed();
-    } else {
-      console.log('[DamageView] Not ready to mark form as viewed yet', {
-        hasId,
-        hasViewData,
-        isDataLoaded,
-        isLoading,
-        hasToken: !!token,
-        hasMarked: hasMarkedNotificationRef.current
-      });
     }
   }, [id, viewData?.record, token, isLoading, setNotifications, location?.state?.generalFormId, gf?.id]);
   
@@ -1178,7 +1146,6 @@ export default function DamageView() {
 
   // Always log asset_type / caseType / status for easier debugging in dev and QA environments
   // eslint-disable-next-line no-console
-  console.log('[DamageView] asset_type (backend):', gf.asset_type, '=> caseType (frontend):', initialData.caseType, 'status:', initialData.status);
 
   return (
     <div className="min-h-screen bg-gray-100">
