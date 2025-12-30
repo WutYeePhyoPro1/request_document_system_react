@@ -56,14 +56,40 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('notifications');
-        window.location.href = "/login"; // ✅ Safe redirect
-    };
+   const logout = async () => {
+    try {
+        const token = localStorage.getItem("token");
 
+        if (token) {
+            await fetch("/api/logout", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                credentials: "include",
+            });
+        }
+                console.log("Logout request success" , user);
+
+    } catch (e) {
+        // even if backend fails, we still logout locally
+        console.warn("Logout request failed:", e);
+    } finally {
+        // 🔥 Clear frontend state
+        setUser(null);
+        setToken(null);
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("notifications");
+
+        // 🔥 Force hard redirect (clears memory state)
+        window.location.replace("/login");
+        console.log("Logout request success" , user);
+    }
+};
     // ⏰ Auto logout when JWT token expires
     useEffect(() => {
         const token = localStorage.getItem('token');

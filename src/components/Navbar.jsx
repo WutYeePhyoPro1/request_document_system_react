@@ -1,7 +1,7 @@
 
 
-import React, { useState, useRef, useEffect, useContext, useMemo } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useRef, useContext } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { AiOutlineMenu } from "react-icons/ai";
 import finalLogo from "../assets/images/finallogo.png";
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,6 @@ import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
 import { NotificationContext } from "../context/NotificationContext"; // ✅
 import LanguageSwitcher from './LanguageSwitcher';
-import { canViewAllBranches } from '../utils/userAccess';
 
 
 
@@ -19,7 +18,6 @@ export default function Navbar({ toggleSidebar }) {
     const { user, logout } = useAuth();
     const { notifications } = useContext(NotificationContext); 
     const token = localStorage.getItem("token");
-    const userRoleId = user?.id;
 
     const [menuOpen, setMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -51,6 +49,7 @@ export default function Navbar({ toggleSidebar }) {
 
       
     };
+
 
 
     // useEffect(() => {
@@ -107,6 +106,7 @@ export default function Navbar({ toggleSidebar }) {
     // }, [userRoleId, token, setNotifications]);
 
     const handleLogout = () => {
+        
         logout();
     };
 
