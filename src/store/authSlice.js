@@ -43,6 +43,39 @@ export const login = createAsyncThunk(
     }
   }
 );
+export const logout = createAsyncThunk(
+  "auth/logout",
+  async (_, { getState }) => {
+    const token = getState().auth.token;
+
+    try {
+      if (token) {
+        await axios.post(
+          "/api/logout",
+          {},
+          {
+            withCredentials: true,
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+          }
+        );
+      }
+    } catch (e) {
+      // ignore API failure, still logout locally
+      console.warn("Logout request failed", e);
+    }
+
+    // Always clear local data
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("notifications");
+
+    return true;
+  }
+);
 
 const authSlice = createSlice({
   name: "auth",
@@ -53,12 +86,7 @@ const authSlice = createSlice({
     error: null,
   },
   reducers: {
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-    },
+
   },
   extraReducers: (builder) => {
     builder
@@ -74,9 +102,13 @@ const authSlice = createSlice({
       .addCase(login.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
+      })
+       .addCase(logout.fulfilled, (state) => {
+        state.user = null;
+        state.token = null;
+        state.status = "idle";
       });
   },
 });
 
-export const { logout } = authSlice.actions;
 export default authSlice.reducer;

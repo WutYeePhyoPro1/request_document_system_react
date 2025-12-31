@@ -32,6 +32,7 @@ export default function Login() {
     const resultAction = await dispatch(loginThunk({ employee_number, password, remember: true }));
     if (loginThunk.fulfilled.match(resultAction)) {
       navigate('/dashboard', { replace: true });
+      console.log("USer>>" ,employee_number ) ;
     } else {
       console.error(resultAction.payload || "Login failed");
     }

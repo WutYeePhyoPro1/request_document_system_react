@@ -74,23 +74,18 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
                 console.log("Logout request success" , user);
 
     } catch (e) {
-        // even if backend fails, we still logout locally
         console.warn("Logout request failed:", e);
     } finally {
-        // 🔥 Clear frontend state
         setUser(null);
         setToken(null);
 
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         localStorage.removeItem("notifications");
-
-        // 🔥 Force hard redirect (clears memory state)
         window.location.replace("/login");
         console.log("Logout request success" , user);
     }
 };
-    // ⏰ Auto logout when JWT token expires
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -127,13 +122,12 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
 
     const loginWithToken = async (token) => {
         try {
-            // Clear any existing user data before auto-login
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setUser(null);
             
             const response = await axios.post('/api/auto-login', { token }, {
-                withCredentials: true // ✅ Include cookies for Laravel session
+                withCredentials: true 
             });
             
             if (response.data && response.data.user) {

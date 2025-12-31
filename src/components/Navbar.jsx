@@ -10,14 +10,18 @@ import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
 import { NotificationContext } from "../context/NotificationContext"; // ✅
 import LanguageSwitcher from './LanguageSwitcher';
+import { useDispatch, useSelector } from "react-redux";
+
+import { logout as logoutThunk } from '../store/authSlice'; 
 
 
+export default function Navbar({ toggleSidebar }) { 
+    const dispatch = useDispatch();
+  const { user, token } = useSelector((state) => state.auth);
 
-export default function Navbar({ toggleSidebar }) {
     const { t } = useTranslation();
-    const { user, logout } = useAuth();
     const { notifications } = useContext(NotificationContext); 
-    const token = localStorage.getItem("token");
+    // const token = localStorage.getItem("token");
 
     const [menuOpen, setMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -50,7 +54,10 @@ export default function Navbar({ toggleSidebar }) {
       
     };
 
-
+ const handleLogout = async () => {
+  await dispatch(logoutThunk());
+  navigate("/login", { replace: true });
+};
 
     // useEffect(() => {
     //     const fetchNotifications = async () => {
@@ -105,10 +112,7 @@ export default function Navbar({ toggleSidebar }) {
     //     return () => clearInterval(interval);
     // }, [userRoleId, token, setNotifications]);
 
-    const handleLogout = () => {
-        
-        logout();
-    };
+   
 
     return (
         <nav className="bg-gradient-to-r from-blue-50 via-cyan-50 to-blue-50 backdrop-blur-sm border-b border-blue-100/50 text-gray-800 py-3 sm:py-4 px-4 sm:px-6 flex items-center gap-2 sm:gap-3 relative shadow-sm z-50">
