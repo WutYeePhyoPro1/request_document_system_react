@@ -42,8 +42,9 @@ export default function StatusBadge({ status, count }) {
         // custom-badge-bg-cancel: bg #fda19d, text #f91206
         return "bg-[#fda19d] text-[#f91206]";
       case "acknowledged":
+         return "bg-[#2e4702ff] text-[#fff]";
       case "ac_acknowledged":
-        // custom-badge-bg-acknowledged: use OP Approved colors bg #e9f9cf, text #a3e635
+        // custom-badge-bg-acknowledged: use OP Approved colors bg #e9f9cf, text #2e4702ff
         return "bg-[#e9f9cf] text-[#a3e635]";
       default:
         return "bg-gray-200 text-gray-600";
@@ -57,9 +58,9 @@ export default function StatusBadge({ status, count }) {
     }
     
     // Map Ac_Acknowledged to "Operation Manager Approved"
-    if (normalized === 'ac_acknowledged' || normalized === 'acknowledged') {
-      return 'Operation Manager Approved';
-    }
+    // if (normalized === 'ac_acknowledged' || normalized === 'acknowledged') {
+    //   return 'Operation Manager Approved';
+    // }
     
     return status;
   };

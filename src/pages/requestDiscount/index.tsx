@@ -70,21 +70,23 @@ export default function Demo() {
 
     if (cached) {
       const parsed = JSON.parse(cached);
-      getRequestDiscountData(token).then((data) => {
-        setDiscountData({
-          meta: {
-            authenticatedUser: data?.authenticatedUser,
-            branch: data?.branch,
-            user_branches: data?.user_branches,
-            noti_data: data?.noti_data,
-            authBranch: data?.authBranch,
-          },
-          data: parsed.data, // load cached table data
-        });
-        setSearchTerm(parsed.searchTerm);
-        setActivePage(parsed.activePage);
-        setLoading(false);
-      }).catch(console.error);
+      getRequestDiscountData(token)
+        .then((data) => {
+          setDiscountData({
+            meta: {
+              authenticatedUser: data?.authenticatedUser,
+              branch: data?.branch,
+              user_branches: data?.user_branches,
+              noti_data: data?.noti_data,
+              authBranch: data?.authBranch,
+            },
+            data: parsed.data, // load cached table data
+          });
+          setSearchTerm(parsed.searchTerm);
+          setActivePage(parsed.activePage);
+          setLoading(false);
+        })
+        .catch(console.error);
     } else {
       fetchData();
     }
@@ -164,7 +166,7 @@ export default function Demo() {
         })
       );
 
-      setDiscountData(prev => ({ ...prev, data: results.data }));
+      setDiscountData((prev) => ({ ...prev, data: results.data }));
       setActivePage(1);
     } catch (error) {
       console.error(error);
@@ -259,7 +261,7 @@ export default function Demo() {
 
     navigate("/request_discount", { replace: true });
   };
-
+  console.log("DiscountData>>", discountData);
   const rows = useMemo(() => {
     return paginateData?.map((element, index) => {
       const isCopied = copied === element.id;
@@ -304,10 +306,11 @@ export default function Demo() {
                   (err) => console.log("Copy Failed:", err)
                 );
               }}
-              className={`ml-2 px-2 py-1 text-xs rounded transition-all ${isCopied
+              className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
+                isCopied
                   ? "text-green-600 bg-green-50"
                   : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
-                }`}
+              }`}
               title={isCopied ? "Copied!" : "Copy ID"}
               disabled={isCopied}
             >
@@ -324,6 +327,13 @@ export default function Demo() {
           >
             <Table.Td>{element.from_branches?.branch_name}</Table.Td>
             <Table.Td>{element.originators?.name}</Table.Td>
+            <Table.Td>
+              {element.asset_type === "discount" ? (
+                <span className="text-blue-600 fw-bold">Special</span>
+              ) : element.asset_type === "off" ? (
+                <span className="text-green-600 fw-bold">Normal</span>
+              ) : null}
+            </Table.Td>
             <Table.Td>{dateFormat(element.created_at)}</Table.Td>
             <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
             <Table.Td className="text-blue-600 font-medium underline">
@@ -362,18 +372,18 @@ export default function Demo() {
           <h2 className="text-xl font-semibold">Request Discount Form</h2>
           {(discountData?.meta?.authenticatedUser?.role_id == 1 ||
             discountData?.meta?.authenticatedUser?.role_id == 10) && (
-              <Link
-                to="/request-discount-create"
-                className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
-                style={{
-                  backgroundColor: "#2ea2d1",
-                }}
-                onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
-                onMouseLeave={(e) => (e.target.style.backgroundColor = "#2ea2d1")}
-              >
-                Add
-              </Link>
-            )}
+            <Link
+              to="/request-discount-create"
+              className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
+              style={{
+                backgroundColor: "#2ea2d1",
+              }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "#2ea2d1")}
+            >
+              Add
+            </Link>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 text-sm mt-4">
           <div className="flex flex-col">
@@ -486,8 +496,8 @@ export default function Demo() {
               Branch
             </label>
             {discountData?.meta?.authenticatedUser?.emp_id == "000-000046" ||
-              discountData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
-              discountData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
+            discountData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
+            discountData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
               <Select
                 id="branch_id"
                 searchable
@@ -508,12 +518,10 @@ export default function Demo() {
                 searchable
                 clearable
                 value={searchTerm.branch_id}
-                data={discountData?.meta?.user_branches?.map(
-                  (item) => ({
-                    value: String(item.branch_id),
-                    label: item.branches?.branch_name || '',
-                  })
-                )}
+                data={discountData?.meta?.user_branches?.map((item) => ({
+                  value: String(item.branch_id),
+                  label: item.branches?.branch_name || "",
+                }))}
                 onChange={handleBranchChange}
                 placeholder="Select Status"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
@@ -552,6 +560,7 @@ export default function Demo() {
                 <Table.Th>Form No</Table.Th>
                 <Table.Th>From Branch</Table.Th>
                 <Table.Th>Requested By</Table.Th>
+                <Table.Th>Over 5%</Table.Th>
                 <Table.Th>Created Date</Table.Th>
                 <Table.Th>Modified</Table.Th>
               </Table.Tr>
@@ -576,8 +585,6 @@ export default function Demo() {
         </div>
       </div>
       <div className="mx-auto mt-6  items-center  px-4">
-
-
         <Pagination
           total={Math.ceil((discountData?.data?.length ?? 0) / pageSize)}
           value={activePage}
@@ -591,7 +598,6 @@ export default function Demo() {
           </span>
           <span>Rows</span>
         </div>
-
       </div>
     </div>
   );
