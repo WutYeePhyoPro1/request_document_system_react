@@ -96,7 +96,7 @@ export default function () {
                         {
                             label: "OK",
                             onClick: () => {
-                                navigate("/cctv-index");
+                                navigate("/cctv_record");
                             },
                         },
                     ],
@@ -133,7 +133,7 @@ export default function () {
                 segments={[
                     { path: "/dashboard", label: "Home" },
                     { path: "/dashboard", label: "Dashboard" },
-                    { path: "/cctv-index", label: "Cctv Request" },
+                    { path: "/cctv_record", label: "Cctv Request" },
                     { path: "/cctv-request", label: "Cctv Record" },
                     { path: "/cctv-form", label: "Cctv Form" },
                 ]}

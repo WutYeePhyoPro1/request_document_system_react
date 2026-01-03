@@ -200,7 +200,7 @@ export default function CctvDetails() {
                     {
                         label: "OK",
                         onClick: () => {
-                            navigate("/cctv-index");
+                            navigate("/cctv_record");
                         },
                     },
                 ],
@@ -383,7 +383,7 @@ export default function CctvDetails() {
                             <NavPath
                                 segments={[
                                     { path: "/dashboard", label: "Dashboard" },
-                                    { path: "/cctv-index", label: "Cctv Request" },
+                                    { path: "/cctv_record", label: "Cctv Request" },
                                     { path: `/cctv-details/${id}`, label: "Cctv Details" }
                                 ]}
                             />
@@ -1019,7 +1019,7 @@ export default function CctvDetails() {
                             </div>
 
                             <Link
-                                to="/cctv-index"
+                                to="/cctv_record"
                                 state={{
                                     restoreSearch: true,
                                     searchPayload,

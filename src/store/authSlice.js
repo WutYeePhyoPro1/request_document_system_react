@@ -76,6 +76,28 @@ export const logout = createAsyncThunk(
     return true;
   }
 );
+export const loginWithToken = createAsyncThunk(
+  "auth/loginWithToken",
+  async ({ token }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(
+        "/api/auto-login",
+        { token },
+        { withCredentials: true }
+      );
+      const user = { ...response.data.user };
+      const tokenValue = response.data.token;
+
+      localStorage.setItem("token", tokenValue);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      return { user, token: tokenValue ,redirect: response.data.redirect, };
+    } catch (err) {
+      return rejectWithValue(err.response?.data?.message || "Auto-login failed");
+    }
+  }
+);
+
 
 const authSlice = createSlice({
   name: "auth",
@@ -107,7 +129,20 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.status = "idle";
-      });
+      }).addCase(loginWithToken.pending, (state) => {
+  state.status = "loading";
+  state.error = null;
+})
+.addCase(loginWithToken.fulfilled, (state, action) => {
+  state.user = action.payload.user;
+  state.token = action.payload.token;
+  state.status = "succeeded";
+})
+.addCase(loginWithToken.rejected, (state, action) => {
+  state.status = "failed";
+  state.error = action.payload;
+});
+;
   },
 });
 

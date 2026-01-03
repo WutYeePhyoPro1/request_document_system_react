@@ -124,7 +124,7 @@ export default function CctvEdit() {
                         {
                             label: "OK",
                             onClick: () => {
-                                navigate("/cctv-index");
+                                navigate("/cctv_record");
                             },
                         },
                     ],
@@ -229,7 +229,7 @@ export default function CctvEdit() {
                 </form>
 
                 <Link
-                    to="/cctv-index"
+                    to="/cctv_record"
                     className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base mt-4"
                 >
                     <span className="mr-1 sm:mr-2">←</span> Back

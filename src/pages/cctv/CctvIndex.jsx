@@ -5,19 +5,20 @@ import Pusher from 'pusher-js';
 import NavPath from '../../components/NavPath';
 import StatusBadge from '../../components/ui/StatusBadge';
 import { fetchData } from '../../api/FetchApi';
-import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
+import { useDispatch, useSelector } from 'react-redux';
 
 
 export default function CctvIndex() {
+    const dispatch = useDispatch() ;
+    const {user} = useSelector((state) => state.auth) ;
     const navigate = useNavigate();
     const [cctvRequests, setCctvRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [paginationInfo, setPaginationInfo] = useState(null);
     const [branches, setBranches] = useState([]);
-    const { user } = useAuth();
     const userId = user?.id ?? '';
     const [UserNotification, setUserNotification] = useState([]);
     const [isSearchMode, setIsSearchMode] = useState(false);
@@ -184,7 +185,7 @@ export default function CctvIndex() {
                             segments={[
                                 { path: "/dashboard", label: "Home" },
                                 { path: "/dashboard", label: "Dashboard" },
-                                { path: "/cctv-index", label: "Cctv Request" }
+                                { path: "/cctv_record", label: "Cctv Request" }
                             ]}
                         />
 

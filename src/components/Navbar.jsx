@@ -6,7 +6,6 @@ import { AiOutlineMenu } from "react-icons/ai";
 import finalLogo from "../assets/images/finallogo.png";
 import { useTranslation } from 'react-i18next';
 
-import { useAuth } from '../context/AuthContext';
 import NotificationIcon from './Notification';
 import { NotificationContext } from "../context/NotificationContext"; // ✅
 import LanguageSwitcher from './LanguageSwitcher';
