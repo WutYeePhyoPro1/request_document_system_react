@@ -20,7 +20,7 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
     switch (action) {
       case 'submit':
       case 'Submit':
-        return { color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' };
+        return { color: 'text-blue-500', bg: 'bg-green-50', border: 'border-blue-200' };
       case 'check':
       case 'Check':
       case 'CheckMem':
@@ -29,18 +29,18 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
       case 'Approve':
       case 'BMApproved':
       case 'BMApprovedMem':
-        return { color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' };
+        return { color: 'text-purple-500', bg: 'bg-green-50', border: 'border-purple-200' };
       case 'acknowledge':
       case 'Acknowledge':
       case 'AcAcknowledge':
-        return { color: 'text-indigo-500', bg: 'bg-indigo-50', border: 'border-indigo-200' };
+        return { color: 'text-indigo-500', bg: 'bg-green-50', border: 'border-indigo-200' };
       case 'issue':
       case 'Issue':
       case 'SupervisorIssue':
-        return { color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+        return { color: 'text-emerald-500', bg: 'bg-green-50', border: 'border-emerald-200' };
       case 'BackToPrevious':
       case 'backtoprevious':
-        return { color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' };
+        return { color: 'text-orange-500', bg: 'bg-green-50', border: 'border-orange-200' };
       case 'Cancel':
       case 'cancel':
         return { color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200' };

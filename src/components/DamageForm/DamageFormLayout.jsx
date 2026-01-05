@@ -16,6 +16,7 @@ import AnimatedBackButton from "../common/AnimatedBackButton";
 import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
 import './ButtonHoverEffects.css';
 import './BoxesLoader.css';
+import Pro1LoadingAnimation from './Pro1LoadingAnimation';
 
 const extractImageArray = (item = {}) => {
   if (!item || typeof item !== 'object') return [];
@@ -480,6 +481,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       'userType',
       'position', // Check position early - "assistant operation manager" is here
       'designation',
+      'role_id', // Check role_id (can be string like "Branch Account" or number)
+      'roleId',
       'role',
       'role_name',
       'roleName',
@@ -805,6 +808,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       if (fromGet.includes('check') || fromGet === 'c' || fromGet === 'cs') return true;
       const cur = currentUser || {};
       // Check numeric role id fields that may indicate branch_lp (role_id === 2)
+      // Also check if role_id is the string "Checker"
       const roleIdCandidates = [
         cur.role_id,
         cur.roleId,
@@ -812,6 +816,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         cur.role?.role_id,
       ].filter(Boolean);
       for (const rid of roleIdCandidates) {
+        // Check if it's the string "Checker" (case-insensitive)
+        if (typeof rid === 'string' && rid.toString().toLowerCase().trim() === 'checker') {
+          return true;
+        }
+        // Check if it's numeric role_id === 2
         const numeric = typeof rid === 'string' ? Number(rid) : rid;
         if (!Number.isNaN(numeric) && Number(numeric) === 2) return true;
       }
@@ -1144,7 +1153,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'Proceed':
         return 'Completed';
       case 'OPApproved':
-        return 'Completed';
+        // Operation Manager acknowledges - form status should be OPApproved
+        // This is different from Completed - Completed happens after Branch Account issues
+        return 'OPApproved';
       case 'Ac_Acknowledged':
         // Operation Manager acknowledges - form status should be Ac_Acknowledged
         // Account users will then see it and can issue it (which changes to Completed)
@@ -1300,25 +1311,33 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   }, [investigationData, baseInvestigationValidation]);
   
   const showInvestigationButton = () => {
+    // Use backend flag if available (backend determines visibility based on role and status)
+    if (formData?.general_form?.show_investigation_button !== undefined) {
+      return Boolean(formData.general_form.show_investigation_button);
+    }
+    
+    // Fallback to frontend logic if backend flag is not available
     const statusRaw =
       formData.status ??
       formData.general_form?.status ??
       formData.big_damage_issue?.status ??
       'Ongoing';
     const status = (statusRaw || '').toString().trim();
+    // Normalize status for case-insensitive comparison
+    const normalizedStatus = status.toLowerCase();
     
     // Show investigation button when status is Completed, Issued, or SupervisorIssued
-    if (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued') {
+    if (['completed', 'issued', 'supervisorissued'].includes(normalizedStatus)) {
       return true;
     }
     
     // Show investigation button for all users at Ac_Acknowledged stage
-    if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+    if (['ac_acknowledged', 'acknowledged', 'operation manager approved'].includes(normalizedStatus)) {
       return true;
     }
     
-    // Supervisor can view investigation form at Ac_Acknowledged stage
-    if (userRole === 'supervisor' && (status === 'Approved')) {
+    // Supervisor can view investigation form at Approved stage
+    if (userRole === 'supervisor' && normalizedStatus === 'approved') {
       return true;
     }
     
@@ -1327,13 +1346,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // Always show button for BM/ABM in Checked status or beyond
     if (
       isBM &&
-      ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status)
+      ['checked', 'bm approved', 'bmapproved', 'opapproved', 'op approved'].includes(normalizedStatus)
     ) {
       return true;
     }
 
     // Account users can view investigation at OPApproved or BM Approved stages
-    if (userRole === 'account' && (status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
+    if (userRole === 'account' && ['opapproved', 'op approved', 'bm approved', 'bmapproved'].includes(normalizedStatus)) {
       return true;
     }
 
@@ -2350,32 +2369,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // After BTP, backend recalculates using actual_qty, but items array might have amounts
   // calculated from final_qty. Always trust the database total_amount when available.
   const totalAmount = dbTotal > 0 ? dbTotal : itemsTotal;
-  
-  // DEBUG: Log total calculation for troubleshooting
-  if (formData.general_form_id || formData.generalFormId) {
-    console.log('[TOTAL_DEBUG] Total amount calculation', {
-      general_form_id: formData.general_form_id || formData.generalFormId,
-      items_count: formData.items?.length || 0,
-      items_total: itemsTotal,
-      db_total: dbTotal,
-      final_total: totalAmount,
-      using_db_total: dbTotal > 0,
-      using_items_total: dbTotal <= 0 && itemsTotal > 0,
-      items_detail: formData.items?.map(item => ({
-        product_code: item.product_code,
-        amount: item.amount,
-        total: item.total,
-        total_amount: item.total_amount,
-        price: item.price,
-        actual_qty: item.actual_qty,
-        final_qty: item.final_qty,
-        calculated_from_actual: (Number(item.price) || 0) * (Number(item.actual_qty) || 0),
-        calculated_from_final: (Number(item.price) || 0) * (Number(item.final_qty) || 0),
-      })) || [],
-      general_form_total: formData?.general_form?.total_amount,
-      root_total: formData?.total_amount,
-    });
-  }
   const apiActions = initialData?.actions || {};
   const statusText = (formData.status || '').trim();
   const normalize = s => (s || '').toString();
@@ -2388,11 +2381,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       case 'BMApprovedMem':
         return 'Check';
       case 'BMApproved':
-        return 'Approve';
+        return 'Approve (BM)';
       case 'OPApproved':
         return 'Acknowledge';
       case 'Ac_Acknowledged':
-        return 'Acknowledge';
+        return 'Approve (OP)';
       case 'SupervisorIssued':
         return 'Issue';
       case 'Completed':
@@ -2452,9 +2445,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       // Add backToPrevious and cancel for BM Approved and Acknowledge statuses
       // Also enable for branch account at branch account stage
       const role = getUserRole();
+      const roleIdStrForActions = (currentUser?.role_id || '').toString().toLowerCase();
+      const isBranchAccountByRoleIdForActions = roleIdStrForActions === 'branch account' || 
+                                                 roleIdStrForActions === 'account' ||
+                                                 Number(currentUser?.role_id) === 7;
       const isBranchAccountUser = role === 'account' || 
                                   role === 'branch_account' ||
-                                  currentUser?.role_id === 7 ||
+                                  isBranchAccountByRoleIdForActions ||
                                   (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
                                   (currentUser?.role_name || '').toLowerCase().includes('branch account');
       
@@ -2480,12 +2477,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
       }
       
-      // Ensure Operation Manager can see BackToPrevious / Cancel when the form is at operation manager stage
-      const isOpManagerUser = role === 'op_manager' || role === 'op manager' || Number(currentUser?.role_id) === 4 || Number(currentUser?.role_id) === 5;
-      if ((normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged' || normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') && isOpManagerUser) {
-        act.backToPrevious = true;
-        act.cancel = true;
-      }
+      // Operation Manager should NOT see BackToPrevious / Cancel when viewing OPApproved form
+      // (They can only see these buttons when form is BM Approved and awaiting their acknowledgment)
+      // The buttons will be hidden later in the code for OPApproved status
     }
     
     // FINAL CHECK: If BM is viewing own approved form, force disable buttons again (safety check)
@@ -2563,9 +2557,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const isBMApproved = normalizedStatusForButtons === 'BM Approved' || normalizedStatusForButtons === 'BMApproved';
   
   // Check if user is branch account
+  // Check role_id as string "Branch Account" or number 7, and also check normalized userRole
+  const roleIdStr = (currentUser?.role_id || '').toString().toLowerCase();
+  const isBranchAccountByRoleId = roleIdStr === 'branch account' || 
+                                   roleIdStr === 'account' ||
+                                   Number(currentUser?.role_id) === 7;
   const isBranchAccount = userRole === 'account' || 
                           userRole === 'branch_account' ||
-                          currentUser?.role_id === 7 || // Branch Account role ID
+                          isBranchAccountByRoleId ||
                           (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
                           (currentUser?.role_name || '').toLowerCase().includes('branch account');
   
@@ -2588,12 +2587,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // Check if user is an approver role (for Add Product button visibility)
   const isApproverRole = ['bm', 'abm', 'approver', 'manager', 'checker', 'supervisor'].some(r => userRoleLower.includes(r));
   const isUserRole = userRoleLower === 'user';
-  const isCheckerRole = userRoleLower.includes('check') || userRoleLower === 'c' || userRoleLower === 'cs' || Number(currentUser?.role_id) === 2;
+  // Check if user is checker - check role name and also check role_id (can be string "Checker" or number 2)
+  const roleIdForChecker = currentUser?.role_id;
+  const isCheckerByRoleId = roleIdForChecker && (
+    (typeof roleIdForChecker === 'string' && roleIdForChecker.toString().toLowerCase().trim() === 'checker') ||
+    (typeof roleIdForChecker === 'number' && roleIdForChecker === 2)
+  );
+  const isCheckerRole = userRoleLower.includes('check') || userRoleLower === 'c' || userRoleLower === 'cs' || isCheckerByRoleId;
   // Robust regular-user detection:
   // - explicit 'user' in role/user_type OR
   // - when no explicit role string is available (userRoleLower is empty) and the user is not any approver/manager/account/checker
+  const roleIdStrForUser = (currentUser?.role_id || '').toString().toLowerCase();
   const isRegularUser = (currentUser?.role || '').toString().toLowerCase().includes('user') ||
                         (currentUser?.user_type || '').toString().toLowerCase() === 'user' ||
+                        roleIdStrForUser === 'user' ||
                         // Treat role_id === 1 as regular user when provided by backend
                         Number(currentUser?.role_id) === 1 ||
                         Number(currentUser?.roleId) === 1 ||
@@ -2648,7 +2655,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     ?? formData?.total
     ?? 0
   ) > 500000;
-  if ((isRegularUser || isCheckerRole || isBranchManager) && isBMApprovedHigh && isHighAmount) {
+  // Hide buttons for regular users, checkers, and branch managers when BM Approved and high amount
+  // But NOT for branch account users - they should always see these buttons at their stages
+  if ((isRegularUser || isCheckerRole || isBranchManager) && !isBranchAccount && isBMApprovedHigh && isHighAmount) {
     if (typeof actions !== 'undefined') {
       actions.backToPrevious = false;
       actions.cancel = false;
@@ -2680,11 +2689,32 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     // ignore
   }
 
-  // Hide BackToPrevious and Cancel for regular users when form is at Ac_Acknowledged or OPApproved stages
+  // Hide BackToPrevious and Cancel for regular users when form is at Ac_Acknowledged, OPApproved, or Operation Manager Approved stages
   try {
     if (isRegularUser) {
-      const disallowedStatusesForRegular = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
-      if (disallowedStatusesForRegular.includes(resolvedStatusLower)) {
+      // Normalize status for comparison (remove all spaces and convert to lowercase)
+      const normalizedStatusForCheck = resolvedStatusLower.replace(/\s+/g, '');
+      const disallowedStatusesForRegular = [
+        'ac_acknowledged', 
+        'acknowledged', 
+        'opapproved', 
+        'opproved',
+        'operationmanagerapproved',
+        'operationmanagerapproved'
+      ];
+      // Check if normalized status matches any disallowed status
+      const statusMatches = disallowedStatusesForRegular.some(status => {
+        const normalizedDisallowed = status.replace(/\s+/g, '');
+        return normalizedStatusForCheck === normalizedDisallowed || 
+               normalizedStatusForCheck.includes(normalizedDisallowed) ||
+               normalizedDisallowed.includes(normalizedStatusForCheck);
+      });
+      // Also check if status contains "operation" and "approved" (for "Operation Manager Approved")
+      const isOperationManagerApproved = resolvedStatusLower.includes('operation') && 
+                                         resolvedStatusLower.includes('approved') &&
+                                         resolvedStatusLower.includes('manager');
+      
+      if (statusMatches || isOperationManagerApproved) {
         if (typeof actions !== 'undefined') {
           actions.backToPrevious = false;
           actions.cancel = false;
@@ -2702,6 +2732,69 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     if (isBranchManager) {
       const disallowedForBM = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
       if (disallowedForBM.includes(resolvedStatusLower)) {
+        if (typeof actions !== 'undefined') {
+          actions.backToPrevious = false;
+          actions.cancel = false;
+        }
+        shouldShowBackToPreviousFinal = false;
+        shouldShowCancelFinal = false;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Hide BackToPrevious and Cancel for Operation Manager after they have approved/acknowledged
+  // When status is Ac_Acknowledged, Acknowledged, or OPApproved, it means OP has already approved, so hide these buttons
+  try {
+    if (isOpManager) {
+      const disallowedForOP = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
+      if (disallowedForOP.includes(resolvedStatusLower)) {
+        if (typeof actions !== 'undefined') {
+          actions.backToPrevious = false;
+          actions.cancel = false;
+        }
+        shouldShowBackToPreviousFinal = false;
+        shouldShowCancelFinal = false;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Ensure Branch Account users can see BackToPrevious and Cancel buttons at their stages
+  // Branch account should see these buttons at: BM Approved, OPApproved, Ac_Acknowledged, Acknowledged
+  try {
+    if (isBranchAccount && isBranchAccountStage) {
+      // Ensure actions are enabled for branch account
+      if (typeof actions !== 'undefined') {
+        if (!actions.backToPrevious) actions.backToPrevious = true;
+        if (!actions.cancel) actions.cancel = true;
+      }
+      // Ensure visibility flags are true for branch account
+      shouldShowBackToPreviousFinal = true;
+      shouldShowCancelFinal = true;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // FINAL CHECK: Hide BackToPrevious and Cancel for regular users (User role) on Operation Manager Approved or Ac_Acknowledged forms
+  // This must run AFTER all other enabling logic to ensure it takes precedence
+  try {
+    if (isRegularUser) {
+      // Check for Operation Manager Approved status (various formats)
+      const isOpManagerApprovedStatus = resolvedStatusLower.includes('operation') && 
+                                        resolvedStatusLower.includes('approved') &&
+                                        (resolvedStatusLower.includes('manager') || resolvedStatusLower.includes('op'));
+      // Check for Ac_Acknowledged or Acknowledged status
+      const isAcknowledgedStatus = resolvedStatusLower === 'ac_acknowledged' || 
+                                    resolvedStatusLower === 'acknowledged' ||
+                                    resolvedStatusLower.includes('ac_acknowledged') ||
+                                    resolvedStatusLower.includes('acknowledged');
+      
+      if (isOpManagerApprovedStatus || isAcknowledgedStatus) {
+        // Force hide buttons for regular users
         if (typeof actions !== 'undefined') {
           actions.backToPrevious = false;
           actions.cancel = false;
@@ -2990,13 +3083,38 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     const isApprovalAction = action === 'BMApproved' || action === 'BMApprovedMem' || action === 'BM Approved';
     const isBMOrABM = role === 'bm' || role === 'abm';
     
-    // If status is Checked and user is BM/ABM trying to approve, check if investigation is filled
-    if (isCheckedStatus && isApprovalAction && isBMOrABM && !isInvestigationFilled) {
+    // Branch Manager cannot approve without filling investigation form
+    // Check if status is Checked and user is BM/ABM trying to approve
+    if (isCheckedStatus && isApprovalAction && isBMOrABM) {
+      // First check if investigation form exists
+      if (!isInvestigationFilled) {
       setValidationErrorModal({
         isOpen: true,
-        errors: [t('messages.investigationRequired')]
+          errors: [t('messages.investigationRequired', { 
+            defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.' 
+          })]
       });
       return;
+      }
+      
+      // Validate that BM/Operation percentages are filled and total 100%
+      const baseSectionLabel = t('investigation.bmOperation', { defaultValue: 'BM / Operation' });
+      let baseError = '';
+      if (!baseInvestigationValidation.hasAny) {
+        baseError = t('investigation.percentagesRequiredForSection', { section: baseSectionLabel });
+      } else if (!baseInvestigationValidation.hasAll) {
+        baseError = t('investigation.percentagesMustIncludeForSection', { section: baseSectionLabel });
+      } else if (!baseInvestigationValidation.isValid) {
+        baseError = t('investigation.percentagesMustTotalForSection', { section: baseSectionLabel, total: baseInvestigationValidation.total.toFixed(2) });
+      }
+      
+      if (baseError) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [baseError]
+        });
+        return;
+      }
     }
 
     // Account issuing requires investigation form to be filled
@@ -3377,9 +3495,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               : finalRequestQty);
         
         // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
-        const resolvedFinal = (item?.final_qty !== undefined && item?.final_qty !== null)
+        // Treat empty strings, null, undefined, and 0 as unset - fallback to request_qty
+        const isFinalQtySet = item?.final_qty !== undefined && 
+                              item?.final_qty !== null && 
+                              item?.final_qty !== '' &&
+                              item?.final_qty !== 0 &&
+                              !(typeof item?.final_qty === 'string' && item.final_qty.trim() === '');
+        const resolvedFinal = isFinalQtySet
           ? safeNumber(item.final_qty)
-          : ((item?.product_type !== undefined && item?.product_type !== null)
+          : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
               ? safeNumber(item.product_type)
               : finalRequestQty);
         
@@ -4470,16 +4594,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
             const responseTotalAmount = response?.total_amount;
             const prevTotalAmount = prev?.general_form?.total_amount ?? prev?.total_amount;
             
-            // DEBUG: Log total_amount update
-            if (responseTotalAmount !== undefined) {
-              console.log('[BTP] Frontend: Updating total_amount from response', {
-                general_form_id: responseGeneralFormId,
-                response_total_amount: responseTotalAmount,
-                previous_total_amount: prevTotalAmount,
-                difference: responseTotalAmount - (prevTotalAmount || 0),
-                response_keys: Object.keys(response || {}),
-              });
-            }
             
             const updatedGeneralForm = {
               ...(prev.general_form || {}),
@@ -4511,19 +4625,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               },
             };
             
-            // DEBUG: Log final state after update
-            if (responseTotalAmount !== undefined) {
-              console.log('[BTP] Frontend: Total amount after state update', {
-                general_form_id: responseGeneralFormId,
-                updated_general_form_total: updated.general_form?.total_amount,
-                updated_root_total: updated.total_amount,
-                items_count: updated.items?.length || 0,
-                items_total_calculated: updated.items?.reduce((sum, item) => {
-                  const amount = Number(item.amount || item.total || item.total_amount || 0);
-                  return sum + (Number.isFinite(amount) ? amount : 0);
-                }, 0) || 0,
-              });
-            }
             return updated;
           });
 
@@ -4826,8 +4927,22 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
   };
 
-  // Determine which buttons to show based on user role and form status
   const showApproveButton = () => {
+    // PRIORITY 1: Trust backend response if it exists and is valid
+    // The backend api_actions endpoint has already validated user permissions and form status
+    // Use apiActions (from backend) instead of actions (which is derived later)
+    if (apiActions?.approve && apiActions.approve !== 0 && apiActions.approve !== '0' && apiActions.approve !== '') {
+      const backendAction = apiActions.approve.toString().trim();
+      // Backend returned a valid action - trust it
+      // Only exceptions: if form is already completed/issued, don't show button
+      const status = (formData.status || formData?.general_form?.status || '').toString().trim();
+      if (['Issued', 'Completed', 'SupervisorIssued', 'Cancelled'].includes(status)) {
+        return false;
+      }
+      return true; // Backend says button should be shown
+    }
+    
+    // PRIORITY 2: Fallback to frontend logic if backend didn't return an action
     // Don't return early if status is missing - check if user has OP approval assignment first
     // The form data might still be loading, but we can check approvals array
     const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
@@ -5069,8 +5184,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           ));
         
         // Only show button if Operation Manager has actually approved/acknowledged
-        // If status is Ac_Acknowledged, allow button to show only if systemQtyUpdated is true
-        if (isAcknowledged) {
+        // If status is Ac_Acknowledged or OPApproved, allow button to show only if systemQtyUpdated is true
+        if (isAcknowledged || isOPApproved) {
           // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
           const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
           result = systemQtyUpdated; // Only show button if system quantity is updated
@@ -5082,9 +5197,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           result = !!(opManagerHasApproved && systemQtyUpdated);
         }
       } else {
-        // Amount <= 500000 - can acknowledge at BM Approved only if systemQtyUpdated is true
+        // Amount <= 500000 - can acknowledge at BM Approved or OPApproved only if systemQtyUpdated is true
         const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
-        result = !!(isBMApproved && systemQtyUpdated);
+        result = !!((isBMApproved || isOPApproved) && systemQtyUpdated);
       }
       
     }
@@ -5377,8 +5492,8 @@ const resolveApproveAction = () => {
       // Return null if Operation Manager hasn't acknowledged or is still pending
       return null;
     } else {
-      // Amount <= 500000 - can issue at BM Approved only if systemQtyUpdated is true
-      if (isBMApproved) {
+      // Amount <= 500000 - can issue at BM Approved or OPApproved only if systemQtyUpdated is true
+      if (isBMApproved || isOPApproved) {
         // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
         const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
         if (!systemQtyUpdated) {
@@ -5401,34 +5516,22 @@ const resolveApproveAction = () => {
   return null;
 };
 
-  // Rocket Loader component
-  const BoxesLoader = () => (
-    <div className="loading-overlay">
-      <div className="loader">
-        <span>
-          <span></span>
-          <span></span>
-          <span></span>
-          <span></span>
-        </span>
-        <div className="base">
-          <span></span>
-          <div className="face"></div>
-        </div>
-      </div>
-      <div className="longfazers">
-        <span></span>
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-      <div className="loading-text">Loading</div>
-    </div>
-  );
+  // Get action message based on current action
+  const getLoadingMessage = () => {
+    // Try to determine the action from the form state or apiActions
+    const currentAction = apiActions?.approve || apiActions?.btp || apiActions?.cancel || formData?.status || 'Processing';
+    const actionStr = String(currentAction).toLowerCase();
+    if (actionStr.includes('check')) return 'Checking...';
+    if (actionStr.includes('approve') || actionStr === 'bmapproved') return 'Approving...';
+    if (actionStr.includes('issue') || actionStr === 'issued') return 'Issuing...';
+    if (actionStr.includes('acknowledge') || actionStr === 'ac_acknowledged') return 'Operation Manager Approving...';
+    if (actionStr.includes('submit')) return 'Submitting...';
+    return 'Processing...';
+  };
 
   return (
-    <div className="p-6 sm:p-8 md:p-10 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
-      {isSubmitting && <BoxesLoader />}
+    <div className="p-4 sm:p-6 md:p-8 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
+      {isSubmitting && <Pro1LoadingAnimation message={getLoadingMessage()} />}
       
       {error && (
         <div className="alert alert-danger" role="alert">
@@ -5960,6 +6063,7 @@ const resolveApproveAction = () => {
         isCurrentUserChecker={isCurrentUserChecker}
         isRegularUser={isRegularUser}
         isCheckerWhoApproved={isCheckerWhoApproved}
+        systemQtyUpdated={Boolean(formData.systemQtyUpdated)}
       />
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
@@ -6066,54 +6170,48 @@ const resolveApproveAction = () => {
                   return null;
                 }
               } catch (e) {}
-              if (!shouldShowApprove && !forcedOpAcknowledge && !forcedOpByRole) return null;
+              if (!shouldShowApprove && !forcedOpAcknowledge && !forcedOpByRole) {
+                return null;
+              }
               let action = resolveApproveAction();
               if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
                 action = 'Ac_Acknowledged';
               }
-              // Fallback: force-show Acknowledge button for Operation Manager user types on BM Approved high-value forms
-              try {
+              
+              // Check if this is an OP manager acknowledge scenario to avoid duplicate buttons
                 const isResolvedBmApprovedLocal = (resolvedStatusLower || '').includes('bm') && (resolvedStatusLower || '').includes('approved');
                 const currentUserTypeLocal = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
                 const isOpUserLocal = currentUserTypeLocal === 'A2' || currentUserTypeLocal === 'OP' || userRoleLower === 'op_manager' || userRoleLower === 'op' || userRoleLower.includes('op manager');
                 const totalAmtLocal = totalAmountForRender;
                 const requiresOpLocal = Number(totalAmtLocal) > 500000;
-                // If OP manager and BM Approved + >500k, ensure button is rendered (may be disabled due to missing investigation)
-                if (isOpUserLocal && isResolvedBmApprovedLocal && requiresOpLocal) {
-                  const fallbackAction = 'Ac_Acknowledged';
-                  // Force-show when current user type is explicitly A2
-                  const forceShowForA2 = currentUserTypeLocal === 'A2';
-                  const disableDueToInvestigationFallback = !forceShowForA2 && ['Ac_Acknowledged','Acknowledged','OPApproved','opapproved'].includes(fallbackAction) && !isInvestigationFilled;
-                  return (
-                    <button 
-                      onClick={() => handleSubmitClick(fallbackAction)}
-                      disabled={isSubmitting || disableDueToInvestigationFallback}
-                      title={disableDueToInvestigationFallback ? t('messages.investigationRequired') : undefined}
-                      className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${getButtonColorClass(fallbackAction)} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${disableDueToInvestigationFallback ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
-                      style={{ fontSize: '15px' }}
-                    >
-                      <span>{prettyApprove(fallbackAction) || 'Acknowledge'}</span>
-                    </button>
-                  );
+              const isOpAcknowledgeScenario = isOpUserLocal && isResolvedBmApprovedLocal && requiresOpLocal;
+              
+              // If OP manager acknowledge scenario, ensure action is set and use single button rendering
+              if (isOpAcknowledgeScenario && !action) {
+                action = 'Ac_Acknowledged';
                 }
-              } catch (e) {
-                // ignore fallback errors
-              }
+              
               // Don't render button if action is null or undefined, or if submitting (to avoid white disabled button)
               if (!action || isSubmitting) {
                 return null;
               }
+              
               const buttonClass = getButtonColorClass(action);
               const isCheckedButton = action === 'Checked' || action === 'BMApprovedMem';
               // Disable acknowledge-type actions if investigation is not filled
               const ackActions = ['Ac_Acknowledged', 'Acknowledged', 'OPApproved', 'opapproved'];
               const disableDueToInvestigation = ackActions.includes(action) && !isInvestigationFilled;
+              
+              // For OP acknowledge scenario, use special handling for A2 users (force show even without investigation)
+              const forceShowForA2 = isOpAcknowledgeScenario && currentUserTypeLocal === 'A2';
+              const shouldDisable = disableDueToInvestigation && !forceShowForA2;
+              
               return (
                 <button 
                   onClick={() => handleSubmitClick(action)}
-                  disabled={isSubmitting || disableDueToInvestigation}
-                  title={disableDueToInvestigation ? t('messages.investigationRequired') : undefined}
-                  className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${disableDueToInvestigation ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
+                  disabled={isSubmitting || shouldDisable}
+                  title={shouldDisable ? t('messages.investigationRequired') : undefined}
+                  className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${shouldDisable ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
                   style={{ fontSize: '15px' }}
                 >
                   <span>{prettyApprove(action) || 'Proceed'}</span>
@@ -6125,47 +6223,6 @@ const resolveApproveAction = () => {
             {/* Removed supervisor Issue button */}
             
             {/* Back to Previous Button - For certain roles to return the form to previous state */}
-            {/* EXTRA FALLBACK: Force-show Acknowledge for A2 users as a last resort (placement before Back/Cancel) */}
-            {(() => {
-              try {
-                const currentUserTypeNow = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
-                const isA2Now = currentUserTypeNow === 'A2' || currentUserTypeNow === 'OP';
-                const statusNow = (formData.status || resolvedStatus || '').toString().toLowerCase();
-                const isBmApprovedNow = statusNow.includes('bm') && statusNow.includes('approved');
-                const totalNow = formData.items && formData.items.length > 0
-                  ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
-                  : Number(
-                      formData?.general_form?.total_amount ??
-                      formData?.total_amount ??
-                      formData?.general_form?.totalAmount ??
-                      formData?.totalAmount ??
-                      formData?.general_form?.total ??
-                      formData?.total ??
-                      initialData?.general_form?.total_amount ??
-                      initialData?.total_amount ??
-                      initialData?.general_form?.total ??
-                      initialData?.total ??
-                      0
-                    );
-                if (isA2Now && isBmApprovedNow && Number(totalNow) > 500000) {
-                  // Render Acknowledge button (may be disabled if submitting)
-                  const fallbackActionNow = 'Ac_Acknowledged';
-                  return (
-                    <button
-                      onClick={() => handleSubmitClick(fallbackActionNow)}
-                      disabled={isSubmitting}
-                      className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${getButtonColorClass(fallbackActionNow)} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1`}
-                      style={{ fontSize: '15px' }}
-                    >
-                      <span>{prettyApprove(fallbackActionNow) || 'Acknowledge'}</span>
-                    </button>
-                  );
-                }
-              } catch (e) {
-                // ignore
-              }
-              return null;
-            })()}
             {/* Hide if Branch Manager is viewing a form they already approved */}
             {shouldShowBackToPreviousFinal && (
               <button 

@@ -986,52 +986,74 @@ export default function DamageView() {
   // Now safe to have conditional returns after all hooks
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 py-6">
-        <div className="max-w-6xl mx-auto px-4">
+      <div className="p-6 sm:p-8 md:p-10 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
           <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
-            <div className="mb-4">
-              <Skeleton width={260} height={28} />
+          {/* Header skeleton */}
+          <div className="mb-6">
+            <Skeleton height={60} className="mb-4" />
+            <div className="flex items-center gap-4 mb-4">
+              <Skeleton width={300} height={32} />
+              <Skeleton width={120} height={32} />
+              <Skeleton width={100} height={32} />
+            </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Skeleton height={84} />
-              <Skeleton height={84} />
-              <Skeleton height={84} />
+          {/* Search and filter skeleton */}
+          <div className="mb-6 flex items-center gap-4">
+            <Skeleton height={40} className="flex-1" />
+            <Skeleton width={40} height={40} />
             </div>
 
+          {/* Table skeleton */}
             <div className="bg-white rounded-xl shadow p-4 mb-6">
-              <div className="mb-3">
-                <Skeleton width={180} height={22} />
+            <div className="mb-4">
+              <Skeleton height={24} width={200} />
               </div>
+            {/* Table header */}
+            <div className="grid grid-cols-12 gap-2 py-3 border-b border-gray-200 mb-2">
+              {[...Array(12)].map((_, i) => (
+                <Skeleton key={`header-skel-${i}`} height={20} />
+              ))}
+            </div>
+            {/* Table rows */}
               {[...Array(5)].map((_, i) => (
-                <div key={`item-skel-${i}`} className="grid grid-cols-6 gap-3 py-2 border-b border-gray-200 last:border-0">
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
+              <div key={`item-skel-${i}`} className="grid grid-cols-12 gap-2 py-3 border-b border-gray-200 last:border-0">
+                {[...Array(12)].map((_, j) => (
+                  <Skeleton key={`cell-skel-${i}-${j}`} height={18} />
+                ))}
                 </div>
               ))}
             </div>
 
+          {/* Supporting info skeleton */}
+          <div className="bg-white rounded-xl shadow p-4 mb-6">
+            <div className="mb-4">
+              <Skeleton height={24} width={200} />
+            </div>
+            <Skeleton height={100} className="mb-4" />
+            <div className="flex gap-2">
+              <Skeleton width={120} height={36} />
+              <Skeleton width={120} height={36} />
+            </div>
+          </div>
+
+          {/* Approval section skeleton */}
             <div className="bg-white rounded-xl shadow p-4">
-              <div className="mb-3">
-                <Skeleton width={180} height={22} />
+            <div className="mb-4">
+              <Skeleton height={24} width={200} />
               </div>
-              {[...Array(3)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
                 <div key={`appr-skel-${i}`} className="flex items-center justify-between py-3 border-b border-gray-200 last:border-0">
-                  <Skeleton width={140} height={18} />
+                <Skeleton width={200} height={20} />
                   <div className="flex items-center gap-4">
-                    <Skeleton width={160} height={18} />
-                    <Skeleton width={120} height={18} />
-                    <Skeleton width={90} height={18} />
+                  <Skeleton width={180} height={20} />
+                  <Skeleton width={120} height={20} />
+                  <Skeleton width={100} height={20} />
                   </div>
                 </div>
               ))}
             </div>
           </SkeletonTheme>
-        </div>
       </div>
     );
   }

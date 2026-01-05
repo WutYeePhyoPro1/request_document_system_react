@@ -49,9 +49,15 @@ const InvestigationFormModal = ({
   initialData = null, // Add initialData prop
 }) => {
   const { t } = useTranslation();
-  const status = (formData?.status || '').trim();
+  // Get status from multiple sources - formData, general_form, or initialData
+  const status = (formData?.status || 
+                  formData?.general_form?.status || 
+                  initialData?.status || 
+                  initialData?.general_form?.status || 
+                  '').trim();
+  
+  
   const isReadOnly = ['BM Approved', 'BMApproved', 'OPApproved', 'Completed'].includes(status);
-  const normalizedUserRole = (userRole || '').toString().toLowerCase();
   
   // Get current user from localStorage
   const getCurrentUser = () => {
@@ -65,6 +71,11 @@ const InvestigationFormModal = ({
   
   const currentUser = getCurrentUser();
   const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+  
+  // Get role from multiple sources: prop, localStorage user object, or role_id
+  const userRoleFromProp = (userRole || '').toString().toLowerCase();
+  const userRoleFromStorage = (currentUser?.role_id || currentUser?.role || currentUser?.role_name || '').toString().toLowerCase();
+  const normalizedUserRole = userRoleFromProp || userRoleFromStorage;
   
   // Check if user is operation manager based on:
   // 1. Role name (normalizedUserRole === 'op_manager')
@@ -252,7 +263,18 @@ const InvestigationFormModal = ({
   const resolveRole = () => {
     // Check if user is op_manager by role name OR by approval user_type
     if (isOpManager) return 2;
-    if (/acc|account/.test(normalizedUserRole)) return 3;
+    
+    // Check if user is account - check multiple sources
+    // Check role_id from localStorage (can be number 7 or string "Branch Account")
+    const roleIdFromStorage = currentUser?.role_id;
+    const isAccountByRoleId = roleIdFromStorage && (
+      roleIdFromStorage === 7 || 
+      (typeof roleIdFromStorage === 'string' && /branch\s*account|account/i.test(roleIdFromStorage))
+    );
+    const isAccountByRoleName = /acc|account/.test(normalizedUserRole);
+    
+    if (isAccountByRoleId || isAccountByRoleName) return 3;
+    
     return 1;
   };
 
@@ -304,8 +326,34 @@ const InvestigationFormModal = ({
   // Calculate these before buildRequestBody so they're available
   const role = resolveRole();
   const isFormFinalized = ['Completed'].includes(status);
-  const canAccountEdit = normalizedUserRole === 'account'
-    && ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status);
+  
+  // Check if user is account (including "branch account") - check multiple sources
+  // Check role from resolveRole(), normalizedUserRole, and also check currentUser.role_id directly
+  const roleIdFromStorage = currentUser?.role_id;
+  const isAccountByRoleId = roleIdFromStorage && (
+    roleIdFromStorage === 7 || 
+    (typeof roleIdFromStorage === 'string' && /branch\s*account|account/i.test(roleIdFromStorage))
+  );
+  const isAccountByRoleName = /acc|account/.test(normalizedUserRole);
+  const isAccountUser = role === 3 || isAccountByRoleId || isAccountByRoleName;
+  
+  // Normalize status for comparison (case-insensitive, trim spaces)
+  const normalizedStatus = status.toLowerCase().trim();
+  
+  // Account users can edit at these statuses (matching backend logic)
+  // Check both normalized and original status to handle different formats
+  const accountEditableStatuses = [
+    'bm approved', 'bmapproved', 'bm_approved',
+    'opapproved', 'op approved', 'op_approved',
+    'ac_acknowledged', 'acknowledged', 'ac acknowledged',
+    'operation manager approved', 'operationmanagerapproved'
+  ];
+  const statusMatches = accountEditableStatuses.some(s => 
+    normalizedStatus === s.toLowerCase().trim() || 
+    normalizedStatus.replace(/\s+/g, '') === s.toLowerCase().replace(/\s+/g, '') ||
+    normalizedStatus.replace(/[_\s-]/g, '') === s.toLowerCase().replace(/[_\s-]/g, '')
+  );
+  const canAccountEdit = isAccountUser && statusMatches;
   
   // Calculate totalAmount to check if form exceeds 500000
   const totalAmount = formData.items && formData.items.length > 0 
@@ -347,7 +395,14 @@ const InvestigationFormModal = ({
   
   // Accounts Review percentages: Only Account (role 3) can edit
   // Branch managers (role 1) and operation managers (role 2) should NEVER be able to edit these
-  const canEditAccountFields = (role === 3 && !isFormFinalized) || canAccountEdit;
+  // Account users can edit if:
+  // 1. They are account user AND form is not finalized (regardless of read-only status), OR
+  // 2. They are account user AND form is in BM Approved/OPApproved/Acknowledged status (canAccountEdit)
+  // Note: Account users should be able to edit even when isReadOnly is true, as long as the form is not finalized
+  const canEditAccountFields = isAccountUser && (
+    !isFormFinalized || canAccountEdit
+  );
+  
   
   const baseFieldsDisabled = !canEditBaseFields;
   const operationFieldsDisabled = !canEditOperationFields;
@@ -530,10 +585,11 @@ const InvestigationFormModal = ({
   
   // Only show Operation Manager section if amount > 500000 (CRITICAL requirement)
   // Even if there are existing OP percentage values, don't show if amount <= 500000
-  // Calculate from items first (like main totalAmount), then fallback to formData fields
-  const totalAmountForDisplay = formData.items && formData.items.length > 0 
-    ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
-    : Number(
+  // CRITICAL: Prioritize database total_amount over items total
+  // After BTP or when items are updated, backend recalculates using actual_qty,
+  // but items array might have amounts calculated from request_qty.
+  // Always trust the database total_amount when available.
+  const dbTotal = Number(
     formData?.general_form?.total_amount
     ?? formData?.total_amount
     ?? formData?.general_form?.totalAmount
@@ -546,16 +602,81 @@ const InvestigationFormModal = ({
         ?? initialData?.total
     ?? 0
   );
+  
+  const itemsTotal = formData.items && formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || Number(i.total_amount) || 0), 0)
+    : 0;
+  
+  // Prioritize database total_amount (source of truth) over items calculation
+  const totalAmountForDisplay = dbTotal > 0 ? dbTotal : itemsTotal;
       
   const requiresOpManagerApproval = totalAmountForDisplay > 500000;
   
-  // Show Operation Manager section only if:
-  // 1. hasOperationManagerStage is true (which already checks amount > 500000), OR
-  // 2. There are existing OP percentage values AND amount > 500000
+  // Check if current user is Operation Manager - use comprehensive detection
+  const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+  const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5 || userRoleId === '4' || userRoleId === '5';
+  const isOpManagerByRoleName = normalizedUserRole === 'op_manager' || 
+                                 normalizedUserRole.includes('operation manager') ||
+                                 normalizedUserRole.includes('operationmanager') ||
+                                 normalizedUserRole === 'a2';
+  
+  // Also check if user has OP approval assignment in approvals array for THIS form
+  const hasOpApprovalAssignment = approvals.some(approval => {
+    const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+    const adminId = approval?.admin_id || approval?.raw?.admin_id;
+    const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+    const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+    const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+    const userTypeMatches = (userType === 'OP' || userType === 'A2');
+    const userIdMatches = currentUserId && allUserIds.some(id => 
+      String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+    );
+    return userTypeMatches && (userIdMatches || !currentUserId); // If no currentUserId, still match by user_type
+  });
+  
+  // CRITICAL: If acknowledge button appears, it means backend detected user as Operation Manager
+  // So we should also show the Operation Manager Review section
+  // Check if apiActions.approve is 'OPApproved' (which means backend detected OP manager)
+  const apiActions = formData?.actions || initialData?.actions || {};
+  const backendDetectedOpManager = apiActions?.approve === 'OPApproved' || apiActions?.approve === 'OP Approved';
+  
+  // PRIORITY: If backend detected user as OP manager (acknowledge button appears), trust it
+  // This is the most reliable indicator since backend has already validated permissions
+  const isCurrentUserOpManager = backendDetectedOpManager || // Highest priority - backend detection
+                                  isOpManagerByRoleId || 
+                                  isOpManagerByRoleName || 
+                                  isOpManager || 
+                                  isOpManagerByApproval ||
+                                  hasOpApprovalAssignment ||
+                                  role === 2; // role 2 is Operation Manager
+  
+  // Check if status is BM Approved (case-insensitive, handle variations)
+  // Get status from multiple sources if not already set
+  const effectiveStatus = status || 
+                          formData?.general_form?.status || 
+                          formData?.status ||
+                          initialData?.status || 
+                          initialData?.general_form?.status || 
+                          '';
+  const statusTrimmed = (effectiveStatus || '').trim();
+  const isBMApprovedStatus = statusTrimmed === 'BM Approved' || 
+                              statusTrimmed === 'BMApproved' ||
+                              statusTrimmed.toLowerCase() === 'bm approved' ||
+                              statusTrimmed.toLowerCase() === 'bmapproved';
+  
+  // Show Operation Manager section if:
+  // 1. Current user is Operation Manager AND amount > 500000 AND status is BM Approved (MOST IMPORTANT - always show for OP managers)
+  //    This handles cases where amount exceeded 500000 after form creation (e.g., BM added product in Checked stage)
+  // 2. hasOperationManagerStage is true (which already checks amount > 500000), OR
+  // 3. There are existing OP percentage values AND amount > 500000
+  // Priority: Always show for OP managers on BM Approved forms with amount > 500000, regardless of approval entries
   const shouldShowOperationSection = requiresOpManagerApproval && (
-    showOperationManagerFields || Boolean(opCompanyPct || opUserPct || opIncomePct)
+    (isCurrentUserOpManager && isBMApprovedStatus) ||
+    showOperationManagerFields || 
+    Boolean(opCompanyPct || opUserPct || opIncomePct)
   );
-  const shouldShowAccountSection = normalizedUserRole === 'account'
+  
+  const shouldShowAccountSection = isAccountUser
     || canAccountEdit
     || Boolean(accCompanyPct || accUserPct || accIncomePct);
   const isSaveDisabled = isSubmitting
@@ -792,10 +913,11 @@ const InvestigationFormModal = ({
   };
 
   return (
-    <AnimatePresence>
+    <>
+      <AnimatePresence mode="wait">
       {isOpen && (
         <motion.div
-          key="backdrop"
+            key="investigation-modal-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -810,7 +932,7 @@ const InvestigationFormModal = ({
           ></div>
 
           <motion.div
-            key="modal"
+              key="investigation-modal-content"
             initial={{ y: 40, opacity: 0, scale: 0.95 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.97 }}
@@ -908,7 +1030,7 @@ const InvestigationFormModal = ({
                     <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                       {t('investigation.bmOperation')}
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       {[
                         { id: "companyPct", label: t('investigation.company'), value: companyPct, set: setCompanyPct },
                         { id: "userPct", label: t('investigation.user'), value: userPct, set: setUserPct },
@@ -957,7 +1079,7 @@ const InvestigationFormModal = ({
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                         {t('investigation.operationManagerReview')}
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         {[
                           { id: "opCompanyPct", label: t('investigation.company'), value: opCompanyPct, set: setOpCompanyPct },
                           { id: "opUserPct", label: t('investigation.user'), value: opUserPct, set: setOpUserPct },
@@ -1007,7 +1129,7 @@ const InvestigationFormModal = ({
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
                         {t('investigation.accountsReview')}
                       </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-3 gap-4">
                         {[
                           { id: "accCompanyPct", label: t('investigation.company'), value: accCompanyPct, set: setAccCompanyPct },
                           { id: "accUserPct", label: t('investigation.user'), value: accUserPct, set: setAccUserPct },
@@ -1095,8 +1217,9 @@ const InvestigationFormModal = ({
           </motion.div>
         </motion.div>
       )}
+    </AnimatePresence>
       
-      {/* Success Modal */}
+    {/* Success Modal - Outside AnimatePresence to avoid key conflicts */}
       <SuccessModal
         isOpen={isSuccessModalOpen}
         onClose={() => setIsSuccessModalOpen(false)}
@@ -1104,13 +1227,13 @@ const InvestigationFormModal = ({
         action="save"
       />
       
-      {/* Error Modal */}
+    {/* Error Modal - Outside AnimatePresence to avoid key conflicts */}
       <ErrorModal
         isOpen={isErrorModalOpen}
         onClose={() => setIsErrorModalOpen(false)}
         message={errorModalMessage}
       />
-    </AnimatePresence>
+  </>
   );
 };
 

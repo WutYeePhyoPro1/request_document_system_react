@@ -123,7 +123,8 @@ export default function DamageFormHeader({
   const prettyStatus = (s) => {
     const v = (s || '').toString().trim();
     if (!v) return v;
-    if (v === 'Ac_Acknowledged' || v === 'Acknowledged') return 'Operation Manager Approved';
+    // Show OPApproved for both OPApproved and Ac_Acknowledged statuses
+    if (v === 'Ac_Acknowledged' || v === 'Acknowledged' || v === 'OPApproved' || v === 'OP Approved') return 'OPApproved';
     return v;
   };
   const branchDisplay = resolveBranchDisplay({
@@ -175,45 +176,53 @@ export default function DamageFormHeader({
     .filter((value, index, self) => self.indexOf(value) === index);
   
   const showInvestigationButton = () => {
-    const isBM = userRole === 'bm' || userRole === 'abm';
-    const isSupervisor = userRole === 'supervisor';
-    const hasInvestigationData = Boolean(
-      hasInvestigation ||
-      formData?.investigation ||
-      formData?.investigate ||
-      formData?.general_form?.investigation ||
-      formData?.general_form?.investigate ||
-      formData?.big_damage_issue?.investigation ||
-      formData?.big_damage_issue?.investigate
-    );
+    // Use backend flag if available (backend determines visibility based on role and status)
+    if (formData?.general_form?.show_investigation_button !== undefined) {
+      return Boolean(formData.general_form.show_investigation_button);
+    }
+    
+    // Fallback to frontend logic if backend flag is not available
+    const normalizedStatus = status.toLowerCase();
 
     // Show investigation button when status is Completed, Issued, or SupervisorIssued
-    if (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued') {
+    if (['completed', 'issued', 'supervisorissued'].includes(normalizedStatus)) {
       return true;
     }
     
     // Show investigation button for all users at Ac_Acknowledged stage
-    if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+    if (['ac_acknowledged', 'acknowledged', 'operation manager approved'].includes(normalizedStatus)) {
       return true;
     }
 
-    // Always show for BM/ABM in Checked status or beyond
-    if (isBM && ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status)) {
+    // Supervisor can view investigation form at Approved stage
+    if (userRole === 'supervisor' && normalizedStatus === 'approved') {
       return true;
     }
     
-    // Supervisor can view investigation form at Approved stage
-    if (isSupervisor && (status === 'Approved')) {
+    const isBM = ['bm', 'abm'].includes(userRole);
+    
+    // Always show button for BM/ABM in Checked status or beyond
+    if (
+      isBM &&
+      ['checked', 'bm approved', 'bmapproved', 'opapproved', 'op approved'].includes(normalizedStatus)
+    ) {
       return true;
     }
     
     // Account users can view investigation at OPApproved or BM Approved stages
-    if (userRole === 'account' && (status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
+    if (userRole === 'account' && ['opapproved', 'op approved', 'bm approved', 'bmapproved'].includes(normalizedStatus)) {
       return true;
     }
     
-    // For other roles with investigation data
-    if (hasInvestigationData) {
+    // For other roles, check if there's investigation data
+    const hasInvestigation = Boolean(
+      formData.investigation ||
+      formData.investigate ||
+      formData.general_form?.investigation ||
+      formData.general_form?.investigate
+    );
+    
+    if (hasInvestigation) {
       return true;
     }
     
@@ -265,10 +274,8 @@ export default function DamageFormHeader({
           case 'OPApproved':
         case 'OP Approved':
         case 'Approved':
-          return { backgroundColor: '#e9f9cf', color: '#a3e635' };
           case 'Ac_Acknowledged':
           case 'Acknowledged':
-                    case 'Operation Manager Approved':
                       return { backgroundColor: '#e9f9cf', color: '#a3e635' };
           case 'Completed':
         case 'Issued':
@@ -314,12 +321,9 @@ export default function DamageFormHeader({
               case 'OPApproved':
               case 'OP Approved':
               case 'Approved':
-                shadowColor = '#e9f9cf'; // OP Approved color
-                break;
               case 'Ac_Acknowledged':
               case 'Acknowledged':
-              case 'Operation Manager Approved':
-                shadowColor = '#e9f9cf'; // Operation Manager Approved color
+                shadowColor = '#e9f9cf'; // OPApproved color
                 break;
               case 'Completed':
               case 'Issued':

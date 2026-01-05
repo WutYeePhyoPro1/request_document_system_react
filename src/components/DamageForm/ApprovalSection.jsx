@@ -18,7 +18,7 @@ const USER_TYPE_MAP = {
   C: "Checked by",
   CS: "Checked by",
   A1: "Approved by",
-  AC: "Acknowledged by",
+  AC: "Operation Manager Approved by",
   ACK: "Issued by",
 };
 
@@ -133,15 +133,16 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       return cancelledByName;
     }
     // Operation Mgr Approved by section removed
-    if (label === 'Acknowledged by') {
-      // Check multiple sources for account acknowledgment name
-      const accountName = 
+    if (label === 'Operation Manager Approved by') {
+      // Check multiple sources for acknowledgment name
+      // For OPApproved status, this could be Operation Manager or Account
+      const acknowledgedName = 
         formData?.acknowledged_by_name ||
         formData?.acknowledged_by_user?.name ||
         formData?.general_form?.acknowledged_by_name ||
         formData?.general_form?.acknowledged_by_user?.name ||
         '';
-      return accountName;
+      return acknowledgedName;
     }
     return '';
   };
@@ -182,7 +183,31 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
              'Creator';
     }
     if (label.includes('checked')) return 'Branch LP';
-    if (label.includes('approved')) return 'BM/ABM';
+    if (label.includes('approved')) {
+      // For "Acknowledged by" when status is OPApproved, return "Operation Manager"
+      if (label.includes('acknowledged') && (status === 'OPApproved' || status === 'OP Approved')) {
+        return 'Operation Manager';
+      }
+      return 'BM/ABM';
+    }
+    if (label.includes('acknowledged') || label.includes('Operation Manager Approved')) {
+      // Check if this is Operation Manager approval (A2/OP) or Account approval (AC)
+      if (approval) {
+        const userType = (approval.user_type || approval.raw?.user_type || "").toUpperCase();
+        if (userType === 'A2' || userType === 'OP') {
+          return 'Operation Manager';
+        }
+        if (userType === 'AC') {
+          return 'Branch Account';
+        }
+      }
+      // If label is "Operation Manager Approved by" or status is OPApproved, default to Operation Manager
+      if (label.includes('Operation Manager Approved') || status === 'OPApproved' || status === 'OP Approved') {
+        return 'Operation Manager';
+      }
+      // Otherwise default to Branch Account
+      return 'Branch Account';
+    }
     if (label.includes('cancelled')) return 'Branch Account';
     if (label.includes('issued')) return 'Branch Account';
     
@@ -228,11 +253,24 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     // Normalize status for comparison
     const normalizedStatus = (status || '').toString().trim();
     
-    // Find approval with user_type='AC' (matching getAc_Acknowledged() helper)
+    // Find approval with user_type='AC' (Account acknowledgment) or 'A2'/'OP' (Operation Manager approval)
+    // When status is OPApproved, Operation Manager approval should show in "Acknowledged by"
     const acAcknowledgedApproval = safeApprovals.find(a => {
       const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
       return userType === "AC";
     });
+    
+    // Also find Operation Manager approval (A2 or OP) for OPApproved status
+    const opApproval = safeApprovals.find(a => {
+      const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
+      return userType === "A2" || userType === "OP";
+    });
+    
+    // Use OP approval if status is OPApproved (prefer OP over AC when status is OPApproved)
+    // Use AC approval if status is Ac_Acknowledged or if no OP approval exists
+    const acknowledgedApproval = (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved')
+      ? (opApproval || acAcknowledgedApproval)
+      : acAcknowledgedApproval;
     
     // Laravel blade shows "Acknowledged by" when:
     // 1. $getAc_Acknowledged !== null (approval with user_type='AC' exists), AND
@@ -241,12 +279,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     // 
     // However, we should also show it even if approval doesn't exist yet but conditions are met
     // (for display purposes, showing empty slot like blade does in @elseif condition)
-    const hasAcAcknowledgedApproval = acAcknowledgedApproval !== null && acAcknowledgedApproval !== undefined;
+    const hasAcAcknowledgedApproval = acknowledgedApproval !== null && acknowledgedApproval !== undefined;
     
     // Statuses that show "Acknowledged by" (from Laravel blade line 952-957)
+    // Also include OPApproved since Operation Manager approval should show as "Acknowledged by"
     const statusesForAcknowledged = [
       'Ac_Acknowledged',
       'Acknowledged',
+      'OPApproved',
+      'OP Approved',
       'Approved',
       'SupervisorIssued',
       'Completed'
@@ -259,20 +300,24 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     // Special case: Cancel status (from Laravel blade line 957)
     const isCancelWithValidStatus = normalizedStatus === 'Cancel' || normalizedStatus === 'Cancelled';
     const cancelConditionMet = isCancelWithValidStatus && 
-      acAcknowledgedApproval && 
-      acAcknowledgedApproval.status !== 'Cancel' && 
-      acAcknowledgedApproval.raw?.status !== 'Cancel';
+      acknowledgedApproval && 
+      acknowledgedApproval.status !== 'Cancel' && 
+      acknowledgedApproval.raw?.status !== 'Cancel';
     
     // Show "Acknowledged by" if:
     // Option 1: Approval exists AND amount > 500000 AND status matches (exact Laravel logic)
     // Option 2: Amount > 500000 (regardless of status - show as placeholder for future acknowledgment)
+    // Option 3: Status is OPApproved (Operation Manager has approved)
     // This ensures the section appears when amount exceeds 500k, even if form hasn't reached that stage yet
-    // User requirement: Show whenever total amount exceeds 500,000
+    // User requirement: Show whenever total amount exceeds 500,000 OR status is OPApproved
+    const isOPApprovedStatus = normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved';
     const shouldShowAcknowledged = requiresOpManagerApproval || 
+      isOPApprovedStatus ||
       (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet));
     
     if (shouldShowAcknowledged) {
-      approvalsToShow.push({ label: "Acknowledged by", key: "acknowledged", approval: acAcknowledgedApproval });
+      // Always use "Operation Manager Approved by" label
+      approvalsToShow.push({ label: "Operation Manager Approved by", key: "acknowledged", approval: acknowledgedApproval });
     }
     
     // Always show Issued by (or Cancelled by if form is cancelled)
@@ -367,13 +412,67 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
       }
       
-      // For "Acknowledged by", if status is Ac_Acknowledged/Acknowledged, it should be marked as acted
-      if (label === 'Acknowledged by') {
+      // For "Operation Manager Approved by", if status is Ac_Acknowledged/Acknowledged/OPApproved, it should be marked as acted
+      if (label === 'Operation Manager Approved by') {
         const originalHasActed = hasActed;
-        if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+        const isAcknowledgedStatus = status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved';
+        if (isAcknowledgedStatus) {
           hasActed = true;
-          // If no matching approval but status is Ac_Acknowledged, try to get name from formData
-          if (!matchingApproval || !matchingApproval.actual_user_name) {
+          // If matching approval exists but doesn't have name, try to extract from approval object
+          if (matchingApproval && !matchingApproval.actual_user_name && !matchingApproval.name) {
+            // Try to get name from various fields in the approval object
+            // Check actual_user_name and name first (they might be in the object but not set)
+            const approvalName = matchingApproval.actual_user_name ||
+              matchingApproval.name ||
+              matchingApproval.actual_user_full_name ||
+              matchingApproval.raw?.actual_user_name ||
+              matchingApproval.raw?.actual_user_full_name ||
+              matchingApproval.raw?.name ||
+              matchingApproval.acknowledges?.name ||
+              matchingApproval.raw?.acknowledges?.name ||
+              matchingApproval.approval_users?.name ||
+              matchingApproval.raw?.approval_users?.name ||
+              matchingApproval.user?.name ||
+              matchingApproval.raw?.user?.name ||
+              matchingApproval.assigned_name ||
+              matchingApproval.raw?.assigned_name ||
+              '';
+            if (approvalName) {
+              // Set the name in the approval object for display
+              matchingApproval.actual_user_name = approvalName;
+              matchingApproval.name = approvalName;
+            }
+          }
+          // If still no name, try to find from approvals array directly (in case matchingApproval is missing fields)
+          if ((!matchingApproval || (!matchingApproval.actual_user_name && !matchingApproval.name)) && isAcknowledgedStatus) {
+            // Try to find OP approval directly from safeApprovals
+            const directOpApproval = safeApprovals.find(a => {
+              const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
+              return (userType === "A2" || userType === "OP") && (a?.actual_user_name || a?.name || a?.actual_user_full_name);
+            });
+            
+            if (directOpApproval) {
+              const directName = directOpApproval.actual_user_name ||
+                directOpApproval.name ||
+                directOpApproval.actual_user_full_name ||
+                directOpApproval.raw?.actual_user_name ||
+                directOpApproval.raw?.name ||
+                directOpApproval.raw?.actual_user_full_name ||
+                directOpApproval.user?.name ||
+                directOpApproval.raw?.user?.name ||
+                directOpApproval.approval_users?.name ||
+                directOpApproval.raw?.approval_users?.name ||
+                '';
+              if (directName) {
+                matchingApproval = matchingApproval || {};
+                matchingApproval.actual_user_name = directName;
+                matchingApproval.name = directName;
+              }
+            }
+          }
+          
+          // If still no name, try to get from formData
+          if ((!matchingApproval || (!matchingApproval.actual_user_name && !matchingApproval.name)) && isAcknowledgedStatus) {
             // Try to find the name from formData or other sources
             const acknowledgedName = formData?.acknowledged_by_name || 
               formData?.general_form?.acknowledged_by_name ||
@@ -397,16 +496,18 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       }
       
       const nameCandidates = [
-        // Check approval_users first (for BM/Checker approvals)
+        // Check the computed 'name' field first (backend formatApprovalsForResponse returns this)
+        matchingApproval?.name,
+        // Check actual_user_name and actual_user_full_name (direct database fields)
+        matchingApproval?.actual_user_name,
+        matchingApproval?.actual_user_full_name,
+        // Check approval_users (for BM/Checker approvals)
         matchingApproval?.raw?.approval_users?.name,
         matchingApproval?.approval_users?.name,
         // Check acknowledges (for OP Manager/Account approvals)
         matchingApproval?.raw?.acknowledges?.name,
         matchingApproval?.acknowledges?.name,
         // Other name fields
-        matchingApproval?.actual_user_name,
-        matchingApproval?.actual_user_full_name,
-        matchingApproval?.name,
         matchingApproval?.user_name,
         matchingApproval?.acted_by,
         matchingApproval?.acted_by_name,
@@ -440,13 +541,22 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         (label === 'Issued by' && (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued')) 
           ? (matchingApproval?.name || matchingApproval?.actual_user_name || formData?.issued_by_name || formData?.general_form?.issued_by_name || formData?.issued_by_user?.name || formData?.general_form?.issued_by_user?.name)
           : null,
-        // For "Acknowledged by", check approval first, then formData, and also check if status is Ac_Acknowledged
-        (label === 'Acknowledged by')
+        // For "Operation Manager Approved by", check approval first, then formData, and also check if status is Ac_Acknowledged/OPApproved
+        (label === 'Operation Manager Approved by')
           ? (
               matchingApproval?.actual_user_name || 
+              matchingApproval?.actual_user_full_name ||
               matchingApproval?.name || 
               matchingApproval?.raw?.actual_user_name ||
-              (status === 'Ac_Acknowledged' || status === 'Acknowledged' ? (formData?.acknowledged_by_name || formData?.general_form?.acknowledged_by_name || formData?.acknowledged_by_user?.name || formData?.general_form?.acknowledged_by_user?.name || formData?.current_user?.name || formData?.user?.name) : null) ||
+              matchingApproval?.raw?.actual_user_full_name ||
+              matchingApproval?.raw?.name ||
+              matchingApproval?.acknowledges?.name ||
+              matchingApproval?.raw?.acknowledges?.name ||
+              matchingApproval?.approval_users?.name ||
+              matchingApproval?.raw?.approval_users?.name ||
+              matchingApproval?.user?.name ||
+              matchingApproval?.raw?.user?.name ||
+              (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' ? (formData?.acknowledged_by_name || formData?.general_form?.acknowledged_by_name || formData?.acknowledged_by_user?.name || formData?.general_form?.acknowledged_by_user?.name || formData?.current_user?.name || formData?.user?.name) : null) ||
               formData?.acknowledged_by_name || 
               formData?.general_form?.acknowledged_by_name || 
               formData?.acknowledged_by_user?.name || 
@@ -511,8 +621,8 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           resolvedDate = formData?.issued_at || formData?.general_form?.issued_at || formData?.general_form?.updated_at || '';
         }
         
-        // For "Acknowledged by" when status is Ac_Acknowledged, check approval date or formData
-        if (!resolvedDate && label === 'Acknowledged by' && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
+        // For "Operation Manager Approved by" when status is Ac_Acknowledged/OPApproved, check approval date or formData
+        if (!resolvedDate && label === 'Operation Manager Approved by' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved')) {
           resolvedDate = matchingApproval?.acted_at || 
             matchingApproval?.date || 
             matchingApproval?.updated_at || 
@@ -531,9 +641,9 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         if (label === 'Issued by' && (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued')) {
           return 'Completed';
         }
-        // If status is Ac_Acknowledged/Acknowledged and this is "Acknowledged by", it should show as Acknowledged
-        if (label === 'Acknowledged by' && (status === 'Ac_Acknowledged' || status === 'Acknowledged')) {
-          return 'Acknowledged';
+        // If status is Ac_Acknowledged/Acknowledged/OPApproved and this is "Operation Manager Approved by", it should show as Approved
+        if (label === 'Operation Manager Approved by' && (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved')) {
+          return 'Approved';
         }
         // For "Checked by", return "Checked" only when actually acted (has actual_user_id or status is Checked)
         // If form is Ongoing, don't show as "Checked" even if approval exists

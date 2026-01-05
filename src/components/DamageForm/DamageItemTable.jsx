@@ -372,6 +372,9 @@ export default function DamageItemTable({
     };
   }, [items]);
   const fileInputRefs = useRef({});
+  // Track which field is currently being edited to prevent useEffect from overwriting user input
+  const editingFieldRef = useRef(null);
+  const editingTimeoutRef = useRef(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -647,7 +650,22 @@ export default function DamageItemTable({
     }
   }, [itemsProp, showAccountCodes, isCompleted, isAccount, isSupervisorUser, status, isOpManager]);
   
-  const isCheckerRole = ['branch_lp', 'checker', 'cs', 'loss prevention'].some(r => normalizedRole.includes(r));
+  // Check if user is checker - check role name and also check role_id from localStorage
+  const getCurrentUser = () => {
+    try {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      return null;
+    }
+  };
+  const currentUserFromStorage = getCurrentUser();
+  const roleIdFromStorage = currentUserFromStorage?.role_id;
+  const isCheckerByRoleId = roleIdFromStorage && (
+    (typeof roleIdFromStorage === 'string' && roleIdFromStorage.toString().toLowerCase().trim() === 'checker') ||
+    (typeof roleIdFromStorage === 'number' && roleIdFromStorage === 2)
+  );
+  const isCheckerRole = ['branch_lp', 'checker', 'cs', 'loss prevention'].some(r => normalizedRole.includes(r)) || isCheckerByRoleId;
   const isApproverRole = ['bm', 'abm', 'approver', 'manager'].some(r => normalizedRole.includes(r));
   // Regular user role (creator/originator) - should not see Add Product button in Ongoing
   // In Ongoing status, only Checkers, Supervisors, and Approvers should see the button
@@ -661,10 +679,15 @@ export default function DamageItemTable({
   
   
   // Allow editing final_qty (Actual Qty) based on role and status - matching Laravel Blade logic
+  // Normalize status for case-insensitive comparison
+  const normalizedStatus = (status || '').toString().trim().toLowerCase();
+  const isOngoingStatus = normalizedStatus === 'ongoing';
+  const isBMApprovedStatus = normalizedStatus === 'bm approved' || normalizedStatus === 'bmapproved';
+  
   const allowFinalQtyEdit = isCompleted
     ? false
     : mode === 'view'
-      ? ((status === 'Ongoing' && isCheckerRole) || (status !== 'BM Approved' && isApproverRole))
+      ? ((isOngoingStatus && isCheckerRole) || (!isBMApprovedStatus && isApproverRole))
       : false; // In add mode, actual_qty is editable, not final_qty
 
   const showReviewQtyColumns = mode !== 'add';
@@ -782,8 +805,10 @@ export default function DamageItemTable({
           processedItem.actual_qty = numericActual === null
             ? (processedItem.request_qty ?? 0)
             : numericActual;
-        } else if (processedItem.request_qty !== undefined) {
-          processedItem.actual_qty = processedItem.request_qty;
+        } else {
+          // CRITICAL: Do NOT auto-fill actual_qty from request_qty
+          // They should be independent - user should enter actual_qty separately
+          // Removed: processedItem.actual_qty = processedItem.request_qty;
         }
         
         // Calculate amount if not set or invalid
@@ -893,8 +918,36 @@ export default function DamageItemTable({
       return false;
     };
     
+    // Don't update if user is currently editing a field
+    if (editingFieldRef.current) {
+      return;
+    }
+    
     if (shouldUpdate()) {
-      setItems(processItems([...itemsProp]));
+      const processed = processItems([...itemsProp]);
+      
+      // Preserve user input for fields that are currently being edited
+      if (editingFieldRef.current) {
+        const { id, field } = editingFieldRef.current;
+        const editedItem = items.find(item => {
+          const itemId = item.id || item.specific_form_id;
+          return String(itemId) === String(id);
+        });
+        
+        if (editedItem) {
+          const processedIndex = processed.findIndex(item => {
+            const itemId = item.id || item.specific_form_id;
+            return String(itemId) === String(id);
+          });
+          
+          if (processedIndex !== -1 && editedItem[field] !== undefined && editedItem[field] !== null) {
+            // Preserve the user's current input value
+            processed[processedIndex][field] = editedItem[field];
+          }
+        }
+      }
+      
+      setItems(processed);
     }
   }, [itemsPropString, supportingAttachmentSet]); // Recompute when items or supporting attachments change
 
@@ -984,6 +1037,21 @@ const handleRemarkChange = (id, value) => {
 
 // Handle input changes for mobile view (request_qty, final_qty, remark)
 const handleInputChange = (id, field, value) => {
+  // Track that user is editing this field
+  editingFieldRef.current = { id, field };
+  
+  // Clear any existing timeout
+  if (editingTimeoutRef.current) {
+    clearTimeout(editingTimeoutRef.current);
+  }
+  
+  // Clear editing ref after user stops typing for 500ms
+  editingTimeoutRef.current = setTimeout(() => {
+    if (editingFieldRef.current?.id === id && editingFieldRef.current?.field === field) {
+      editingFieldRef.current = null;
+    }
+  }, 500);
+  
   // For quantity fields, validate numeric input
   if (field === 'request_qty' || field === 'final_qty') {
     if (value !== '' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
@@ -1025,6 +1093,52 @@ const handleInputChange = (id, field, value) => {
       
       updatedItem.amount = amountNumeric;
       updatedItem.total = amountNumeric;
+    }
+    
+    // CRITICAL: When request_qty changes, update final_qty to match if final_qty is unset or matches old request_qty
+    // This ensures final_qty stays in sync with request_qty when user edits request_qty
+    if (field === 'request_qty') {
+      const oldRequestQty = item.request_qty;
+      const existingFinalQty = item.final_qty;
+      const isFinalQtyUnset = existingFinalQty === null || 
+                               existingFinalQty === undefined || 
+                               existingFinalQty === '' ||
+                               existingFinalQty === 0 ||
+                               (typeof existingFinalQty === 'string' && existingFinalQty.trim() === '');
+      
+      // Update final_qty if:
+      // 1. final_qty is unset, OR
+      // 2. final_qty matches the old request_qty (meaning it was auto-synced, not manually edited)
+      const shouldUpdateFinalQty = isFinalQtyUnset || 
+                                   (oldRequestQty !== null && 
+                                    oldRequestQty !== undefined && 
+                                    oldRequestQty !== '' &&
+                                    Number(existingFinalQty) === Number(oldRequestQty));
+      
+      if (shouldUpdateFinalQty && qtyNumeric !== null) {
+        updatedItem.final_qty = value === '' ? '' : qtyNumeric;
+      }
+    }
+    
+    // CRITICAL: When request_qty is entered, do NOT automatically fill actual_qty
+    // They should be independent fields - user should enter actual_qty separately
+    // Only initialize actual_qty if it's truly unset (null/undefined/empty/0)
+    if (field === 'request_qty' && mode === 'add') {
+      const existingActualQty = item.actual_qty;
+      const isActualQtyUnset = existingActualQty === null || 
+                               existingActualQty === undefined || 
+                               existingActualQty === '' ||
+                               existingActualQty === 0 ||
+                               (typeof existingActualQty === 'string' && existingActualQty.trim() === '');
+      
+      // Only initialize actual_qty if it hasn't been set yet
+      if (isActualQtyUnset) {
+        // Don't auto-fill - let user enter actual_qty separately
+        // updatedItem.actual_qty = qtyNumeric; // REMOVED - don't auto-fill
+      } else {
+        // Preserve existing actual_qty value
+        updatedItem.actual_qty = existingActualQty;
+      }
     }
     
     newItems[index] = updatedItem;
@@ -1607,11 +1721,13 @@ const normalizeImageEntries = (list) => {
 
   // Calculate total based on status:
   // - BM Approved: sum of (price * actual_qty)
+  // - OPApproved: sum of (price * actual_qty) - use actual_qty not final_qty
   // - Other statuses: sum of item.amount (which uses final_qty)
-  const isBMApprovedStatus = status === 'BM Approved' || status === 'BMApproved';
+  // Reuse the isBMApprovedStatus variable already declared above (line 682)
+  const isOPApprovedStatus = normalizedStatus === 'opapproved' || normalizedStatus === 'op approved';
   const total = items.reduce(
     (sum, item) => {
-      if (isBMApprovedStatus) {
+      if (isBMApprovedStatus || isOPApprovedStatus) {
         const price = toSafeNumber(item.price);
         const actualQty = toSafeNumber(item.actual_qty);
         const systemQty = toSafeNumber(item.system_qty);
@@ -2009,6 +2125,11 @@ const normalizeImageEntries = (list) => {
               return null;
             }
             
+            // CRITICAL: Don't show button for Branch Account users
+            if (isAccount) {
+              return null;
+            }
+            
             return (
               <button
                 type="button"
@@ -2157,7 +2278,7 @@ const normalizeImageEntries = (list) => {
                           data-field="request_qty"
                           data-qty-field="true"
                           data-auto-focus-target="true"
-                          value={item.actual_qty ?? item.request_qty ?? ''}
+                          value={item.request_qty ?? ''}
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
                             const nextValue = e.target.value;
@@ -2190,10 +2311,15 @@ const normalizeImageEntries = (list) => {
                                 return; // Don't update the value
                               }
                               
-                              handleQtyChange(item.id, nextValue, 'actual_qty');
+                              // Only update request_qty - do NOT update actual_qty
+                              handleInputChange(item.id, 'request_qty', nextValue);
                             }
                           }}
                           onBlur={(e) => {
+                            // Clear editing ref when user finishes editing
+                            if (editingFieldRef.current?.id === item.id && editingFieldRef.current?.field === 'request_qty') {
+                              editingFieldRef.current = null;
+                            }
                             const nextValue = e.target.value === '' ? '0' : e.target.value;
                             const systemQty = parseFloat(item.system_qty) || 0;
                             const numericValue = parseFloat(nextValue) || 0;
@@ -2241,7 +2367,10 @@ const normalizeImageEntries = (list) => {
                       {(() => {
                         // In Checked stage, Final Qty should be read-only (only Actual Qty is editable)
                         const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
-                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || (mode === 'view' && !allowFinalQtyEdit);
+                        // Also make read-only for Operation Manager viewing OPApproved form
+                        const statusLower = (status || '').toString().trim().toLowerCase();
+                        const isOPApprovedStatus = statusLower === 'opapproved' || statusLower === 'op approved';
+                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || (mode === 'view' && !allowFinalQtyEdit) || (isOpManager && isOPApprovedStatus);
                         
                         if (shouldShowFinalQtyAsReadOnly) {
                           return <span>{formatQuantity(item.final_qty)}</span>;
@@ -2355,7 +2484,14 @@ const normalizeImageEntries = (list) => {
                         const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
                         
                         // In Checked stage, Actual Qty should be editable
-                        const canEditActualQty = (status === 'Checked' || status === 'checked') && !isCompleted;
+                        // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
+                        const normalizedStatusForActualQty = (status || '').toString().trim();
+                        const isOPApprovedForActualQty = normalizedStatusForActualQty === 'OPApproved' || 
+                                                         normalizedStatusForActualQty === 'OP Approved' ||
+                                                         normalizedStatusForActualQty.toLowerCase() === 'opapproved' ||
+                                                         normalizedStatusForActualQty.toLowerCase() === 'op approved';
+                        const shouldMakeActualQtyReadOnly = isOPApprovedForActualQty && systemQtyUpdated;
+                        const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly;
                         
                         if (canEditProductType) {
                           return (
@@ -2499,6 +2635,7 @@ const normalizeImageEntries = (list) => {
                   {/* Amount - calculated based on status:
                       - Checked (after BTP): price * actual_qty (backend recalculated using actual_qty)
                       - BM Approved: price * actual_qty
+                      - OPApproved: price * actual_qty (backend recalculated using actual_qty)
                       - Other statuses: price * final_qty */}
                   <td className="px-2 py-2 whitespace-nowrap text-[13px]">
                     {(() => {
@@ -2510,13 +2647,15 @@ const normalizeImageEntries = (list) => {
                       // CRITICAL: After BTP, backend recalculates using actual_qty
                       // So for Checked status (after BTP), we should use actual_qty for amount
                       // For BM Approved, also use actual_qty
+                      // For OPApproved, also use actual_qty (backend recalculated using actual_qty)
                       // For other statuses, use final_qty
                       const isBMApproved = status === 'BM Approved' || status === 'BMApproved';
                       const isChecked = status === 'Checked' || status === 'checked';
+                      const isOPApproved = status === 'OPApproved' || status === 'OP Approved';
                       
-                      // Use actual_qty for BM Approved and Checked (after BTP)
+                      // Use actual_qty for BM Approved, Checked (after BTP), and OPApproved
                       // This ensures amounts match backend calculation which uses actual_qty
-                      const baseQty = (isBMApproved || isChecked) ? actualQty : finalQty;
+                      const baseQty = (isBMApproved || isChecked || isOPApproved) ? actualQty : finalQty;
                       
                       const qtyForAmount = systemQty > 0 && baseQty > systemQty
                         ? systemQty
@@ -2539,15 +2678,15 @@ const normalizeImageEntries = (list) => {
                           calculatedAmount: calculatedAmount,
                           item_amount: item.amount,
                           item_total: item.total,
-                          displayAmount: (isBMApproved || isChecked) 
+                          displayAmount: (isBMApproved || isChecked || isOPApproved) 
                             ? calculatedAmount 
                             : ((item.total ?? item.amount) ?? calculatedAmount),
                         });
                       }
                       
-                      // For BM Approved and Checked, always use calculated amount (price * actual_qty)
+                      // For BM Approved, Checked, and OPApproved, always use calculated amount (price * actual_qty)
                       // For other statuses, prefer explicit total from backend if available
-                      const displayAmount = (isBMApproved || isChecked)
+                      const displayAmount = (isBMApproved || isChecked || isOPApproved)
                         ? calculatedAmount 
                         : ((item.total ?? item.amount) ?? calculatedAmount);
 
