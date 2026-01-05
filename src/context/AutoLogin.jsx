@@ -7,28 +7,10 @@ export default function AutoLogin() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-//   useEffect(() => {
-//     const params = new URLSearchParams(window.location.search);
-//     const token = params.get("token");
-//     const redirect = params.get("redirect");
-
-//     if (token) {
-//       dispatch(loginWithToken({ token }))
-//         .unwrap()
-//         .then(() => {
-//            navigate(redirect ? `/${redirect}` : "/cctv_record");
-
-//         })
-//         .catch(() => {
-//           navigate("/login");
-//         });
-//     } else {
-//       navigate("/login");
-//     }
-//   }, [dispatch, navigate]);
-useEffect(() => {
+  useEffect(() => {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
+  const redirect = params.get("redirect");
 
   if (!token) {
     navigate("/login");
@@ -36,13 +18,20 @@ useEffect(() => {
   }
 
   dispatch(loginWithToken({ token }))
-    .unwrap()
-    .then(({ redirect }) => {
-      navigate(redirect ? `/${redirect}` : "/cctv_record", { replace: true });
-    })
-    .catch(() => {
-      navigate("/login");
+  .unwrap()
+  .then(({ redirect }) => {
+    // console.log("REDIRECT FROM API:", redirect);
+    // alert(redirect);
+
+    navigate(redirect ? `/${redirect}` : "/cctv_record", {
+      replace: true,
     });
+  })
+  .catch(() => {
+    navigate("/login");
+  });
+
+   
 }, []);
 
 

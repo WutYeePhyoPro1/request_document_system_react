@@ -87,11 +87,12 @@ export const loginWithToken = createAsyncThunk(
       );
       const user = { ...response.data.user };
       const tokenValue = response.data.token;
+       const redirect = response.data.redirect; 
 
       localStorage.setItem("token", tokenValue);
       localStorage.setItem("user", JSON.stringify(user));
 
-      return { user, token: tokenValue ,redirect: response.data.redirect, };
+      return { user, token: tokenValue ,redirect };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Auto-login failed");
     }

@@ -21,7 +21,7 @@ export const NotificationProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await badgeNoti(token);
-      console.log('hii error');
+      // console.log('hii error');
       setNotifications(response?.data || response);
     } catch (e) {
       console.error("Error fetching notifications:", e);
