@@ -180,7 +180,7 @@ if (isCateCheck) {
           title: "Success",
           text: isCateCheck
             ? " Form has been checked successfully!"
-            : `Form has been ${statusValue} successfully!`,
+            :isBack?`Form has been backed successfully!`:`Form has been ${statusValue} successfully!`,
         });
         await refreshNotifications();
         console.log("Submit Data", submitData);
