@@ -12,7 +12,7 @@ const deriveApiBaseUrl = () => {
   }
 
   try {
-    const parsed = new URL(raw, fallbackOrigin || "http://localhost");
+    const parsed = new URL(raw, fallbackOrigin);
     const trimmedPath = parsed.pathname.replace(/\/api\/?$/, "");
     const base = `${parsed.origin}${trimmedPath}`.replace(/\/$/, "");
     return base || parsed.origin;

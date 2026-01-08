@@ -3,18 +3,20 @@ import dashboardPhoto from "../../assets/images/reqBa.png";
 import { FiCopy } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import NavPath from '../../components/NavPath';
-import { useAuth } from '../../context/AuthContext';
 import { fetchData } from '../../api/FetchApi';
 import { confirmAlert } from 'react-confirm-alert';
 import { useNavigate } from "react-router-dom";
 import CctvUploadVideo from './inputs/CctvUploadVideo';
 import StatusBadge from '../../components/ui/StatusBadge';
 import CctvDownloadVideo from './inputs/CctvDownloadVideo';
+import { useDispatch, useSelector } from 'react-redux';
 
 export default function CctvDetails() {
+    
     const navigate = useNavigate();
     const { id } = useParams();
-    const { user } = useAuth();
+    const dispatch = useDispatch();
+    const { user, token } = useSelector((state) => state.auth);
     const [copied, setCopied] = useState(false);
     const [recordDetails, setRecordDetails] = useState(null);
     const [isApprover, setIsApprover] = useState(false);
@@ -55,6 +57,7 @@ export default function CctvDetails() {
             (checker && recordDetails.form.status === 'Ongoing' && recordDetails.form.g_remark === 'office_use')
         );
         if (statusConditions) {
+            console.log('currentUser')
             const currentUser = approvalProcessUsers.find(u =>
                 u.user_type === 'A1' &&
                 u.general_form_id === recordDetails.form.id &&
@@ -227,6 +230,7 @@ export default function CctvDetails() {
     const ApproveBackToPrevious = () => handleSubmit('Back To Previous');
 
     const formDocno = recordDetails?.form?.form_doc_no ? recordDetails.form.form_doc_no : '';
+
 
     const fallbackCopy = (text) => {
         const textArea = document.createElement("textarea");
