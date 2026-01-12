@@ -57,7 +57,7 @@ const InvestigationFormModal = ({
                   '').trim();
   
   
-  const isReadOnly = ['BM Approved', 'BMApproved', 'OPApproved', 'Completed'].includes(status);
+  const isReadOnly = ['BM Approved', 'BMApproved', 'OPApproved', 'OP Approved', 'Ac_Acknowledged', 'Acknowledged', 'Completed'].includes(status);
   
   // Get current user from localStorage
   const getCurrentUser = () => {
@@ -146,29 +146,60 @@ const InvestigationFormModal = ({
       // But when form is at 'BM Approved', approval might be 'Pending' - so we also check form status
       const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked'].includes(approvalStatus);
       
-      // Fallback: If form is 'BM Approved', amount > 500000, and we have OP/A2 approval entry,
-      // allow it even if we can't verify admin_id (API doesn't return it, backend will verify)
-      const hasOPApprovalEntry = userTypeMatches;
-      const fallbackMatch = formStatusMatches && requiresOpManagerApproval && hasOPApprovalEntry;
-      
-      // Match if: 
-      // 1. (user_type matches AND admin_id matches AND status matches Laravel's check), OR
-      // 2. (fallback: form is BM Approved, amount > 500000, and OP approval entry exists)
-      const matches = (userTypeMatches && adminIdMatches && statusMatches) || fallbackMatch;
-      
-      if (userTypeMatches) {
-        // Found OP/A2 approval entry
-      }
+      // CRITICAL: Must verify user ID matches OR use backend detection
+      // Only allow if:
+      // 1. user_type matches AND user ID matches (admin_id, actual_user_id, or userId) AND status matches, OR
+      // 2. user_type matches AND form is BM Approved AND amount > 500000 (fallback for when API doesn't return admin_id correctly)
+      // This prevents users with role_id "User" from editing if they don't have an OP/A2 approval entry
+      // BUT: If form is BM Approved and amount > 500000, allow if user_type matches (backend will verify permissions)
+      const strictMatch = userTypeMatches && (adminIdMatches || otherUserIdMatches) && statusMatches;
+      // Fallback: Allow if form is BM Approved, amount > 500000, and user_type matches
+      // This helps when API doesn't return admin_id correctly - backend will verify actual permissions
+      // Still requires user_type match to prevent unauthorized users
+      const fallbackMatch = userTypeMatches && formStatusMatches && requiresOpManagerApproval;
+      // Use strict match OR fallback
+      const matches = strictMatch || fallbackMatch;
       
       return matches;
     });
     
     const result = Boolean(opApproval);
+    
     return result;
   }, [currentUserId, approvals, status, formData, initialData]);
   
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = normalizedUserRole === 'op_manager' || isOpManagerByApproval;
+  
+  // Check if current user has user_type: 'A1' in approvals (Branch Manager/Approver)
+  const isBranchManagerByApproval = useMemo(() => {
+    if (!approvals.length || !currentUserId) {
+      return false;
+    }
+    
+    // Check if user has approval entry with user_type: 'A1' (Branch Manager/Approver)
+    const a1Approval = approvals.find(approval => {
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      
+      // Get all possible user IDs from the approval
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      // Check if user_type matches A1 (Branch Manager/Approver)
+      const userTypeMatches = userType === 'A1';
+      
+      // Check if user ID matches
+      const userIdMatches = allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+      
+      return userTypeMatches && userIdMatches;
+    });
+    
+    return Boolean(a1Approval);
+  }, [currentUserId, approvals]);
   const [selectedCategory, setSelectedCategory] = useState("Thief");
   const [bmReason, setBmReason] = useState("");
   const [companyPct, setCompanyPct] = useState("0");
@@ -327,6 +358,14 @@ const InvestigationFormModal = ({
   const role = resolveRole();
   const isFormFinalized = ['Completed'].includes(status);
   
+  // Check if user is Branch Manager (Approver/A1) - they should have read-only access to investigation form
+  // Use user_type from approvals array (A1) to identify Branch Managers, not just role
+  const isBranchManagerUser = isBranchManagerByApproval || 
+    role === 1 || 
+    currentUser?.role_id === 'Approver' || 
+    normalizedUserRole === 'approver' ||
+    (typeof currentUser?.role_id === 'string' && currentUser.role_id.toLowerCase() === 'approver');
+  
   // Check if user is account (including "branch account") - check multiple sources
   // Check role from resolveRole(), normalizedUserRole, and also check currentUser.role_id directly
   const roleIdFromStorage = currentUser?.role_id;
@@ -372,6 +411,9 @@ const InvestigationFormModal = ({
       ?? 0
     );
   
+  // Check if form requires Operation Manager approval (amount > 500000)
+  const requiresOpManagerApprovalForEdit = totalAmount > 500000;
+  
   // Permission logic for editing percentages:
   // 1. BM/Operation percentages: Only role 1 (BM) can edit - NEVER allow operation manager or account to edit
   // 2. Operation Manager Review percentages: Only role 2 (Operation Manager) can edit - NEVER allow BM or account to edit
@@ -380,17 +422,39 @@ const InvestigationFormModal = ({
   // Check if form is in acknowledged status (BM/Operation percentages should NOT be editable in this status)
   const isAcknowledgedStatus = ['Ac_Acknowledged', 'Acknowledged'].includes(status);
   
-  // BM/Operation percentages: Only Branch Manager (role 1) can edit
-  // Operation managers (role 2) and accounts (role 3) should NEVER be able to edit these
+  // BM/Operation percentages: Branch Managers (user_type A1) can edit when status is "Checked" or "Ongoing"
+  // Operation managers (user_type OP/A2) and accounts (role 3) should NEVER be able to edit these
   // IMPORTANT: BM/Operation percentages should NOT be editable when form is in Ac_Acknowledged/Acknowledged status
-  const canEditBaseFields = role === 1 && !isReadOnly && !isFormFinalized && !isAcknowledgedStatus;
+  // CRITICAL: Branch Managers (user_type A1) can edit BM review fields when status is "Checked" or "Ongoing"
+  // Use user_type (A1) to identify Branch Managers, not role (since both BM and OM might have role 2)
+  const isCheckedOrOngoingStatus = status === 'Checked' || status === 'Ongoing';
+  const canEditBaseFields = isBranchManagerByApproval
+    ? (isCheckedOrOngoingStatus && !isFormFinalized && !isAcknowledgedStatus)  // Branch Managers can edit when status is "Checked" or "Ongoing"
+    : (role === 1 && !isReadOnly && !isFormFinalized && !isAcknowledgedStatus);
   
-  // Operation Manager Review percentages: Only Operation Manager (role 2) can edit
+  // Operation Manager Review percentages: Only Operation Manager (user_type OP/A2) can edit
   // Also allow if user has OP approval assignment and form is in appropriate status
-  // Branch managers (role 1) and accounts (role 3) should NEVER be able to edit these
-  const canEditOperationFields = (
-    (role === 2 && !isFormFinalized) || // Op_Manager role (role === 2) can edit
-    (isOpManager && !isFormFinalized && (status === 'BM Approved' || status === 'BMApproved' || status === 'OPApproved' || status === 'OP Approved'))
+  // Branch managers (user_type A1) and accounts (role 3) should NEVER be able to edit these
+  // CRITICAL: Operation Managers can ONLY edit when status is 'BM Approved', NOT when it's 'OPApproved' or 'Ac_Acknowledged'
+  // CRITICAL: Branch Managers (user_type A1) should have read-only access - they cannot edit Operation Manager review fields
+  // CRITICAL: Only Operation Managers (by user_type OP/A2) can edit, not just anyone with role 2
+  // Use user_type (A1) to identify Branch Managers, not role (since both BM and OM might have role 2)
+  const isOPApprovedStatus = status === 'OPApproved' || status === 'OP Approved';
+  const isBMApprovedForOP = status === 'BM Approved' || status === 'BMApproved';
+  // isAcknowledgedStatus is already defined above (line 381), reuse it
+  // CRITICAL: Use isOpManagerByApproval (checks user_type OP/A2 in approvals array) as primary check
+  // Also check backend detection (apiActions.approve === 'OPApproved') as it's reliable when backend detects OP Manager
+  // Do NOT use role_id or normalizedUserRole as they can be incorrect (e.g., role_id "User" but user is actually OP Manager)
+  const apiActionsForOP = formData?.actions || initialData?.actions || {};
+  const backendDetectedOpManagerForEdit = apiActionsForOP?.approve === 'OPApproved' || apiActionsForOP?.approve === 'OP Approved';
+  // Use isOpManagerByApproval OR backend detection (backend detection is reliable when it exists)
+  const isOpManagerForEditing = isOpManagerByApproval || backendDetectedOpManagerForEdit;
+  // Only allow editing if user is actually an Operation Manager (by user_type OP/A2) AND status is BM Approved
+  const canEditOperationFields = isBranchManagerByApproval
+    ? false  // Branch Managers (user_type A1) have read-only access
+    : (
+      // Only Operation Managers (by user_type OP/A2 in approvals array) can edit when status is BM Approved
+      (isOpManagerForEditing && !isFormFinalized && isBMApprovedForOP && !isOPApprovedStatus && !isAcknowledgedStatus)
   );
   
   // Accounts Review percentages: Only Account (role 3) can edit
@@ -679,7 +743,17 @@ const InvestigationFormModal = ({
   const shouldShowAccountSection = isAccountUser
     || canAccountEdit
     || Boolean(accCompanyPct || accUserPct || accIncomePct);
+  // Disable save button for Branch Managers (user_type A1) only when they cannot edit
+  // Branch Managers can save when status is "Checked" or "Ongoing" (when they can edit BM review fields)
+  // CRITICAL: Only Operation Managers (by user_type OP/A2) can save when viewing BM Approved form exceeding 500000
+  // Use user_type (A1) to identify Branch Managers, not role (since both BM and OM might have role 2)
+  const isBMApprovedForSave = status === 'BM Approved' || status === 'BMApproved';
+  // Check if user is Operation Manager for saving - use same check as for editing
+  const canSaveAsOperationManager = isBMApprovedForSave && requiresOpManagerApprovalForEdit && isOpManagerForEditing;
+  
   const isSaveDisabled = isSubmitting
+    || (isBranchManagerByApproval && !canEditBaseFields)  // Branch Managers can save only when they can edit (Checked/Ongoing status)
+    || (isBMApprovedForSave && requiresOpManagerApprovalForEdit && !canSaveAsOperationManager)  // Only Operation Managers can save when BM Approved and amount > 500000
     || (isFormFinalized && !canAccountEdit)
     || (isReadOnly && !canAccountEdit && role === 1);
 
@@ -750,8 +824,8 @@ const InvestigationFormModal = ({
 
     const errors = {};
 
-    // Validate BM Reason for role 1 (BM can edit base fields)
-    if (!baseFieldsDisabled && role === 1) {
+    // Validate BM Reason for Branch Managers (user_type A1 or role 1) when they can edit base fields
+    if (!baseFieldsDisabled && (isBranchManagerByApproval || role === 1)) {
       if (!bmReason || bmReason.trim() === '') {
         errors.bmReason = t('investigation.bmReasonRequired');
       }

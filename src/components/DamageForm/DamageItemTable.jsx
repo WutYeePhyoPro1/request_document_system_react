@@ -683,11 +683,12 @@ export default function DamageItemTable({
   const normalizedStatus = (status || '').toString().trim().toLowerCase();
   const isOngoingStatus = normalizedStatus === 'ongoing';
   const isBMApprovedStatus = normalizedStatus === 'bm approved' || normalizedStatus === 'bmapproved';
+  const isAckStatus = normalizedStatus === 'ac_acknowledged' || normalizedStatus === 'acknowledged';
   
   const allowFinalQtyEdit = isCompleted
     ? false
     : mode === 'view'
-      ? ((isOngoingStatus && isCheckerRole) || (!isBMApprovedStatus && isApproverRole))
+      ? ((isOngoingStatus && isCheckerRole) || (!isBMApprovedStatus && !isAckStatus && isApproverRole))
       : false; // In add mode, actual_qty is editable, not final_qty
 
   const showReviewQtyColumns = mode !== 'add';
@@ -1086,7 +1087,21 @@ const handleInputChange = (id, field, value) => {
     // Recalculate amount when quantity changes
     if ((field === 'request_qty' || field === 'final_qty') && qtyNumeric !== null) {
       const price = parseFloat(item.price) || 0;
-      const qtyForAmount = field === 'final_qty' ? qtyNumeric : (updatedItem.final_qty ?? qtyNumeric);
+      // CRITICAL: In Checked, BM Approved, OPApproved, Ac_Acknowledged, and Completed stages, use actual_qty for amount calculation
+      const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+      const isBMApprovedStage = status === 'BM Approved' || status === 'BMApproved';
+      const isOPApprovedStage = status === 'OPApproved' || status === 'OP Approved';
+      const isAckStage = status === 'Ac_Acknowledged' || status === 'Acknowledged';
+      const isCompletedStage = status === 'Completed' || status === 'completed';
+      let qtyForAmount;
+      if (isCheckedStage || isBMApprovedStage || isOPApprovedStage || isAckStage || isCompletedStage) {
+        // In these stages, always use actual_qty for amount calculation
+        // Use the actual_qty from the updated item (which may have been changed)
+        qtyForAmount = parseFloat(updatedItem.actual_qty) || 0;
+      } else {
+        // For other stages, use final_qty
+        qtyForAmount = field === 'final_qty' ? qtyNumeric : (updatedItem.final_qty ?? qtyNumeric);
+      }
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
@@ -1159,7 +1174,21 @@ const handleInputChange = (id, field, value) => {
     // If quantity changed, also send updated amount
     if (field === 'request_qty' || field === 'final_qty') {
       const price = parseFloat(item.price) || 0;
-      const qtyForAmount = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+      // CRITICAL: In Checked, BM Approved, OPApproved, Ac_Acknowledged, and Completed stages, use actual_qty for amount calculation
+      const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+      const isBMApprovedStage = status === 'BM Approved' || status === 'BMApproved';
+      const isOPApprovedStage = status === 'OPApproved' || status === 'OP Approved';
+      const isAckStage = status === 'Ac_Acknowledged' || status === 'Acknowledged';
+      const isCompletedStage = status === 'Completed' || status === 'completed';
+      let qtyForAmount;
+      if (isCheckedStage || isBMApprovedStage || isOPApprovedStage || isAckStage || isCompletedStage) {
+        // In these stages, always use actual_qty for amount calculation
+        // Use the actual_qty from the item (which is the correct value for these stages)
+        qtyForAmount = parseFloat(item.actual_qty) || 0;
+      } else {
+        // For other stages, use final_qty
+        qtyForAmount = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+      }
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
@@ -1216,11 +1245,15 @@ const handleInputChange = (id, field, value) => {
       }
       
       const price = parseFloat(item.price) || 0;
-      // CRITICAL: In Checked stage, calculate amount using actual_qty
+      // CRITICAL: In Checked, BM Approved, OPApproved, Ac_Acknowledged, and Completed stages, calculate amount using actual_qty
       // For other stages: use final_qty (or actual_qty in add mode)
+      const isBMApprovedStage = status === 'BM Approved' || status === 'BMApproved';
+      const isOPApprovedStage = status === 'OPApproved' || status === 'OP Approved';
+      const isAckStage = status === 'Ac_Acknowledged' || status === 'Acknowledged';
+      const isCompletedStage = status === 'Completed' || status === 'completed';
       let qtyForAmount;
-      if (isCheckedStage) {
-        // In Checked stage, always use actual_qty for amount calculation
+      if (isCheckedStage || isBMApprovedStage || isOPApprovedStage || isAckStage || isCompletedStage) {
+        // In these stages, always use actual_qty for amount calculation
         qtyForAmount = qtyType === 'actual_qty' ? qtyNumeric : (parseFloat(item.actual_qty) || 0);
       } else {
         // For other stages, use the quantity type being changed
@@ -1720,14 +1753,20 @@ const normalizeImageEntries = (list) => {
   const cancelRemove = () => setShowConfirm(false);
 
   // Calculate total based on status:
+  // - Checked: sum of (price * actual_qty)
   // - BM Approved: sum of (price * actual_qty)
   // - OPApproved: sum of (price * actual_qty) - use actual_qty not final_qty
+  // - Ac_Acknowledged: sum of (price * actual_qty) - use actual_qty not final_qty
+  // - Completed: sum of (price * actual_qty) - use actual_qty not final_qty
   // - Other statuses: sum of item.amount (which uses final_qty)
   // Reuse the isBMApprovedStatus variable already declared above (line 682)
+  const isCheckedStatus = normalizedStatus === 'checked';
   const isOPApprovedStatus = normalizedStatus === 'opapproved' || normalizedStatus === 'op approved';
+  const isAckStatusTotal = normalizedStatus === 'ac_acknowledged' || normalizedStatus === 'acknowledged';
+  const isCompletedStatusTotal = normalizedStatus === 'completed';
   const total = items.reduce(
     (sum, item) => {
-      if (isBMApprovedStatus || isOPApprovedStatus) {
+      if (isCheckedStatus || isBMApprovedStatus || isOPApprovedStatus || isAckStatusTotal || isCompletedStatusTotal) {
         const price = toSafeNumber(item.price);
         const actualQty = toSafeNumber(item.actual_qty);
         const systemQty = toSafeNumber(item.system_qty);
@@ -2052,7 +2091,7 @@ const normalizeImageEntries = (list) => {
             />
             <input
               type="text"
-              placeholder="Search by product code..."
+              placeholder={t('table.searchPlaceholder', { defaultValue: 'Search by product code...' })}
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -2068,7 +2107,7 @@ const normalizeImageEntries = (list) => {
                   setCurrentPage(1);
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
-                title="Clear search"
+                title={t('table.clearSearch', { defaultValue: 'Clear search' })}
               >
                 <X size={16} />
               </button>
@@ -2079,7 +2118,7 @@ const normalizeImageEntries = (list) => {
           <button
             onClick={() => setIsFilterModalOpen(true)}
             className="filter-btn-hover group relative flex items-center justify-center px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all duration-300 shadow-sm hover:shadow-md"
-            title="Filter products"
+            title={t('table.filterProducts', { defaultValue: 'Filter products' })}
           >
             <Filter 
               size={16} 
@@ -2099,7 +2138,7 @@ const normalizeImageEntries = (list) => {
               onClick={confirmMultipleDelete}
               className="flex items-center gap-1 px-2 py-[1px] text-[0.65rem] sm:text-[0.75rem] bg-red-600 text-white rounded hover:bg-red-700 transition"
             >
-              <Trash2 size={14} /> Delete ({selectedIds.length})
+              <Trash2 size={14} /> {t('table.delete', { defaultValue: 'Delete' })} ({selectedIds.length})
             </button>
           )}
           
@@ -2136,7 +2175,7 @@ const normalizeImageEntries = (list) => {
                 onClick={() => setShowAccountCodes((prev) => !prev)}
                 className={`flex items-center gap-2 px-3 py-1 rounded text-[0.7rem] sm:text-[0.75rem] border transition ${showAccountCodes ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'}`}
               >
-                <span className="font-semibold">{showAccountCodes ? 'Hide Account Codes' : 'Show Account Codes'}</span>
+                <span className="font-semibold">{showAccountCodes ? t('table.hideAccountCodes', { defaultValue: 'Hide Account Codes' }) : t('table.showAccountCodes', { defaultValue: 'Show Account Codes' })}</span>
               </button>
             );
           })()}
@@ -2147,9 +2186,9 @@ const normalizeImageEntries = (list) => {
 
       <div className="overflow-x-auto border border-gray-200 rounded-t-xl hidden md:block">
         <table className="min-w-full border-collapse table-auto">
-          <thead className="bg-[#f6f6fe] text-[13px] font-normal border-gray-200">
+          <thead className="bg-[#f6f6fe] border-gray-200">
             <tr>
-              <th className="px-2 py-2 text-center">
+              <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
                   checked={
@@ -2161,31 +2200,31 @@ const normalizeImageEntries = (list) => {
                   onChange={toggleSelectAll}
                 />
               </th>
-              <th className="px-2 py-2 text-left">#</th>
-              <th className="px-2 py-2 text-left hidden sm:table-cell">Category</th>
-              <th className="px-2 py-2 text-left">Code</th>
-              <th className="px-2 py-2 text-left">Name</th>
-              <th className="px-2 py-2 text-left hidden sm:table-cell">Unit</th>
-              <th className="px-2 py-2 text-left hidden md:table-cell">System Qty</th>
-              <th className="px-2 py-2 text-left">Price</th>
-              <th className="px-2 py-2 text-left">Request Qty</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+              <th className="px-2 py-2 text-left hidden sm:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.category', { defaultValue: 'Category' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.code', { defaultValue: 'Code' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.name', { defaultValue: 'Name' })}</th>
+              <th className="px-2 py-2 text-left hidden sm:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.unit', { defaultValue: 'Unit' })}</th>
+              <th className="px-2 py-2 text-left hidden md:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.systemQty', { defaultValue: 'System Qty' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.price', { defaultValue: 'Price' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.requestQty', { defaultValue: 'Request Qty' })}</th>
               {mode !== 'add' && (
-                <th className="px-2 py-2 text-left">Final Qty</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.finalQty', { defaultValue: 'Final Qty' })}</th>
               )}
               {mode !== 'add' && (
-                <th className="px-2 py-2 text-left">Actual Qty</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.actualQty', { defaultValue: 'Actual Qty' })}</th>
               )}
-              <th className="px-2 py-2 text-left">Amount</th>
-              <th className="px-2 py-2 text-left hidden lg:table-cell">
-                Remark
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.amount', { defaultValue: 'Amount' })}</th>
+              <th className="px-2 py-2 text-left hidden lg:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {t('table.remark', { defaultValue: 'Remark' })}
               </th>
-              <th className="px-2 py-2 text-left hidden md:table-cell">
-                Img
+              <th className="px-2 py-2 text-left hidden md:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {t('table.img', { defaultValue: 'Img' })}
               </th>
               {/* Show account code header in all stages including Completed */}
               {showAccountCodes && (
-                <th className="px-2 py-2 text-left">
-                  Account Code
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('table.accountCode', { defaultValue: 'Account Code' })}
                 </th>
               )}
             </tr>
@@ -2367,13 +2406,15 @@ const normalizeImageEntries = (list) => {
                       {(() => {
                         // In Checked stage, Final Qty should be read-only (only Actual Qty is editable)
                         const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
-                        // Also make read-only for Operation Manager viewing OPApproved form
+                        // Also make read-only for Operation Manager viewing OPApproved form and for Ac_Acknowledged
                         const statusLower = (status || '').toString().trim().toLowerCase();
                         const isOPApprovedStatus = statusLower === 'opapproved' || statusLower === 'op approved';
-                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || (mode === 'view' && !allowFinalQtyEdit) || (isOpManager && isOPApprovedStatus);
+                        const isAckStatusLocal = statusLower === 'ac_acknowledged' || statusLower === 'acknowledged';
+                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || isAckStatusLocal || (mode === 'view' && !allowFinalQtyEdit) || (isOpManager && isOPApprovedStatus);
                         
                         if (shouldShowFinalQtyAsReadOnly) {
-                          return <span>{formatQuantity(item.final_qty)}</span>;
+                          const displayQty = isAckStatusLocal ? item.actual_qty : item.final_qty;
+                          return <span>{formatQuantity(displayQty)}</span>;
                         }
                         
                         return (
@@ -2485,12 +2526,13 @@ const normalizeImageEntries = (list) => {
                         
                         // In Checked stage, Actual Qty should be editable
                         // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
+                        // Also make read-only for Branch Account users viewing OPApproved forms
                         const normalizedStatusForActualQty = (status || '').toString().trim();
                         const isOPApprovedForActualQty = normalizedStatusForActualQty === 'OPApproved' || 
                                                          normalizedStatusForActualQty === 'OP Approved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'opapproved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'op approved';
-                        const shouldMakeActualQtyReadOnly = isOPApprovedForActualQty && systemQtyUpdated;
+                        const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated) || (isAccount && isOPApprovedForActualQty);
                         const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly;
                         
                         if (canEditProductType) {
@@ -2647,15 +2689,16 @@ const normalizeImageEntries = (list) => {
                       // CRITICAL: After BTP, backend recalculates using actual_qty
                       // So for Checked status (after BTP), we should use actual_qty for amount
                       // For BM Approved, also use actual_qty
-                      // For OPApproved, also use actual_qty (backend recalculated using actual_qty)
+                      // For OPApproved and Ac_Acknowledged, also use actual_qty (backend recalculated using actual_qty)
                       // For other statuses, use final_qty
                       const isBMApproved = status === 'BM Approved' || status === 'BMApproved';
                       const isChecked = status === 'Checked' || status === 'checked';
                       const isOPApproved = status === 'OPApproved' || status === 'OP Approved';
+                      const isAck = status === 'Ac_Acknowledged' || status === 'Acknowledged';
                       
-                      // Use actual_qty for BM Approved, Checked (after BTP), and OPApproved
+                      // Use actual_qty for BM Approved, Checked (after BTP), OPApproved, and Ac_Acknowledged
                       // This ensures amounts match backend calculation which uses actual_qty
-                      const baseQty = (isBMApproved || isChecked || isOPApproved) ? actualQty : finalQty;
+                      const baseQty = (isBMApproved || isChecked || isOPApproved || isAck) ? actualQty : finalQty;
                       
                       const qtyForAmount = systemQty > 0 && baseQty > systemQty
                         ? systemQty
@@ -2663,30 +2706,9 @@ const normalizeImageEntries = (list) => {
 
                       const calculatedAmount = qtyForAmount * price;
                       
-                      // DEBUG: Log amount calculation
-                      if (item.product_code) {
-                        console.log('[AMOUNT_DEBUG] Item amount calculation', {
-                          product_code: item.product_code,
-                          status: status,
-                          isBMApproved: isBMApproved,
-                          isChecked: isChecked,
-                          price: price,
-                          actual_qty: actualQty,
-                          final_qty: finalQty,
-                          baseQty: baseQty,
-                          qtyForAmount: qtyForAmount,
-                          calculatedAmount: calculatedAmount,
-                          item_amount: item.amount,
-                          item_total: item.total,
-                          displayAmount: (isBMApproved || isChecked || isOPApproved) 
-                            ? calculatedAmount 
-                            : ((item.total ?? item.amount) ?? calculatedAmount),
-                        });
-                      }
-                      
                       // For BM Approved, Checked, and OPApproved, always use calculated amount (price * actual_qty)
                       // For other statuses, prefer explicit total from backend if available
-                      const displayAmount = (isBMApproved || isChecked || isOPApproved)
+                      const displayAmount = (isBMApproved || isChecked || isOPApproved || isAck)
                         ? calculatedAmount 
                         : ((item.total ?? item.amount) ?? calculatedAmount);
 
@@ -3010,7 +3032,7 @@ const normalizeImageEntries = (list) => {
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                             >
-                              Remark
+                              {t('table.remark', { defaultValue: 'Remark' })}
                             </label>
                             <input
                               type="text"
@@ -3029,7 +3051,7 @@ const normalizeImageEntries = (list) => {
                                 e.stopPropagation();
                               }}
                               className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              placeholder="Enter remark..."
+                              placeholder={t('table.enterRemark', { defaultValue: 'Enter remark...' })}
                             />
                           </div>
                         </div>
@@ -3077,7 +3099,7 @@ const normalizeImageEntries = (list) => {
                                     }}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onTouchStart={(e) => e.stopPropagation()}
-                                    title="Delete image"
+                                    title={t('table.deleteImage', { defaultValue: 'Delete image' })}
                                   >
                                     <X size={10} strokeWidth={3} />
                                   </button>
@@ -3105,7 +3127,7 @@ const normalizeImageEntries = (list) => {
                                       }}
                                       onMouseDown={(e) => e.stopPropagation()}
                                       onTouchStart={(e) => e.stopPropagation()}
-                                      title="Add more images"
+                                      title={t('table.addMoreImages', { defaultValue: 'Add more images' })}
                                     >
                                       <Plus size={12} strokeWidth={2.5} />
                                     </button>
@@ -3162,7 +3184,7 @@ const normalizeImageEntries = (list) => {
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-400 text-sm py-6">No items added yet.</p>
+          <p className="text-center text-gray-400 text-sm py-6">{t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}</p>
         )}
 
         {!isCompleted && selectedIds.length > 0 && (
@@ -3171,7 +3193,7 @@ const normalizeImageEntries = (list) => {
               onClick={confirmMultipleDelete}
               className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white text-sm rounded-md shadow hover:bg-red-700 transition"
             >
-              <Trash2 size={14} /> Delete ({selectedIds.length})
+              <Trash2 size={14} /> {t('table.delete', { defaultValue: 'Delete' })} ({selectedIds.length})
             </button>
           </div>
         )}
@@ -3188,11 +3210,11 @@ const normalizeImageEntries = (list) => {
                 : "hover:bg-gray-100"
             }`}
           >
-            <ChevronLeft size={12} /> Prev
+            <ChevronLeft size={12} /> {t('table.prev', { defaultValue: 'Prev' })}
           </button>
 
           <span>
-            Page {currentPage} of {totalPages}
+            {t('table.page', { defaultValue: 'Page' })} {currentPage} {t('table.of', { defaultValue: 'of' })} {totalPages}
           </span>
 
           <button
@@ -3204,13 +3226,13 @@ const normalizeImageEntries = (list) => {
                 : "hover:bg-gray-100"
             }`}
           >
-            Next <ChevronRight size={12} />
+            {t('table.next', { defaultValue: 'Next' })} <ChevronRight size={12} />
           </button>
         </div>
       )}
 
       <div className="flex justify-end gap-6 items-center mt-4 bg-green-50 p-3 rounded-md font-bold text-green-700" style={{ fontSize: '13px' }}>
-        <span>Total</span>
+        <span>{t('table.total', { defaultValue: 'Total' })}</span>
         <span className="text-right">{Math.round(total).toLocaleString('en-US')}</span>
       </div>
 
@@ -3225,12 +3247,12 @@ const normalizeImageEntries = (list) => {
               disabled={isUpdatingSystemQty}
               className="btn btn-info me-2 text-sm px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isUpdatingSystemQty ? 'Updating...' : systemQtyUpdated ? 'Update System Qty Again' : 'Update System Qty'}
+              {isUpdatingSystemQty ? t('table.updating', { defaultValue: 'Updating...' }) : systemQtyUpdated ? t('table.updateSystemQtyAgain', { defaultValue: 'Update System Qty Again' }) : t('table.updateSystemQty', { defaultValue: 'Update System Qty' })}
             </button>
             {!systemQtyUpdated && (
               <p className="text-red-600 text-xs flex items-center ml-1">
                 <span className="text-red-600 font-bold mr-1">*</span>
-                <span className="ml-2">Please update your system qty before clicking the Issued button.</span>
+                <span className="ml-2">{t('table.updateSystemQtyWarning', { defaultValue: 'Please update your system qty before clicking the Issued button.' })}</span>
               </p>
             )}
           </div>
@@ -3385,8 +3407,8 @@ const normalizeImageEntries = (list) => {
                   e.stopPropagation();
                   handleDeleteCurrentImage();
                 }}
-                aria-label="Delete image"
-                title="Delete image"
+                aria-label={t('table.deleteImage', { defaultValue: 'Delete image' })}
+                title={t('table.deleteImage', { defaultValue: 'Delete image' })}
               >
                 <Trash2 className="h-5 w-5" />
               </button>
@@ -3400,7 +3422,7 @@ const normalizeImageEntries = (list) => {
                     prevPreview();
                   }}
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label="Previous image"
+                  aria-label={t('table.previousImage', { defaultValue: 'Previous image' })}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -3411,7 +3433,7 @@ const normalizeImageEntries = (list) => {
                     nextPreview();
                   }}
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label="Next image"
+                  aria-label={t('table.nextImage', { defaultValue: 'Next image' })}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

@@ -20,18 +20,8 @@ export const NotificationProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await badgeNoti(token);
-<<<<<<< HEAD
       // console.log('hii error');
       setNotifications(response?.data || response);
-=======
-      console.log('hii error');
-      let notificationsData = response?.data || response;
-      if (notificationsData && typeof notificationsData === 'object' && !Array.isArray(notificationsData)) {
-        notificationsData = notificationsData.data || notificationsData.notifications || [];
-      }
-      // Ensure it's an array
-      setNotifications(Array.isArray(notificationsData) ? notificationsData : []);
->>>>>>> f029fc2 (to pull update)
     } catch (e) {
       console.error("Error fetching notifications:", e);
       setNotifications([]);

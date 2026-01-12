@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import '../DamageForm/ButtonHoverEffects.css';
 
@@ -16,11 +17,15 @@ const AnimatedBackButton = ({
   onClick, 
   to = '/big_damage_issue',
   className = '',
-  label = 'Back',
+  label = null,
   status = null
 }) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const colorStyles = getStatusColorStyles(status);
+  
+  // Use provided label or translation, with fallback
+  const buttonLabel = label || t('buttons.back', { defaultValue: 'Back' });
 
   const handleClick = () => {
     if (onClick) {
@@ -40,10 +45,10 @@ const AnimatedBackButton = ({
         borderColor: colorStyles.borderColor,
         fontSize: '15px'
       }}
-      aria-label={label}
+      aria-label={buttonLabel}
     >
       <ArrowLeft className="w-4 h-4" />
-      <span>{label}</span>
+      <span>{buttonLabel}</span>
     </button>
   );
 };

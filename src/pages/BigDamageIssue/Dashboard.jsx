@@ -167,14 +167,24 @@ const Dashboard = () => {
       params.set("document_no", filters.formDocNo); // additional fallback
     }
     // Handle status: allow filters.status to be an array (from multi-select) or string
+    // When "Operation Manager Approved" (Ac_Acknowledged) is selected, also include OPApproved
     if (filters.status) {
+      let statusValues = [];
       if (Array.isArray(filters.status) && filters.status.length > 0) {
-        const joined = filters.status.map(s => (typeof s === 'string' ? s : s.value || '')).filter(Boolean).join(',');
-        if (joined) params.set('status', joined);
+        statusValues = filters.status.map(s => (typeof s === 'string' ? s : s.value || '')).filter(Boolean);
       } else if (typeof filters.status === 'string' && filters.status.trim()) {
-        params.set('status', filters.status.trim());
+        statusValues = filters.status.split(',').map(s => s.trim()).filter(Boolean);
       } else if (typeof filters.status === 'object' && filters.status.value) {
-        params.set('status', filters.status.value);
+        statusValues = [filters.status.value];
+      }
+      
+      // If Ac_Acknowledged is selected, also include OPApproved
+      if (statusValues.includes('Ac_Acknowledged') && !statusValues.includes('OPApproved')) {
+        statusValues.push('OPApproved');
+      }
+      
+      if (statusValues.length > 0) {
+        params.set('status', statusValues.join(','));
       }
     }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
@@ -962,16 +972,23 @@ const Dashboard = () => {
     }
 
     // Set status filter (convert from array/object to comma-separated string)
-    let statusParam = '';
+    // When "Operation Manager Approved" (Ac_Acknowledged) is selected, also include OPApproved
+    let statusValues = [];
     if (Array.isArray(v.status)) {
-      statusParam = v.status.map(s => (s && (s.value || s.value === 0) ? (s.value + '') : (s + ''))).filter(Boolean).join(',');
+      statusValues = v.status.map(s => (s && (s.value || s.value === 0) ? (s.value + '') : (s + ''))).filter(Boolean);
     } else if (v.status && typeof v.status === 'object' && (v.status.value || v.status.value === 0)) {
-      statusParam = String(v.status.value);
+      statusValues = [String(v.status.value)];
     } else if (typeof v.status === 'string') {
-      statusParam = v.status;
+      statusValues = v.status.split(',').map(s => s.trim()).filter(Boolean);
     }
-    if (statusParam && statusParam.trim()) {
-      newSearchParams.set('status', statusParam.trim());
+    
+    // If Ac_Acknowledged is selected, also include OPApproved
+    if (statusValues.includes('Ac_Acknowledged') && !statusValues.includes('OPApproved')) {
+      statusValues.push('OPApproved');
+    }
+    
+    if (statusValues.length > 0) {
+      newSearchParams.set('status', statusValues.join(','));
     } else {
       newSearchParams.delete('status');
     }
@@ -1222,9 +1239,7 @@ const Dashboard = () => {
           <h1 className="text-lg font-semibold text-[#012970]">Request Document System</h1>
         </div>
         <nav className="text-sm text-gray-600">
-          <span>Home</span>
-          <span className="mx-2">/</span>
-          <span>Notifications</span>
+          <span>Dashboard</span>
           <span className="mx-2">/</span>
           <span className="text-[#012970] font-semibold">Big Damage Issue Form</span>
         </nav>
@@ -1405,7 +1420,6 @@ const Dashboard = () => {
             <DamageIssueList
               data={listData.rows}
               loading={listLoading}
-              // Use URL-derived currentPage so client-side pagination follows user's page selection
               currentPage={currentPage}
               perPage={perPage}
               totalRows={totalFormCount}

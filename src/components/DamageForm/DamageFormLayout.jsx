@@ -391,6 +391,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const isSubmittingRef = useRef(false);
   // Track submission ID to detect duplicate submissions
   const submissionIdRef = useRef(null);
+  // Track current action being submitted for loading message
+  const currentSubmittingActionRef = useRef(null);
   
   // Track if form has been initialized to prevent overwriting user input
   const formInitializedRef = useRef(false);
@@ -1784,6 +1786,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     action: null,
     emptyFields: []
   });
+  const [pdfDownloadConfirmation, setPdfDownloadConfirmation] = useState(false);
+  const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [validationErrorModal, setValidationErrorModal] = useState({
     isOpen: false,
     errors: []
@@ -2379,17 +2383,17 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
     switch (a) {
       case 'BMApprovedMem':
-        return 'Check';
+        return t('buttons.check', { defaultValue: 'Check' });
       case 'BMApproved':
-        return 'Approve (BM)';
+        return t('buttons.approveBM', { defaultValue: 'Approve (BM)' });
       case 'OPApproved':
-        return 'Acknowledge';
+        return t('buttons.approveOP', { defaultValue: 'Approve (OP)' });
       case 'Ac_Acknowledged':
-        return 'Approve (OP)';
+        return t('buttons.approveOP', { defaultValue: 'Approve (OP)' });
       case 'SupervisorIssued':
-        return 'Issue';
+        return t('buttons.issue', { defaultValue: 'Issue' });
       case 'Completed':
-        return 'Issue';
+        return t('buttons.issue', { defaultValue: 'Issue' });
       default:
         return a;
     }
@@ -2512,9 +2516,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         act.approve = 'BMApproved';
       } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
         // Operation Manager should only approve if amount > 500000
-        // After Operation Manager acknowledges, form goes directly to Completed (no supervisor step)
+        // After Operation Manager acknowledges, form status should be OPApproved
         if (requiresOpManagerApproval) {
-          act.approve = 'Ac_Acknowledged'; // Operation Manager acknowledgement should set Ac_Acknowledged
+          act.approve = 'OPApproved'; // Operation Manager approval should set OPApproved
         }
       } else if (role === 'account') {
         // Account can only issue after proper approval stage:
@@ -2682,7 +2686,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (typeof actions !== 'undefined') {
         if (!actions.backToPrevious) actions.backToPrevious = true;
         if (!actions.cancel) actions.cancel = true;
-        if (!actions.approve) actions.approve = 'Ac_Acknowledged';
+        if (!actions.approve) actions.approve = 'OPApproved';
       }
     }
   } catch (e) {
@@ -2847,8 +2851,21 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     navigate('/big_damage_issue', { replace: false });
   };
 
-  // Handle download PDF
-  const handleDownloadPdf = async () => {
+  // Handle download PDF - show confirmation first
+  const handleDownloadPdf = () => {
+    setPdfDownloadConfirmation(true);
+  };
+
+  // Actually download PDF after confirmation
+  const confirmDownloadPdf = async () => {
+    // Set loading state BEFORE closing modal so user sees it immediately
+    console.log('Setting PDF downloading to true');
+    setIsPdfDownloading(true);
+    setPdfDownloadConfirmation(false);
+    
+    // Small delay to ensure state update is visible
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     try {
       // Get the general_form_id from initialData
       const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId;
@@ -2988,7 +3005,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const errorMessage = error.message || t('messages.pdfGenerateFailed');
       setErrorModalMessage(errorMessage);
       setIsErrorModalOpen(true);
+    } finally {
+      console.log('Setting PDF downloading to false');
+      setIsPdfDownloading(false);
     }
+  };
+
+  // Cancel PDF download
+  const cancelDownloadPdf = () => {
+    setPdfDownloadConfirmation(false);
   };
 
   // Show confirmation modal before submitting
@@ -3336,6 +3361,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
    
     try {
       submissionIdRef.current = currentSubmissionId;
+      currentSubmittingActionRef.current = action; // Track current action for loading message
       setError('');
       setSuccessMessage('');
       isSubmittingRef.current = true; // Set ref immediately (synchronous)
@@ -3360,6 +3386,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           errors: [t('messages.addProductRequired')]
         });
         isSubmittingRef.current = false;
+        currentSubmittingActionRef.current = null; // Clear action ref
         setIsSubmitting(false);
         return;
       }
@@ -3371,6 +3398,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           errors: [t('messages.productCodeRequired')]
         });
         isSubmittingRef.current = false;
+        currentSubmittingActionRef.current = null; // Clear action ref
         setIsSubmitting(false);
         return;
       }
@@ -3446,6 +3474,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           errors: [t('messages.addProductRequired')]
         });
         isSubmittingRef.current = false;
+        currentSubmittingActionRef.current = null; // Clear action ref
         setIsSubmitting(false);
         return;
       }
@@ -4791,10 +4820,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         let message = t('messages.formSubmitted');
         let actionType = 'submit';
         
-        if (action === 'Check' || action === 'CheckMem') {
+        // Normalize action for comparison (case-insensitive)
+        const normalizedAction = String(action || '').trim();
+        const actionLower = normalizedAction.toLowerCase();
+        
+        // Check for checker actions: Checked, Check, CheckMem, BMApprovedMem (checker checking)
+        if (actionLower === 'checked' || actionLower === 'check' || normalizedAction === 'CheckMem' || normalizedAction === 'Check' || normalizedAction === 'BMApprovedMem') {
           message = t('messages.formChecked', { defaultValue: 'Form checked successfully' });
           actionType = 'check';
-        } else if (action === 'Approve' || action === 'BMApproved' || action === 'BMApprovedMem') {
+        } else if (actionLower === 'approved' || actionLower === 'bmapproved' || normalizedAction === 'BMApproved' || normalizedAction === 'Approve') {
           message = t('messages.formApproved', { defaultValue: 'Form approved successfully' });
           actionType = 'approve';
         } else if (action === 'Acknowledge' || action === 'AcAcknowledge') {
@@ -4922,6 +4956,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     } finally {
       isSubmittingRef.current = false; // Reset ref
       submissionIdRef.current = null; // Clear submission ID
+      currentSubmittingActionRef.current = null; // Clear action ref
       setIsSubmitting(false);
     }
 
@@ -5400,9 +5435,9 @@ const resolveApproveAction = () => {
                                       normalizedActionStatus === 'BMApproved' ||
                                       normalizedActionStatus === 'Checked';
         if (isBMApprovedOrChecked && requiresOpManagerApproval) {
-          // Operation Manager acknowledges - should return Ac_Acknowledged (not OPApproved)
-          // This matches Laravel blade behavior where acknowledge button sets status to Ac_Acknowledged
-          return 'Ac_Acknowledged';
+          // Operation Manager approves - should return OPApproved (not Ac_Acknowledged)
+          // This ensures the confirmation modal shows "Confirm OP Approved"
+          return 'OPApproved';
         }
       }
       // For other actions or users, use backend action directly
@@ -5421,9 +5456,9 @@ const resolveApproveAction = () => {
   
   if (isOpManagerFinal && statusMatches) {
     if (requiresOpManagerApproval) {
-      // Operation Manager acknowledges - should return Ac_Acknowledged (not OPApproved)
-      // This matches Laravel blade behavior where acknowledge button sets status to Ac_Acknowledged
-      return 'Ac_Acknowledged';
+      // Operation Manager approves - should return OPApproved (not Ac_Acknowledged)
+      // This ensures the confirmation modal shows "Confirm OP Approved"
+      return 'OPApproved';
     } else {
     }
   }
@@ -5518,13 +5553,66 @@ const resolveApproveAction = () => {
 
   // Get action message based on current action
   const getLoadingMessage = () => {
-    // Try to determine the action from the form state or apiActions
-    const currentAction = apiActions?.approve || apiActions?.btp || apiActions?.cancel || formData?.status || 'Processing';
-    const actionStr = String(currentAction).toLowerCase();
-    if (actionStr.includes('check')) return 'Checking...';
-    if (actionStr.includes('approve') || actionStr === 'bmapproved') return 'Approving...';
-    if (actionStr.includes('issue') || actionStr === 'issued') return 'Issuing...';
-    if (actionStr.includes('acknowledge') || actionStr === 'ac_acknowledged') return 'Operation Manager Approving...';
+    // First check the current submitting action (most accurate)
+    const submittingAction = currentSubmittingActionRef.current;
+    if (submittingAction) {
+      const actionStr = String(submittingAction).toLowerCase().trim();
+      // Check for "check" action first (before "approve" to avoid false matches)
+      // Use exact matches first, then includes to catch variations
+      // BMApprovedMem is used for checker checking, so treat it as checking
+      if (actionStr === 'checked' || actionStr === 'check' || actionStr === 'checkmem' || actionStr === 'bmapprovedmem') {
+        return 'Checking...';
+      }
+      // Check if it contains "check" but not "approve" (to avoid matching "BMApproved" etc.)
+      if (actionStr.includes('check') && !actionStr.includes('approve')) {
+        return 'Checking...';
+      }
+      if (actionStr.includes('issue') || actionStr === 'issued' || actionStr === 'completed' || actionStr === 'supervisorissued') return 'Issuing...';
+      if (actionStr.includes('acknowledge') || actionStr === 'ac_acknowledged' || actionStr === 'opapproved' || actionStr === 'op approved') return 'Operation Manager Approving...';
+      // Only match "approve" if it doesn't contain "check" and is not BMApprovedMem (to avoid false matches)
+      if ((actionStr.includes('approve') || actionStr === 'bmapproved' || actionStr === 'bm approved') && !actionStr.includes('check') && actionStr !== 'bmapprovedmem') {
+        return 'Approving...';
+      }
+      if (actionStr.includes('submit')) return 'Submitting...';
+    }
+    
+    // Fallback: Try to determine the action from the form state or apiActions
+    // Check status first, then apiActions, to prioritize current action over future action
+    const statusAction = formData?.status || '';
+    const statusStr = String(statusAction).toLowerCase().trim();
+    // If status is "Checked", we're checking (not approving)
+    if (statusStr === 'checked' || statusStr === 'check') return 'Checking...';
+    
+    // Don't use apiActions?.approve as fallback because it represents the NEXT action, not the current one
+    // Instead, check if we're in a checking state based on user role and current status
+    const currentUserRole = getUserRole();
+    const isChecker = currentUserRole === 'checker' || currentUserRole === 'c' || currentUserRole === 'cs';
+    const isCheckedStatus = statusStr === 'checked' || statusStr === 'check';
+    const isOngoingStatus = statusStr === 'ongoing';
+    
+    // If user is checker and form is Ongoing or being checked, show "Checking..."
+    if (isChecker && (isOngoingStatus || isCheckedStatus)) {
+      return 'Checking...';
+    }
+    
+    // Last resort: check apiActions but prioritize check actions
+    const currentAction = apiActions?.approve || apiActions?.btp || apiActions?.cancel || '';
+    const actionStr = String(currentAction).toLowerCase().trim();
+    // Check for "check" action first (before "approve" to avoid false matches)
+    // BMApprovedMem is used for checker checking, so treat it as checking
+    if (actionStr === 'checked' || actionStr === 'check' || actionStr === 'checkmem' || actionStr === 'bmapprovedmem') {
+      return 'Checking...';
+    }
+    // Check if it contains "check" but not "approve"
+    if (actionStr.includes('check') && !actionStr.includes('approve')) {
+      return 'Checking...';
+    }
+    if (actionStr.includes('issue') || actionStr === 'issued' || actionStr === 'completed' || actionStr === 'supervisorissued') return 'Issuing...';
+    if (actionStr.includes('acknowledge') || actionStr === 'ac_acknowledged' || actionStr === 'opapproved' || actionStr === 'op approved') return 'Operation Manager Approving...';
+    // Only match "approve" if it doesn't contain "check" and is not BMApprovedMem
+    if ((actionStr.includes('approve') || actionStr === 'bmapproved' || actionStr === 'bm approved') && !actionStr.includes('check') && actionStr !== 'bmapprovedmem') {
+      return 'Approving...';
+    }
     if (actionStr.includes('submit')) return 'Submitting...';
     return 'Processing...';
   };
@@ -5589,6 +5677,7 @@ const resolveApproveAction = () => {
             userRoleOverride={userRole}
             statusOverride={formData.status}
             onDownloadPdf={handleDownloadPdf}
+            isPdfDownloading={isPdfDownloading}
             issueRemarks={formData.issue_remarks || []}
             btpRemark={formData.general_form?.remark || initialData?.general_form?.remark || ''}
           />
@@ -6081,7 +6170,7 @@ const resolveApproveAction = () => {
               className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 font-semibold text-white transition-all duration-200 rounded shadow-md bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ fontSize: '0.9375rem' }}
             >
-              <span className="btn-text">Submit</span>
+              <span className="btn-text">{t('buttons.submit', { defaultValue: 'Submit' })}</span>
               <Send className="btn-icon w-4 h-4 absolute" />
             </button>
             <button 
@@ -6089,7 +6178,7 @@ const resolveApproveAction = () => {
               className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-gray-900 bg-white hover:bg-gray-50 border-2 border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 shadow-sm hover:shadow-md"
               style={{ fontSize: '0.9375rem' }}
             >
-              <span className="btn-text">Cancel</span>
+              <span className="btn-text">{t('buttons.cancel', { defaultValue: 'Cancel' })}</span>
               <XCircle className="btn-icon w-4 h-4 absolute" />
             </button>
           </>
@@ -6101,7 +6190,7 @@ const resolveApproveAction = () => {
                 className="btn-with-icon btn-edit inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-sm hover:shadow-md" 
                 style={{ fontSize: '0.9375rem' }}
               >
-                <span className="btn-text">Edit</span>
+                <span className="btn-text">{t('buttons.edit', { defaultValue: 'Edit' })}</span>
                 <Edit3 className="btn-icon w-4 h-4 absolute" />   
               </button>
             )}
@@ -6131,7 +6220,7 @@ const resolveApproveAction = () => {
                 className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1"
                 style={{ fontSize: '15px' }}
               >
-                Add
+                {t('buttons.add', { defaultValue: 'Add' })}
               </button>
             )}
             
@@ -6175,7 +6264,7 @@ const resolveApproveAction = () => {
               }
               let action = resolveApproveAction();
               if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
-                action = 'Ac_Acknowledged';
+                action = 'OPApproved';
               }
               
               // Check if this is an OP manager acknowledge scenario to avoid duplicate buttons
@@ -6188,7 +6277,7 @@ const resolveApproveAction = () => {
               
               // If OP manager acknowledge scenario, ensure action is set and use single button rendering
               if (isOpAcknowledgeScenario && !action) {
-                action = 'Ac_Acknowledged';
+                action = 'OPApproved';
                 }
               
               // Don't render button if action is null or undefined, or if submitting (to avoid white disabled button)
@@ -6214,7 +6303,7 @@ const resolveApproveAction = () => {
                   className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${shouldDisable ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
                   style={{ fontSize: '15px' }}
                 >
-                  <span>{prettyApprove(action) || 'Proceed'}</span>
+                  <span>{prettyApprove(action) || t('buttons.proceed', { defaultValue: 'Proceed' })}</span>
                 </button>
               );
             })()}
@@ -6230,7 +6319,7 @@ const resolveApproveAction = () => {
                 className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#ffc107] border-[#ffc107] hover:bg-[#e0a800] hover:border-[#e0a800] hover:shadow-md transition-all duration-200 me-1"
                 style={{ fontSize: '15px' }}
               >
-                Back To previous
+                {t('buttons.backToPrevious', { defaultValue: 'Back To previous' })}
               </button>
             )}
             
@@ -6242,7 +6331,7 @@ const resolveApproveAction = () => {
                 className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white border-[#dc3545] bg-[#dc3545] me-1" 
                 style={{ fontSize: '15px' }}
               >
-                Cancel
+                {t('buttons.cancel', { defaultValue: 'Cancel' })}
               </button>
             )}
             </>
@@ -6258,6 +6347,15 @@ const resolveApproveAction = () => {
         emptyFields={confirmationModal.emptyFields || []}
         onConfirm={handleConfirmSubmit}
         onCancel={handleCancelSubmit}
+      />
+
+      {/* PDF Download Confirmation Modal */}
+      <ActionConfirmationModal
+        isOpen={pdfDownloadConfirmation}
+        action="DownloadPDF"
+        emptyFields={[]}
+        onConfirm={confirmDownloadPdf}
+        onCancel={cancelDownloadPdf}
       />
 
       {/* Validation Error Modal */}

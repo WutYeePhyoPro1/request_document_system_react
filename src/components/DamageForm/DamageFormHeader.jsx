@@ -1,8 +1,7 @@
-import React, { useState } from "react";
-import { FileText, Download, Copy } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { FileText, Download, Copy, Loader2, ArrowDown } from "lucide-react";
 import BigDamageIsuueLogo from '../../assets/images/big-dmg-issue-logo.png';
 import ConfirmationModal from './ConfirmationModal';
-import { useEffect } from 'react';
 import { resolveBranchDisplay } from "../common/branchMappings";
 import { useTranslation } from 'react-i18next';
 import './ButtonHoverEffects.css';
@@ -90,18 +89,31 @@ export default function DamageFormHeader({
   statusOverride = null,
   mode = 'view',
   onDownloadPdf = null,
+  isPdfDownloading = false, // Loading state for PDF download
   issueRemarks = [], // Add issueRemarks prop for ISS remark type display
   btpRemark = '' // Back to Previous remark from general_form.remark
 }) {
   const { t } = useTranslation();
-  // Set the branch from user's session on component mount
+  // Set the branch from user's session on component mount (only if form doesn't have branch data)
+  // CRITICAL: Don't override form's branch - always use form's branch from general_form
   useEffect(() => {
+    // Only set branch from user session if form doesn't have branch data from general_form
+    // This should only happen when creating a new form
+    const hasFormBranch = formData.general_form?.from_branch 
+      || formData.general_form?.from_branch_id
+      || formData.general_form?.from_branches;
+    
+    if (hasFormBranch) {
+      // Form already has branch data, don't override it
+      return;
+    }
+    
     const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
 
     // If we already have a branch set, don't change it
     if (formData.branch || formData.branch_name) return;
 
-    // If we have a branch ID, use it to set the branch
+    // If we have a branch ID, use it to set the branch (only for new forms)
     if (storedUser?.from_branch_id) {
       setFormData(prev => ({
         ...prev,
@@ -109,8 +121,17 @@ export default function DamageFormHeader({
         branch_name: storedUser.from_branch_name || 'Lanthit' // Keep name for display
       }));
     }
-  }, [formData.branch, formData.branch_name, setFormData]);
+  }, [formData.branch, formData.branch_name, formData.general_form?.from_branch, formData.general_form?.from_branch_id, formData.general_form?.from_branches, setFormData]);
   // Removed branch change handlers as branch is now read-only
+  
+  // Debug: Log when loading state changes
+  useEffect(() => {
+    if (isPdfDownloading) {
+      console.log('PDF Download: Loading state is TRUE');
+    } else {
+      console.log('PDF Download: Loading state is FALSE');
+    }
+  }, [isPdfDownloading]);
 
   const userRole = normalizeRole(userRoleOverride) || getRole();
   const statusRaw =
@@ -127,10 +148,21 @@ export default function DamageFormHeader({
     if (v === 'Ac_Acknowledged' || v === 'Acknowledged' || v === 'OPApproved' || v === 'OP Approved') return 'OPApproved';
     return v;
   };
+  // Use form's branch (from general_form) instead of authenticated user's branch
+  const formBranchId = formData.general_form?.from_branch 
+    || formData.general_form?.from_branch_id 
+    || formData.branch;
+  // Prioritize full branch name over short name
+  const formBranchName = formData.general_form?.from_branches?.branch_name
+    || formData.general_form?.from_branches?.branch_short_name
+    || formData.general_form?.from_branch_name
+    || formData.branch_name;
+  
   const branchDisplay = resolveBranchDisplay({
-    branchId: formData.branch,
-    branchName: formData.branch_name,
-    fallback: 'Loading branch...'
+    branchId: formBranchId,
+    branchName: formBranchName,
+    fallback: 'Loading branch...',
+    t: t
   });
   const docNumber = formData.form_doc_no
     || formData.formDocNo
@@ -235,7 +267,7 @@ export default function DamageFormHeader({
   const buttonContent = (
     <>
       <FileText className="w-4 h-4" />
-      <span>Investigation Form</span>
+      <span>{t('buttons.investigationForm', { defaultValue: 'Investigation Form' })}</span>
     </>
   );
 
@@ -294,11 +326,7 @@ export default function DamageFormHeader({
 )}
 
       <div className=" space-y-4 mb-0 pb-0">
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-gray-400 text-sm hidden sm:inline-block">
-            Dashboard / Big Damage Issue Form
-          </span>
-        </div>
+ 
         <div className="bg-white border border-gray-200 shadow-sm rounded-2xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mt-2 relative overflow-hidden">
           {(() => {
             const status = formData.status;
@@ -396,7 +424,16 @@ export default function DamageFormHeader({
                     ? 'bg-red-50 border-red-200 text-red-700' 
                     : 'bg-green-50 border-green-200 text-green-700'
                 }`}>
-                  {formData.caseType || t('damageFormHeader.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
+                  {(() => {
+                    const caseType = formData.caseType || '';
+                    const caseTypeLower = caseType.toLowerCase();
+                    if (caseTypeLower.includes('not sell')) {
+                      return t('list.notSell', { defaultValue: 'Not Sell' });
+                    } else if (caseTypeLower.includes('other income sell') || caseTypeLower.includes('other income')) {
+                      return t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' });
+                    }
+                    return caseType || t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' });
+                  })()}
                 </span>
               </div>
             </div>
@@ -446,14 +483,25 @@ export default function DamageFormHeader({
         </div>
 
         {/* Back to Previous Remark - displayed with yellow background like in Blade templates */}
-        {btpRemark && btpRemark.trim() !== '' && (
+        {/* Only show remark when form is in Checked or Ongoing status (after being sent back) */}
+        {(() => {
+          const currentStatus = (formData.status || '').toString().trim();
+          const normalizedStatus = currentStatus.toLowerCase();
+          // Only show BTP remark when status is Checked or Ongoing (after BTP action)
+          // Hide it when form moves forward to BM Approved or higher statuses
+          const shouldShowRemark = btpRemark && 
+                                  btpRemark.trim() !== '' && 
+                                  (normalizedStatus === 'checked' || normalizedStatus === 'ongoing');
+          
+          return shouldShowRemark ? (
           <div className="mt-2 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
             <div className="flex items-start gap-2">
               <span className="text-yellow-800 font-semibold text-sm whitespace-nowrap">Back to Previous Remark:</span>
               <span className="text-yellow-900 text-sm">{btpRemark}</span>
             </div>
           </div>
-        )}
+          ) : null;
+        })()}
 
         <div className="flex flex-col md:flex-row md:items-center justify-between mt-2">
           {/* Hide datetime in add mode */}
@@ -479,24 +527,87 @@ export default function DamageFormHeader({
         </div>
       </div>
 
-      {/* Desktop Download PDF Button - Circular, positioned absolutely bottom-right - Only show when form is completed/issued/acknowledged */}
-      {onDownloadPdf && (status === 'Completed' || status === 'Issued' || status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' || status === 'SupervisorIssued') && (
+      {/* Desktop Download PDF Button - Circular, positioned absolutely bottom-right - Only show when form is completed */}
+      {onDownloadPdf && status === 'Completed' && (
         <button
           onClick={onDownloadPdf}
-          className="hidden md:flex fixed bottom-12 right-6 z-50 items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-all duration-300 hover:shadow-xl"
+          disabled={isPdfDownloading}
+          className={`hidden md:flex fixed bottom-12 right-6 z-50 items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg transition-all duration-300 ${
+            isPdfDownloading 
+              ? 'opacity-90 cursor-wait bg-blue-500' 
+              : 'hover:bg-blue-700 hover:shadow-xl'
+          }`}
+          title={isPdfDownloading ? 'Downloading PDF...' : 'Download PDF'}
         >
+          {isPdfDownloading ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
           <Download className="w-6 h-6" />
+          )}
         </button>
       )}
 
-      {/* Mobile Download PDF Button - Circular, positioned above investigation button - Only show when form is completed/issued/acknowledged */}
-      {onDownloadPdf && (status === 'Completed' || status === 'Issued' || status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' || status === 'SupervisorIssued') && (
+      {/* Mobile Download PDF Button - Circular posit, positioned above investigation button - Only show when form is completed */}
+      {onDownloadPdf && status === 'Completed' && (
         <button
           onClick={onDownloadPdf}
-          className="md:hidden fixed bottom-24 right-6 z-50 flex items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-all duration-300 hover:shadow-xl"
+          disabled={isPdfDownloading}
+          className={`md:hidden fixed bottom-24 right-6 z-50 flex items-center justify-center w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg transition-all duration-300 ${
+            isPdfDownloading 
+              ? 'opacity-90 cursor-wait bg-blue-500' 
+              : 'hover:bg-blue-700 hover:shadow-xl'
+          }`}
+          title={isPdfDownloading ? 'Downloading PDF...' : 'Download PDF'}
         >
+          {isPdfDownloading ? (
+            <Loader2 className="w-6 h-6 animate-spin" />
+          ) : (
           <Download className="w-6 h-6" />
+          )}
         </button>
+      )}
+      
+      {/* Loading Overlay - Show when PDF is downloading */}
+      {isPdfDownloading && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center pointer-events-none">
+          <div className="bg-white rounded-lg shadow-xl p-6 flex flex-col items-center gap-4 border-2 border-blue-200">
+            {/* Download Animation: Arrow going into file */}
+            <div className="relative w-20 h-20 flex items-center justify-center">
+              {/* File Icon - stays in place */}
+              <FileText className="w-14 h-14 text-blue-600 absolute z-10" />
+              {/* Arrow moving down into file */}
+              <div className="absolute z-20" style={{ top: '-12px' }}>
+                <ArrowDown 
+                  className="w-7 h-7 text-blue-600"
+                  style={{
+                    animation: 'arrowIntoFile 1.2s ease-in-out infinite'
+                  }}
+                />
+              </div>
+            </div>
+            <p className="text-gray-700 font-medium">Downloading PDF...</p>
+            <style>{`
+              @keyframes arrowIntoFile {
+                0% {
+                  transform: translateY(0) scale(1);
+                  opacity: 1;
+                }
+                40% {
+                  transform: translateY(25px) scale(0.9);
+                  opacity: 0.9;
+                }
+                60% {
+                  transform: translateY(35px) scale(0.7);
+                  opacity: 0.6;
+                }
+                100% {
+                  transform: translateY(45px) scale(0.5);
+                  opacity: 0;
+                }
+              }
+            `}</style>
+          </div>
+        </div>
       )}
 
       {showInvestigationButton() && (
@@ -508,7 +619,7 @@ export default function DamageFormHeader({
           >
             {/* Adjust content for circular view */}
             <FileText className="w-6 h-6" />
-            <span className="text-[0.55rem] font-medium leading-none mt-0.5">Investigation</span>
+            <span className="text-[0.55rem] font-medium leading-none mt-0.5">{t('buttons.investigation', { defaultValue: 'Investigation' })}</span>
           </button>
         </div>
       )}

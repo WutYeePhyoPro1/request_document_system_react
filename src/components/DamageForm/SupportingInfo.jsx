@@ -310,6 +310,24 @@ export default function SupportingInfo({
   // MUST be defined before shouldShowRemark uses it
   const isAcknowledgedStatus = statusLower === 'ac_acknowledged' || statusLower === 'acknowledged';
 
+  // Check if user is branch account - check role name and role_id from localStorage
+  // MUST be defined before effectiveReadOnly uses it
+  const isBranchAccount = (() => {
+    const roleIdFromStorage = storedUser?.role_id;
+    const isAccountByRoleId = roleIdFromStorage && (
+      (typeof roleIdFromStorage === 'number' && roleIdFromStorage === 7) ||
+      (typeof roleIdFromStorage === 'string' && (
+        roleIdFromStorage.toString().toLowerCase().trim() === 'branch account' ||
+        roleIdFromStorage.toString().toLowerCase().trim() === 'account' ||
+        roleIdFromStorage.toString().toLowerCase().trim() === '7'
+      ))
+    );
+    const isAccountByRoleName = resolvedRoleLower.includes('account') || 
+                               resolvedRoleLower === 'ac' ||
+                               resolvedRoleLower === 'ack';
+    return isAccountByRoleId || isAccountByRoleName;
+  })();
+
   // Hide remark box for:
   // - Branch manager viewing BM Approved form
   // - Operation manager viewing OP Approved or Ac_Acknowledged form
@@ -329,10 +347,12 @@ export default function SupportingInfo({
   // Hide attachments if completed, or if status is one of the restricted statuses, or per role rules above
   // Also hide for regular users viewing Ongoing, BM Approved, or OPApproved forms
   // Also hide for Operation Managers viewing OPApproved or Ac_Acknowledged forms
-  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved' || isOPApprovedStatus)) && !(isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus));
+  // Also hide for Branch Account users viewing OPApproved forms
+  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved' || isOPApprovedStatus)) && !(isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus)) && !(isBranchAccount && isOPApprovedStatus);
 
   // Effective readonly: if parent told us readOnly, or if viewer is a regular user viewing an Ongoing, BM Approved, OP Approved, or Ac_Acknowledged form,
   // or if branch manager is viewing BM Approved form, or if operation manager is viewing OP Approved or Ac_Acknowledged form,
+  // or if branch account is viewing OP Approved form,
   // treat as readonly so delete buttons are disabled
   const effectiveReadOnly = Boolean(
     readOnly || 
@@ -344,7 +364,8 @@ export default function SupportingInfo({
       isAcknowledgedStatus
     )) ||
     (isBranchManager && isBMApprovedStatus) ||
-    (isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus))
+    (isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus)) ||
+    (isBranchAccount && isOPApprovedStatus)
   );
   
   return (

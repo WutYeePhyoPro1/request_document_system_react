@@ -18,28 +18,26 @@ const Pro1LoadingAnimation = ({ message = 'Processing...' }) => {
           />
         </div>
 
-        {/* Flying Man Animation */}
-        <div className="flying-man-container">
-          <div className="flying-man">
-            <div className="man-body"></div>
-            <div className="man-head"></div>
-            <div className="man-arms">
-              <div className="arm arm-left"></div>
-              <div className="arm arm-right"></div>
+        {/* Rocket Ship Animation */}
+        <div className="rocket-container">
+          <div className="loader">
+            <span>
+              <span></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </span>
+            <div className="base">
+              <span></span>
+              <div className="face"></div>
             </div>
-            <div className="man-legs">
-              <div className="leg leg-left"></div>
-              <div className="leg leg-right"></div>
-            </div>
-            <div className="man-document"></div>
           </div>
-        </div>
-
-        {/* Form/Document Sending Animation */}
-        <div className="document-trail">
-          <div className="document document-1"></div>
-          <div className="document document-2"></div>
-          <div className="document document-3"></div>
+          <div className="longfazers">
+            <span></span>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
 
         {/* Loading Text */}

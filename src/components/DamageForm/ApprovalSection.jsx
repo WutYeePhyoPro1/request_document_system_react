@@ -134,9 +134,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     }
     // Operation Mgr Approved by section removed
     if (label === 'Operation Manager Approved by') {
-      // Check multiple sources for acknowledgment name
-      // For OPApproved status, this could be Operation Manager or Account
+      // CRITICAL: Check approval object first (actual_user_name, actual_user_full_name, etc.)
+      // Then fall back to formData fields
       const acknowledgedName = 
+        approval?.actual_user_name ||
+        approval?.actual_user_full_name ||
+        approval?.name ||
+        approval?.user?.name ||
+        approval?.assigned_name ||
+        approval?.approver_name ||
         formData?.acknowledged_by_name ||
         formData?.acknowledged_by_user?.name ||
         formData?.general_form?.acknowledged_by_name ||
@@ -148,9 +154,24 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   };
 
   const resolveRole = (approval, fallbackLabel) => {
+    // CRITICAL: Check label FIRST before checking approval.role or user_type
+    // This ensures "Operation Manager Approved by" always shows "Operation Manager" even if approval has wrong role
+    // "Issued by" should always be "Branch Account", not "Supervisor" (even if user_type is ACK)
+    // "Operation Manager Approved by" should always be "Operation Manager", not "Branch Account" or "BM/ABM" (even if approval.role is set)
+    const label = (fallbackLabel || '').toLowerCase();
+    
+    // If label is "Issued by", always return "Branch Account" (don't check approval.role or user_type)
+    if (label.includes('issued')) {
+      return 'Branch Account';
+    }
+    
+    // If label is "Operation Manager Approved by", always return "Operation Manager" (don't check approval.role or user_type)
+    if (label.includes('Operation Manager Approved')) {
+      return 'Operation Manager';
+    }
+    
     if (!approval) {
       // For "Prepared by", try to get role from formData
-      const label = (fallbackLabel || '').toLowerCase();
       if (label.includes('prepared')) {
         return formData?.originator?.title ||
                formData?.user?.title ||
@@ -162,6 +183,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       return null;
     }
 
+    // Now check approval.role and user_type (but label already took precedence above)
     if (approval.role) return approval.role;
     if (approval.user_role) return approval.user_role;
     if (approval.user?.role) return approval.user.role;
@@ -169,11 +191,10 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     if (approval.raw?.user_role) return approval.raw.user_role;
     if (approval.raw?.user?.role) return approval.raw.user.role;
 
+    // For other labels, check user_type
     if (approval.user_type && ROLE_MAP[approval.user_type]) {
       return ROLE_MAP[approval.user_type];
     }
-
-    const label = (fallbackLabel || '').toLowerCase();
     if (label.includes('prepared')) {
       return formData?.originator?.title ||
              formData?.user?.title ||
@@ -191,7 +212,20 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       return 'BM/ABM';
     }
     if (label.includes('acknowledged') || label.includes('Operation Manager Approved')) {
-      // Check if this is Operation Manager approval (A2/OP) or Account approval (AC)
+      // CRITICAL: "Operation Manager Approved by" should ALWAYS show "Operation Manager" role
+      // Only use OP approval (A2/OP), never use AC approval for this label
+      if (label.includes('Operation Manager Approved')) {
+        // Check if this is Operation Manager approval (A2/OP)
+        if (approval) {
+          const userType = (approval.user_type || approval.raw?.user_type || "").toUpperCase();
+          if (userType === 'A2' || userType === 'OP') {
+            return 'Operation Manager';
+          }
+        }
+        // Default to Operation Manager for this label
+        return 'Operation Manager';
+      }
+      // For other "acknowledged" labels (not "Operation Manager Approved by"), check user_type
       if (approval) {
         const userType = (approval.user_type || approval.raw?.user_type || "").toUpperCase();
         if (userType === 'A2' || userType === 'OP') {
@@ -201,14 +235,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           return 'Branch Account';
         }
       }
-      // If label is "Operation Manager Approved by" or status is OPApproved, default to Operation Manager
-      if (label.includes('Operation Manager Approved') || status === 'OPApproved' || status === 'OP Approved') {
+      // If status is OPApproved, default to Operation Manager
+      if (status === 'OPApproved' || status === 'OP Approved') {
         return 'Operation Manager';
       }
       // Otherwise default to Branch Account
       return 'Branch Account';
     }
     if (label.includes('cancelled')) return 'Branch Account';
+    // CRITICAL: "Issued by" should ALWAYS show "Branch Account" role, regardless of user_type
     if (label.includes('issued')) return 'Branch Account';
     
     return null;
@@ -266,11 +301,44 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       return userType === "A2" || userType === "OP";
     });
     
-    // Use OP approval if status is OPApproved (prefer OP over AC when status is OPApproved)
-    // Use AC approval if status is Ac_Acknowledged or if no OP approval exists
+    // DEBUG: Log all approvals and OP approval finding
+    console.log('🔍 ApprovalSection - OP Approval Debug:', {
+      totalApprovals: safeApprovals.length,
+      allApprovals: safeApprovals.map(a => ({
+        user_type: a?.user_type || a?.raw?.user_type,
+        label: a?.label || resolveLabel(a),
+        name: a?.name,
+        actual_user_name: a?.actual_user_name,
+        actual_user_full_name: a?.actual_user_full_name,
+        role: a?.role,
+        status: a?.status || a?.raw?.status,
+        admin_id: a?.admin_id || a?.raw?.admin_id,
+        actual_user_id: a?.actual_user_id || a?.raw?.actual_user_id
+      })),
+      opApprovalFound: Boolean(opApproval),
+      opApprovalDetails: opApproval ? {
+        user_type: opApproval?.user_type || opApproval?.raw?.user_type,
+        label: opApproval?.label || resolveLabel(opApproval),
+        name: opApproval?.name,
+        actual_user_name: opApproval?.actual_user_name,
+        actual_user_full_name: opApproval?.actual_user_full_name,
+        role: opApproval?.role,
+        status: opApproval?.status || opApproval?.raw?.status,
+        admin_id: opApproval?.admin_id || opApproval?.raw?.admin_id,
+        actual_user_id: opApproval?.actual_user_id || opApproval?.raw?.actual_user_id,
+        user: opApproval?.user,
+        raw: opApproval?.raw
+      } : null,
+      acAcknowledgedApprovalFound: Boolean(acAcknowledgedApproval),
+      normalizedStatus,
+      status
+    });
+    
+    // CRITICAL: For OPApproved status, ONLY use OP approval (A2/OP), never use AC or BM approval
+    // For other statuses, prefer OP approval but can use AC if needed
     const acknowledgedApproval = (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved')
-      ? (opApproval || acAcknowledgedApproval)
-      : acAcknowledgedApproval;
+      ? opApproval  // For OPApproved status, ONLY use OP approval, don't fallback to AC
+      : (opApproval || acAcknowledgedApproval);  // For other statuses, prefer OP, fallback to AC
     
     // Laravel blade shows "Acknowledged by" when:
     // 1. $getAc_Acknowledged !== null (approval with user_type='AC' exists), AND
@@ -317,7 +385,37 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     
     if (shouldShowAcknowledged) {
       // Always use "Operation Manager Approved by" label
-      approvalsToShow.push({ label: "Operation Manager Approved by", key: "acknowledged", approval: acknowledgedApproval });
+      // CRITICAL: For OPApproved status, ONLY use OP approval (A2/OP), never use AC or BM approval
+      // For other statuses, prefer OP approval but can show section even if no approval exists yet
+      const approvalForDisplay = (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved')
+        ? opApproval  // For OPApproved status, ONLY use OP approval, don't fallback to AC or BM
+        : (opApproval || acknowledgedApproval);  // For other statuses, prefer OP approval, fallback to AC if needed
+      
+      // DEBUG: Log which approval is being used for display
+      console.log('🔍 ApprovalSection - Approval For Display:', {
+        normalizedStatus,
+        status,
+        opApprovalExists: Boolean(opApproval),
+        acknowledgedApprovalExists: Boolean(acknowledgedApproval),
+        approvalForDisplayExists: Boolean(approvalForDisplay),
+        approvalForDisplayDetails: approvalForDisplay ? {
+          user_type: approvalForDisplay?.user_type || approvalForDisplay?.raw?.user_type,
+          label: approvalForDisplay?.label || resolveLabel(approvalForDisplay),
+          name: approvalForDisplay?.name,
+          actual_user_name: approvalForDisplay?.actual_user_name,
+          actual_user_full_name: approvalForDisplay?.actual_user_full_name,
+          role: approvalForDisplay?.role,
+          status: approvalForDisplay?.status || approvalForDisplay?.raw?.status,
+          admin_id: approvalForDisplay?.admin_id || approvalForDisplay?.raw?.admin_id,
+          actual_user_id: approvalForDisplay?.actual_user_id || approvalForDisplay?.raw?.actual_user_id,
+          user: approvalForDisplay?.user,
+          raw: approvalForDisplay?.raw,
+          allKeys: Object.keys(approvalForDisplay || {})
+        } : null
+      });
+      
+      // Show the section when conditions are met (will show as pending if no approval exists)
+      approvalsToShow.push({ label: "Operation Manager Approved by", key: "acknowledged", approval: approvalForDisplay });
     }
     
     // Always show Issued by (or Cancelled by if form is cancelled)
@@ -543,27 +641,65 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           : null,
         // For "Operation Manager Approved by", check approval first, then formData, and also check if status is Ac_Acknowledged/OPApproved
         (label === 'Operation Manager Approved by')
-          ? (
+          ? (() => {
+              // First, try to get name from the matching approval
+              const fromMatchingApproval = 
               matchingApproval?.actual_user_name || 
-              matchingApproval?.actual_user_full_name ||
+                matchingApproval?.actual_user_full_name ||
               matchingApproval?.name || 
               matchingApproval?.raw?.actual_user_name ||
-              matchingApproval?.raw?.actual_user_full_name ||
-              matchingApproval?.raw?.name ||
-              matchingApproval?.acknowledges?.name ||
-              matchingApproval?.raw?.acknowledges?.name ||
-              matchingApproval?.approval_users?.name ||
-              matchingApproval?.raw?.approval_users?.name ||
-              matchingApproval?.user?.name ||
-              matchingApproval?.raw?.user?.name ||
-              (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' ? (formData?.acknowledged_by_name || formData?.general_form?.acknowledged_by_name || formData?.acknowledged_by_user?.name || formData?.general_form?.acknowledged_by_user?.name || formData?.current_user?.name || formData?.user?.name) : null) ||
+                matchingApproval?.raw?.actual_user_full_name ||
+                matchingApproval?.raw?.name ||
+                matchingApproval?.acknowledges?.name ||
+                matchingApproval?.raw?.acknowledges?.name ||
+                matchingApproval?.approval_users?.name ||
+                matchingApproval?.raw?.approval_users?.name ||
+                matchingApproval?.user?.name ||
+                matchingApproval?.raw?.user?.name;
+              
+              if (fromMatchingApproval) return fromMatchingApproval;
+              
+              // If matching approval doesn't have name, search all approvals for OP approval with name
+              const opApprovalWithName = safeApprovals.find(a => {
+                const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
+                const isOP = userType === "A2" || userType === "OP";
+                const hasName = a?.name || a?.actual_user_name || a?.actual_user_full_name || 
+                               a?.raw?.name || a?.raw?.actual_user_name || a?.raw?.actual_user_full_name ||
+                               a?.user?.name || a?.raw?.user?.name ||
+                               a?.approval_users?.name || a?.raw?.approval_users?.name ||
+                               a?.acknowledges?.name || a?.raw?.acknowledges?.name;
+                return isOP && hasName;
+              });
+              
+              if (opApprovalWithName) {
+                return opApprovalWithName?.actual_user_name || 
+                       opApprovalWithName?.actual_user_full_name ||
+                       opApprovalWithName?.name || 
+                       opApprovalWithName?.raw?.actual_user_name ||
+                       opApprovalWithName?.raw?.actual_user_full_name ||
+                       opApprovalWithName?.raw?.name ||
+                       opApprovalWithName?.user?.name ||
+                       opApprovalWithName?.raw?.user?.name ||
+                       opApprovalWithName?.approval_users?.name ||
+                       opApprovalWithName?.raw?.approval_users?.name ||
+                       opApprovalWithName?.acknowledges?.name ||
+                       opApprovalWithName?.raw?.acknowledges?.name;
+              }
+              
+              // Fallback to formData
+              return (status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved' ? (formData?.acknowledged_by_name || formData?.general_form?.acknowledged_by_name || formData?.acknowledged_by_user?.name || formData?.general_form?.acknowledged_by_user?.name || formData?.current_user?.name || formData?.user?.name) : null) ||
               formData?.acknowledged_by_name || 
               formData?.general_form?.acknowledged_by_name || 
               formData?.acknowledged_by_user?.name || 
-              formData?.general_form?.acknowledged_by_user?.name
-            )
+                     formData?.general_form?.acknowledged_by_user?.name ||
+                     '';
+            })()
           : null,
         (hasActed) ? nameCache.current[label] : null,
+        // Use resolveName as fallback for "Operation Manager Approved by" if no name found in approval object
+        (label === 'Operation Manager Approved by') 
+          ? resolveName(matchingApproval, label, formData)
+          : null,
         // For "Prepared by", check formData sources if not found in approval
         (label === 'Prepared by')
           ? (
@@ -586,6 +722,22 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       }
 
       const resolvedNameRaw = pickFirstFilled(...nameCandidates);
+
+      // DEBUG: Log name resolution for "Operation Manager Approved by"
+      if (label === 'Operation Manager Approved by') {
+        console.log('🔍 ApprovalSection - Name Resolution Debug:', {
+          label,
+          matchingApprovalExists: Boolean(matchingApproval),
+          matchingApprovalKeys: matchingApproval ? Object.keys(matchingApproval) : [],
+          nameCandidates: nameCandidates.filter(Boolean),
+          resolvedNameRaw,
+          hasActed,
+          status,
+          formDataKeys: formData ? Object.keys(formData).slice(0, 20) : [],
+          formDataAcknowledgedByName: formData?.acknowledged_by_name,
+          formDataGeneralFormAcknowledgedByName: formData?.general_form?.acknowledged_by_name
+        });
+      }
 
       const hasAssignedName = Boolean(resolvedNameRaw && resolvedNameRaw.trim());
       const showDetails = isPreparedBy || hasActed;
@@ -851,8 +1003,8 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
                 : {}}
             >
                 <div className="flex items-center justify-between w-full">
-                  <p className={`flex items-center gap-1 font-bold ${!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#012970]'}`} style={{ fontSize: '13px' }}>
-                    <User className={`w-4 h-4 ${!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#2ea2d1]'}`} />
+                  <p className={`flex items-center gap-1 font-bold ${!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'}`} style={{ fontSize: '13px' }}>
+                    <User className={`w-4 h-4 ${!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'}`} />
                     {approval.label}
                   </p>
                 </div>
@@ -860,24 +1012,24 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
                 <div className="mt-1">
                   {approval.acted ? (
                     <>
-                      <p className="font-bold text-[#012970]" style={{ fontSize: '13px' }}>
+                      <p className="font-bold text-gray-700" style={{ fontSize: '13px' }}>
                         {approval.title && <span>{approval.title} </span>}
                         {approval.name || (approval.label === 'Prepared by' ? '' : 'N/A')}
                       </p>
                       {(approval.department || approval.role) && (
-                        <p className="text-[#012970] mt-0.5" style={{ fontSize: '13px' }}>
+                        <p className="text-gray-700 mt-0.5" style={{ fontSize: '13px' }}>
                           ({approval.department || approval.role})
                         </p>
                       )}
                     </>
                   ) : (
-                    <p className="font-bold text-gray-400" style={{ fontSize: '13px' }}>Pending</p>
+                    <p className="font-bold text-gray-500" style={{ fontSize: '13px' }}>Pending</p>
                   )}
                 </div>
 
                 {approval.date && (
                   <div>
-                    <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#012970]'} style={{ fontSize: '13px' }}>
+                    <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'} style={{ fontSize: '13px' }}>
                       {approval.acted
                         ? approval.date ? new Date(approval.date).toLocaleString() : 'N/A'
                         : 'Awaiting action'}
@@ -887,7 +1039,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
               {approval.comment && (
                 <div>
-                  <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-400' : 'text-[#012970]'} style={{ fontSize: '13px' }}>{approval.comment}</p>
+                  <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'} style={{ fontSize: '13px' }}>{approval.comment}</p>
                 </div>
               )}
             </div>

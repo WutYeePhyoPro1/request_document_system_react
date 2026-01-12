@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { DocumentIcon, ClipboardDocumentIcon, CheckIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
@@ -374,6 +375,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
 };
 
 function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {}, productFilter = '', notificationCounts = new Map(), suppressUnreadForFormIds = [] }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams(); // Use React Router's searchParams to react to URL changes
   
@@ -981,24 +983,80 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   };
 
   const resolveBranchName = (gf, branchInfo) => {
-    if (branchInfo.name) return branchInfo.name;
-    if (gf?.to_branch_name) return gf.to_branch_name;
-    if (gf?.from_branch_name) return gf.from_branch_name;
-    if (branchInfo.id != null && branchMap[branchInfo.id]) return branchMap[branchInfo.id];
-    if (branchInfo.id != null) return String(branchInfo.id);
+    let branchName = null;
+    if (branchInfo.name) {
+      branchName = branchInfo.name;
+    } else if (gf?.to_branch_name) {
+      branchName = gf.to_branch_name;
+    } else if (gf?.from_branch_name) {
+      branchName = gf.from_branch_name;
+    } else if (branchInfo.id != null && branchMap[branchInfo.id]) {
+      branchName = branchMap[branchInfo.id];
+    } else if (branchInfo.id != null) {
+      return String(branchInfo.id);
+    } else {
     return '-';
+    }
+    
+    // Translate branch name if available
+    if (branchName) {
+      const normalizedName = branchName.trim().toLowerCase();
+      
+      // Map branch names to translation keys (order matters - more specific first)
+      const branchMappings = [
+        { key: 'head office', translationKey: 'branches.headOffice' },
+        { key: 'pro1 plus (terminal m)', translationKey: 'branches.pro1PlusTerminalM' },
+        { key: 'pro1 plus', translationKey: 'branches.pro1PlusTerminalM' },
+        { key: 'terminal m', translationKey: 'branches.pro1PlusTerminalM' },
+        { key: 'wh-myo houng', translationKey: 'branches.whMyoHoung' },
+        { key: 'wh-mingalardon', translationKey: 'branches.whMingalardon' },
+        { key: 'dc-myawaddy', translationKey: 'branches.dcMyawaddy' },
+        { key: 'dc-mingalardon2', translationKey: 'branches.dcMingalardon2' },
+        { key: 'dc-mingalardon3', translationKey: 'branches.dcMingalardon3' },
+        { key: 'project sales', translationKey: 'branches.projectSales' },
+        { key: 'online sales', translationKey: 'branches.onlineSales' },
+        { key: 'whole sales', translationKey: 'branches.wholeSales' },
+        { key: 'outlet sales', translationKey: 'branches.outletSales' },
+        { key: 'clearance sale', translationKey: 'branches.clearanceSale' },
+        { key: 'south dagon', translationKey: 'branches.southDagon' },
+        { key: 'east dagon', translationKey: 'branches.eastDagon' },
+        { key: 'da nyin gone', translationKey: 'branches.daNyinGone' },
+        { key: 'shwe pyi thar', translationKey: 'branches.shwePyiThar' },
+        { key: 'nay pyi taw', translationKey: 'branches.nayPyiTaw' },
+        { key: 'theik pan', translationKey: 'branches.theikPan' },
+        { key: 'hlaingtharyar', translationKey: 'branches.hlaingtharyar' },
+        { key: 'ayetharyar', translationKey: 'branches.ayetharyar' },
+        { key: 'mingalardon', translationKey: 'branches.mingalardon' },
+        { key: 'lanthit', translationKey: 'branches.lanthit' },
+        { key: 'satsan', translationKey: 'branches.satsan' },
+        { key: 'mawlamyine', translationKey: 'branches.mawlamyine' },
+        { key: 'tampawady', translationKey: 'branches.tampawady' },
+        { key: 'bago', translationKey: 'branches.bago' },
+      ];
+      
+      // Check each mapping
+      for (const mapping of branchMappings) {
+        if (normalizedName.includes(mapping.key)) {
+          return t(mapping.translationKey, { defaultValue: branchName });
+        }
+      }
+      
+      return branchName;
+    }
+    
+    return branchName || '-';
   };
 
   const headers = [
-    'No',
-    'Status',
-    'Document No',
-    'Sell / Not Sell',
-    'Branch',
-    'Requested By',
-    'Amount',
-    'Created Date',
-    'Modified',
+    t('list.columns.no', { defaultValue: 'No' }),
+    t('list.columns.status', { defaultValue: 'Status' }),
+    t('list.columns.documentNo', { defaultValue: 'Document No' }),
+    t('list.columns.sellNotSell', { defaultValue: 'Sell / Not Sell' }),
+    t('list.columns.branch', { defaultValue: 'Branch' }),
+    t('list.columns.requestedBy', { defaultValue: 'Requested By' }),
+    t('list.columns.amount', { defaultValue: 'Amount' }),
+    t('list.columns.createdDate', { defaultValue: 'Created Date' }),
+    t('list.columns.modified', { defaultValue: 'Modified' }),
   ];
 
   // Helper function to get total amount from row data
@@ -1159,7 +1217,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     // Check if items array has any item with acc_code (if items are loaded)
                     const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
                     const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
-                    const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+                    const sellStatus = isOtherIncomeSell 
+                      ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
+                      : t('list.notSell', { defaultValue: 'Not Sell' });
                     const totalAmount = getTotalAmount(row, gf);
                     const exceedsThreshold = totalAmount > 500000;
                     return (
@@ -1301,7 +1361,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span
                             className={`text-sm font-medium ${
-                              sellStatus === 'Other Income Sell' 
+                              isOtherIncomeSell
                                 ? 'text-blue-400' 
                                 : 'text-red-500'
                             }`}
@@ -1383,7 +1443,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
             const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
             const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
-            const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+            const sellStatus = isOtherIncomeSell 
+              ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
+              : t('list.notSell', { defaultValue: 'Not Sell' });
             const totalAmount = getTotalAmount(row, gf);
             const exceedsThreshold = totalAmount > 500000;
 
@@ -1491,10 +1553,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sell Status</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.sellStatus', { defaultValue: 'Sell Status' })}</span>
                   <span
                     className={`text-sm font-medium ${
-                      sellStatus === 'Other Income Sell' 
+                      isOtherIncomeSell
                         ? 'text-blue-400' 
                         : 'text-red-500'
                     }`}
@@ -1505,19 +1567,19 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
 
                 <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Branch</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.branch', { defaultValue: 'Branch' })}</span>
                     <span className="text-sm font-medium text-gray-900">
                       {branchName}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Requested By</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.requestedBy', { defaultValue: 'Requested By' })}</span>
                     <span className="text-sm text-gray-700">
                       {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Amount</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.amount', { defaultValue: 'Amount' })}</span>
                     <div className="flex items-center gap-1">
                       {exceedsThreshold ? (
                         <ArrowUpIcon className="h-4 w-4 text-green-600" />
@@ -1530,13 +1592,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Created</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.created', { defaultValue: 'Created' })}</span>
                     <span className="text-sm text-gray-700">
                       {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Modified</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.modified', { defaultValue: 'Modified' })}</span>
                     <span className="text-sm text-gray-700">
                       {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
                     </span>
@@ -1562,7 +1624,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       {/* Total rows display - centered at bottom with red number */}
       <div className="mt-2 text-center">
         <span className="text-sm text-gray-600">
-          Total <span className="text-red-600 font-semibold">{effectiveTotalRows}</span> Rows
+          {t('list.totalRows', { defaultValue: 'Total' })} <span className="text-red-600 font-semibold">{effectiveTotalRows}</span> {t('list.rows', { defaultValue: 'Rows' })}
         </span>
       </div>
     </div>
