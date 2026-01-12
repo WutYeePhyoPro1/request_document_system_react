@@ -558,6 +558,12 @@ export default function DamageView() {
         try {
           const listJson = itemsResult.value;
           const rows = Array.isArray(listJson?.data) ? listJson.data : (Array.isArray(listJson) ? listJson : []);
+          
+          // Get form status to determine which qty to use for amount calculation
+          const formStatus = payload?.general_form?.status || '';
+          const normalizedStatus = (formStatus || '').toString().trim().toLowerCase();
+          const isCompletedOrIssued = ['completed', 'issued', 'supervisorissued'].includes(normalizedStatus);
+          
           items = rows.map(r => {
             const price = Number(r.price ?? 0);
             // CRITICAL: Preserve actual_qty from database - don't use product_type or final_qty as fallback
@@ -567,9 +573,22 @@ export default function DamageView() {
               : ((r.request_qty !== undefined && r.request_qty !== null)
                   ? Number(r.request_qty)
                   : 0);
-            // Always recalculate amount to ensure accuracy (use final_qty for amount calculation)
-            const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
-            const amount = Number((price * finalQty).toFixed(2));
+            
+            // CRITICAL: Calculate amount based on form status
+            // For Completed/Issued/SupervisorIssued forms, use actual_qty (price * actual_qty)
+            // For other statuses, use final_qty or amount from database
+            let amount;
+            if (isCompletedOrIssued) {
+              // For completed/issued forms, use actual_qty for amount calculation
+              amount = Number((price * actualQty).toFixed(2));
+            } else {
+              // For other statuses, use final_qty or amount from database
+              const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
+              // If amount exists in database, use it; otherwise calculate from final_qty
+              amount = (r.amount !== undefined && r.amount !== null && !isNaN(r.amount))
+                ? Number(r.amount)
+                : Number((price * finalQty).toFixed(2));
+            }
 
             const rawImages = Array.isArray(r.img) && r.img.length
               ? r.img

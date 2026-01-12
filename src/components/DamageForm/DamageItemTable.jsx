@@ -812,11 +812,34 @@ export default function DamageItemTable({
           // Removed: processedItem.actual_qty = processedItem.request_qty;
         }
         
-        // Calculate amount if not set or invalid
-        if ((!processedItem.amount || isNaN(processedItem.amount)) && 
-            !isNaN(processedItem.price) && !isNaN(processedItem.request_qty)) {
-          processedItem.amount = processedItem.price * processedItem.request_qty;
-          processedItem.total = processedItem.amount;
+        // CRITICAL: Calculate amount based on form status
+        // For Completed/Issued/SupervisorIssued forms, ALWAYS recalculate using actual_qty
+        // For other statuses, use final_qty or request_qty
+        const normalizedStatus = (status || '').toString().trim().toLowerCase();
+        const isCompletedOrIssued = ['completed', 'issued', 'supervisorissued'].includes(normalizedStatus);
+        
+        if (isCompletedOrIssued) {
+          // For completed/issued forms, ALWAYS recalculate amount using actual_qty
+          // This ensures amount matches the total calculation (price * actual_qty)
+          if (!isNaN(processedItem.price) && !isNaN(processedItem.actual_qty)) {
+            processedItem.amount = processedItem.price * processedItem.actual_qty;
+            processedItem.total = processedItem.amount;
+          } else if (!isNaN(processedItem.price) && !isNaN(processedItem.request_qty)) {
+            // Fallback to request_qty if actual_qty is not available
+            processedItem.amount = processedItem.price * processedItem.request_qty;
+            processedItem.total = processedItem.amount;
+          }
+        } else {
+          // For other statuses, calculate amount if not set or invalid
+          if ((!processedItem.amount || isNaN(processedItem.amount)) && 
+              !isNaN(processedItem.price)) {
+            // Try final_qty first, then request_qty
+            const qtyForAmount = !isNaN(processedItem.final_qty) && processedItem.final_qty > 0
+              ? processedItem.final_qty
+              : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
+            processedItem.amount = processedItem.price * qtyForAmount;
+            processedItem.total = processedItem.amount;
+          }
         }
         
         // Ensure final_qty and actual_qty match request_qty if not set
