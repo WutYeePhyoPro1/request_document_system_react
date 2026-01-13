@@ -54,7 +54,7 @@ export default function CctvDetails() {
         const statusConditions = (
             (checker && recordDetails.form.status === 'Checked') ||
             (!checker && ['Ongoing', 'Ongoing(Edit)'].includes(recordDetails.form.status)) ||
-            (checker && recordDetails.form.status === 'Ongoing' && recordDetails.form.g_remark === 'office_use')
+            (checker && recordDetails.form.status === 'Ongoing' )
         );
         if (statusConditions) {
             console.log('currentUser')
@@ -80,7 +80,8 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
-        const isBranchITUser = user?.role_id === 8;
+        const isBranchITUser = user?.role_id === 'Branch IT';
+        console.log('is branch it user=>',isBranchITUser,'role id =>',user.role_id);
         return current_user && isBranchITUser;
     };
 
@@ -321,6 +322,7 @@ export default function CctvDetails() {
                 ) : (
 
                     <div className="p-4 sm:p-6">
+                    
                         {isBranchITApprover && isOpen && (
                             <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
