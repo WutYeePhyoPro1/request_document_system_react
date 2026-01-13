@@ -5046,18 +5046,23 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     
     // Note: hasOpApprovalAssignment is already calculated at the top of this function
     
+    // Safely get isOpManagerByApproval and isOpManager (they're defined at component level but may be undefined)
+    const isOpManagerByApprovalLocal = (typeof isOpManagerByApproval !== 'undefined' ? isOpManagerByApproval : false);
+    const isOpManagerLocal = (typeof isOpManager !== 'undefined' ? isOpManager : (role === 'op_manager' || isOpManagerByApprovalLocal));
+    
     // Final check: User is Operation Manager if:
     // 1. role_id is 4 or 5, OR
     // 2. role name is 'op_manager', OR
-    // 3. isOpManagerByApproval is true, OR
-    // 4. user has OP approval entry assigned to them
+    // 3. isOpManagerLocal is true, OR
+    // 4. isOpManagerByApprovalLocal is true, OR
+    // 5. user has OP approval entry assigned to them
     const userTypeLowerCheck = (
       (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
       (initialData?.current_user?.user_type || initialData?.currentUser?.user_type || initialData?.user?.user_type || initialData?.userType) ||
       (currentUser?.role_name || currentUser?.roleName || '')
     ).toString().toLowerCase();
     const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
-    let isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+    let isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManagerLocal || isOpManagerByApprovalLocal || hasOpApprovalAssignment || isOpManagerByUserType;
 
     // Fallback: if user has shared role_id (3) and there's an OP/A2 approval entry for this form,
     // and the form requires OP approval (amount > 500000), treat user as OP for UI purposes.
@@ -5307,11 +5312,32 @@ const resolveApproveAction = () => {
   const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
   const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
   
+  // Calculate isOpManagerByApproval inside this function to ensure it's always defined
+  const approvalsForOpCheck = Array.isArray(formData?.approvals) ? formData.approvals : [];
+  const currentUserIdForOpCheck = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+  const isOpManagerByApprovalLocal = approvalsForOpCheck.some(approval => {
+    const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+    const adminId = approval?.admin_id || approval?.raw?.admin_id;
+    const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+    const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+    const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+    
+    const userTypeMatches = (userType === 'OP' || userType === 'A2');
+    const userIdMatches = currentUserIdForOpCheck && allUserIds.some(id => 
+      String(id) === String(currentUserIdForOpCheck) || Number(id) === Number(currentUserIdForOpCheck)
+    );
+    
+    return userTypeMatches && userIdMatches;
+  });
+  
+  // Calculate isOpManager inside this function
+  const isOpManagerLocal = role === 'op_manager' || isOpManagerByApprovalLocal;
+  
   // Final check: User is Operation Manager if:
   // 1. role_id is 4 or 5, OR
   // 2. role name is 'op_manager', OR
-  // 3. isOpManager is true, OR
-  // 4. isOpManagerByApproval is true, OR
+  // 3. isOpManagerLocal is true, OR
+  // 4. isOpManagerByApprovalLocal is true, OR
   // 5. user has OP approval entry assigned to them
   const userTypeLowerCheck = (
     (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
@@ -5319,7 +5345,7 @@ const resolveApproveAction = () => {
     (currentUser?.role_name || currentUser?.roleName || '')
   ).toString().toLowerCase();
   const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
-  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManagerLocal || isOpManagerByApprovalLocal || hasOpApprovalAssignment || isOpManagerByUserType;
   
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
@@ -5557,6 +5583,17 @@ const resolveApproveAction = () => {
     const submittingAction = currentSubmittingActionRef.current;
     if (submittingAction) {
       const actionStr = String(submittingAction).toLowerCase().trim();
+      
+      // Check for "BackToPrevious" or "backtoprevious" action first
+      if (actionStr === 'backtoprevious' || actionStr === 'back to previous' || actionStr === 'back_to_previous') {
+        return 'Going back to previous state...';
+      }
+      
+      // Check for "Cancel" action
+      if (actionStr === 'cancel') {
+        return 'Cancelling the form...';
+      }
+      
       // Check for "check" action first (before "approve" to avoid false matches)
       // Use exact matches first, then includes to catch variations
       // BMApprovedMem is used for checker checking, so treat it as checking
@@ -5598,6 +5635,17 @@ const resolveApproveAction = () => {
     // Last resort: check apiActions but prioritize check actions
     const currentAction = apiActions?.approve || apiActions?.btp || apiActions?.cancel || '';
     const actionStr = String(currentAction).toLowerCase().trim();
+    
+    // Check for "BackToPrevious" or "btp" action first
+    if (actionStr === 'backtoprevious' || actionStr === 'back to previous' || actionStr === 'back_to_previous' || actionStr === 'btp' || actionStr === 'op_btp' || actionStr === 'bm_btp' || actionStr === 'bracc_btp') {
+      return 'Going back to previous state...';
+    }
+    
+    // Check for "Cancel" action
+    if (actionStr === 'cancel') {
+      return 'Cancelling the form...';
+    }
+    
     // Check for "check" action first (before "approve" to avoid false matches)
     // BMApprovedMem is used for checker checking, so treat it as checking
     if (actionStr === 'checked' || actionStr === 'check' || actionStr === 'checkmem' || actionStr === 'bmapprovedmem') {
