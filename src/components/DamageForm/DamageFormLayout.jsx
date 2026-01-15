@@ -1181,9 +1181,27 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // This fallback logic matches the backend's api_actions method
         const currentStatus = formData.status || '';
         const normalizedStatus = currentStatus.trim();
-        
+
+        // Check if user is branch account - they should send bracc_btp even for OPApproved forms
+        const isBranchAccountUser = (() => {
+          const roleIdStr = (currentUser?.role_id || '').toString().toLowerCase();
+          const isBranchAccountByRoleId = roleIdStr === 'branch account' ||
+                                         roleIdStr === 'account' ||
+                                         Number(currentUser?.role_id) === 7;
+          const userRole = getUserRole();
+          return userRole === 'account' ||
+                 userRole === 'branch_account' ||
+                 isBranchAccountByRoleId ||
+                 (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
+                 (currentUser?.role_name || '').toLowerCase().includes('branch account');
+        })();
+
+        // Branch Account clicking back from 'OP Approved' → bracc_btp (goes back to BM Approved)
+        if ((normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') && isBranchAccountUser) {
+          return 'bracc_btp';
+        }
         // OP Manager clicking back from 'OP Approved' → op_btp
-        if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
+        else if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
           return 'op_btp';
         } 
         // Account/Branch Account clicking back from 'Acknowledged' or similar statuses → bracc_btp
@@ -2827,6 +2845,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       
       // Navigate with search params - React Router will handle this properly
       navigate(pathname + search, { replace: false });
+      // Force page reload to update notifications
+      setTimeout(() => window.location.reload(), 100);
       return;
     }
     
@@ -2837,6 +2857,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const pathname = urlParts[0] || '/big_damage_issue';
       const search = urlParts[1] ? `?${urlParts[1]}` : '';
       navigate(pathname + search, { replace: false });
+      // Force page reload to update notifications
+      setTimeout(() => window.location.reload(), 100);
       return;
     }
     
@@ -2844,11 +2866,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     const returnPage = location.state?.returnPage;
     if (returnPage && returnPage > 1) {
       navigate(`/big_damage_issue?page=${returnPage}`, { replace: false });
+      // Force page reload to update notifications
+      setTimeout(() => window.location.reload(), 100);
       return;
     }
-    
+
     // Final fallback: Navigate to default list page
     navigate('/big_damage_issue', { replace: false });
+    // Force page reload to update notifications
+    setTimeout(() => window.location.reload(), 100);
   };
 
   // Handle download PDF - show confirmation first
@@ -3523,28 +3549,47 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               ? safeNumber(item.request_qty)
               : finalRequestQty);
         
+        // Check if this is an "Other income sell" form
+        const isOtherIncomeSell = (formData.caseType === 'Other income sell' ||
+                                  formData.caseType?.toLowerCase() === 'other income sell' ||
+                                  formData.asset_type === 'on' ||
+                                  formData.assetType === 'on');
+
         // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
+        // For "Other income sell" forms, use actual_qty instead of final_qty
         // Treat empty strings, null, undefined, and 0 as unset - fallback to request_qty
-        const isFinalQtySet = item?.final_qty !== undefined && 
-                              item?.final_qty !== null && 
+        const isFinalQtySet = item?.final_qty !== undefined &&
+                              item?.final_qty !== null &&
                               item?.final_qty !== '' &&
                               item?.final_qty !== 0 &&
                               !(typeof item?.final_qty === 'string' && item.final_qty.trim() === '');
-        const resolvedFinal = isFinalQtySet
-          ? safeNumber(item.final_qty)
-          : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
-              ? safeNumber(item.product_type)
-              : finalRequestQty);
+        let resolvedFinal;
+        if (isOtherIncomeSell) {
+          // For "Other income sell" forms, use actual_qty
+          resolvedFinal = (item?.actual_qty !== undefined && item?.actual_qty !== null && item?.actual_qty !== '' && item?.actual_qty !== 0)
+            ? safeNumber(item.actual_qty)
+            : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
+                ? safeNumber(item.product_type)
+                : finalRequestQty);
+        } else {
+          // For regular forms, use final_qty
+          resolvedFinal = isFinalQtySet
+            ? safeNumber(item.final_qty)
+            : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
+                ? safeNumber(item.product_type)
+                : finalRequestQty);
+        }
         
         // CRITICAL: Amount/total calculation depends on the form status:
         // - Checked: price * actual_qty (user edits actual_qty in Checked stage)
         // - BM Approved: price * actual_qty
+        // - Other income sell: price * actual_qty (always use actual_qty)
         // - Other stages: price * final_qty
         const currentFormStatus = (formData.status || '').trim();
         const isBMApprovedStatus = currentFormStatus === 'BM Approved' || currentFormStatus === 'BMApproved';
         const isCheckedStatus = currentFormStatus === 'Checked' || currentFormStatus === 'checked';
-        // Use actual_qty for BM Approved and Checked stages, final_qty for other stages
-        const qtyForAmount = (isBMApprovedStatus || isCheckedStatus) ? resolvedActual : resolvedFinal;
+        // Use actual_qty for BM Approved, Checked stages, and Other income sell forms
+        const qtyForAmount = (isBMApprovedStatus || isCheckedStatus || isOtherIncomeSell) ? resolvedActual : resolvedFinal;
         const computedAmount = price * qtyForAmount;
         const parsedAmount = Number(item?.amount);
         // Only use parsedAmount if it matches the expected calculation
@@ -3594,7 +3639,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           remark,
           acc_code1: accountCode,
           specific_form_id: specificId,
-          product_type: item?.product_type ?? resolvedFinal,
+          product_type: isOtherIncomeSell ? resolvedActual : (item?.product_type ?? resolvedFinal),
           product_category_id: normalizedCategoryId,
         };
       });

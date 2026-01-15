@@ -489,15 +489,79 @@ export default function DamageFormHeader({
           const normalizedStatus = currentStatus.toLowerCase();
           // Show BTP remark when status is Checked, Ongoing, or BM Approved (after BTP action)
           // BM Approved is included for forms > 500k that were sent back from OPApproved to BM Approved
-          const shouldShowRemark = btpRemark && 
-                                  btpRemark.trim() !== '' && 
+          const shouldShowRemark = btpRemark &&
+                                  btpRemark.trim() !== '' &&
                                   (normalizedStatus === 'checked' || normalizedStatus === 'ongoing' || normalizedStatus === 'bm approved');
-          
+
           return shouldShowRemark ? (
           <div className="mt-2 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
             <div className="flex items-start gap-2">
               <span className="text-yellow-800 font-semibold text-sm whitespace-nowrap">Back to Previous Remark:</span>
               <span className="text-yellow-900 text-sm">{btpRemark}</span>
+            </div>
+          </div>
+          ) : null;
+        })()}
+
+        {/* Cancellation Remark - displayed with red background like cancelled status */}
+        {/* Show remark when form is cancelled */}
+        {(() => {
+          const currentStatus = (formData.status || '').toString().trim();
+          const normalizedStatus = currentStatus.toLowerCase();
+          const isCancelled = normalizedStatus === 'cancel' || normalizedStatus === 'cancelled';
+
+          // Get cancellation reason from multiple possible sources
+          const cancelReason = formData?.reason ||
+                              formData?.cancel_reason ||
+                              formData?.cancellation_reason ||
+                              formData?.general_form?.reason ||
+                              formData?.general_form?.cancel_reason ||
+                              formData?.general_form?.cancellation_reason ||
+                              '';
+
+          // Get cancelled by name from multiple possible sources, including approvals
+          let cancelledByName = formData?.cancelled_by_name ||
+                               formData?.cancel_by_name ||
+                               formData?.cancelled_by_user?.name ||
+                               formData?.cancel_by_user?.name ||
+                               formData?.general_form?.cancelled_by_name ||
+                               formData?.general_form?.cancel_by_name ||
+                               formData?.general_form?.cancelled_by_user?.name ||
+                               formData?.general_form?.cancel_by_user?.name ||
+                               '';
+
+          // If not found in direct fields, check approvals for Cancel status
+          if (!cancelledByName && formData?.approvals) {
+            const cancelApproval = formData.approvals.find(approval =>
+              (approval?.status || '').toString().toLowerCase() === 'cancel' ||
+              (approval?.raw?.status || '').toString().toLowerCase() === 'cancel'
+            );
+            if (cancelApproval) {
+              cancelledByName = cancelApproval.actual_user_name ||
+                               cancelApproval.actual_user_full_name ||
+                               cancelApproval.name ||
+                               cancelApproval.user?.name ||
+                               '';
+            }
+          }
+
+          const shouldShowCancelRemark = isCancelled && (cancelReason || cancelledByName) && (cancelReason.trim() !== '' || cancelledByName.trim() !== '');
+
+          return shouldShowCancelRemark ? (
+          <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex flex-col gap-2">
+              {cancelledByName && cancelledByName.trim() !== '' && (
+                <div className="flex items-start gap-2">
+                  <span className="text-red-800 font-semibold text-sm whitespace-nowrap">Cancelled by:</span>
+                  <span className="text-red-900 text-sm">{cancelledByName}</span>
+                </div>
+              )}
+              {cancelReason && cancelReason.trim() !== '' && (
+                <div className="flex items-start gap-2">
+                  <span className="text-red-800 font-semibold text-sm whitespace-nowrap">Cancellation Remark:</span>
+                  <span className="text-red-900 text-sm">{cancelReason}</span>
+                </div>
+              )}
             </div>
           </div>
           ) : null;

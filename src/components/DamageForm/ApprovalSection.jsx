@@ -304,6 +304,12 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     // DEBUG: Log all approvals and OP approval finding
     console.log('🔍 ApprovalSection - OP Approval Debug:', {
       totalApprovals: safeApprovals.length,
+      resolvedTotalAmount,
+      requiresOpManagerApproval,
+      normalizedStatus,
+      isOPApprovedStatus,
+      hasOpApproval,
+      shouldShowAcknowledged,
       allApprovals: safeApprovals.map(a => ({
         user_type: a?.user_type || a?.raw?.user_type,
         label: a?.label || resolveLabel(a),
@@ -376,11 +382,14 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     // Option 1: Approval exists AND amount > 500000 AND status matches (exact Laravel logic)
     // Option 2: Amount > 500000 (regardless of status - show as placeholder for future acknowledgment)
     // Option 3: Status is OPApproved (Operation Manager has approved)
+    // Option 4: OP approval exists (show even if amount conditions don't match)
     // This ensures the section appears when amount exceeds 500k, even if form hasn't reached that stage yet
-    // User requirement: Show whenever total amount exceeds 500,000 OR status is OPApproved
+    // User requirement: Show whenever total amount exceeds 500,000 OR status is OPApproved OR OP approval exists
     const isOPApprovedStatus = normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved';
-    const shouldShowAcknowledged = requiresOpManagerApproval || 
+    const hasOpApproval = Boolean(opApproval);
+    const shouldShowAcknowledged = requiresOpManagerApproval ||
       isOPApprovedStatus ||
+      hasOpApproval ||
       (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet));
     
     if (shouldShowAcknowledged) {
@@ -418,14 +427,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       approvalsToShow.push({ label: "Operation Manager Approved by", key: "acknowledged", approval: approvalForDisplay });
     }
     
-    // Always show Issued by (or Cancelled by if form is cancelled)
+    // Always show Issued by (but skip for cancelled forms - cancellation info shows in header)
     const isCancelledStatus = (status || '').toString().toLowerCase().includes('cancel');
-    const issuedLabel = isCancelledStatus ? "Cancelled by" : "Issued by";
-    const issuedApproval = safeApprovals.find(a => {
-      const label = (resolveLabel(a) || "").toLowerCase();
-      return label.includes("issued") || label.includes("cancel");
-    });
-    approvalsToShow.push({ label: issuedLabel, key: "issued", approval: issuedApproval });
+    if (!isCancelledStatus) {
+      const issuedApproval = safeApprovals.find(a => {
+        const label = (resolveLabel(a) || "").toLowerCase();
+        return label.includes("issued");
+      });
+      approvalsToShow.push({ label: "Issued by", key: "issued", approval: issuedApproval });
+    }
     
     return approvalsToShow.map(({ label, key, approval: matchingApproval }) => {
       const isCurrentStep = CURRENT_STEP_STATUS[key] === status;

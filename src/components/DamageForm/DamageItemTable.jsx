@@ -2974,6 +2974,35 @@ const normalizeImageEntries = (list) => {
                                 </>
                               );
                             })()}
+                            {/* Add more images button for desktop */}
+                            {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') && (
+                              <>
+                                <input
+                                  type="file"
+                                  id={`file-input-desktop-add-${item.id}`}
+                                  ref={el => fileInputRefs.current[`add-${item.id}`] = el}
+                                  onChange={(e) => handleImageUpload(item.id, e)}
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:bg-blue-700 transition-colors z-10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (fileInputRefs.current[`add-${item.id}`]) {
+                                      fileInputRefs.current[`add-${item.id}`].click();
+                                    }
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title={t('table.addMoreImages', { defaultValue: 'Add more images' })}
+                                >
+                                  <Plus size={12} strokeWidth={2.5} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <label 
@@ -3310,8 +3339,8 @@ const normalizeImageEntries = (list) => {
                                     <X size={10} strokeWidth={3} />
                                   </button>
                                 )}
-                                {/* Upload button for Ongoing and Checked stage - separate from preview */}
-                                {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+                                {/* Upload button for Ongoing, Checked, and Add stages - separate from preview */}
+                                {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') && (
                                   <>
                                     <input
                                       type="file"
@@ -3344,7 +3373,7 @@ const normalizeImageEntries = (list) => {
                           })()
                         ) : (
                           <>
-                            {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' ? (
+                            {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') ? (
                               <label
                                 className="w-11 h-11 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-200 hover:border-blue-400 transition-colors"
                                 onClick={(e) => e.stopPropagation()}

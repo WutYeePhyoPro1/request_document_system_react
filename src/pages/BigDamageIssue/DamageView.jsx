@@ -521,7 +521,7 @@ export default function DamageView() {
               : (Array.isArray(r.images) ? r.images : []);
 
             if (process.env.NODE_ENV !== 'production') {
-              // eslint-disable-next-line no-console
+               
             }
             
             return {
@@ -1221,7 +1221,7 @@ export default function DamageView() {
   };
 
   // Always log asset_type / caseType / status for easier debugging in dev and QA environments
-  // eslint-disable-next-line no-console
+   
 
   return (
     <div className="min-h-screen bg-gray-100">
