@@ -483,15 +483,15 @@ export default function DamageFormHeader({
         </div>
 
         {/* Back to Previous Remark - displayed with yellow background like in Blade templates */}
-        {/* Only show remark when form is in Checked or Ongoing status (after being sent back) */}
+        {/* Show remark when form is in Checked, Ongoing, or BM Approved status (after being sent back) */}
         {(() => {
           const currentStatus = (formData.status || '').toString().trim();
           const normalizedStatus = currentStatus.toLowerCase();
-          // Only show BTP remark when status is Checked or Ongoing (after BTP action)
-          // Hide it when form moves forward to BM Approved or higher statuses
+          // Show BTP remark when status is Checked, Ongoing, or BM Approved (after BTP action)
+          // BM Approved is included for forms > 500k that were sent back from OPApproved to BM Approved
           const shouldShowRemark = btpRemark && 
                                   btpRemark.trim() !== '' && 
-                                  (normalizedStatus === 'checked' || normalizedStatus === 'ongoing');
+                                  (normalizedStatus === 'checked' || normalizedStatus === 'ongoing' || normalizedStatus === 'bm approved');
           
           return shouldShowRemark ? (
           <div className="mt-2 p-3 bg-yellow-100 border border-yellow-300 rounded-lg">
