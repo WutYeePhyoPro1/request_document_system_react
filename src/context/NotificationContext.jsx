@@ -34,6 +34,22 @@ export const NotificationProvider = ({ children }) => {
     refreshNotifications();
   }, [refreshNotifications]);
 
+
+  useEffect(() => {
+    const handleNotificationsUpdated = (event) => {
+      console.log('Notifications updated event received, refreshing notifications...');
+      refreshNotifications();
+    };
+
+    // Add event listener for notificationsUpdated event
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
+
+    // Cleanup event listener on unmount
+    return () => {
+      window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
+    };
+  }, [refreshNotifications]);
+
   return (
     <NotificationContext.Provider
       value={{ notifications, refreshNotifications, loading }}

@@ -1808,7 +1808,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [validationErrorModal, setValidationErrorModal] = useState({
     isOpen: false,
-    errors: []
+    errors: [],
+    type: 'error'
   });
 
   const handleOpenModal = () => setIsModalOpen(true);
@@ -3057,7 +3058,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         });
         setValidationErrorModal({
           isOpen: true,
-          errors: [errorMessage]
+          errors: [errorMessage],
+          type: 'error'
         });
         return;
       }
@@ -3074,7 +3076,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         });
         setValidationErrorModal({
           isOpen: true,
-          errors: [errorMessage]
+          errors: [errorMessage],
+          type: 'error'
         });
         return;
       }
@@ -3123,7 +3126,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (checkErrors.length > 0) {
         setValidationErrorModal({
           isOpen: true,
-          errors: checkErrors
+          errors: checkErrors,
+          type: 'error'
         });
         return;
       }
@@ -3141,9 +3145,10 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!isInvestigationFilled) {
       setValidationErrorModal({
         isOpen: true,
-          errors: [t('messages.investigationRequired', { 
-            defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.' 
-          })]
+        errors: [t('messages.investigationRequired', {
+          defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.'
+        })],
+        type: 'warning'
       });
       return;
       }
@@ -3162,7 +3167,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (baseError) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [baseError]
+          errors: [baseError],
+          type: 'error'
         });
         return;
       }
@@ -3175,7 +3181,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!isInvestigationFilled) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.investigationRequired')]
+          errors: [t('messages.investigationRequired')],
+          type: 'error'
         });
         return;
       }
@@ -3194,7 +3201,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (accountError) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [accountError]
+          errors: [accountError],
+          type: 'error'
         });
         return;
       }
@@ -3213,17 +3221,19 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (missingIssRemark && missingAccountCodes) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.issRemarkAndAccountCodesRequired', { 
-            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.' 
-          })]
+          errors: [t('messages.issRemarkAndAccountCodesRequired', {
+            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.'
+          })],
+          type: 'error'
         });
         return;
       } else if (missingIssRemark) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.issRemarkRequired', { 
-            defaultValue: 'Please select ISS remark type before issuing the form.' 
-          })]
+          errors: [t('messages.issRemarkRequired', {
+            defaultValue: 'Please select ISS remark type before issuing the form.'
+          })],
+          type: 'error'
         });
         return;
       } else if (missingAccountCodes) {
@@ -3233,8 +3243,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         setValidationErrorModal({
           isOpen: true,
           errors: [
-            t('messages.accountCodesRequired', { 
-              defaultValue: 'Please assign account codes to all products before issuing the form.' 
+            t('messages.accountCodesRequired', {
+              defaultValue: 'Please assign account codes to all products before issuing the form.'
             }),
             `Products missing account codes: ${productNames}`
           ]
@@ -3270,7 +3280,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (operationError) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [operationError]
+          errors: [operationError],
+          type: 'error'
         });
         return;
       }
@@ -3307,7 +3318,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       // Show validation error modal instead of toast
       setValidationErrorModal({
         isOpen: true,
-        errors: emptyFields
+        errors: emptyFields,
+        type: 'error'
       });
       return; // Prevent submission
     }
@@ -3341,7 +3353,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         if (!isInvestigationFilled) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.investigationRequired')]
+          errors: [t('messages.investigationRequired')],
+          type: 'error'
         });
         return;
         }
@@ -3379,9 +3392,23 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
   const handleSubmit = async (action) => {
     // Generate unique submission ID for tracking
     const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    console.log('DEBUG: handleSubmit called', {
+      action,
+      currentSubmissionId,
+      isSubmitting: isSubmitting,
+      isSubmittingRef: isSubmittingRef.current,
+      generalFormId: initialData?.id || initialData?.generalFormId,
+      formDataItemsCount: Array.isArray(formData.items) ? formData.items.length : 0
+    });
+
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
+      console.log('DEBUG: handleSubmit prevented duplicate submission', {
+        currentSubmissionId,
+        isSubmitting,
+        isSubmittingRef: isSubmittingRef.current
+      });
       return;
     }
    
@@ -3409,7 +3436,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!items.length) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.addProductRequired')]
+          errors: [t('messages.addProductRequired')],
+          type: 'error'
         });
         isSubmittingRef.current = false;
         currentSubmittingActionRef.current = null; // Clear action ref
@@ -3421,7 +3449,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!hasValidProduct) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.productCodeRequired')]
+          errors: [t('messages.productCodeRequired')],
+          type: 'error'
         });
         isSubmittingRef.current = false;
         currentSubmittingActionRef.current = null; // Clear action ref
@@ -3497,7 +3526,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (validItems.length === 0) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.addProductRequired')]
+          errors: [t('messages.addProductRequired')],
+          type: 'error'
         });
         isSubmittingRef.current = false;
         currentSubmittingActionRef.current = null; // Clear action ref
@@ -4437,6 +4467,16 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           isSubmittingRef.current = true; // Force set it
         }
         
+        console.log('DEBUG: Making API call', {
+          currentSubmissionId,
+          endpoint,
+          method,
+          action,
+          generalFormId: initialData?.id || initialData?.generalFormId,
+          assetType: normalizedCaseType,
+          totalItems: normalizedItems.length
+        });
+
         // Make the API call with detailed logging
         const response = await apiFetch(endpoint, {
           method: method,
@@ -6455,7 +6495,8 @@ const resolveApproveAction = () => {
       <ValidationErrorModal
         isOpen={validationErrorModal.isOpen}
         errors={validationErrorModal.errors}
-        onClose={() => setValidationErrorModal({ isOpen: false, errors: [] })}
+        type={validationErrorModal.type || 'error'}
+        onClose={() => setValidationErrorModal({ isOpen: false, errors: [], type: 'error' })}
       />
 
       {/* Success Modal */}
