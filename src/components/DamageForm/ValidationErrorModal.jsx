@@ -28,13 +28,13 @@ const ValidationErrorModal = ({ isOpen, errors = [], onClose, type = 'error' }) 
     badge: 'bg-yellow-600',
     button: 'bg-yellow-600 hover:bg-yellow-700'
   } : {
-    header: 'text-red-600',
-    icon: 'text-red-600',
+    header: 'text-yellow-600',
+    icon: 'text-yellow-600',
     title: t('messages.errors.validation.title', { defaultValue: 'Validation Error' }),
-    bg: 'bg-red-50',
-    border: 'border-red-200',
-    badge: 'bg-red-600',
-    button: 'bg-red-600 hover:bg-red-700'
+    bg: 'bg-yellow-50',
+    border: 'border-yellow-200',
+    badge: 'bg-yellow-600',
+    button: 'bg-yellow-600 hover:bg-yellow-700'
   };
 
   return (
