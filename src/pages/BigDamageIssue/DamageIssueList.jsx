@@ -7,6 +7,27 @@ import { DocumentIcon, ClipboardDocumentIcon, CheckIcon, ArrowUpIcon, ArrowDownI
 import { FaEnvelope } from 'react-icons/fa';
 import '../../components/DamageForm/ButtonHoverEffects.css';
 
+// Date formatting functions
+const formatDateDDMMYY = (dateString) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2); // Get last 2 digits of year
+  return `${day}/${month}/${year}`;
+};
+
+const formatDateTimeDDMMYY = (dateString) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2); // Get last 2 digits of year
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
+
 // Red Speech Bubble Icon Component
 const RedSpeechBubbleIcon = ({ className = "h-4 w-4" }) => {
   return (
@@ -1388,10 +1409,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                          {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
+                          {gf.created_at ? formatDateDDMMYY(gf.created_at) : '-'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                          {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
+                          {gf.updated_at ? formatDateTimeDDMMYY(gf.updated_at) : '-'}
                         </td>
                         
                       </tr>
@@ -1594,13 +1615,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.created', { defaultValue: 'Created' })}</span>
                     <span className="text-sm text-gray-700">
-                      {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
+                      {gf.created_at ? formatDateDDMMYY(gf.created_at) : '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.modified', { defaultValue: 'Modified' })}</span>
                     <span className="text-sm text-gray-700">
-                      {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
+                      {gf.updated_at ? formatDateTimeDDMMYY(gf.updated_at) : '-'}
                     </span>
                   </div>
                 </div>

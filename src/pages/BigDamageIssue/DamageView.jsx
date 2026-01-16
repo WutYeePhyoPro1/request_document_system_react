@@ -443,6 +443,13 @@ export default function DamageView() {
       const text = await res.text();
       const err = new Error(`HTTP ${res.status} ${text || ''}`);
       err.status = res.status;
+      err.responseText = text;
+      // Try to parse as JSON for structured error responses
+      try {
+        err.responseData = JSON.parse(text);
+      } catch (e) {
+        // Not JSON, ignore
+      }
       throw err;
     }
     return res.json();
@@ -461,10 +468,38 @@ export default function DamageView() {
           ? (json.data && typeof json.data === 'object' ? json.data : json)
           : {};
       } catch (e) {
+        // Check if the error response contains NO_ITEMS_FOUND error with general_form_id
+        let fallbackGeneralFormId = generalFormId;
+        
+        if (e.status === 404 && e.responseData) {
+          // Check if error response contains structured error data
+          const errorData = e.responseData;
+          if (errorData?.error === 'NO_ITEMS_FOUND' && errorData?.general_form_id) {
+            fallbackGeneralFormId = errorData.general_form_id;
+            // If we got a general_form from the error, use it as the record
+            if (errorData.general_form) {
+              payload = { general_form: errorData.general_form };
+            }
+          }
+        }
+        
         // Primary not found: fallback by generalFormId if provided
-        if (e.status === 404 && generalFormId) {
-          const altJson = await fetchJsonWithBackoff(`/api/general-forms/${generalFormId}/big-damage-issues`);
+        if (e.status === 404 && fallbackGeneralFormId) {
+          const altJson = await fetchJsonWithBackoff(`/api/general-forms/${fallbackGeneralFormId}/big-damage-issues`);
           const list = Array.isArray(altJson?.data) ? altJson.data : (Array.isArray(altJson) ? altJson : []);
+          
+          // If no items found but we have a general_form, return empty items list
+          if (!list.length && payload?.general_form) {
+            return { 
+              record: payload, 
+              items: [], 
+              approvals: [], 
+              actions: {}, 
+              attachments: [],
+              isEmpty: true // Flag to indicate form exists but has no items
+            };
+          }
+          
           if (!list.length) throw new Error('HTTP 404 Not Found');
           const record = list[0];
           // Items from list
@@ -486,7 +521,7 @@ export default function DamageView() {
               : (Array.isArray(r.images) ? r.images : []);
 
             if (process.env.NODE_ENV !== 'production') {
-              // eslint-disable-next-line no-console
+               
             }
             
             return {
@@ -1186,7 +1221,7 @@ export default function DamageView() {
   };
 
   // Always log asset_type / caseType / status for easier debugging in dev and QA environments
-  // eslint-disable-next-line no-console
+   
 
   return (
     <div className="min-h-screen bg-gray-100">

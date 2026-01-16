@@ -1094,17 +1094,31 @@ const handleInputChange = (id, field, value) => {
     const item = prevItems[index];
     const newItems = [...prevItems];
     
-    // Calculate numeric value for quantity fields
-    const qtyNumeric = (field === 'request_qty' || field === 'final_qty')
-      ? (value === '' ? 0 : parseFloat(value) || 0)
-      : null;
+    // For quantity fields, preserve string value to keep trailing dots (e.g., "2.")
+    // Only convert to number when needed for calculations
+    let fieldValue = value;
+    let qtyNumeric = null;
+    
+    if (field === 'request_qty' || field === 'final_qty') {
+      // Preserve string value if it ends with dot (intermediate state like "2.")
+      if (value === '' || value === '.') {
+        fieldValue = value === '' ? '' : value;
+        qtyNumeric = 0;
+      } else if (typeof value === 'string' && value.endsWith('.')) {
+        // Keep as string to preserve the dot in the input
+        fieldValue = value;
+        qtyNumeric = parseFloat(value) || 0; // For calculations
+      } else {
+        // Convert to number for storage
+        qtyNumeric = parseFloat(value) || 0;
+        fieldValue = value === '' ? '' : qtyNumeric;
+      }
+    }
     
     // Update the field
     const updatedItem = {
       ...item,
-      [field]: field === 'request_qty' || field === 'final_qty' 
-        ? (value === '' ? '' : qtyNumeric)
-        : value
+      [field]: fieldValue
     };
     
     // Recalculate amount when quantity changes
@@ -1190,9 +1204,20 @@ const handleInputChange = (id, field, value) => {
   
   if (index !== -1) {
     const item = items[index];
-    let valueToSend = field === 'request_qty' || field === 'final_qty' 
-      ? (value === '' ? 0 : parseFloat(value) || 0)
-      : value;
+    // For quantity fields, preserve string value if it ends with dot (intermediate state)
+    // Convert to number only for calculations, but keep string for display
+    let valueToSend = value;
+    if (field === 'request_qty' || field === 'final_qty') {
+      if (value === '' || value === '.') {
+        valueToSend = value === '' ? 0 : value; // Keep "." as string
+      } else if (typeof value === 'string' && value.endsWith('.')) {
+        // Keep as string to preserve the dot
+        valueToSend = value;
+      } else {
+        // Convert to number for storage
+        valueToSend = parseFloat(value) || 0;
+      }
+    }
     
     // If quantity changed, also send updated amount
     if (field === 'request_qty' || field === 'final_qty') {
@@ -1210,12 +1235,17 @@ const handleInputChange = (id, field, value) => {
         qtyForAmount = parseFloat(item.actual_qty) || 0;
       } else {
         // For other stages, use final_qty
-        qtyForAmount = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+        // Convert to number for calculation (handle string values like "2.")
+        const qtyValue = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+        qtyForAmount = typeof qtyValue === 'string' && qtyValue.endsWith('.') 
+          ? parseFloat(qtyValue) || 0 
+          : (typeof qtyValue === 'number' ? qtyValue : parseFloat(qtyValue) || 0);
       }
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
       
+      // Store the value (preserve string for display if it ends with dot)
       onItemChange(index, field, valueToSend);
       onItemChange(index, 'amount', amountNumeric);
       onItemChange(index, 'total', amountNumeric);
@@ -1226,7 +1256,8 @@ const handleInputChange = (id, field, value) => {
 };
 
   const handleQtyChange = (id, value, qtyType = 'final_qty') => {
-    if (value !== '' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
+    // Allow intermediate states like "." or "5."
+    if (value !== '' && value !== '.' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
       return;
     }
 
@@ -1241,8 +1272,24 @@ const handleInputChange = (id, field, value) => {
 
       const item = prevItems[index];
       const systemQty = parseFloat(item.system_qty) || 0;
-      // Ensure proper parsing - handle string numbers correctly
-      const qtyNumeric = value === '' ? 0 : (isNaN(parseFloat(value)) ? 0 : parseFloat(value));
+      
+      // Preserve string value if it ends with dot (intermediate state like "2.")
+      // Only convert to number when needed for calculations
+      let fieldValue = value;
+      let qtyNumeric = 0;
+      
+      if (value === '' || value === '.') {
+        fieldValue = value;
+        qtyNumeric = 0;
+      } else if (typeof value === 'string' && value.endsWith('.')) {
+        // Keep as string to preserve the dot in the input
+        fieldValue = value;
+        qtyNumeric = parseFloat(value) || 0; // For calculations
+      } else {
+        // Convert to number for storage
+        qtyNumeric = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+        fieldValue = value === '' ? '' : qtyNumeric;
+      }
       
       // CRITICAL: In Checked stage, all quantity changes should update actual_qty, not final_qty
       const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
@@ -1304,8 +1351,8 @@ const handleInputChange = (id, field, value) => {
       };
 
       if (qtyType === 'actual_qty') {
-        // Updating actual_qty
-        updatedItem.actual_qty = qtyNumeric;
+        // Updating actual_qty - preserve string value if it ends with dot
+        updatedItem.actual_qty = fieldValue;
         
         // CRITICAL: In view mode, request_qty should NEVER change when actual_qty changes
         // They are completely independent - request_qty is the original request, actual_qty can be modified
@@ -1327,8 +1374,8 @@ const handleInputChange = (id, field, value) => {
                                     (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
           
           if (isRequestQtyUnset) {
-            // request_qty hasn't been set yet, initialize it to actual_qty
-        updatedItem.request_qty = qtyNumeric;
+            // request_qty hasn't been set yet, initialize it to actual_qty (preserve string if ends with dot)
+            updatedItem.request_qty = fieldValue;
           } else {
             // request_qty has been set to a non-zero value, preserve it independently
             // This ensures that once request_qty is established, it doesn't change when actual_qty changes
@@ -1338,12 +1385,12 @@ const handleInputChange = (id, field, value) => {
         // In add mode, if final_qty is not set, initialize it to actual_qty
           // But don't overwrite if final_qty is already set
           if (updatedItem.final_qty === undefined || updatedItem.final_qty === null || updatedItem.final_qty === 0) {
-          updatedItem.final_qty = qtyNumeric;
+            updatedItem.final_qty = fieldValue;
           }
         }
       } else if (qtyType === 'final_qty') {
-        // Updating final_qty (in both add and view mode)
-        updatedItem.final_qty = finalQty;
+        // Updating final_qty (in both add and view mode) - preserve string value if it ends with dot
+        updatedItem.final_qty = fieldValue;
         
         // CRITICAL: In Ongoing stage, when final_qty changes, also update actual_qty to match
         // In Checked stage, actual_qty should NOT be reset to 0 when final_qty changes
@@ -1351,8 +1398,8 @@ const handleInputChange = (id, field, value) => {
         const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
         
         if (isOngoingStage) {
-          // In Ongoing stage: when final_qty changes, update actual_qty to match
-          updatedItem.actual_qty = finalQty;
+          // In Ongoing stage: when final_qty changes, update actual_qty to match (preserve string if ends with dot)
+          updatedItem.actual_qty = fieldValue;
         } else {
           // For other stages (including Checked): preserve actual_qty independently
           // Only initialize actual_qty if it's truly undefined/null/empty string/0
@@ -1364,8 +1411,8 @@ const handleInputChange = (id, field, value) => {
                                     (typeof existingActualQty === 'string' && existingActualQty.trim() === '');
           
           if (isActualQtyUnset) {
-            // If actual_qty is not set, initialize it to final_qty (for new items)
-            updatedItem.actual_qty = finalQty;
+            // If actual_qty is not set, initialize it to final_qty (for new items) - preserve string if ends with dot
+            updatedItem.actual_qty = fieldValue;
           } else {
             // actual_qty is already set, preserve it independently
             // This ensures that in Checked stage, actual_qty doesn't get reset to 0 when final_qty changes
@@ -1773,6 +1820,16 @@ const normalizeImageEntries = (list) => {
     setShowConfirm(false);
   };
 
+  // Handle bulk account code change for selected items
+  const handleBulkAccountCodeChange = (accountCode) => {
+    if (selectedIds.length === 0) return;
+    
+    // Update account code for all selected items
+    selectedIds.forEach((id) => {
+      onItemAccountCodeChange(id, accountCode);
+    });
+  };
+
   const cancelRemove = () => setShowConfirm(false);
 
   // Calculate total based on status:
@@ -2151,6 +2208,30 @@ const normalizeImageEntries = (list) => {
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
             )}
           </button>
+
+          {/* Bulk Account Code Selector - Only show when items are selected and account codes are visible */}
+          {showAccountCodes && selectedIds.length > 0 && !isCompleted && (
+            <div className="flex items-center gap-2">
+              <select
+                className="border border-emerald-300 rounded-md px-2 py-1.5 text-[0.75rem] sm:text-[0.8rem] bg-emerald-50 text-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-400 transition-all shadow-sm"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkAccountCodeChange(e.target.value);
+                    e.target.value = ''; // Reset after selection
+                  }
+                }}
+                title={`Apply account code to ${selectedIds.length} selected item(s)`}
+              >
+                <option value="">Apply Account Code ({selectedIds.length})</option>
+                {accountCodes.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Right side: Action buttons and Add Product button */}
@@ -2334,8 +2415,7 @@ const normalizeImageEntries = (list) => {
                       <div>
                         <input
                           type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
+                          inputMode="decimal"
                           data-item-id={item.id}
                           data-field="request_qty"
                           data-qty-field="true"
@@ -2344,10 +2424,34 @@ const normalizeImageEntries = (list) => {
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
                             const nextValue = e.target.value;
-                            if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
-                              // Validate against system_qty
+                            console.log('[REQUEST_QTY] onChange triggered:', {
+                              originalValue: e.target.value,
+                              nextValue,
+                              charCode: e.nativeEvent?.inputType,
+                              key: e.nativeEvent?.data,
+                              previousValue: item.request_qty
+                            });
+                            
+                            // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                            // Also allow comma (,) as decimal separator (common in some locales)
+                            // Convert comma to dot for consistency
+                            let normalizedValue = nextValue.replace(',', '.');
+                            
+                            // Check: only digits and at most one dot (after normalization)
+                            const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+                            
+                            console.log('[REQUEST_QTY] Validation:', {
+                              normalizedValue,
+                              hasOnlyDigitsAndOneDot,
+                              testResult: /^[\d.]*$/.test(normalizedValue),
+                              dotCount: (normalizedValue.match(/\./g) || []).length
+                            });
+                            
+                            if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                              const valueToUse = normalizedValue;
+                              // Validate against system_qty (only if we have a valid number)
                               const systemQty = parseFloat(item.system_qty) || 0;
-                              const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                              const numericValue = nextValue === '' || nextValue === '.' ? 0 : parseFloat(nextValue);
                               
                               if (systemQty === 0 && numericValue > 0) {
                                 // Show error modal
@@ -2374,7 +2478,10 @@ const normalizeImageEntries = (list) => {
                               }
                               
                               // Only update request_qty - do NOT update actual_qty
-                              handleInputChange(item.id, 'request_qty', nextValue);
+                              console.log('[REQUEST_QTY] Updating value:', valueToUse);
+                              handleInputChange(item.id, 'request_qty', valueToUse);
+                            } else {
+                              console.log('[REQUEST_QTY] Validation failed - value rejected');
                             }
                           }}
                           onBlur={(e) => {
@@ -2382,9 +2489,16 @@ const normalizeImageEntries = (list) => {
                             if (editingFieldRef.current?.id === item.id && editingFieldRef.current?.field === 'request_qty') {
                               editingFieldRef.current = null;
                             }
-                            const nextValue = e.target.value === '' ? '0' : e.target.value;
+                            // Normalize value: handle empty, just ".", or trailing "."
+                            let normalizedValue = e.target.value.trim();
+                            if (normalizedValue === '' || normalizedValue === '.') {
+                              normalizedValue = '0';
+                            } else if (normalizedValue.endsWith('.')) {
+                              // Remove trailing dot: "5." becomes "5"
+                              normalizedValue = normalizedValue.slice(0, -1);
+                            }
                             const systemQty = parseFloat(item.system_qty) || 0;
-                            const numericValue = parseFloat(nextValue) || 0;
+                            const numericValue = parseFloat(normalizedValue) || 0;
                             
                             // Validate on blur as well - show error but don't auto-change
                             if (systemQty === 0 && numericValue > 0) {
@@ -2413,7 +2527,7 @@ const normalizeImageEntries = (list) => {
                               return;
                             }
                             
-                            handleQtyChange(item.id, nextValue, 'actual_qty');
+                            handleQtyChange(item.id, normalizedValue, 'actual_qty');
                           }}
                           className="w-20 border border-gray-300 rounded px-2 py-1"
                           title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2444,8 +2558,7 @@ const normalizeImageEntries = (list) => {
                           <div>
                             <input
                               type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
+                              inputMode="decimal"
                               data-item-id={item.id}
                               data-field="final_qty"
                               data-qty-field="true"
@@ -2454,10 +2567,34 @@ const normalizeImageEntries = (list) => {
                             max={item.system_qty > 0 ? item.system_qty : undefined}
                             onChange={(e) => {
                               const nextValue = e.target.value;
-                              if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
-                                // Validate against system_qty
+                              console.log('[FINAL_QTY] onChange triggered:', {
+                                originalValue: e.target.value,
+                                nextValue,
+                                charCode: e.nativeEvent?.inputType,
+                                key: e.nativeEvent?.data,
+                                previousValue: item.final_qty
+                              });
+                              
+                              // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                              // Also allow comma (,) as decimal separator (common in some locales)
+                              // Convert comma to dot for consistency
+                              let normalizedValue = nextValue.replace(',', '.');
+                              
+                              // Check: only digits and at most one dot (after normalization)
+                              const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+                              
+                              console.log('[FINAL_QTY] Validation:', {
+                                normalizedValue,
+                                hasOnlyDigitsAndOneDot,
+                                testResult: /^[\d.]*$/.test(normalizedValue),
+                                dotCount: (normalizedValue.match(/\./g) || []).length
+                              });
+                              
+                              if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                                const valueToUse = normalizedValue;
+                                // Validate against system_qty (only if we have a valid number)
                                 const systemQty = parseFloat(item.system_qty) || 0;
-                                const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                                const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
                                 
                                 if (systemQty === 0 && numericValue > 0) {
                                   // Show error modal
@@ -2483,13 +2620,23 @@ const normalizeImageEntries = (list) => {
                                   return; // Don't update the value
                                 }
                                 
-                                handleQtyChange(item.id, nextValue, 'final_qty');
+                                console.log('[FINAL_QTY] Updating value:', valueToUse);
+                                handleQtyChange(item.id, valueToUse, 'final_qty');
+                              } else {
+                                console.log('[FINAL_QTY] Validation failed - value rejected');
                               }
                             }}
                             onBlur={(e) => {
-                              const nextValue = e.target.value === '' ? '0' : e.target.value;
+                              // Normalize value: handle empty, just ".", or trailing "."
+                              let normalizedValue = e.target.value.trim();
+                              if (normalizedValue === '' || normalizedValue === '.') {
+                                normalizedValue = '0';
+                              } else if (normalizedValue.endsWith('.')) {
+                                // Remove trailing dot: "5." becomes "5"
+                                normalizedValue = normalizedValue.slice(0, -1);
+                              }
                               const systemQty = parseFloat(item.system_qty) || 0;
-                              const numericValue = parseFloat(nextValue) || 0;
+                              const numericValue = parseFloat(normalizedValue) || 0;
                               
                               // Validate on blur as well - show error but don't auto-change
                               if (systemQty === 0 && numericValue > 0) {
@@ -2518,7 +2665,7 @@ const normalizeImageEntries = (list) => {
                                 return;
                               }
                               
-                              handleQtyChange(item.id, nextValue, 'final_qty');
+                              handleQtyChange(item.id, normalizedValue, 'final_qty');
                             }}
                             className="w-20 border border-gray-300 rounded px-2 py-1"
                             title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2565,6 +2712,7 @@ const normalizeImageEntries = (list) => {
                               className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
                               value={displayQty}
                               min="0"
+                              step="any"
                               readOnly={systemQty === 0}
                               style={systemQty === 0 ? { pointerEvents: 'none', backgroundColor: '#f3f4f6' } : {}}
                               onChange={(e) => {
@@ -2610,8 +2758,7 @@ const normalizeImageEntries = (list) => {
                             <div>
                               <input
                                 type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
+                                inputMode="decimal"
                                 data-item-id={item.id}
                                 data-field="actual_qty"
                                 data-qty-field="true"
@@ -2620,10 +2767,34 @@ const normalizeImageEntries = (list) => {
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
-                                  if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
-                                    // Validate against system_qty
+                                  console.log('[ACTUAL_QTY] onChange triggered:', {
+                                    originalValue: e.target.value,
+                                    nextValue,
+                                    charCode: e.nativeEvent?.inputType,
+                                    key: e.nativeEvent?.data,
+                                    previousValue: item.actual_qty
+                                  });
+                                  
+                                  // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                                  // Also allow comma (,) as decimal separator (common in some locales)
+                                  // Convert comma to dot for consistency
+                                  let normalizedValue = nextValue.replace(',', '.');
+                                  
+                                  // Check: only digits and at most one dot (after normalization)
+                                  const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+                                  
+                                  console.log('[ACTUAL_QTY] Validation:', {
+                                    normalizedValue,
+                                    hasOnlyDigitsAndOneDot,
+                                    testResult: /^[\d.]*$/.test(normalizedValue),
+                                    dotCount: (normalizedValue.match(/\./g) || []).length
+                                  });
+                                  
+                                  if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                                    const valueToUse = normalizedValue;
+                                    // Validate against system_qty (only if we have a valid number)
                                     const systemQty = parseFloat(item.system_qty) || 0;
-                                    const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                                    const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
                                     
                                     if (systemQty === 0 && numericValue > 0) {
                                       // Show error modal
@@ -2649,13 +2820,23 @@ const normalizeImageEntries = (list) => {
                                       return; // Don't update the value
                                     }
                                     
-                                    handleQtyChange(item.id, nextValue, 'actual_qty');
+                                    console.log('[ACTUAL_QTY] Updating value:', valueToUse);
+                                    handleQtyChange(item.id, valueToUse, 'actual_qty');
+                                  } else {
+                                    console.log('[ACTUAL_QTY] Validation failed - value rejected');
                                   }
                                 }}
                                 onBlur={(e) => {
-                                  const nextValue = e.target.value === '' ? '0' : e.target.value;
+                                  // Normalize value: handle empty, just ".", or trailing "."
+                                  let normalizedValue = e.target.value.trim();
+                                  if (normalizedValue === '' || normalizedValue === '.') {
+                                    normalizedValue = '0';
+                                  } else if (normalizedValue.endsWith('.')) {
+                                    // Remove trailing dot: "5." becomes "5"
+                                    normalizedValue = normalizedValue.slice(0, -1);
+                                  }
                                   const systemQty = parseFloat(item.system_qty) || 0;
-                                  const numericValue = parseFloat(nextValue) || 0;
+                                  const numericValue = parseFloat(normalizedValue) || 0;
                                   
                                   // Validate on blur as well - show error but don't auto-change
                                   if (systemQty === 0 && numericValue > 0) {
@@ -2684,7 +2865,7 @@ const normalizeImageEntries = (list) => {
                                     return;
                                   }
                                   
-                                  handleQtyChange(item.id, nextValue, 'actual_qty');
+                                  handleQtyChange(item.id, normalizedValue, 'actual_qty');
                                 }}
                                 className="w-20 border border-gray-300 rounded px-2 py-1"
                                 title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2793,6 +2974,35 @@ const normalizeImageEntries = (list) => {
                                 </>
                               );
                             })()}
+                            {/* Add more images button for desktop */}
+                            {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') && (
+                              <>
+                                <input
+                                  type="file"
+                                  id={`file-input-desktop-add-${item.id}`}
+                                  ref={el => fileInputRefs.current[`add-${item.id}`] = el}
+                                  onChange={(e) => handleImageUpload(item.id, e)}
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:bg-blue-700 transition-colors z-10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (fileInputRefs.current[`add-${item.id}`]) {
+                                      fileInputRefs.current[`add-${item.id}`].click();
+                                    }
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title={t('table.addMoreImages', { defaultValue: 'Add more images' })}
+                                >
+                                  <Plus size={12} strokeWidth={2.5} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <label 
@@ -3000,6 +3210,7 @@ const normalizeImageEntries = (list) => {
                                 data-item-id={item.id}
                                 data-field="request_qty"
                                 value={item.request_qty ?? ''}
+                                step="any"
                                 onChange={(e) => {
                                   e.stopPropagation();
                                   const val = e.target.value;
@@ -3029,6 +3240,7 @@ const normalizeImageEntries = (list) => {
                               <input
                                 type="number"
                                 value={item.final_qty ?? ''}
+                                step="any"
                                 onChange={(e) => {
                                   e.stopPropagation();
                                   const val = e.target.value;
@@ -3127,8 +3339,8 @@ const normalizeImageEntries = (list) => {
                                     <X size={10} strokeWidth={3} />
                                   </button>
                                 )}
-                                {/* Upload button for Ongoing and Checked stage - separate from preview */}
-                                {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+                                {/* Upload button for Ongoing, Checked, and Add stages - separate from preview */}
+                                {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') && (
                                   <>
                                     <input
                                       type="file"
@@ -3161,7 +3373,7 @@ const normalizeImageEntries = (list) => {
                           })()
                         ) : (
                           <>
-                            {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' ? (
+                            {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') ? (
                               <label
                                 className="w-11 h-11 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-200 hover:border-blue-400 transition-colors"
                                 onClick={(e) => e.stopPropagation()}

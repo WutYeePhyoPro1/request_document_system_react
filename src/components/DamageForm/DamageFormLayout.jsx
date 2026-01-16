@@ -1181,9 +1181,27 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         // This fallback logic matches the backend's api_actions method
         const currentStatus = formData.status || '';
         const normalizedStatus = currentStatus.trim();
-        
+
+        // Check if user is branch account - they should send bracc_btp even for OPApproved forms
+        const isBranchAccountUser = (() => {
+          const roleIdStr = (currentUser?.role_id || '').toString().toLowerCase();
+          const isBranchAccountByRoleId = roleIdStr === 'branch account' ||
+                                         roleIdStr === 'account' ||
+                                         Number(currentUser?.role_id) === 7;
+          const userRole = getUserRole();
+          return userRole === 'account' ||
+                 userRole === 'branch_account' ||
+                 isBranchAccountByRoleId ||
+                 (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
+                 (currentUser?.role_name || '').toLowerCase().includes('branch account');
+        })();
+
+        // Branch Account clicking back from 'OP Approved' → bracc_btp (goes back to BM Approved)
+        if ((normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') && isBranchAccountUser) {
+          return 'bracc_btp';
+        }
         // OP Manager clicking back from 'OP Approved' → op_btp
-        if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
+        else if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
           return 'op_btp';
         } 
         // Account/Branch Account clicking back from 'Acknowledged' or similar statuses → bracc_btp
@@ -1790,7 +1808,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const [isPdfDownloading, setIsPdfDownloading] = useState(false);
   const [validationErrorModal, setValidationErrorModal] = useState({
     isOpen: false,
-    errors: []
+    errors: [],
+    type: 'error'
   });
 
   const handleOpenModal = () => setIsModalOpen(true);
@@ -2827,6 +2846,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       
       // Navigate with search params - React Router will handle this properly
       navigate(pathname + search, { replace: false });
+      // Force page reload to update notifications
+      setTimeout(() => window.location.reload(), 100);
       return;
     }
     
@@ -2837,6 +2858,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       const pathname = urlParts[0] || '/big_damage_issue';
       const search = urlParts[1] ? `?${urlParts[1]}` : '';
       navigate(pathname + search, { replace: false });
+      // Force page reload to update notifications
+      setTimeout(() => window.location.reload(), 100);
       return;
     }
     
@@ -2844,11 +2867,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     const returnPage = location.state?.returnPage;
     if (returnPage && returnPage > 1) {
       navigate(`/big_damage_issue?page=${returnPage}`, { replace: false });
+      // Force page reload to update notifications
+      setTimeout(() => window.location.reload(), 100);
       return;
     }
-    
+
     // Final fallback: Navigate to default list page
     navigate('/big_damage_issue', { replace: false });
+    // Force page reload to update notifications
+    setTimeout(() => window.location.reload(), 100);
   };
 
   // Handle download PDF - show confirmation first
@@ -3031,7 +3058,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         });
         setValidationErrorModal({
           isOpen: true,
-          errors: [errorMessage]
+          errors: [errorMessage],
+          type: 'error'
         });
         return;
       }
@@ -3048,7 +3076,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         });
         setValidationErrorModal({
           isOpen: true,
-          errors: [errorMessage]
+          errors: [errorMessage],
+          type: 'error'
         });
         return;
       }
@@ -3097,7 +3126,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (checkErrors.length > 0) {
         setValidationErrorModal({
           isOpen: true,
-          errors: checkErrors
+          errors: checkErrors,
+          type: 'error'
         });
         return;
       }
@@ -3115,9 +3145,10 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!isInvestigationFilled) {
       setValidationErrorModal({
         isOpen: true,
-          errors: [t('messages.investigationRequired', { 
-            defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.' 
-          })]
+        errors: [t('messages.investigationRequired', {
+          defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.'
+        })],
+        type: 'warning'
       });
       return;
       }
@@ -3136,7 +3167,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (baseError) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [baseError]
+          errors: [baseError],
+          type: 'error'
         });
         return;
       }
@@ -3149,7 +3181,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!isInvestigationFilled) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.investigationRequired')]
+          errors: [t('messages.investigationRequired')],
+          type: 'error'
         });
         return;
       }
@@ -3168,7 +3201,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (accountError) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [accountError]
+          errors: [accountError],
+          type: 'error'
         });
         return;
       }
@@ -3187,17 +3221,19 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (missingIssRemark && missingAccountCodes) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.issRemarkAndAccountCodesRequired', { 
-            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.' 
-          })]
+          errors: [t('messages.issRemarkAndAccountCodesRequired', {
+            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.'
+          })],
+          type: 'error'
         });
         return;
       } else if (missingIssRemark) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.issRemarkRequired', { 
-            defaultValue: 'Please select ISS remark type before issuing the form.' 
-          })]
+          errors: [t('messages.issRemarkRequired', {
+            defaultValue: 'Please select ISS remark type before issuing the form.'
+          })],
+          type: 'error'
         });
         return;
       } else if (missingAccountCodes) {
@@ -3207,8 +3243,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         setValidationErrorModal({
           isOpen: true,
           errors: [
-            t('messages.accountCodesRequired', { 
-              defaultValue: 'Please assign account codes to all products before issuing the form.' 
+            t('messages.accountCodesRequired', {
+              defaultValue: 'Please assign account codes to all products before issuing the form.'
             }),
             `Products missing account codes: ${productNames}`
           ]
@@ -3244,7 +3280,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (operationError) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [operationError]
+          errors: [operationError],
+          type: 'error'
         });
         return;
       }
@@ -3281,7 +3318,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       // Show validation error modal instead of toast
       setValidationErrorModal({
         isOpen: true,
-        errors: emptyFields
+        errors: emptyFields,
+        type: 'error'
       });
       return; // Prevent submission
     }
@@ -3315,7 +3353,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
         if (!isInvestigationFilled) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.investigationRequired')]
+          errors: [t('messages.investigationRequired')],
+          type: 'error'
         });
         return;
         }
@@ -3353,9 +3392,23 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
   const handleSubmit = async (action) => {
     // Generate unique submission ID for tracking
     const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
+    console.log('DEBUG: handleSubmit called', {
+      action,
+      currentSubmissionId,
+      isSubmitting: isSubmitting,
+      isSubmittingRef: isSubmittingRef.current,
+      generalFormId: initialData?.id || initialData?.generalFormId,
+      formDataItemsCount: Array.isArray(formData.items) ? formData.items.length : 0
+    });
+
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
+      console.log('DEBUG: handleSubmit prevented duplicate submission', {
+        currentSubmissionId,
+        isSubmitting,
+        isSubmittingRef: isSubmittingRef.current
+      });
       return;
     }
    
@@ -3383,7 +3436,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!items.length) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.addProductRequired')]
+          errors: [t('messages.addProductRequired')],
+          type: 'error'
         });
         isSubmittingRef.current = false;
         currentSubmittingActionRef.current = null; // Clear action ref
@@ -3395,7 +3449,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (!hasValidProduct) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.productCodeRequired')]
+          errors: [t('messages.productCodeRequired')],
+          type: 'error'
         });
         isSubmittingRef.current = false;
         currentSubmittingActionRef.current = null; // Clear action ref
@@ -3471,7 +3526,8 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       if (validItems.length === 0) {
         setValidationErrorModal({
           isOpen: true,
-          errors: [t('messages.addProductRequired')]
+          errors: [t('messages.addProductRequired')],
+          type: 'error'
         });
         isSubmittingRef.current = false;
         currentSubmittingActionRef.current = null; // Clear action ref
@@ -3523,28 +3579,47 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
               ? safeNumber(item.request_qty)
               : finalRequestQty);
         
+        // Check if this is an "Other income sell" form
+        const isOtherIncomeSell = (formData.caseType === 'Other income sell' ||
+                                  formData.caseType?.toLowerCase() === 'other income sell' ||
+                                  formData.asset_type === 'on' ||
+                                  formData.assetType === 'on');
+
         // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
+        // For "Other income sell" forms, use actual_qty instead of final_qty
         // Treat empty strings, null, undefined, and 0 as unset - fallback to request_qty
-        const isFinalQtySet = item?.final_qty !== undefined && 
-                              item?.final_qty !== null && 
+        const isFinalQtySet = item?.final_qty !== undefined &&
+                              item?.final_qty !== null &&
                               item?.final_qty !== '' &&
                               item?.final_qty !== 0 &&
                               !(typeof item?.final_qty === 'string' && item.final_qty.trim() === '');
-        const resolvedFinal = isFinalQtySet
-          ? safeNumber(item.final_qty)
-          : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
-              ? safeNumber(item.product_type)
-              : finalRequestQty);
+        let resolvedFinal;
+        if (isOtherIncomeSell) {
+          // For "Other income sell" forms, use actual_qty
+          resolvedFinal = (item?.actual_qty !== undefined && item?.actual_qty !== null && item?.actual_qty !== '' && item?.actual_qty !== 0)
+            ? safeNumber(item.actual_qty)
+            : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
+                ? safeNumber(item.product_type)
+                : finalRequestQty);
+        } else {
+          // For regular forms, use final_qty
+          resolvedFinal = isFinalQtySet
+            ? safeNumber(item.final_qty)
+            : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
+                ? safeNumber(item.product_type)
+                : finalRequestQty);
+        }
         
         // CRITICAL: Amount/total calculation depends on the form status:
         // - Checked: price * actual_qty (user edits actual_qty in Checked stage)
         // - BM Approved: price * actual_qty
+        // - Other income sell: price * actual_qty (always use actual_qty)
         // - Other stages: price * final_qty
         const currentFormStatus = (formData.status || '').trim();
         const isBMApprovedStatus = currentFormStatus === 'BM Approved' || currentFormStatus === 'BMApproved';
         const isCheckedStatus = currentFormStatus === 'Checked' || currentFormStatus === 'checked';
-        // Use actual_qty for BM Approved and Checked stages, final_qty for other stages
-        const qtyForAmount = (isBMApprovedStatus || isCheckedStatus) ? resolvedActual : resolvedFinal;
+        // Use actual_qty for BM Approved, Checked stages, and Other income sell forms
+        const qtyForAmount = (isBMApprovedStatus || isCheckedStatus || isOtherIncomeSell) ? resolvedActual : resolvedFinal;
         const computedAmount = price * qtyForAmount;
         const parsedAmount = Number(item?.amount);
         // Only use parsedAmount if it matches the expected calculation
@@ -3594,7 +3669,7 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           remark,
           acc_code1: accountCode,
           specific_form_id: specificId,
-          product_type: item?.product_type ?? resolvedFinal,
+          product_type: isOtherIncomeSell ? resolvedActual : (item?.product_type ?? resolvedFinal),
           product_category_id: normalizedCategoryId,
         };
       });
@@ -4392,6 +4467,16 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           isSubmittingRef.current = true; // Force set it
         }
         
+        console.log('DEBUG: Making API call', {
+          currentSubmissionId,
+          endpoint,
+          method,
+          action,
+          generalFormId: initialData?.id || initialData?.generalFormId,
+          assetType: normalizedCaseType,
+          totalItems: normalizedItems.length
+        });
+
         // Make the API call with detailed logging
         const response = await apiFetch(endpoint, {
           method: method,
@@ -5046,18 +5131,23 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     
     // Note: hasOpApprovalAssignment is already calculated at the top of this function
     
+    // Safely get isOpManagerByApproval and isOpManager (they're defined at component level but may be undefined)
+    const isOpManagerByApprovalLocal = (typeof isOpManagerByApproval !== 'undefined' ? isOpManagerByApproval : false);
+    const isOpManagerLocal = (typeof isOpManager !== 'undefined' ? isOpManager : (role === 'op_manager' || isOpManagerByApprovalLocal));
+    
     // Final check: User is Operation Manager if:
     // 1. role_id is 4 or 5, OR
     // 2. role name is 'op_manager', OR
-    // 3. isOpManagerByApproval is true, OR
-    // 4. user has OP approval entry assigned to them
+    // 3. isOpManagerLocal is true, OR
+    // 4. isOpManagerByApprovalLocal is true, OR
+    // 5. user has OP approval entry assigned to them
     const userTypeLowerCheck = (
       (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
       (initialData?.current_user?.user_type || initialData?.currentUser?.user_type || initialData?.user?.user_type || initialData?.userType) ||
       (currentUser?.role_name || currentUser?.roleName || '')
     ).toString().toLowerCase();
     const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
-    let isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+    let isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManagerLocal || isOpManagerByApprovalLocal || hasOpApprovalAssignment || isOpManagerByUserType;
 
     // Fallback: if user has shared role_id (3) and there's an OP/A2 approval entry for this form,
     // and the form requires OP approval (amount > 500000), treat user as OP for UI purposes.
@@ -5307,11 +5397,32 @@ const resolveApproveAction = () => {
   const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
   const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
   
+  // Calculate isOpManagerByApproval inside this function to ensure it's always defined
+  const approvalsForOpCheck = Array.isArray(formData?.approvals) ? formData.approvals : [];
+  const currentUserIdForOpCheck = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+  const isOpManagerByApprovalLocal = approvalsForOpCheck.some(approval => {
+    const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+    const adminId = approval?.admin_id || approval?.raw?.admin_id;
+    const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+    const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+    const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+    
+    const userTypeMatches = (userType === 'OP' || userType === 'A2');
+    const userIdMatches = currentUserIdForOpCheck && allUserIds.some(id => 
+      String(id) === String(currentUserIdForOpCheck) || Number(id) === Number(currentUserIdForOpCheck)
+    );
+    
+    return userTypeMatches && userIdMatches;
+  });
+  
+  // Calculate isOpManager inside this function
+  const isOpManagerLocal = role === 'op_manager' || isOpManagerByApprovalLocal;
+  
   // Final check: User is Operation Manager if:
   // 1. role_id is 4 or 5, OR
   // 2. role name is 'op_manager', OR
-  // 3. isOpManager is true, OR
-  // 4. isOpManagerByApproval is true, OR
+  // 3. isOpManagerLocal is true, OR
+  // 4. isOpManagerByApprovalLocal is true, OR
   // 5. user has OP approval entry assigned to them
   const userTypeLowerCheck = (
     (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
@@ -5319,7 +5430,7 @@ const resolveApproveAction = () => {
     (currentUser?.role_name || currentUser?.roleName || '')
   ).toString().toLowerCase();
   const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
-  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManagerLocal || isOpManagerByApprovalLocal || hasOpApprovalAssignment || isOpManagerByUserType;
   
   // Resolve approve action
   if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
@@ -5557,6 +5668,17 @@ const resolveApproveAction = () => {
     const submittingAction = currentSubmittingActionRef.current;
     if (submittingAction) {
       const actionStr = String(submittingAction).toLowerCase().trim();
+      
+      // Check for "BackToPrevious" or "backtoprevious" action first
+      if (actionStr === 'backtoprevious' || actionStr === 'back to previous' || actionStr === 'back_to_previous') {
+        return 'Going back to previous state...';
+      }
+      
+      // Check for "Cancel" action
+      if (actionStr === 'cancel') {
+        return 'Cancelling the form...';
+      }
+      
       // Check for "check" action first (before "approve" to avoid false matches)
       // Use exact matches first, then includes to catch variations
       // BMApprovedMem is used for checker checking, so treat it as checking
@@ -5598,6 +5720,17 @@ const resolveApproveAction = () => {
     // Last resort: check apiActions but prioritize check actions
     const currentAction = apiActions?.approve || apiActions?.btp || apiActions?.cancel || '';
     const actionStr = String(currentAction).toLowerCase().trim();
+    
+    // Check for "BackToPrevious" or "btp" action first
+    if (actionStr === 'backtoprevious' || actionStr === 'back to previous' || actionStr === 'back_to_previous' || actionStr === 'btp' || actionStr === 'op_btp' || actionStr === 'bm_btp' || actionStr === 'bracc_btp') {
+      return 'Going back to previous state...';
+    }
+    
+    // Check for "Cancel" action
+    if (actionStr === 'cancel') {
+      return 'Cancelling the form...';
+    }
+    
     // Check for "check" action first (before "approve" to avoid false matches)
     // BMApprovedMem is used for checker checking, so treat it as checking
     if (actionStr === 'checked' || actionStr === 'check' || actionStr === 'checkmem' || actionStr === 'bmapprovedmem') {
@@ -6362,7 +6495,8 @@ const resolveApproveAction = () => {
       <ValidationErrorModal
         isOpen={validationErrorModal.isOpen}
         errors={validationErrorModal.errors}
-        onClose={() => setValidationErrorModal({ isOpen: false, errors: [] })}
+        type={validationErrorModal.type || 'error'}
+        onClose={() => setValidationErrorModal({ isOpen: false, errors: [], type: 'error' })}
       />
 
       {/* Success Modal */}

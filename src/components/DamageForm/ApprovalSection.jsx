@@ -288,22 +288,71 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     // Normalize status for comparison
     const normalizedStatus = (status || '').toString().trim();
     
+    // This ensures the section appears when amount exceeds 500k, even if form hasn't reached that stage yet
+    // User requirement: Show whenever total amount exceeds 500,000 OR status is OPApproved OR OP approval exists
+
     // Find approval with user_type='AC' (Account acknowledgment) or 'A2'/'OP' (Operation Manager approval)
     // When status is OPApproved, Operation Manager approval should show in "Acknowledged by"
     const acAcknowledgedApproval = safeApprovals.find(a => {
       const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
       return userType === "AC";
     });
-    
+
     // Also find Operation Manager approval (A2 or OP) for OPApproved status
     const opApproval = safeApprovals.find(a => {
       const userType = (a?.user_type || a?.raw?.user_type || "").toUpperCase();
       return userType === "A2" || userType === "OP";
     });
-    
+
+    // Statuses that show "Acknowledged by" (from Laravel blade line 952-957)
+    // Also include OPApproved since Operation Manager approval should show as "Acknowledged by"
+    const statusesForAcknowledged = [
+      'Ac_Acknowledged',
+      'Acknowledged',
+      'OPApproved',
+      'OP Approved',
+      'Approved',
+      'SupervisorIssued',
+      'Completed'
+    ];
+
+    const statusMatches = statusesForAcknowledged.some(s =>
+      normalizedStatus === s || normalizedStatus.toLowerCase() === s.toLowerCase()
+    );
+
+    // Special case: Cancel status (from Laravel blade line 957)
+    const isCancelWithValidStatus = normalizedStatus === 'Cancel' || normalizedStatus === 'Cancelled';
+    const acknowledgedApproval = (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved')
+      ? opApproval  // For OPApproved status, ONLY use OP approval, don't fallback to AC
+      : (opApproval || acAcknowledgedApproval);  // For other statuses, prefer OP, fallback to AC
+    const cancelConditionMet = isCancelWithValidStatus &&
+      acknowledgedApproval &&
+      acknowledgedApproval.status !== 'Cancel' &&
+      acknowledgedApproval.raw?.status !== 'Cancel';
+
+    const hasAcAcknowledgedApproval = acknowledgedApproval !== null && acknowledgedApproval !== undefined;
+
+    const isOPApprovedStatus = normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved';
+    const hasOpApproval = Boolean(opApproval);
+
+    // Check for cancelled status early
+    const isCancelledStatus = (status || '').toString().toLowerCase().includes('cancel');
+    const shouldShowAcknowledged = !isCancelledStatus && (
+      requiresOpManagerApproval ||
+      isOPApprovedStatus ||
+      hasOpApproval ||
+      (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet))
+    );
+
     // DEBUG: Log all approvals and OP approval finding
     console.log('🔍 ApprovalSection - OP Approval Debug:', {
       totalApprovals: safeApprovals.length,
+      resolvedTotalAmount,
+      requiresOpManagerApproval,
+      normalizedStatus,
+      isOPApprovedStatus,
+      hasOpApproval,
+      shouldShowAcknowledged,
       allApprovals: safeApprovals.map(a => ({
         user_type: a?.user_type || a?.raw?.user_type,
         label: a?.label || resolveLabel(a),
@@ -330,59 +379,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         raw: opApproval?.raw
       } : null,
       acAcknowledgedApprovalFound: Boolean(acAcknowledgedApproval),
-      normalizedStatus,
-      status
+      currentStatus: status
     });
     
-    // CRITICAL: For OPApproved status, ONLY use OP approval (A2/OP), never use AC or BM approval
-    // For other statuses, prefer OP approval but can use AC if needed
-    const acknowledgedApproval = (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved')
-      ? opApproval  // For OPApproved status, ONLY use OP approval, don't fallback to AC
-      : (opApproval || acAcknowledgedApproval);  // For other statuses, prefer OP, fallback to AC
-    
-    // Laravel blade shows "Acknowledged by" when:
-    // 1. $getAc_Acknowledged !== null (approval with user_type='AC' exists), AND
-    // 2. $general_form->total_amount > 500000, AND
-    // 3. Status matches: 'Ac_Acknowledged', 'Approved', 'SupervisorIssued', 'Completed', or Cancel with conditions
-    // 
-    // However, we should also show it even if approval doesn't exist yet but conditions are met
-    // (for display purposes, showing empty slot like blade does in @elseif condition)
-    const hasAcAcknowledgedApproval = acknowledgedApproval !== null && acknowledgedApproval !== undefined;
-    
-    // Statuses that show "Acknowledged by" (from Laravel blade line 952-957)
-    // Also include OPApproved since Operation Manager approval should show as "Acknowledged by"
-    const statusesForAcknowledged = [
-      'Ac_Acknowledged',
-      'Acknowledged',
-      'OPApproved',
-      'OP Approved',
-      'Approved',
-      'SupervisorIssued',
-      'Completed'
-    ];
-    
-    const statusMatches = statusesForAcknowledged.some(s => 
-      normalizedStatus === s || normalizedStatus.toLowerCase() === s.toLowerCase()
-    );
-    
-    // Special case: Cancel status (from Laravel blade line 957)
-    const isCancelWithValidStatus = normalizedStatus === 'Cancel' || normalizedStatus === 'Cancelled';
-    const cancelConditionMet = isCancelWithValidStatus && 
-      acknowledgedApproval && 
-      acknowledgedApproval.status !== 'Cancel' && 
-      acknowledgedApproval.raw?.status !== 'Cancel';
     
     // Show "Acknowledged by" if:
     // Option 1: Approval exists AND amount > 500000 AND status matches (exact Laravel logic)
     // Option 2: Amount > 500000 (regardless of status - show as placeholder for future acknowledgment)
     // Option 3: Status is OPApproved (Operation Manager has approved)
-    // This ensures the section appears when amount exceeds 500k, even if form hasn't reached that stage yet
-    // User requirement: Show whenever total amount exceeds 500,000 OR status is OPApproved
-    const isOPApprovedStatus = normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved';
-    const shouldShowAcknowledged = requiresOpManagerApproval || 
-      isOPApprovedStatus ||
-      (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet));
-    
+    // Option 4: OP approval exists (show even if amount conditions don't match)
     if (shouldShowAcknowledged) {
       // Always use "Operation Manager Approved by" label
       // CRITICAL: For OPApproved status, ONLY use OP approval (A2/OP), never use AC or BM approval
@@ -418,14 +423,15 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       approvalsToShow.push({ label: "Operation Manager Approved by", key: "acknowledged", approval: approvalForDisplay });
     }
     
-    // Always show Issued by (or Cancelled by if form is cancelled)
-    const isCancelledStatus = (status || '').toString().toLowerCase().includes('cancel');
-    const issuedLabel = isCancelledStatus ? "Cancelled by" : "Issued by";
-    const issuedApproval = safeApprovals.find(a => {
-      const label = (resolveLabel(a) || "").toLowerCase();
-      return label.includes("issued") || label.includes("cancel");
-    });
-    approvalsToShow.push({ label: issuedLabel, key: "issued", approval: issuedApproval });
+    // Always show Issued by (but skip for cancelled forms - cancellation info shows in header)
+
+    if (!isCancelledStatus) {
+      const issuedApproval = safeApprovals.find(a => {
+        const label = (resolveLabel(a) || "").toLowerCase();
+        return label.includes("issued");
+      });
+      approvalsToShow.push({ label: "Issued by", key: "issued", approval: issuedApproval });
+    }
     
     return approvalsToShow.map(({ label, key, approval: matchingApproval }) => {
       const isCurrentStep = CURRENT_STEP_STATUS[key] === status;
