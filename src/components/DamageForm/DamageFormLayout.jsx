@@ -3392,23 +3392,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
   const handleSubmit = async (action) => {
     // Generate unique submission ID for tracking
     const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    console.log('DEBUG: handleSubmit called', {
-      action,
-      currentSubmissionId,
-      isSubmitting: isSubmitting,
-      isSubmittingRef: isSubmittingRef.current,
-      generalFormId: initialData?.id || initialData?.generalFormId,
-      formDataItemsCount: Array.isArray(formData.items) ? formData.items.length : 0
-    });
-
+    
     // Prevent duplicate submissions using ref for synchronous check
     if (isSubmittingRef.current || isSubmitting) {
-      console.log('DEBUG: handleSubmit prevented duplicate submission', {
-        currentSubmissionId,
-        isSubmitting,
-        isSubmittingRef: isSubmittingRef.current
-      });
       return;
     }
    
@@ -4467,16 +4453,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           isSubmittingRef.current = true; // Force set it
         }
         
-        console.log('DEBUG: Making API call', {
-          currentSubmissionId,
-          endpoint,
-          method,
-          action,
-          generalFormId: initialData?.id || initialData?.generalFormId,
-          assetType: normalizedCaseType,
-          totalItems: normalizedItems.length
-        });
-
         // Make the API call with detailed logging
         const response = await apiFetch(endpoint, {
           method: method,
@@ -6153,6 +6129,28 @@ const resolveApproveAction = () => {
 
       {/* ISS Remark Type and ISS Number Display */}
       {(() => {
+        // DEBUG: Check user role and form status for operation manager viewing OP approved forms
+        const userRole = getUserRole();
+        console.log('getUserRole() returned:', userRole);
+        const isOperationManager = userRole === 'op_manager';
+        const isOPApprovedStatus = formData.status === 'OPApproved' || formData.status === 'OP Approved';
+
+        console.log('ISS Remark Type Display Debug:', {
+          userRole,
+          isOperationManager,
+          formStatus: formData.status,
+          isOPApprovedStatus,
+          shouldHide: isOperationManager && isOPApprovedStatus,
+          hasIssRemark: formData.iss_remark,
+          hasIssueRemarks: formData.issue_remarks?.length > 0
+        });
+
+        // Hide ISS Remark Type and ISS Number for operation manager viewing OP approved forms
+        if (isOperationManager && isOPApprovedStatus) {
+          console.log('Hiding ISS Remark Type for operation manager viewing OP approved form');
+          return null;
+        }
+
         // Resolve remark type label from iss_remark value and issue_remarks options
         let remarkTypeLabel = '';
         if (formData.iss_remark && formData.issue_remarks && formData.issue_remarks.length > 0) {

@@ -389,6 +389,7 @@ export default function DamageItemTable({
 
   // Define these early to avoid initialization errors in useEffect
   const normalizedRole = (userRole || '').toString().trim().toLowerCase();
+  console.log('User Role Debug:', { userRole, normalizedRole });
   
   // Check if user is operation manager - check multiple sources (must be defined before useState)
   const isOpManager = normalizedRole === 'op_manager' || 
@@ -3473,7 +3474,31 @@ const normalizeImageEntries = (list) => {
 
       {/* Update System Qty Button - Matches Laravel acknowledge() function logic exactly */}
       {/* Shows only when: ACK user, ACK entry exists, status matches amount, form type is big_damage, form not issued/completed */}
-      {canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && (
+      {(() => {
+        const isOperationManager = normalizedRole === 'op_manager';
+        const isOPApprovedStatus = status === 'OPApproved' || status === 'OP Approved';
+        const shouldHideForOpManager = isOperationManager && isOPApprovedStatus;
+
+        console.log('Update System Qty Button Debug:', {
+          canShowUpdateSystemQtyButton,
+          isSupervisorUser,
+          mode,
+          normalizedRole,
+          status,
+          isOperationManager,
+          isOPApprovedStatus,
+          shouldHideForOpManager,
+          finalResult: canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && !shouldHideForOpManager
+        });
+
+        // Hide button for operation manager viewing OP approved forms
+        if (shouldHideForOpManager) {
+          console.log('HIDING Update System Qty Button for operation manager viewing OP approved form');
+          return null;
+        }
+
+        return canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add';
+      })() && (
         <div className="mt-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
           <div className="flex items-center gap-6 flex-wrap">
             <button
