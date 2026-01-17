@@ -3,18 +3,20 @@ import dashboardPhoto from "../../assets/images/reqBa.png";
 import { FiCopy } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import NavPath from '../../components/NavPath';
-import { useAuth } from '../../context/AuthContext';
 import { fetchData } from '../../api/FetchApi';
 import { confirmAlert } from 'react-confirm-alert';
 import { useNavigate } from "react-router-dom";
 import CctvUploadVideo from './inputs/CctvUploadVideo';
 import StatusBadge from '../../components/ui/StatusBadge';
 import CctvDownloadVideo from './inputs/CctvDownloadVideo';
+import { useDispatch, useSelector } from 'react-redux';
 
 export default function CctvDetails() {
+    
     const navigate = useNavigate();
     const { id } = useParams();
-    const { user } = useAuth();
+    const dispatch = useDispatch();
+    const { user, token } = useSelector((state) => state.auth);
     const [copied, setCopied] = useState(false);
     const [recordDetails, setRecordDetails] = useState(null);
     const [isApprover, setIsApprover] = useState(false);
@@ -52,9 +54,10 @@ export default function CctvDetails() {
         const statusConditions = (
             (checker && recordDetails.form.status === 'Checked') ||
             (!checker && ['Ongoing', 'Ongoing(Edit)'].includes(recordDetails.form.status)) ||
-            (checker && recordDetails.form.status === 'Ongoing' && recordDetails.form.g_remark === 'office_use')
+            (checker && recordDetails.form.status === 'Ongoing' )
         );
         if (statusConditions) {
+            console.log('currentUser')
             const currentUser = approvalProcessUsers.find(u =>
                 u.user_type === 'A1' &&
                 u.general_form_id === recordDetails.form.id &&
@@ -77,7 +80,8 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
-        const isBranchITUser = user?.role_id === 8;
+        const isBranchITUser = user?.role_id === 'Branch IT';
+        console.log('is branch it user=>',isBranchITUser,'role id =>',user.role_id);
         return current_user && isBranchITUser;
     };
 
@@ -100,14 +104,35 @@ export default function CctvDetails() {
         const token = localStorage.getItem('token');
         if (!id || !token || hasFetchedInitial.current) return;
 
-        hasFetchedInitial.current = true;
-        setLoading(true);
+        const fetchRecordDetails = async () => {
+            hasFetchedInitial.current = true;
+            setLoading(true);
+            
+            try {
+                const recordData = await fetchData(`/api/cctv-records/${id}`, token, 'record details');
+                if (recordData) {
+                    setRecordDetails(recordData);
+                } else {
+                    console.error('No data received from API');
+                    // Handle case where no data is returned
+                }
+            } catch (error) {
+                console.error('Error fetching record details:', error);
+                if (error.message.includes('404')) {
+                    // Handle 404 - Record not found
+                    navigate('/cctv-request', { 
+                        state: { 
+                            error: 'Record not found or you do not have permission to view it.' 
+                        } 
+                    });
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
 
-        fetchData(`/api/cctv-records/${id}`, token, 'record details', (recordData) => {
-            setRecordDetails(recordData);
-            setLoading(false);
-        });
-    }, [id]);
+        fetchRecordDetails();
+    }, [id, navigate]);
 
 
 
@@ -179,7 +204,7 @@ export default function CctvDetails() {
                     {
                         label: "OK",
                         onClick: () => {
-                            navigate("/cctv-index");
+                            navigate("/cctv_record");
                         },
                     },
                 ],
@@ -206,6 +231,7 @@ export default function CctvDetails() {
     const ApproveBackToPrevious = () => handleSubmit('Back To Previous');
 
     const formDocno = recordDetails?.form?.form_doc_no ? recordDetails.form.form_doc_no : '';
+
 
     const fallbackCopy = (text) => {
         const textArea = document.createElement("textarea");
@@ -296,6 +322,7 @@ export default function CctvDetails() {
                 ) : (
 
                     <div className="p-4 sm:p-6">
+                    
                         {isBranchITApprover && isOpen && (
                             <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
@@ -362,7 +389,7 @@ export default function CctvDetails() {
                             <NavPath
                                 segments={[
                                     { path: "/dashboard", label: "Dashboard" },
-                                    { path: "/cctv-index", label: "Cctv Request" },
+                                    { path: "/cctv_record", label: "Cctv Request" },
                                     { path: `/cctv-details/${id}`, label: "Cctv Details" }
                                 ]}
                             />
@@ -998,7 +1025,7 @@ export default function CctvDetails() {
                             </div>
 
                             <Link
-                                to="/cctv-index"
+                                to="/cctv_record"
                                 state={{
                                     restoreSearch: true,
                                     searchPayload,

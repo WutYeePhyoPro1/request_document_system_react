@@ -1,0 +1,112 @@
+.animated-back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border: 1.5px solid;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.animated-back-button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+.animated-back-button:hover::before {
+  left: 100%;
+}
+
+.animated-back-button:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateX(-2px);
+}
+
+.animated-back-button:active {
+  transform: translateX(-4px);
+  box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.animated-back-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animated-back-button:hover .animated-back-icon {
+  transform: translateX(-3px);
+}
+
+.animated-back-text {
+  transition: opacity 0.3s ease;
+}
+
+.animated-back-button:hover .animated-back-text {
+  opacity: 0.9;
+}
+
+/* Animation for initial appearance */
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animated-back-button {
+  animation: slideInFromLeft 0.4s ease-out;
+}
+
+/* Import custom badge styles - these match the status badge colors */
+.animated-back-button.op-approved-status-badge {
+  background-color: oklch(58.5% 0.233 277.117);
+  color: white;
+  border-color: oklch(58.5% 0.233 277.117);
+}
+
+.animated-back-button.acknowledge-status-badge {
+  background-color: oklch(60% 0.078 188.216);
+  color: white;
+  border-color: oklch(60% 0.078 188.216);
+}
+
+.animated-back-button.op-approved-status-badge:hover {
+  opacity: 0.9;
+  background-color: oklch(52% 0.233 277.117);
+  border-color: oklch(52% 0.233 277.117);
+}
+
+.animated-back-button.acknowledge-status-badge:hover {
+  opacity: 0.9;
+  background-color: oklch(55% 0.078 188.216);
+  border-color: oklch(55% 0.078 188.216);
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .animated-back-button {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+  }
+  
+  .animated-back-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+}

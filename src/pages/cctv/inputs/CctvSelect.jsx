@@ -1,4 +1,4 @@
-
+import React from 'react';
 
 const CctvSelect = ({ label, name, options, value, onChange, required }) => {
     return (

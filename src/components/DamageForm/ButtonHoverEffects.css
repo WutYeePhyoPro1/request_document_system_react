@@ -1,0 +1,55 @@
+/* Button Styles - No hover or animation effects */
+
+/* Disabled button state */
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Button with icon - no hover effects */
+.btn-with-icon {
+  position: relative;
+  overflow: visible;
+}
+
+.btn-with-icon .btn-text {
+  display: inline-block;
+  position: relative;
+  z-index: 1;
+}
+
+.btn-with-icon .btn-icon {
+  display: none;
+}
+
+/* Loading state */
+button.loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+button.loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin-left: -8px;
+  margin-top: -8px;
+  border: 2px solid #3b82f6;
+  border-radius: 50%;
+  border-top-color: transparent;
+  animation: button-loading-spinner 0.6s linear infinite;
+}
+
+@keyframes button-loading-spinner {
+  from {
+    transform: rotate(0turn);
+  }
+  to {
+    transform: rotate(1turn);
+  }
+}
+

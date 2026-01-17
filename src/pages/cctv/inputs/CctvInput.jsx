@@ -1,3 +1,5 @@
+import React from 'react';
+
 const CctvInput = ({ label, type, name, value, onChange, required }) => {
     return (
         <div>
