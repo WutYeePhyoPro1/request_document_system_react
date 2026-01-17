@@ -372,6 +372,9 @@ export default function DamageItemTable({
     };
   }, [items]);
   const fileInputRefs = useRef({});
+  // Track which field is currently being edited to prevent useEffect from overwriting user input
+  const editingFieldRef = useRef(null);
+  const editingTimeoutRef = useRef(null);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -386,6 +389,7 @@ export default function DamageItemTable({
 
   // Define these early to avoid initialization errors in useEffect
   const normalizedRole = (userRole || '').toString().trim().toLowerCase();
+  console.log('User Role Debug:', { userRole, normalizedRole });
   
   // Check if user is operation manager - check multiple sources (must be defined before useState)
   const isOpManager = normalizedRole === 'op_manager' || 
@@ -647,7 +651,22 @@ export default function DamageItemTable({
     }
   }, [itemsProp, showAccountCodes, isCompleted, isAccount, isSupervisorUser, status, isOpManager]);
   
-  const isCheckerRole = ['branch_lp', 'checker', 'cs', 'loss prevention'].some(r => normalizedRole.includes(r));
+  // Check if user is checker - check role name and also check role_id from localStorage
+  const getCurrentUser = () => {
+    try {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      return null;
+    }
+  };
+  const currentUserFromStorage = getCurrentUser();
+  const roleIdFromStorage = currentUserFromStorage?.role_id;
+  const isCheckerByRoleId = roleIdFromStorage && (
+    (typeof roleIdFromStorage === 'string' && roleIdFromStorage.toString().toLowerCase().trim() === 'checker') ||
+    (typeof roleIdFromStorage === 'number' && roleIdFromStorage === 2)
+  );
+  const isCheckerRole = ['branch_lp', 'checker', 'cs', 'loss prevention'].some(r => normalizedRole.includes(r)) || isCheckerByRoleId;
   const isApproverRole = ['bm', 'abm', 'approver', 'manager'].some(r => normalizedRole.includes(r));
   // Regular user role (creator/originator) - should not see Add Product button in Ongoing
   // In Ongoing status, only Checkers, Supervisors, and Approvers should see the button
@@ -661,10 +680,16 @@ export default function DamageItemTable({
   
   
   // Allow editing final_qty (Actual Qty) based on role and status - matching Laravel Blade logic
+  // Normalize status for case-insensitive comparison
+  const normalizedStatus = (status || '').toString().trim().toLowerCase();
+  const isOngoingStatus = normalizedStatus === 'ongoing';
+  const isBMApprovedStatus = normalizedStatus === 'bm approved' || normalizedStatus === 'bmapproved';
+  const isAckStatus = normalizedStatus === 'ac_acknowledged' || normalizedStatus === 'acknowledged';
+  
   const allowFinalQtyEdit = isCompleted
     ? false
     : mode === 'view'
-      ? ((status === 'Ongoing' && isCheckerRole) || (status !== 'BM Approved' && isApproverRole))
+      ? ((isOngoingStatus && isCheckerRole) || (!isBMApprovedStatus && !isAckStatus && isApproverRole))
       : false; // In add mode, actual_qty is editable, not final_qty
 
   const showReviewQtyColumns = mode !== 'add';
@@ -782,15 +807,40 @@ export default function DamageItemTable({
           processedItem.actual_qty = numericActual === null
             ? (processedItem.request_qty ?? 0)
             : numericActual;
-        } else if (processedItem.request_qty !== undefined) {
-          processedItem.actual_qty = processedItem.request_qty;
+        } else {
+          // CRITICAL: Do NOT auto-fill actual_qty from request_qty
+          // They should be independent - user should enter actual_qty separately
+          // Removed: processedItem.actual_qty = processedItem.request_qty;
         }
         
-        // Calculate amount if not set or invalid
-        if ((!processedItem.amount || isNaN(processedItem.amount)) && 
-            !isNaN(processedItem.price) && !isNaN(processedItem.request_qty)) {
-          processedItem.amount = processedItem.price * processedItem.request_qty;
-          processedItem.total = processedItem.amount;
+        // CRITICAL: Calculate amount based on form status
+        // For Completed/Issued/SupervisorIssued forms, ALWAYS recalculate using actual_qty
+        // For other statuses, use final_qty or request_qty
+        const normalizedStatus = (status || '').toString().trim().toLowerCase();
+        const isCompletedOrIssued = ['completed', 'issued', 'supervisorissued'].includes(normalizedStatus);
+        
+        if (isCompletedOrIssued) {
+          // For completed/issued forms, ALWAYS recalculate amount using actual_qty
+          // This ensures amount matches the total calculation (price * actual_qty)
+          if (!isNaN(processedItem.price) && !isNaN(processedItem.actual_qty)) {
+            processedItem.amount = processedItem.price * processedItem.actual_qty;
+            processedItem.total = processedItem.amount;
+          } else if (!isNaN(processedItem.price) && !isNaN(processedItem.request_qty)) {
+            // Fallback to request_qty if actual_qty is not available
+            processedItem.amount = processedItem.price * processedItem.request_qty;
+            processedItem.total = processedItem.amount;
+          }
+        } else {
+          // For other statuses, calculate amount if not set or invalid
+          if ((!processedItem.amount || isNaN(processedItem.amount)) && 
+              !isNaN(processedItem.price)) {
+            // Try final_qty first, then request_qty
+            const qtyForAmount = !isNaN(processedItem.final_qty) && processedItem.final_qty > 0
+              ? processedItem.final_qty
+              : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
+            processedItem.amount = processedItem.price * qtyForAmount;
+            processedItem.total = processedItem.amount;
+          }
         }
         
         // Ensure final_qty and actual_qty match request_qty if not set
@@ -893,8 +943,36 @@ export default function DamageItemTable({
       return false;
     };
     
+    // Don't update if user is currently editing a field
+    if (editingFieldRef.current) {
+      return;
+    }
+    
     if (shouldUpdate()) {
-      setItems(processItems([...itemsProp]));
+      const processed = processItems([...itemsProp]);
+      
+      // Preserve user input for fields that are currently being edited
+      if (editingFieldRef.current) {
+        const { id, field } = editingFieldRef.current;
+        const editedItem = items.find(item => {
+          const itemId = item.id || item.specific_form_id;
+          return String(itemId) === String(id);
+        });
+        
+        if (editedItem) {
+          const processedIndex = processed.findIndex(item => {
+            const itemId = item.id || item.specific_form_id;
+            return String(itemId) === String(id);
+          });
+          
+          if (processedIndex !== -1 && editedItem[field] !== undefined && editedItem[field] !== null) {
+            // Preserve the user's current input value
+            processed[processedIndex][field] = editedItem[field];
+          }
+        }
+      }
+      
+      setItems(processed);
     }
   }, [itemsPropString, supportingAttachmentSet]); // Recompute when items or supporting attachments change
 
@@ -984,6 +1062,21 @@ const handleRemarkChange = (id, value) => {
 
 // Handle input changes for mobile view (request_qty, final_qty, remark)
 const handleInputChange = (id, field, value) => {
+  // Track that user is editing this field
+  editingFieldRef.current = { id, field };
+  
+  // Clear any existing timeout
+  if (editingTimeoutRef.current) {
+    clearTimeout(editingTimeoutRef.current);
+  }
+  
+  // Clear editing ref after user stops typing for 500ms
+  editingTimeoutRef.current = setTimeout(() => {
+    if (editingFieldRef.current?.id === id && editingFieldRef.current?.field === field) {
+      editingFieldRef.current = null;
+    }
+  }, 500);
+  
   // For quantity fields, validate numeric input
   if (field === 'request_qty' || field === 'final_qty') {
     if (value !== '' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
@@ -1002,29 +1095,103 @@ const handleInputChange = (id, field, value) => {
     const item = prevItems[index];
     const newItems = [...prevItems];
     
-    // Calculate numeric value for quantity fields
-    const qtyNumeric = (field === 'request_qty' || field === 'final_qty')
-      ? (value === '' ? 0 : parseFloat(value) || 0)
-      : null;
+    // For quantity fields, preserve string value to keep trailing dots (e.g., "2.")
+    // Only convert to number when needed for calculations
+    let fieldValue = value;
+    let qtyNumeric = null;
+    
+    if (field === 'request_qty' || field === 'final_qty') {
+      // Preserve string value if it ends with dot (intermediate state like "2.")
+      if (value === '' || value === '.') {
+        fieldValue = value === '' ? '' : value;
+        qtyNumeric = 0;
+      } else if (typeof value === 'string' && value.endsWith('.')) {
+        // Keep as string to preserve the dot in the input
+        fieldValue = value;
+        qtyNumeric = parseFloat(value) || 0; // For calculations
+      } else {
+        // Convert to number for storage
+        qtyNumeric = parseFloat(value) || 0;
+        fieldValue = value === '' ? '' : qtyNumeric;
+      }
+    }
     
     // Update the field
     const updatedItem = {
       ...item,
-      [field]: field === 'request_qty' || field === 'final_qty' 
-        ? (value === '' ? '' : qtyNumeric)
-        : value
+      [field]: fieldValue
     };
     
     // Recalculate amount when quantity changes
     if ((field === 'request_qty' || field === 'final_qty') && qtyNumeric !== null) {
       const price = parseFloat(item.price) || 0;
-      const qtyForAmount = field === 'final_qty' ? qtyNumeric : (updatedItem.final_qty ?? qtyNumeric);
+      // CRITICAL: In Checked, BM Approved, OPApproved, Ac_Acknowledged, and Completed stages, use actual_qty for amount calculation
+      const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+      const isBMApprovedStage = status === 'BM Approved' || status === 'BMApproved';
+      const isOPApprovedStage = status === 'OPApproved' || status === 'OP Approved';
+      const isAckStage = status === 'Ac_Acknowledged' || status === 'Acknowledged';
+      const isCompletedStage = status === 'Completed' || status === 'completed';
+      let qtyForAmount;
+      if (isCheckedStage || isBMApprovedStage || isOPApprovedStage || isAckStage || isCompletedStage) {
+        // In these stages, always use actual_qty for amount calculation
+        // Use the actual_qty from the updated item (which may have been changed)
+        qtyForAmount = parseFloat(updatedItem.actual_qty) || 0;
+      } else {
+        // For other stages, use final_qty
+        qtyForAmount = field === 'final_qty' ? qtyNumeric : (updatedItem.final_qty ?? qtyNumeric);
+      }
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
       
       updatedItem.amount = amountNumeric;
       updatedItem.total = amountNumeric;
+    }
+    
+    // CRITICAL: When request_qty changes, update final_qty to match if final_qty is unset or matches old request_qty
+    // This ensures final_qty stays in sync with request_qty when user edits request_qty
+    if (field === 'request_qty') {
+      const oldRequestQty = item.request_qty;
+      const existingFinalQty = item.final_qty;
+      const isFinalQtyUnset = existingFinalQty === null || 
+                               existingFinalQty === undefined || 
+                               existingFinalQty === '' ||
+                               existingFinalQty === 0 ||
+                               (typeof existingFinalQty === 'string' && existingFinalQty.trim() === '');
+      
+      // Update final_qty if:
+      // 1. final_qty is unset, OR
+      // 2. final_qty matches the old request_qty (meaning it was auto-synced, not manually edited)
+      const shouldUpdateFinalQty = isFinalQtyUnset || 
+                                   (oldRequestQty !== null && 
+                                    oldRequestQty !== undefined && 
+                                    oldRequestQty !== '' &&
+                                    Number(existingFinalQty) === Number(oldRequestQty));
+      
+      if (shouldUpdateFinalQty && qtyNumeric !== null) {
+        updatedItem.final_qty = value === '' ? '' : qtyNumeric;
+      }
+    }
+    
+    // CRITICAL: When request_qty is entered, do NOT automatically fill actual_qty
+    // They should be independent fields - user should enter actual_qty separately
+    // Only initialize actual_qty if it's truly unset (null/undefined/empty/0)
+    if (field === 'request_qty' && mode === 'add') {
+      const existingActualQty = item.actual_qty;
+      const isActualQtyUnset = existingActualQty === null || 
+                               existingActualQty === undefined || 
+                               existingActualQty === '' ||
+                               existingActualQty === 0 ||
+                               (typeof existingActualQty === 'string' && existingActualQty.trim() === '');
+      
+      // Only initialize actual_qty if it hasn't been set yet
+      if (isActualQtyUnset) {
+        // Don't auto-fill - let user enter actual_qty separately
+        // updatedItem.actual_qty = qtyNumeric; // REMOVED - don't auto-fill
+      } else {
+        // Preserve existing actual_qty value
+        updatedItem.actual_qty = existingActualQty;
+      }
     }
     
     newItems[index] = updatedItem;
@@ -1038,18 +1205,48 @@ const handleInputChange = (id, field, value) => {
   
   if (index !== -1) {
     const item = items[index];
-    let valueToSend = field === 'request_qty' || field === 'final_qty' 
-      ? (value === '' ? 0 : parseFloat(value) || 0)
-      : value;
+    // For quantity fields, preserve string value if it ends with dot (intermediate state)
+    // Convert to number only for calculations, but keep string for display
+    let valueToSend = value;
+    if (field === 'request_qty' || field === 'final_qty') {
+      if (value === '' || value === '.') {
+        valueToSend = value === '' ? 0 : value; // Keep "." as string
+      } else if (typeof value === 'string' && value.endsWith('.')) {
+        // Keep as string to preserve the dot
+        valueToSend = value;
+      } else {
+        // Convert to number for storage
+        valueToSend = parseFloat(value) || 0;
+      }
+    }
     
     // If quantity changed, also send updated amount
     if (field === 'request_qty' || field === 'final_qty') {
       const price = parseFloat(item.price) || 0;
-      const qtyForAmount = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+      // CRITICAL: In Checked, BM Approved, OPApproved, Ac_Acknowledged, and Completed stages, use actual_qty for amount calculation
+      const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
+      const isBMApprovedStage = status === 'BM Approved' || status === 'BMApproved';
+      const isOPApprovedStage = status === 'OPApproved' || status === 'OP Approved';
+      const isAckStage = status === 'Ac_Acknowledged' || status === 'Acknowledged';
+      const isCompletedStage = status === 'Completed' || status === 'completed';
+      let qtyForAmount;
+      if (isCheckedStage || isBMApprovedStage || isOPApprovedStage || isAckStage || isCompletedStage) {
+        // In these stages, always use actual_qty for amount calculation
+        // Use the actual_qty from the item (which is the correct value for these stages)
+        qtyForAmount = parseFloat(item.actual_qty) || 0;
+      } else {
+        // For other stages, use final_qty
+        // Convert to number for calculation (handle string values like "2.")
+        const qtyValue = field === 'final_qty' ? valueToSend : (item.final_qty ?? valueToSend);
+        qtyForAmount = typeof qtyValue === 'string' && qtyValue.endsWith('.') 
+          ? parseFloat(qtyValue) || 0 
+          : (typeof qtyValue === 'number' ? qtyValue : parseFloat(qtyValue) || 0);
+      }
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
       
+      // Store the value (preserve string for display if it ends with dot)
       onItemChange(index, field, valueToSend);
       onItemChange(index, 'amount', amountNumeric);
       onItemChange(index, 'total', amountNumeric);
@@ -1060,7 +1257,8 @@ const handleInputChange = (id, field, value) => {
 };
 
   const handleQtyChange = (id, value, qtyType = 'final_qty') => {
-    if (value !== '' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
+    // Allow intermediate states like "." or "5."
+    if (value !== '' && value !== '.' && (isNaN(parseFloat(value)) || parseFloat(value) < 0)) {
       return;
     }
 
@@ -1075,8 +1273,24 @@ const handleInputChange = (id, field, value) => {
 
       const item = prevItems[index];
       const systemQty = parseFloat(item.system_qty) || 0;
-      // Ensure proper parsing - handle string numbers correctly
-      const qtyNumeric = value === '' ? 0 : (isNaN(parseFloat(value)) ? 0 : parseFloat(value));
+      
+      // Preserve string value if it ends with dot (intermediate state like "2.")
+      // Only convert to number when needed for calculations
+      let fieldValue = value;
+      let qtyNumeric = 0;
+      
+      if (value === '' || value === '.') {
+        fieldValue = value;
+        qtyNumeric = 0;
+      } else if (typeof value === 'string' && value.endsWith('.')) {
+        // Keep as string to preserve the dot in the input
+        fieldValue = value;
+        qtyNumeric = parseFloat(value) || 0; // For calculations
+      } else {
+        // Convert to number for storage
+        qtyNumeric = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+        fieldValue = value === '' ? '' : qtyNumeric;
+      }
       
       // CRITICAL: In Checked stage, all quantity changes should update actual_qty, not final_qty
       const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
@@ -1102,11 +1316,15 @@ const handleInputChange = (id, field, value) => {
       }
       
       const price = parseFloat(item.price) || 0;
-      // CRITICAL: In Checked stage, calculate amount using actual_qty
+      // CRITICAL: In Checked, BM Approved, OPApproved, Ac_Acknowledged, and Completed stages, calculate amount using actual_qty
       // For other stages: use final_qty (or actual_qty in add mode)
+      const isBMApprovedStage = status === 'BM Approved' || status === 'BMApproved';
+      const isOPApprovedStage = status === 'OPApproved' || status === 'OP Approved';
+      const isAckStage = status === 'Ac_Acknowledged' || status === 'Acknowledged';
+      const isCompletedStage = status === 'Completed' || status === 'completed';
       let qtyForAmount;
-      if (isCheckedStage) {
-        // In Checked stage, always use actual_qty for amount calculation
+      if (isCheckedStage || isBMApprovedStage || isOPApprovedStage || isAckStage || isCompletedStage) {
+        // In these stages, always use actual_qty for amount calculation
         qtyForAmount = qtyType === 'actual_qty' ? qtyNumeric : (parseFloat(item.actual_qty) || 0);
       } else {
         // For other stages, use the quantity type being changed
@@ -1134,8 +1352,8 @@ const handleInputChange = (id, field, value) => {
       };
 
       if (qtyType === 'actual_qty') {
-        // Updating actual_qty
-        updatedItem.actual_qty = qtyNumeric;
+        // Updating actual_qty - preserve string value if it ends with dot
+        updatedItem.actual_qty = fieldValue;
         
         // CRITICAL: In view mode, request_qty should NEVER change when actual_qty changes
         // They are completely independent - request_qty is the original request, actual_qty can be modified
@@ -1157,8 +1375,8 @@ const handleInputChange = (id, field, value) => {
                                     (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
           
           if (isRequestQtyUnset) {
-            // request_qty hasn't been set yet, initialize it to actual_qty
-        updatedItem.request_qty = qtyNumeric;
+            // request_qty hasn't been set yet, initialize it to actual_qty (preserve string if ends with dot)
+            updatedItem.request_qty = fieldValue;
           } else {
             // request_qty has been set to a non-zero value, preserve it independently
             // This ensures that once request_qty is established, it doesn't change when actual_qty changes
@@ -1168,12 +1386,12 @@ const handleInputChange = (id, field, value) => {
         // In add mode, if final_qty is not set, initialize it to actual_qty
           // But don't overwrite if final_qty is already set
           if (updatedItem.final_qty === undefined || updatedItem.final_qty === null || updatedItem.final_qty === 0) {
-          updatedItem.final_qty = qtyNumeric;
+            updatedItem.final_qty = fieldValue;
           }
         }
       } else if (qtyType === 'final_qty') {
-        // Updating final_qty (in both add and view mode)
-        updatedItem.final_qty = finalQty;
+        // Updating final_qty (in both add and view mode) - preserve string value if it ends with dot
+        updatedItem.final_qty = fieldValue;
         
         // CRITICAL: In Ongoing stage, when final_qty changes, also update actual_qty to match
         // In Checked stage, actual_qty should NOT be reset to 0 when final_qty changes
@@ -1181,8 +1399,8 @@ const handleInputChange = (id, field, value) => {
         const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
         
         if (isOngoingStage) {
-          // In Ongoing stage: when final_qty changes, update actual_qty to match
-          updatedItem.actual_qty = finalQty;
+          // In Ongoing stage: when final_qty changes, update actual_qty to match (preserve string if ends with dot)
+          updatedItem.actual_qty = fieldValue;
         } else {
           // For other stages (including Checked): preserve actual_qty independently
           // Only initialize actual_qty if it's truly undefined/null/empty string/0
@@ -1194,8 +1412,8 @@ const handleInputChange = (id, field, value) => {
                                     (typeof existingActualQty === 'string' && existingActualQty.trim() === '');
           
           if (isActualQtyUnset) {
-            // If actual_qty is not set, initialize it to final_qty (for new items)
-            updatedItem.actual_qty = finalQty;
+            // If actual_qty is not set, initialize it to final_qty (for new items) - preserve string if ends with dot
+            updatedItem.actual_qty = fieldValue;
           } else {
             // actual_qty is already set, preserve it independently
             // This ensures that in Checked stage, actual_qty doesn't get reset to 0 when final_qty changes
@@ -1603,15 +1821,33 @@ const normalizeImageEntries = (list) => {
     setShowConfirm(false);
   };
 
+  // Handle bulk account code change for selected items
+  const handleBulkAccountCodeChange = (accountCode) => {
+    if (selectedIds.length === 0) return;
+    
+    // Update account code for all selected items
+    selectedIds.forEach((id) => {
+      onItemAccountCodeChange(id, accountCode);
+    });
+  };
+
   const cancelRemove = () => setShowConfirm(false);
 
   // Calculate total based on status:
+  // - Checked: sum of (price * actual_qty)
   // - BM Approved: sum of (price * actual_qty)
+  // - OPApproved: sum of (price * actual_qty) - use actual_qty not final_qty
+  // - Ac_Acknowledged: sum of (price * actual_qty) - use actual_qty not final_qty
+  // - Completed: sum of (price * actual_qty) - use actual_qty not final_qty
   // - Other statuses: sum of item.amount (which uses final_qty)
-  const isBMApprovedStatus = status === 'BM Approved' || status === 'BMApproved';
+  // Reuse the isBMApprovedStatus variable already declared above (line 682)
+  const isCheckedStatus = normalizedStatus === 'checked';
+  const isOPApprovedStatus = normalizedStatus === 'opapproved' || normalizedStatus === 'op approved';
+  const isAckStatusTotal = normalizedStatus === 'ac_acknowledged' || normalizedStatus === 'acknowledged';
+  const isCompletedStatusTotal = normalizedStatus === 'completed';
   const total = items.reduce(
     (sum, item) => {
-      if (isBMApprovedStatus) {
+      if (isCheckedStatus || isBMApprovedStatus || isOPApprovedStatus || isAckStatusTotal || isCompletedStatusTotal) {
         const price = toSafeNumber(item.price);
         const actualQty = toSafeNumber(item.actual_qty);
         const systemQty = toSafeNumber(item.system_qty);
@@ -1936,7 +2172,7 @@ const normalizeImageEntries = (list) => {
             />
             <input
               type="text"
-              placeholder="Search by product code..."
+              placeholder={t('table.searchPlaceholder', { defaultValue: 'Search by product code...' })}
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
@@ -1952,7 +2188,7 @@ const normalizeImageEntries = (list) => {
                   setCurrentPage(1);
                 }}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
-                title="Clear search"
+                title={t('table.clearSearch', { defaultValue: 'Clear search' })}
               >
                 <X size={16} />
               </button>
@@ -1963,7 +2199,7 @@ const normalizeImageEntries = (list) => {
           <button
             onClick={() => setIsFilterModalOpen(true)}
             className="filter-btn-hover group relative flex items-center justify-center px-3 py-1.5 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 transition-all duration-300 shadow-sm hover:shadow-md"
-            title="Filter products"
+            title={t('table.filterProducts', { defaultValue: 'Filter products' })}
           >
             <Filter 
               size={16} 
@@ -1973,6 +2209,30 @@ const normalizeImageEntries = (list) => {
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
             )}
           </button>
+
+          {/* Bulk Account Code Selector - Only show when items are selected and account codes are visible */}
+          {showAccountCodes && selectedIds.length > 0 && !isCompleted && (
+            <div className="flex items-center gap-2">
+              <select
+                className="border border-emerald-300 rounded-md px-2 py-1.5 text-[0.75rem] sm:text-[0.8rem] bg-emerald-50 text-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-400 transition-all shadow-sm"
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleBulkAccountCodeChange(e.target.value);
+                    e.target.value = ''; // Reset after selection
+                  }
+                }}
+                title={`Apply account code to ${selectedIds.length} selected item(s)`}
+              >
+                <option value="">Apply Account Code ({selectedIds.length})</option>
+                {accountCodes.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Right side: Action buttons and Add Product button */}
@@ -1983,7 +2243,7 @@ const normalizeImageEntries = (list) => {
               onClick={confirmMultipleDelete}
               className="flex items-center gap-1 px-2 py-[1px] text-[0.65rem] sm:text-[0.75rem] bg-red-600 text-white rounded hover:bg-red-700 transition"
             >
-              <Trash2 size={14} /> Delete ({selectedIds.length})
+              <Trash2 size={14} /> {t('table.delete', { defaultValue: 'Delete' })} ({selectedIds.length})
             </button>
           )}
           
@@ -2009,13 +2269,18 @@ const normalizeImageEntries = (list) => {
               return null;
             }
             
+            // CRITICAL: Don't show button for Branch Account users
+            if (isAccount) {
+              return null;
+            }
+            
             return (
               <button
                 type="button"
                 onClick={() => setShowAccountCodes((prev) => !prev)}
                 className={`flex items-center gap-2 px-3 py-1 rounded text-[0.7rem] sm:text-[0.75rem] border transition ${showAccountCodes ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'}`}
               >
-                <span className="font-semibold">{showAccountCodes ? 'Hide Account Codes' : 'Show Account Codes'}</span>
+                <span className="font-semibold">{showAccountCodes ? t('table.hideAccountCodes', { defaultValue: 'Hide Account Codes' }) : t('table.showAccountCodes', { defaultValue: 'Show Account Codes' })}</span>
               </button>
             );
           })()}
@@ -2026,9 +2291,9 @@ const normalizeImageEntries = (list) => {
 
       <div className="overflow-x-auto border border-gray-200 rounded-t-xl hidden md:block">
         <table className="min-w-full border-collapse table-auto">
-          <thead className="bg-[#f6f6fe] text-[13px] font-normal border-gray-200">
+          <thead className="bg-[#f6f6fe] border-gray-200">
             <tr>
-              <th className="px-2 py-2 text-center">
+              <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 <input
                   type="checkbox"
                   checked={
@@ -2040,31 +2305,31 @@ const normalizeImageEntries = (list) => {
                   onChange={toggleSelectAll}
                 />
               </th>
-              <th className="px-2 py-2 text-left">#</th>
-              <th className="px-2 py-2 text-left hidden sm:table-cell">Category</th>
-              <th className="px-2 py-2 text-left">Code</th>
-              <th className="px-2 py-2 text-left">Name</th>
-              <th className="px-2 py-2 text-left hidden sm:table-cell">Unit</th>
-              <th className="px-2 py-2 text-left hidden md:table-cell">System Qty</th>
-              <th className="px-2 py-2 text-left">Price</th>
-              <th className="px-2 py-2 text-left">Request Qty</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+              <th className="px-2 py-2 text-left hidden sm:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.category', { defaultValue: 'Category' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.code', { defaultValue: 'Code' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.name', { defaultValue: 'Name' })}</th>
+              <th className="px-2 py-2 text-left hidden sm:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.unit', { defaultValue: 'Unit' })}</th>
+              <th className="px-2 py-2 text-left hidden md:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.systemQty', { defaultValue: 'System Qty' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.price', { defaultValue: 'Price' })}</th>
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.requestQty', { defaultValue: 'Request Qty' })}</th>
               {mode !== 'add' && (
-                <th className="px-2 py-2 text-left">Final Qty</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.finalQty', { defaultValue: 'Final Qty' })}</th>
               )}
               {mode !== 'add' && (
-                <th className="px-2 py-2 text-left">Actual Qty</th>
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.actualQty', { defaultValue: 'Actual Qty' })}</th>
               )}
-              <th className="px-2 py-2 text-left">Amount</th>
-              <th className="px-2 py-2 text-left hidden lg:table-cell">
-                Remark
+              <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{t('table.amount', { defaultValue: 'Amount' })}</th>
+              <th className="px-2 py-2 text-left hidden lg:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {t('table.remark', { defaultValue: 'Remark' })}
               </th>
-              <th className="px-2 py-2 text-left hidden md:table-cell">
-                Img
+              <th className="px-2 py-2 text-left hidden md:table-cell text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {t('table.img', { defaultValue: 'Img' })}
               </th>
               {/* Show account code header in all stages including Completed */}
               {showAccountCodes && (
-                <th className="px-2 py-2 text-left">
-                  Account Code
+                <th className="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  {t('table.accountCode', { defaultValue: 'Account Code' })}
                 </th>
               )}
             </tr>
@@ -2151,20 +2416,43 @@ const normalizeImageEntries = (list) => {
                       <div>
                         <input
                           type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
+                          inputMode="decimal"
                           data-item-id={item.id}
                           data-field="request_qty"
                           data-qty-field="true"
                           data-auto-focus-target="true"
-                          value={item.actual_qty ?? item.request_qty ?? ''}
+                          value={item.request_qty ?? ''}
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
                             const nextValue = e.target.value;
-                            if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
-                              // Validate against system_qty
+                            console.log('[REQUEST_QTY] onChange triggered:', {
+                              originalValue: e.target.value,
+                              nextValue,
+                              charCode: e.nativeEvent?.inputType,
+                              key: e.nativeEvent?.data,
+                              previousValue: item.request_qty
+                            });
+                            
+                            // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                            // Also allow comma (,) as decimal separator (common in some locales)
+                            // Convert comma to dot for consistency
+                            let normalizedValue = nextValue.replace(',', '.');
+                            
+                            // Check: only digits and at most one dot (after normalization)
+                            const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+                            
+                            console.log('[REQUEST_QTY] Validation:', {
+                              normalizedValue,
+                              hasOnlyDigitsAndOneDot,
+                              testResult: /^[\d.]*$/.test(normalizedValue),
+                              dotCount: (normalizedValue.match(/\./g) || []).length
+                            });
+                            
+                            if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                              const valueToUse = normalizedValue;
+                              // Validate against system_qty (only if we have a valid number)
                               const systemQty = parseFloat(item.system_qty) || 0;
-                              const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                              const numericValue = nextValue === '' || nextValue === '.' ? 0 : parseFloat(nextValue);
                               
                               if (systemQty === 0 && numericValue > 0) {
                                 // Show error modal
@@ -2190,13 +2478,28 @@ const normalizeImageEntries = (list) => {
                                 return; // Don't update the value
                               }
                               
-                              handleQtyChange(item.id, nextValue, 'actual_qty');
+                              // Only update request_qty - do NOT update actual_qty
+                              console.log('[REQUEST_QTY] Updating value:', valueToUse);
+                              handleInputChange(item.id, 'request_qty', valueToUse);
+                            } else {
+                              console.log('[REQUEST_QTY] Validation failed - value rejected');
                             }
                           }}
                           onBlur={(e) => {
-                            const nextValue = e.target.value === '' ? '0' : e.target.value;
+                            // Clear editing ref when user finishes editing
+                            if (editingFieldRef.current?.id === item.id && editingFieldRef.current?.field === 'request_qty') {
+                              editingFieldRef.current = null;
+                            }
+                            // Normalize value: handle empty, just ".", or trailing "."
+                            let normalizedValue = e.target.value.trim();
+                            if (normalizedValue === '' || normalizedValue === '.') {
+                              normalizedValue = '0';
+                            } else if (normalizedValue.endsWith('.')) {
+                              // Remove trailing dot: "5." becomes "5"
+                              normalizedValue = normalizedValue.slice(0, -1);
+                            }
                             const systemQty = parseFloat(item.system_qty) || 0;
-                            const numericValue = parseFloat(nextValue) || 0;
+                            const numericValue = parseFloat(normalizedValue) || 0;
                             
                             // Validate on blur as well - show error but don't auto-change
                             if (systemQty === 0 && numericValue > 0) {
@@ -2225,7 +2528,7 @@ const normalizeImageEntries = (list) => {
                               return;
                             }
                             
-                            handleQtyChange(item.id, nextValue, 'actual_qty');
+                            handleQtyChange(item.id, normalizedValue, 'actual_qty');
                           }}
                           className="w-20 border border-gray-300 rounded px-2 py-1"
                           title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2241,18 +2544,22 @@ const normalizeImageEntries = (list) => {
                       {(() => {
                         // In Checked stage, Final Qty should be read-only (only Actual Qty is editable)
                         const isCheckedStage = (status === 'Checked' || status === 'checked') && !isCompleted;
-                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || (mode === 'view' && !allowFinalQtyEdit);
+                        // Also make read-only for Operation Manager viewing OPApproved form and for Ac_Acknowledged
+                        const statusLower = (status || '').toString().trim().toLowerCase();
+                        const isOPApprovedStatus = statusLower === 'opapproved' || statusLower === 'op approved';
+                        const isAckStatusLocal = statusLower === 'ac_acknowledged' || statusLower === 'acknowledged';
+                        const shouldShowFinalQtyAsReadOnly = isCheckedStage || isAckStatusLocal || (mode === 'view' && !allowFinalQtyEdit) || (isOpManager && isOPApprovedStatus);
                         
                         if (shouldShowFinalQtyAsReadOnly) {
-                          return <span>{formatQuantity(item.final_qty)}</span>;
+                          const displayQty = isAckStatusLocal ? item.actual_qty : item.final_qty;
+                          return <span>{formatQuantity(displayQty)}</span>;
                         }
                         
                         return (
                           <div>
                             <input
                               type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
+                              inputMode="decimal"
                               data-item-id={item.id}
                               data-field="final_qty"
                               data-qty-field="true"
@@ -2261,10 +2568,34 @@ const normalizeImageEntries = (list) => {
                             max={item.system_qty > 0 ? item.system_qty : undefined}
                             onChange={(e) => {
                               const nextValue = e.target.value;
-                              if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
-                                // Validate against system_qty
+                              console.log('[FINAL_QTY] onChange triggered:', {
+                                originalValue: e.target.value,
+                                nextValue,
+                                charCode: e.nativeEvent?.inputType,
+                                key: e.nativeEvent?.data,
+                                previousValue: item.final_qty
+                              });
+                              
+                              // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                              // Also allow comma (,) as decimal separator (common in some locales)
+                              // Convert comma to dot for consistency
+                              let normalizedValue = nextValue.replace(',', '.');
+                              
+                              // Check: only digits and at most one dot (after normalization)
+                              const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+                              
+                              console.log('[FINAL_QTY] Validation:', {
+                                normalizedValue,
+                                hasOnlyDigitsAndOneDot,
+                                testResult: /^[\d.]*$/.test(normalizedValue),
+                                dotCount: (normalizedValue.match(/\./g) || []).length
+                              });
+                              
+                              if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                                const valueToUse = normalizedValue;
+                                // Validate against system_qty (only if we have a valid number)
                                 const systemQty = parseFloat(item.system_qty) || 0;
-                                const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                                const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
                                 
                                 if (systemQty === 0 && numericValue > 0) {
                                   // Show error modal
@@ -2290,13 +2621,23 @@ const normalizeImageEntries = (list) => {
                                   return; // Don't update the value
                                 }
                                 
-                                handleQtyChange(item.id, nextValue, 'final_qty');
+                                console.log('[FINAL_QTY] Updating value:', valueToUse);
+                                handleQtyChange(item.id, valueToUse, 'final_qty');
+                              } else {
+                                console.log('[FINAL_QTY] Validation failed - value rejected');
                               }
                             }}
                             onBlur={(e) => {
-                              const nextValue = e.target.value === '' ? '0' : e.target.value;
+                              // Normalize value: handle empty, just ".", or trailing "."
+                              let normalizedValue = e.target.value.trim();
+                              if (normalizedValue === '' || normalizedValue === '.') {
+                                normalizedValue = '0';
+                              } else if (normalizedValue.endsWith('.')) {
+                                // Remove trailing dot: "5." becomes "5"
+                                normalizedValue = normalizedValue.slice(0, -1);
+                              }
                               const systemQty = parseFloat(item.system_qty) || 0;
-                              const numericValue = parseFloat(nextValue) || 0;
+                              const numericValue = parseFloat(normalizedValue) || 0;
                               
                               // Validate on blur as well - show error but don't auto-change
                               if (systemQty === 0 && numericValue > 0) {
@@ -2325,7 +2666,7 @@ const normalizeImageEntries = (list) => {
                                 return;
                               }
                               
-                              handleQtyChange(item.id, nextValue, 'final_qty');
+                              handleQtyChange(item.id, normalizedValue, 'final_qty');
                             }}
                             className="w-20 border border-gray-300 rounded px-2 py-1"
                             title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2355,7 +2696,15 @@ const normalizeImageEntries = (list) => {
                         const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
                         
                         // In Checked stage, Actual Qty should be editable
-                        const canEditActualQty = (status === 'Checked' || status === 'checked') && !isCompleted;
+                        // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
+                        // Also make read-only for Branch Account users viewing OPApproved forms
+                        const normalizedStatusForActualQty = (status || '').toString().trim();
+                        const isOPApprovedForActualQty = normalizedStatusForActualQty === 'OPApproved' || 
+                                                         normalizedStatusForActualQty === 'OP Approved' ||
+                                                         normalizedStatusForActualQty.toLowerCase() === 'opapproved' ||
+                                                         normalizedStatusForActualQty.toLowerCase() === 'op approved';
+                        const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated) || (isAccount && isOPApprovedForActualQty);
+                        const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly;
                         
                         if (canEditProductType) {
                           return (
@@ -2364,6 +2713,7 @@ const normalizeImageEntries = (list) => {
                               className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
                               value={displayQty}
                               min="0"
+                              step="any"
                               readOnly={systemQty === 0}
                               style={systemQty === 0 ? { pointerEvents: 'none', backgroundColor: '#f3f4f6' } : {}}
                               onChange={(e) => {
@@ -2409,8 +2759,7 @@ const normalizeImageEntries = (list) => {
                             <div>
                               <input
                                 type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
+                                inputMode="decimal"
                                 data-item-id={item.id}
                                 data-field="actual_qty"
                                 data-qty-field="true"
@@ -2419,10 +2768,34 @@ const normalizeImageEntries = (list) => {
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
-                                  if (nextValue === '' || /^\d*(?:\.\d*)?$/.test(nextValue)) {
-                                    // Validate against system_qty
+                                  console.log('[ACTUAL_QTY] onChange triggered:', {
+                                    originalValue: e.target.value,
+                                    nextValue,
+                                    charCode: e.nativeEvent?.inputType,
+                                    key: e.nativeEvent?.data,
+                                    previousValue: item.actual_qty
+                                  });
+                                  
+                                  // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                                  // Also allow comma (,) as decimal separator (common in some locales)
+                                  // Convert comma to dot for consistency
+                                  let normalizedValue = nextValue.replace(',', '.');
+                                  
+                                  // Check: only digits and at most one dot (after normalization)
+                                  const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+                                  
+                                  console.log('[ACTUAL_QTY] Validation:', {
+                                    normalizedValue,
+                                    hasOnlyDigitsAndOneDot,
+                                    testResult: /^[\d.]*$/.test(normalizedValue),
+                                    dotCount: (normalizedValue.match(/\./g) || []).length
+                                  });
+                                  
+                                  if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                                    const valueToUse = normalizedValue;
+                                    // Validate against system_qty (only if we have a valid number)
                                     const systemQty = parseFloat(item.system_qty) || 0;
-                                    const numericValue = nextValue === '' ? 0 : parseFloat(nextValue);
+                                    const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
                                     
                                     if (systemQty === 0 && numericValue > 0) {
                                       // Show error modal
@@ -2448,13 +2821,23 @@ const normalizeImageEntries = (list) => {
                                       return; // Don't update the value
                                     }
                                     
-                                    handleQtyChange(item.id, nextValue, 'actual_qty');
+                                    console.log('[ACTUAL_QTY] Updating value:', valueToUse);
+                                    handleQtyChange(item.id, valueToUse, 'actual_qty');
+                                  } else {
+                                    console.log('[ACTUAL_QTY] Validation failed - value rejected');
                                   }
                                 }}
                                 onBlur={(e) => {
-                                  const nextValue = e.target.value === '' ? '0' : e.target.value;
+                                  // Normalize value: handle empty, just ".", or trailing "."
+                                  let normalizedValue = e.target.value.trim();
+                                  if (normalizedValue === '' || normalizedValue === '.') {
+                                    normalizedValue = '0';
+                                  } else if (normalizedValue.endsWith('.')) {
+                                    // Remove trailing dot: "5." becomes "5"
+                                    normalizedValue = normalizedValue.slice(0, -1);
+                                  }
                                   const systemQty = parseFloat(item.system_qty) || 0;
-                                  const numericValue = parseFloat(nextValue) || 0;
+                                  const numericValue = parseFloat(normalizedValue) || 0;
                                   
                                   // Validate on blur as well - show error but don't auto-change
                                   if (systemQty === 0 && numericValue > 0) {
@@ -2483,7 +2866,7 @@ const normalizeImageEntries = (list) => {
                                     return;
                                   }
                                   
-                                  handleQtyChange(item.id, nextValue, 'actual_qty');
+                                  handleQtyChange(item.id, normalizedValue, 'actual_qty');
                                 }}
                                 className="w-20 border border-gray-300 rounded px-2 py-1"
                                 title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2499,6 +2882,7 @@ const normalizeImageEntries = (list) => {
                   {/* Amount - calculated based on status:
                       - Checked (after BTP): price * actual_qty (backend recalculated using actual_qty)
                       - BM Approved: price * actual_qty
+                      - OPApproved: price * actual_qty (backend recalculated using actual_qty)
                       - Other statuses: price * final_qty */}
                   <td className="px-2 py-2 whitespace-nowrap text-[13px]">
                     {(() => {
@@ -2510,13 +2894,16 @@ const normalizeImageEntries = (list) => {
                       // CRITICAL: After BTP, backend recalculates using actual_qty
                       // So for Checked status (after BTP), we should use actual_qty for amount
                       // For BM Approved, also use actual_qty
+                      // For OPApproved and Ac_Acknowledged, also use actual_qty (backend recalculated using actual_qty)
                       // For other statuses, use final_qty
                       const isBMApproved = status === 'BM Approved' || status === 'BMApproved';
                       const isChecked = status === 'Checked' || status === 'checked';
+                      const isOPApproved = status === 'OPApproved' || status === 'OP Approved';
+                      const isAck = status === 'Ac_Acknowledged' || status === 'Acknowledged';
                       
-                      // Use actual_qty for BM Approved and Checked (after BTP)
+                      // Use actual_qty for BM Approved, Checked (after BTP), OPApproved, and Ac_Acknowledged
                       // This ensures amounts match backend calculation which uses actual_qty
-                      const baseQty = (isBMApproved || isChecked) ? actualQty : finalQty;
+                      const baseQty = (isBMApproved || isChecked || isOPApproved || isAck) ? actualQty : finalQty;
                       
                       const qtyForAmount = systemQty > 0 && baseQty > systemQty
                         ? systemQty
@@ -2524,30 +2911,9 @@ const normalizeImageEntries = (list) => {
 
                       const calculatedAmount = qtyForAmount * price;
                       
-                      // DEBUG: Log amount calculation
-                      if (item.product_code) {
-                        console.log('[AMOUNT_DEBUG] Item amount calculation', {
-                          product_code: item.product_code,
-                          status: status,
-                          isBMApproved: isBMApproved,
-                          isChecked: isChecked,
-                          price: price,
-                          actual_qty: actualQty,
-                          final_qty: finalQty,
-                          baseQty: baseQty,
-                          qtyForAmount: qtyForAmount,
-                          calculatedAmount: calculatedAmount,
-                          item_amount: item.amount,
-                          item_total: item.total,
-                          displayAmount: (isBMApproved || isChecked) 
-                            ? calculatedAmount 
-                            : ((item.total ?? item.amount) ?? calculatedAmount),
-                        });
-                      }
-                      
-                      // For BM Approved and Checked, always use calculated amount (price * actual_qty)
+                      // For BM Approved, Checked, and OPApproved, always use calculated amount (price * actual_qty)
                       // For other statuses, prefer explicit total from backend if available
-                      const displayAmount = (isBMApproved || isChecked)
+                      const displayAmount = (isBMApproved || isChecked || isOPApproved || isAck)
                         ? calculatedAmount 
                         : ((item.total ?? item.amount) ?? calculatedAmount);
 
@@ -2609,6 +2975,35 @@ const normalizeImageEntries = (list) => {
                                 </>
                               );
                             })()}
+                            {/* Add more images button for desktop */}
+                            {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') && (
+                              <>
+                                <input
+                                  type="file"
+                                  id={`file-input-desktop-add-${item.id}`}
+                                  ref={el => fileInputRefs.current[`add-${item.id}`] = el}
+                                  onChange={(e) => handleImageUpload(item.id, e)}
+                                  className="hidden"
+                                  accept="image/*"
+                                  multiple
+                                />
+                                <button
+                                  type="button"
+                                  className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg border-2 border-white cursor-pointer hover:bg-blue-700 transition-colors z-10"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (fileInputRefs.current[`add-${item.id}`]) {
+                                      fileInputRefs.current[`add-${item.id}`].click();
+                                    }
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  title={t('table.addMoreImages', { defaultValue: 'Add more images' })}
+                                >
+                                  <Plus size={12} strokeWidth={2.5} />
+                                </button>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <label 
@@ -2816,6 +3211,7 @@ const normalizeImageEntries = (list) => {
                                 data-item-id={item.id}
                                 data-field="request_qty"
                                 value={item.request_qty ?? ''}
+                                step="any"
                                 onChange={(e) => {
                                   e.stopPropagation();
                                   const val = e.target.value;
@@ -2845,6 +3241,7 @@ const normalizeImageEntries = (list) => {
                               <input
                                 type="number"
                                 value={item.final_qty ?? ''}
+                                step="any"
                                 onChange={(e) => {
                                   e.stopPropagation();
                                   const val = e.target.value;
@@ -2871,7 +3268,7 @@ const normalizeImageEntries = (list) => {
                               onClick={(e) => e.stopPropagation()}
                               onMouseDown={(e) => e.stopPropagation()}
                             >
-                              Remark
+                              {t('table.remark', { defaultValue: 'Remark' })}
                             </label>
                             <input
                               type="text"
@@ -2890,7 +3287,7 @@ const normalizeImageEntries = (list) => {
                                 e.stopPropagation();
                               }}
                               className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              placeholder="Enter remark..."
+                              placeholder={t('table.enterRemark', { defaultValue: 'Enter remark...' })}
                             />
                           </div>
                         </div>
@@ -2938,13 +3335,13 @@ const normalizeImageEntries = (list) => {
                                     }}
                                     onMouseDown={(e) => e.stopPropagation()}
                                     onTouchStart={(e) => e.stopPropagation()}
-                                    title="Delete image"
+                                    title={t('table.deleteImage', { defaultValue: 'Delete image' })}
                                   >
                                     <X size={10} strokeWidth={3} />
                                   </button>
                                 )}
-                                {/* Upload button for Ongoing and Checked stage - separate from preview */}
-                                {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
+                                {/* Upload button for Ongoing, Checked, and Add stages - separate from preview */}
+                                {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') && (
                                   <>
                                     <input
                                       type="file"
@@ -2966,7 +3363,7 @@ const normalizeImageEntries = (list) => {
                                       }}
                                       onMouseDown={(e) => e.stopPropagation()}
                                       onTouchStart={(e) => e.stopPropagation()}
-                                      title="Add more images"
+                                      title={t('table.addMoreImages', { defaultValue: 'Add more images' })}
                                     >
                                       <Plus size={12} strokeWidth={2.5} />
                                     </button>
@@ -2977,7 +3374,7 @@ const normalizeImageEntries = (list) => {
                           })()
                         ) : (
                           <>
-                            {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' ? (
+                            {!isCompleted && (status === 'Ongoing' || status === 'Checked' || status === 'checked' || mode === 'add') ? (
                               <label
                                 className="w-11 h-11 rounded-lg bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 cursor-pointer hover:bg-gray-200 hover:border-blue-400 transition-colors"
                                 onClick={(e) => e.stopPropagation()}
@@ -3023,7 +3420,7 @@ const normalizeImageEntries = (list) => {
             </div>
           ))
         ) : (
-          <p className="text-center text-gray-400 text-sm py-6">No items added yet.</p>
+          <p className="text-center text-gray-400 text-sm py-6">{t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}</p>
         )}
 
         {!isCompleted && selectedIds.length > 0 && (
@@ -3032,7 +3429,7 @@ const normalizeImageEntries = (list) => {
               onClick={confirmMultipleDelete}
               className="flex items-center gap-1 px-4 py-2 bg-red-600 text-white text-sm rounded-md shadow hover:bg-red-700 transition"
             >
-              <Trash2 size={14} /> Delete ({selectedIds.length})
+              <Trash2 size={14} /> {t('table.delete', { defaultValue: 'Delete' })} ({selectedIds.length})
             </button>
           </div>
         )}
@@ -3049,11 +3446,11 @@ const normalizeImageEntries = (list) => {
                 : "hover:bg-gray-100"
             }`}
           >
-            <ChevronLeft size={12} /> Prev
+            <ChevronLeft size={12} /> {t('table.prev', { defaultValue: 'Prev' })}
           </button>
 
           <span>
-            Page {currentPage} of {totalPages}
+            {t('table.page', { defaultValue: 'Page' })} {currentPage} {t('table.of', { defaultValue: 'of' })} {totalPages}
           </span>
 
           <button
@@ -3065,19 +3462,43 @@ const normalizeImageEntries = (list) => {
                 : "hover:bg-gray-100"
             }`}
           >
-            Next <ChevronRight size={12} />
+            {t('table.next', { defaultValue: 'Next' })} <ChevronRight size={12} />
           </button>
         </div>
       )}
 
       <div className="flex justify-end gap-6 items-center mt-4 bg-green-50 p-3 rounded-md font-bold text-green-700" style={{ fontSize: '13px' }}>
-        <span>Total</span>
+        <span>{t('table.total', { defaultValue: 'Total' })}</span>
         <span className="text-right">{Math.round(total).toLocaleString('en-US')}</span>
       </div>
 
       {/* Update System Qty Button - Matches Laravel acknowledge() function logic exactly */}
       {/* Shows only when: ACK user, ACK entry exists, status matches amount, form type is big_damage, form not issued/completed */}
-      {canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && (
+      {(() => {
+        const isOperationManager = normalizedRole === 'op_manager';
+        const isOPApprovedStatus = status === 'OPApproved' || status === 'OP Approved';
+        const shouldHideForOpManager = isOperationManager && isOPApprovedStatus;
+
+        console.log('Update System Qty Button Debug:', {
+          canShowUpdateSystemQtyButton,
+          isSupervisorUser,
+          mode,
+          normalizedRole,
+          status,
+          isOperationManager,
+          isOPApprovedStatus,
+          shouldHideForOpManager,
+          finalResult: canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && !shouldHideForOpManager
+        });
+
+        // Hide button for operation manager viewing OP approved forms
+        if (shouldHideForOpManager) {
+          console.log('HIDING Update System Qty Button for operation manager viewing OP approved form');
+          return null;
+        }
+
+        return canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add';
+      })() && (
         <div className="mt-4 mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md">
           <div className="flex items-center gap-6 flex-wrap">
             <button
@@ -3086,12 +3507,12 @@ const normalizeImageEntries = (list) => {
               disabled={isUpdatingSystemQty}
               className="btn btn-info me-2 text-sm px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isUpdatingSystemQty ? 'Updating...' : systemQtyUpdated ? 'Update System Qty Again' : 'Update System Qty'}
+              {isUpdatingSystemQty ? t('table.updating', { defaultValue: 'Updating...' }) : systemQtyUpdated ? t('table.updateSystemQtyAgain', { defaultValue: 'Update System Qty Again' }) : t('table.updateSystemQty', { defaultValue: 'Update System Qty' })}
             </button>
             {!systemQtyUpdated && (
               <p className="text-red-600 text-xs flex items-center ml-1">
                 <span className="text-red-600 font-bold mr-1">*</span>
-                <span className="ml-2">Please update your system qty before clicking the Issued button.</span>
+                <span className="ml-2">{t('table.updateSystemQtyWarning', { defaultValue: 'Please update your system qty before clicking the Issued button.' })}</span>
               </p>
             )}
           </div>
@@ -3246,8 +3667,8 @@ const normalizeImageEntries = (list) => {
                   e.stopPropagation();
                   handleDeleteCurrentImage();
                 }}
-                aria-label="Delete image"
-                title="Delete image"
+                aria-label={t('table.deleteImage', { defaultValue: 'Delete image' })}
+                title={t('table.deleteImage', { defaultValue: 'Delete image' })}
               >
                 <Trash2 className="h-5 w-5" />
               </button>
@@ -3261,7 +3682,7 @@ const normalizeImageEntries = (list) => {
                     prevPreview();
                   }}
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label="Previous image"
+                  aria-label={t('table.previousImage', { defaultValue: 'Previous image' })}
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -3272,7 +3693,7 @@ const normalizeImageEntries = (list) => {
                     nextPreview();
                   }}
                   className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label="Next image"
+                  aria-label={t('table.nextImage', { defaultValue: 'Next image' })}
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>

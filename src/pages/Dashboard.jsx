@@ -115,11 +115,18 @@ useEffect(() => {
         const counts = {};
         await Promise.all(
           formsData.map(async (form) => {
+            try {
             const count = await countFormNoti(token, form.id);
             counts[form.id] = count;
+              console.log(`[MAIN_DASHBOARD_DEBUG] Form ${form.id} (${form.name}): count = ${count}`);
+            } catch (error) {
+              console.error(`[MAIN_DASHBOARD_DEBUG] Error getting count for form ${form.id}:`, error);
+              counts[form.id] = 0;
+            }
           })
         );
 
+        console.log('[MAIN_DASHBOARD_DEBUG] Final formCounts:', counts);
         setFormCounts(counts);
       } catch (error) {
         console.error("Error fetching forms or counts:", error);

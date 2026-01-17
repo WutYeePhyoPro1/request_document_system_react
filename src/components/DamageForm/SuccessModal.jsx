@@ -20,7 +20,7 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
     switch (action) {
       case 'submit':
       case 'Submit':
-        return { color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' };
+        return { color: 'text-blue-500', bg: 'bg-green-50', border: 'border-blue-200' };
       case 'check':
       case 'Check':
       case 'CheckMem':
@@ -29,18 +29,18 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
       case 'Approve':
       case 'BMApproved':
       case 'BMApprovedMem':
-        return { color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' };
+        return { color: 'text-purple-500', bg: 'bg-green-50', border: 'border-purple-200' };
       case 'acknowledge':
       case 'Acknowledge':
       case 'AcAcknowledge':
-        return { color: 'text-indigo-500', bg: 'bg-indigo-50', border: 'border-indigo-200' };
+        return { color: 'text-indigo-500', bg: 'bg-green-50', border: 'border-indigo-200' };
       case 'issue':
       case 'Issue':
       case 'SupervisorIssue':
-        return { color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' };
+        return { color: 'text-emerald-500', bg: 'bg-green-50', border: 'border-emerald-200' };
       case 'BackToPrevious':
       case 'backtoprevious':
-        return { color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' };
+        return { color: 'text-orange-500', bg: 'bg-green-50', border: 'border-orange-200' };
       case 'Cancel':
       case 'cancel':
         return { color: 'text-red-500', bg: 'bg-red-50', border: 'border-red-200' };
@@ -54,11 +54,36 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
       <div 
-        className={`relative flex flex-col items-center justify-center ${style.bg} ${style.border} border-2 rounded-2xl shadow-2xl p-8 max-w-md w-full transform transition-all duration-300 animate-scaleIn`}
+        className={`relative flex flex-col items-center justify-center ${style.bg} ${style.border} border-2 rounded-2xl shadow-2xl p-8 max-w-md w-full transform transition-all duration-300 animate-scaleIn overflow-hidden`}
         style={{
           animation: 'scaleIn 0.3s ease-out'
         }}
       >
+        {/* Pro1 Global Logo as beautiful background overlay - more prominent */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: 'url(/PRO1logo.png)',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            backgroundSize: 'auto 95%',
+            opacity: 0.4,
+            zIndex: 0,
+            filter: 'blur(0.3px) drop-shadow(0 0 20px rgba(0,0,0,0.1))',
+            animation: 'logoPulse 3s ease-in-out infinite'
+          }}
+        />
+        {/* Radial gradient overlay for depth and better logo visibility */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: 'radial-gradient(circle at center, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.2) 35%, rgba(255,255,255,0.4) 100%)',
+            zIndex: 1
+          }}
+        />
+
+        {/* Content container with higher z-index */}
+        <div className="relative z-10 flex flex-col items-center justify-center w-full">
         {/* Success Icon with pulse animation */}
         <div className={`relative flex items-center justify-center w-20 h-20 ${style.color} mb-4`}>
           <div className={`absolute inset-0 ${style.bg} rounded-full animate-ping opacity-75`}></div>
@@ -85,6 +110,7 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
               animation: 'progressBar 1s linear forwards'
             }}
           ></div>
+          </div>
         </div>
       </div>
 
@@ -128,6 +154,17 @@ const SuccessModal = ({ isOpen, onClose, message, action }) => {
 
         .animate-progressBar {
           animation: progressBar 1s linear forwards;
+        }
+
+        @keyframes logoPulse {
+          0%, 100% {
+            opacity: 0.4;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.45;
+            transform: scale(1.02);
+          }
         }
       `}</style>
     </div>

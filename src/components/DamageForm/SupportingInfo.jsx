@@ -115,6 +115,7 @@ export default function SupportingInfo({
   isCurrentUserChecker = null,
   isRegularUser = null,
   isCheckerWhoApproved = null,
+  systemQtyUpdated = false,
 }) {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
@@ -205,6 +206,7 @@ export default function SupportingInfo({
   const isCompleted = status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued';
   
   // Hide attach files input in these statuses: Checked, BM Approved, Ac_Acknowledged
+  // Also hide when status is OPApproved and systemQtyUpdated is true (branch account stage after updating system qty)
   const statusesThatHideAttachments = [
     'Checked',
     'BM Approved',
@@ -212,7 +214,13 @@ export default function SupportingInfo({
     'Ac_Acknowledged',
     'Acknowledged'
   ];
-  const shouldHideAttachments = statusesThatHideAttachments.includes(status);
+  const normalizedStatusForAttachments = (status || '').toString().trim();
+  const isOPApproved = normalizedStatusForAttachments === 'OPApproved' || 
+                       normalizedStatusForAttachments === 'OP Approved' ||
+                       normalizedStatusForAttachments.toLowerCase() === 'opapproved' ||
+                       normalizedStatusForAttachments.toLowerCase() === 'op approved';
+  const shouldHideAttachments = statusesThatHideAttachments.includes(status) || 
+                                (isOPApproved && systemQtyUpdated);
   
   // Prefer explicit role passed from parent (single source of truth). Fall back to localStorage when not provided.
   const incomingRoleLower = (currentUserRole || '').toString().toLowerCase();
@@ -234,7 +242,22 @@ export default function SupportingInfo({
     }
   }
 
-  const isLocalChecker = resolvedRoleLower.includes('check') || resolvedRoleLower === 'c' || resolvedRoleLower === 'cs';
+  // Check if user is checker - check role name and also check role_id from localStorage (can be string "Checker" or number 2)
+  const getCurrentUserFromStorage = () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+      return storedUser;
+    } catch (e) {
+      return null;
+    }
+  };
+  const storedUser = getCurrentUserFromStorage();
+  const roleIdFromStorage = storedUser?.role_id;
+  const isCheckerByRoleId = roleIdFromStorage && (
+    (typeof roleIdFromStorage === 'string' && roleIdFromStorage.toString().toLowerCase().trim() === 'checker') ||
+    (typeof roleIdFromStorage === 'number' && roleIdFromStorage === 2)
+  );
+  const isLocalChecker = resolvedRoleLower.includes('check') || resolvedRoleLower === 'c' || resolvedRoleLower === 'cs' || isCheckerByRoleId;
   const isLocalRegularUser = resolvedRoleLower === 'user' || resolvedRoleLower.includes('user');
   // Use trimmed/lowercased status for robust comparisons
   const statusLower = (status || '').toString().trim().toLowerCase();
@@ -244,13 +267,106 @@ export default function SupportingInfo({
   const resolvedIsChecker = (typeof isCheckerWhoApproved === 'boolean' && isCheckerWhoApproved) ? true : (typeof isCurrentUserChecker === 'boolean' ? isCurrentUserChecker : isLocalChecker);
   const resolvedIsRegularUser = typeof isRegularUser === 'boolean' ? isRegularUser : isLocalRegularUser;
 
-  const shouldShowRemark = showRemark && !isCompleted && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved'));
-  // Hide attachments if completed, or if status is one of the restricted statuses, or per role rules above
-  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved'));
+  // Check if user is branch manager - check role name and role_id from localStorage
+  // MUST be defined before shouldShowRemark uses it
+  const isBranchManager = (() => {
+    const roleIdFromStorage = storedUser?.role_id;
+    const isBMByRoleId = roleIdFromStorage && (
+      (typeof roleIdFromStorage === 'number' && roleIdFromStorage === 3) ||
+      (typeof roleIdFromStorage === 'string' && roleIdFromStorage.toString().toLowerCase().trim() === 'branch manager')
+    );
+    const isBMByRoleName = resolvedRoleLower.includes('bm') || 
+                           resolvedRoleLower.includes('approver') || 
+                           resolvedRoleLower === 'a1' ||
+                           resolvedRoleLower.includes('branch manager');
+    return isBMByRoleId || isBMByRoleName;
+  })();
+  
+  // Check if user is operation manager - check role name and role_id from localStorage
+  // MUST be defined before shouldShowRemark uses it
+  const isOperationManager = (() => {
+    const roleIdFromStorage = storedUser?.role_id;
+    const isOpByRoleId = roleIdFromStorage && (
+      (typeof roleIdFromStorage === 'number' && (roleIdFromStorage === 4 || roleIdFromStorage === 5)) ||
+      (typeof roleIdFromStorage === 'string' && (roleIdFromStorage.toString().toLowerCase().trim() === '4' || roleIdFromStorage.toString().toLowerCase().trim() === '5'))
+    );
+    const isOpByRoleName = resolvedRoleLower.includes('op_manager') || 
+                            resolvedRoleLower.includes('operation manager') ||
+                            resolvedRoleLower.includes('operationmanager') ||
+                            resolvedRoleLower === 'a2' ||
+                            resolvedRoleLower === 'op';
+    return isOpByRoleId || isOpByRoleName;
+  })();
+  
+  // Check if form is BM Approved
+  // MUST be defined before shouldShowRemark uses it
+  const isBMApprovedStatus = statusLower === 'bm approved' || statusLower === 'bmapproved';
+  
+  // Check if form is OP Approved
+  // MUST be defined before shouldShowRemark uses it
+  const isOPApprovedStatus = statusLower === 'op approved' || statusLower === 'opapproved';
+  
+  // Check if form is Ac_Acknowledged or Acknowledged
+  // MUST be defined before shouldShowRemark uses it
+  const isAcknowledgedStatus = statusLower === 'ac_acknowledged' || statusLower === 'acknowledged';
 
-  // Effective readonly: if parent told us readOnly, or if viewer is a regular user viewing an Ongoing form,
-  // treat as readonly so delete buttons are disabled even when attachments are shown.
-  const effectiveReadOnly = Boolean(readOnly || (resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved')));
+  // Check if user is branch account - check role name and role_id from localStorage
+  // MUST be defined before effectiveReadOnly uses it
+  const isBranchAccount = (() => {
+    const roleIdFromStorage = storedUser?.role_id;
+    const isAccountByRoleId = roleIdFromStorage && (
+      (typeof roleIdFromStorage === 'number' && roleIdFromStorage === 7) ||
+      (typeof roleIdFromStorage === 'string' && (
+        roleIdFromStorage.toString().toLowerCase().trim() === 'branch account' ||
+        roleIdFromStorage.toString().toLowerCase().trim() === 'account' ||
+        roleIdFromStorage.toString().toLowerCase().trim() === '7'
+      ))
+    );
+    const isAccountByRoleName = resolvedRoleLower.includes('account') || 
+                               resolvedRoleLower === 'ac' ||
+                               resolvedRoleLower === 'ack';
+    return isAccountByRoleId || isAccountByRoleName;
+  })();
+
+  // Hide remark box for:
+  // - Branch manager viewing BM Approved form
+  // - Operation manager viewing OP Approved or Ac_Acknowledged form
+  // - Regular user viewing Ongoing, BM Approved, OP Approved, or Ac_Acknowledged form
+  const shouldShowRemark = showRemark && 
+                          !isCompleted && 
+                          !(resolvedIsChecker && statusLower === 'checked') && 
+                          !(resolvedIsRegularUser && (
+                            statusLower === 'ongoing' || 
+                            statusLower === 'bm approved' || 
+                            statusLower === 'bmapproved' ||
+                            isOPApprovedStatus ||
+                            isAcknowledgedStatus
+                          )) &&
+                          !(isBranchManager && isBMApprovedStatus) &&
+                          !(isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus));
+  // Hide attachments if completed, or if status is one of the restricted statuses, or per role rules above
+  // Also hide for regular users viewing Ongoing, BM Approved, or OPApproved forms
+  // Also hide for Operation Managers viewing OPApproved or Ac_Acknowledged forms
+  // Also hide for Branch Account users viewing OPApproved forms
+  const shouldShowAttachments = showAttachments && !isCompleted && !shouldHideAttachments && !(resolvedIsChecker && statusLower === 'checked') && !(resolvedIsRegularUser && (statusLower === 'ongoing' || statusLower === 'bm approved' || statusLower === 'bmapproved' || isOPApprovedStatus)) && !(isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus)) && !(isBranchAccount && isOPApprovedStatus);
+
+  // Effective readonly: if parent told us readOnly, or if viewer is a regular user viewing an Ongoing, BM Approved, OP Approved, or Ac_Acknowledged form,
+  // or if branch manager is viewing BM Approved form, or if operation manager is viewing OP Approved or Ac_Acknowledged form,
+  // or if branch account is viewing OP Approved form,
+  // treat as readonly so delete buttons are disabled
+  const effectiveReadOnly = Boolean(
+    readOnly || 
+    (resolvedIsRegularUser && (
+      statusLower === 'ongoing' || 
+      statusLower === 'bm approved' || 
+      statusLower === 'bmapproved' ||
+      isOPApprovedStatus ||
+      isAcknowledgedStatus
+    )) ||
+    (isBranchManager && isBMApprovedStatus) ||
+    (isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus)) ||
+    (isBranchAccount && isOPApprovedStatus)
+  );
   
   return (
     <div className="bg-transparent p-4 space-y-3">

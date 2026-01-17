@@ -443,6 +443,13 @@ export default function DamageView() {
       const text = await res.text();
       const err = new Error(`HTTP ${res.status} ${text || ''}`);
       err.status = res.status;
+      err.responseText = text;
+      // Try to parse as JSON for structured error responses
+      try {
+        err.responseData = JSON.parse(text);
+      } catch (e) {
+        // Not JSON, ignore
+      }
       throw err;
     }
     return res.json();
@@ -461,10 +468,38 @@ export default function DamageView() {
           ? (json.data && typeof json.data === 'object' ? json.data : json)
           : {};
       } catch (e) {
+        // Check if the error response contains NO_ITEMS_FOUND error with general_form_id
+        let fallbackGeneralFormId = generalFormId;
+        
+        if (e.status === 404 && e.responseData) {
+          // Check if error response contains structured error data
+          const errorData = e.responseData;
+          if (errorData?.error === 'NO_ITEMS_FOUND' && errorData?.general_form_id) {
+            fallbackGeneralFormId = errorData.general_form_id;
+            // If we got a general_form from the error, use it as the record
+            if (errorData.general_form) {
+              payload = { general_form: errorData.general_form };
+            }
+          }
+        }
+        
         // Primary not found: fallback by generalFormId if provided
-        if (e.status === 404 && generalFormId) {
-          const altJson = await fetchJsonWithBackoff(`/api/general-forms/${generalFormId}/big-damage-issues`);
+        if (e.status === 404 && fallbackGeneralFormId) {
+          const altJson = await fetchJsonWithBackoff(`/api/general-forms/${fallbackGeneralFormId}/big-damage-issues`);
           const list = Array.isArray(altJson?.data) ? altJson.data : (Array.isArray(altJson) ? altJson : []);
+          
+          // If no items found but we have a general_form, return empty items list
+          if (!list.length && payload?.general_form) {
+            return { 
+              record: payload, 
+              items: [], 
+              approvals: [], 
+              actions: {}, 
+              attachments: [],
+              isEmpty: true // Flag to indicate form exists but has no items
+            };
+          }
+          
           if (!list.length) throw new Error('HTTP 404 Not Found');
           const record = list[0];
           // Items from list
@@ -486,7 +521,7 @@ export default function DamageView() {
               : (Array.isArray(r.images) ? r.images : []);
 
             if (process.env.NODE_ENV !== 'production') {
-              // eslint-disable-next-line no-console
+               
             }
             
             return {
@@ -558,6 +593,12 @@ export default function DamageView() {
         try {
           const listJson = itemsResult.value;
           const rows = Array.isArray(listJson?.data) ? listJson.data : (Array.isArray(listJson) ? listJson : []);
+          
+          // Get form status to determine which qty to use for amount calculation
+          const formStatus = payload?.general_form?.status || '';
+          const normalizedStatus = (formStatus || '').toString().trim().toLowerCase();
+          const isCompletedOrIssued = ['completed', 'issued', 'supervisorissued'].includes(normalizedStatus);
+          
           items = rows.map(r => {
             const price = Number(r.price ?? 0);
             // CRITICAL: Preserve actual_qty from database - don't use product_type or final_qty as fallback
@@ -567,9 +608,22 @@ export default function DamageView() {
               : ((r.request_qty !== undefined && r.request_qty !== null)
                   ? Number(r.request_qty)
                   : 0);
-            // Always recalculate amount to ensure accuracy (use final_qty for amount calculation)
-            const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
-            const amount = Number((price * finalQty).toFixed(2));
+            
+            // CRITICAL: Calculate amount based on form status
+            // For Completed/Issued/SupervisorIssued forms, use actual_qty (price * actual_qty)
+            // For other statuses, use final_qty or amount from database
+            let amount;
+            if (isCompletedOrIssued) {
+              // For completed/issued forms, use actual_qty for amount calculation
+              amount = Number((price * actualQty).toFixed(2));
+            } else {
+              // For other statuses, use final_qty or amount from database
+              const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
+              // If amount exists in database, use it; otherwise calculate from final_qty
+              amount = (r.amount !== undefined && r.amount !== null && !isNaN(r.amount))
+                ? Number(r.amount)
+                : Number((price * finalQty).toFixed(2));
+            }
 
             const rawImages = Array.isArray(r.img) && r.img.length
               ? r.img
@@ -986,52 +1040,74 @@ export default function DamageView() {
   // Now safe to have conditional returns after all hooks
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-100 py-6">
-        <div className="max-w-6xl mx-auto px-4">
+      <div className="p-6 sm:p-8 md:p-10 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
           <SkeletonTheme baseColor="#f3f4f6" highlightColor="#e5e7eb">
-            <div className="mb-4">
-              <Skeleton width={260} height={28} />
+          {/* Header skeleton */}
+          <div className="mb-6">
+            <Skeleton height={60} className="mb-4" />
+            <div className="flex items-center gap-4 mb-4">
+              <Skeleton width={300} height={32} />
+              <Skeleton width={120} height={32} />
+              <Skeleton width={100} height={32} />
+            </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Skeleton height={84} />
-              <Skeleton height={84} />
-              <Skeleton height={84} />
+          {/* Search and filter skeleton */}
+          <div className="mb-6 flex items-center gap-4">
+            <Skeleton height={40} className="flex-1" />
+            <Skeleton width={40} height={40} />
             </div>
 
+          {/* Table skeleton */}
             <div className="bg-white rounded-xl shadow p-4 mb-6">
-              <div className="mb-3">
-                <Skeleton width={180} height={22} />
+            <div className="mb-4">
+              <Skeleton height={24} width={200} />
               </div>
+            {/* Table header */}
+            <div className="grid grid-cols-12 gap-2 py-3 border-b border-gray-200 mb-2">
+              {[...Array(12)].map((_, i) => (
+                <Skeleton key={`header-skel-${i}`} height={20} />
+              ))}
+            </div>
+            {/* Table rows */}
               {[...Array(5)].map((_, i) => (
-                <div key={`item-skel-${i}`} className="grid grid-cols-6 gap-3 py-2 border-b border-gray-200 last:border-0">
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
-                  <Skeleton height={18} />
+              <div key={`item-skel-${i}`} className="grid grid-cols-12 gap-2 py-3 border-b border-gray-200 last:border-0">
+                {[...Array(12)].map((_, j) => (
+                  <Skeleton key={`cell-skel-${i}-${j}`} height={18} />
+                ))}
                 </div>
               ))}
             </div>
 
+          {/* Supporting info skeleton */}
+          <div className="bg-white rounded-xl shadow p-4 mb-6">
+            <div className="mb-4">
+              <Skeleton height={24} width={200} />
+            </div>
+            <Skeleton height={100} className="mb-4" />
+            <div className="flex gap-2">
+              <Skeleton width={120} height={36} />
+              <Skeleton width={120} height={36} />
+            </div>
+          </div>
+
+          {/* Approval section skeleton */}
             <div className="bg-white rounded-xl shadow p-4">
-              <div className="mb-3">
-                <Skeleton width={180} height={22} />
+            <div className="mb-4">
+              <Skeleton height={24} width={200} />
               </div>
-              {[...Array(3)].map((_, i) => (
+            {[...Array(4)].map((_, i) => (
                 <div key={`appr-skel-${i}`} className="flex items-center justify-between py-3 border-b border-gray-200 last:border-0">
-                  <Skeleton width={140} height={18} />
+                <Skeleton width={200} height={20} />
                   <div className="flex items-center gap-4">
-                    <Skeleton width={160} height={18} />
-                    <Skeleton width={120} height={18} />
-                    <Skeleton width={90} height={18} />
+                  <Skeleton width={180} height={20} />
+                  <Skeleton width={120} height={20} />
+                  <Skeleton width={100} height={20} />
                   </div>
                 </div>
               ))}
             </div>
           </SkeletonTheme>
-        </div>
       </div>
     );
   }
@@ -1145,7 +1221,7 @@ export default function DamageView() {
   };
 
   // Always log asset_type / caseType / status for easier debugging in dev and QA environments
-  // eslint-disable-next-line no-console
+   
 
   return (
     <div className="min-h-screen bg-gray-100">

@@ -6,11 +6,10 @@ import { FaBell, FaCheckDouble } from "react-icons/fa";
 
 const Notification = ({ notifications, formBasedCount = null }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-//   const [upperNoti, setUpperNoti] = useState([]);
   const navigate = useNavigate();
- 
+
   const formDataUpperNoti = notifications?.formData ?? [];
-  const unreadNotiUpperNoti = upperNoti?.getUnreadNoti ?? [];
+  const unreadNotiUpperNoti = notifications?.getUnreadNoti ?? [];
   const countNotiUpperNoti = unreadNotiUpperNoti.length;
 
   return (
