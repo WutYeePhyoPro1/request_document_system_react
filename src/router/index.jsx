@@ -29,6 +29,10 @@ import Detail from "../pages/requestDiscount/detail.js";
 import MAndE from "../pages/MAndE/MAndE.jsx";
 import Index from "../pages/MAndE/Generator/index.js";
 import GeneratorCreate from "../pages/MAndE/Generator/generatorCreate.js";
+import IndexPriceChange from "../pages/pricechanges/IndexPriceChange.jsx";
+import CreatePriceChange from "../pages/pricechanges/CreatePriceChange.jsx";
+
+
 const LoginRoute = () => {
     const token = localStorage.getItem('token');
     return token ? <Navigate to="/dashboard" /> : <Login />;
@@ -145,7 +149,15 @@ const router = createBrowserRouter([
             {
                 path: "generator_create" ,
                 element: <GeneratorCreate/>
-            }
+            },
+            {
+                path: "price_changes" ,
+                element: <IndexPriceChange/>
+            },
+            {
+                path: "price_changes/create",
+                element: <CreatePriceChange />
+            },
         ]
     }
 ]);

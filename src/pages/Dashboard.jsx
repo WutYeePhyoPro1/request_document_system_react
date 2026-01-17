@@ -149,6 +149,7 @@ useEffect(() => {
     "CCTV Request Form": "📹",
     "Stock Adjust Form": "⚙️",
     "Coupon Voucher": "📑",
+    "Price Change Form": "💲"
     }
   const requests = allForm.map((form) => ({
     title:form?.name || '' ,
@@ -181,10 +182,10 @@ useEffect(() => {
           const count = formCounts[form.id] !== undefined ? formCounts[form.id] : null;
           const icon = formIcons[form.name] || "";
           const isActive =
-            form.name === "CCTV Request Form" ||
-
-            form.name === "Big Damage Issue Form" ||
-            form.name === "Request Discount Form";
+            form.name === "CCTV Request Form" 
+            || form.name === "Big Damage Issue Form" 
+            || form.name === "Request Discount Form" 
+            || form.name === "Price Change Form" ;
 
 
             form.name === "Big Damage Issue Form" ||
