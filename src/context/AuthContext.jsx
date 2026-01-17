@@ -15,10 +15,11 @@ const getUserFromStorage = () => {
         return null;
     }
 };
+const getTokenFromStorage = () => localStorage.getItem("token") || null;
 
-export const AuthProvider = ({ children }) => {
+    export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(getUserFromStorage());
-
+   const [token, setToken] = useState(getTokenFromStorage());
     const login = async (employee_number, password, remember = false) => {
         try {
             const response = await fetch("/api/login", {
@@ -26,12 +27,14 @@ export const AuthProvider = ({ children }) => {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ employee_number, password, remember }),
             });
-
+            
             const data = await response.json();
+            console.log("ApiData>>" , response.data) ;
 
             if (response.ok) {
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
+               
                 setUser(data.user);
                 return true;
             } else {
@@ -53,15 +56,36 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('notifications');
-        window.location.href = "/login"; // ✅ Safe redirect
-    };
+   const logout = async () => {
+    try {
+        const token = localStorage.getItem("token");
 
-    // ⏰ Auto logout when JWT token expires
+        if (token) {
+            await fetch("/api/logout", {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Accept": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+                credentials: "include",
+            });
+        }
+                console.log("Logout request success" , user);
+
+    } catch (e) {
+        console.warn("Logout request failed:", e);
+    } finally {
+        setUser(null);
+        setToken(null);
+
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("notifications");
+        window.location.replace("/login");
+        console.log("Logout request success" , user);
+    }
+};
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -98,16 +122,31 @@ export const AuthProvider = ({ children }) => {
 
     const loginWithToken = async (token) => {
         try {
-            const response = await axios.post('/api/auto-login', { token }); // Adjust endpoint as needed
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            
+            const response = await axios.post('/api/auto-login', { token }, {
+                withCredentials: true 
+            });
+            
             if (response.data && response.data.user) {
+                const enriched = { ...response.data.user };
+                if (!enriched.user_type) {
+                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
+                    enriched.user_type = 'A2';
+                  } else if (Number(enriched.role_id) === 3) {
+                    enriched.user_type = 'A1';
+                  }
+                }
+                
+                // Store new user data
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(response.data.user));
-                setUser(response.data.user);
+                localStorage.setItem('user', JSON.stringify(enriched));
+                setUser(enriched);
+                
+                console.log('[AUTO-LOGIN] User logged in:', enriched.name, enriched.emp_id);
                 return true;
-
-                // setUser(response.data.user);
-                // localStorage.setItem('authToken', token); // optional
-                // return true;
             }
         } catch (error) {
             console.error('Auto-login failed:', error);
@@ -117,7 +156,7 @@ export const AuthProvider = ({ children }) => {
 
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loginWithToken }}>
+        <AuthContext.Provider value={{ user, login, logout, loginWithToken , token}}>
             {children}
         </AuthContext.Provider>
     );

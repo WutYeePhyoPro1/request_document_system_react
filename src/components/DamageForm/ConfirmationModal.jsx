@@ -1,0 +1,71 @@
+import React from "react";
+import Modal from "react-modal";
+import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from 'react-i18next';
+
+Modal.setAppElement("#root");
+
+export default function ConfirmationModal({
+  show,
+  title,  
+  message,
+  onConfirm,
+  onCancel,
+}) {
+  const { t } = useTranslation();
+  const defaultTitle = title || t('confirmation.title');
+  const defaultMessage = message || t('confirmation.areYouSure');
+  return (
+    <Modal
+      isOpen={show}
+      onRequestClose={onCancel}
+      shouldCloseOnOverlayClick={true}
+      closeTimeoutMS={0}
+      overlayClassName="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50"
+      className="outline-none"
+    >
+      <AnimatePresence>
+        {show && (
+          <motion.div
+            key="modal"
+            initial={{ y: 40, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 20, opacity: 0, scale: 0.97 }}
+            transition={{
+              type: "spring",
+              stiffness: 260,
+              damping: 22,
+            }}
+            className="relative bg-white rounded-xl p-6 w-96 shadow-2xl"
+          >
+            <h2 className="text-lg font-semibold mb-4 text-gray-800">
+              {defaultTitle}
+            </h2>
+
+            <p className="mb-6 text-gray-600">{defaultMessage}</p>
+
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <button
+                  onClick={onConfirm}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-[#198754] text-white hover:bg-[#157347] focus:ring-4 focus:ring-emerald-300 transition"
+                >
+                  {t('common.confirm')}
+                </button>
+              </div>
+
+              <div>
+                <button
+                  onClick={onCancel}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 hover:bg-gray-300 transition"
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Modal>
+  );
+}

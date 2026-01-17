@@ -27,7 +27,7 @@ export default function CctvRecord() {
                 segments={[
                     { path: "/dashboard", label: "Home" },
                     { path: "/dashboard", label: "Dashboard" },
-                    { path: "/cctv-index", label: "Cctv Request" },
+                    { path: "/cctv_record", label: "Cctv Request" },
                     { path: "/cctv-request", label: "Cctv Record" }
                 ]}
             />

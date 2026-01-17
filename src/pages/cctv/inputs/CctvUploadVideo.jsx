@@ -41,7 +41,7 @@ export default function CctvUploadVideo({ recordId, generalId, docNo }) {
                     icon: 'success',
                     confirmButtonText: 'OK',
                     willClose: () => {
-                        navigate("/cctv-index");
+                        navigate("/cctv_record");
                     }
                 });
                 setIsUploaded(true);

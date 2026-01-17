@@ -1,0 +1,6230 @@
+// DamageFormLayout.jsx
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
+import DamageFormHeader from "./DamageFormHeader";
+import DamageItemTable from "./DamageItemTable";
+import SupportingInfo from "./SupportingInfo";
+import InvestigationFormModal from "./InvestigationModal";
+import ApprovalSection from "./ApprovalSection";
+import DamageAddProduct from "./DamageAddProduct";
+import ActionConfirmationModal from "./ActionConfirmationModal";
+import ValidationErrorModal from "./ValidationErrorModal";
+import SuccessModal from "./SuccessModal";
+import ErrorModal from "./ErrorModal";
+import AnimatedBackButton from "../common/AnimatedBackButton";
+import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText, Hash } from "lucide-react";
+import './ButtonHoverEffects.css';
+import './BoxesLoader.css';
+
+const extractImageArray = (item = {}) => {
+  if (!item || typeof item !== 'object') return [];
+
+  const candidates = [
+    item.img,
+    item.images,
+    item.damage_images,
+    item.damageImages,
+    item.photos,
+    item.attachments,
+    item.image,
+    item.media,
+    item.originalItem,
+    item.originalItem?.img,
+    item.originalItem?.images,
+    item.originalItem?.damage_images,
+    item.originalItem?.photos,
+    item.originalItem?.attachments,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate) && candidate.length > 0) {
+      return candidate;
+    }
+  }
+
+  return [];
+};
+
+const resolveInitialAttachments = (source = {}, fallback = []) => {
+  const safeSource = source && typeof source === 'object' ? source : {};
+
+  const coerceArray = (candidate) => {
+    if (!candidate) return [];
+    if (Array.isArray(candidate)) return candidate;
+    if (candidate?.data && Array.isArray(candidate.data)) return candidate.data;
+    return [];
+  };
+
+  const generalForm = safeSource.general_form || safeSource.generalForm || null;
+  const meta = safeSource.meta || {};
+
+  const possibleLists = [
+    coerceArray(safeSource.attachments),
+    coerceArray(safeSource.operation_files || safeSource.operationFiles),
+    coerceArray(safeSource.files),
+    coerceArray(safeSource.document_uploads || safeSource.documentUploads),
+    coerceArray(safeSource.supporting_files || safeSource.supportingFiles),
+    coerceArray(generalForm?.attachments),
+    coerceArray(generalForm?.files),
+    coerceArray(generalForm?.document_uploads || generalForm?.documentUploads),
+    coerceArray(generalForm?.operation_files || generalForm?.operationFiles),
+    coerceArray(safeSource.general_form_files || safeSource.generalFormFiles),
+    coerceArray(safeSource.document_uploads || safeSource.documentUploads),
+    coerceArray(meta?.attachments),
+  ];
+
+  const combined = possibleLists.flat().filter(Boolean);
+
+  if (!combined.length) {
+    return Array.isArray(fallback) ? [...fallback] : [];
+  }
+
+  const seen = new Set();
+  const normalized = [];
+
+  combined.forEach((attachment) => {
+    if (!attachment) return;
+
+    const entry = typeof attachment === 'object' ? { ...attachment } : { name: String(attachment) };
+    if (!entry || typeof entry !== 'object') return;
+
+    const fallbackName = entry.name
+      || entry.original_name
+      || entry.originalName
+      || entry.file_name
+      || entry.fileName
+      || entry.file
+      || entry.path
+      || entry.downloadUrl
+      || entry.url
+      || '';
+
+    const id = entry.id
+      || entry.uuid
+      || entry.key
+      || entry.document_id
+      || `${fallbackName}-${entry.size || ''}`;
+
+    if (seen.has(id)) return;
+    seen.add(id);
+
+    entry.id = id;
+
+    const resolvePublicUrl = (value) => {
+      if (typeof value !== 'string' || !value.trim()) return '';
+      const trimmed = value.trim();
+      if (/^(https?:)?\/\//i.test(trimmed) || trimmed.startsWith('data:')) {
+        return trimmed;
+      }
+      return `/api/public-files/${trimmed.replace(/^\/+/, '')}`;
+    };
+
+    if (!entry.previewUrl) {
+      entry.previewUrl = resolvePublicUrl(entry.url)
+        || resolvePublicUrl(entry.downloadUrl)
+        || resolvePublicUrl(entry.path)
+        || resolvePublicUrl(entry.file)
+        || entry.previewUrl;
+    }
+
+    if (!entry.downloadUrl) {
+      entry.downloadUrl = resolvePublicUrl(entry.file)
+        || resolvePublicUrl(entry.path)
+        || resolvePublicUrl(entry.url)
+        || entry.previewUrl
+        || entry.downloadUrl;
+    }
+
+    if (!entry.name) {
+      const derived = fallbackName ? fallbackName.split('/').pop() : '';
+      entry.name = derived || `attachment-${normalized.length + 1}`;
+    }
+
+    normalized.push(entry);
+  });
+
+  if (!normalized.length && Array.isArray(fallback)) {
+    return [...fallback];
+  }
+
+  return normalized;
+};
+
+export default function DamageFormLayout({ mode = "add", initialData = null }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Get user info from local storage
+  const getCurrentUser = () => {
+    try {
+      const userData = localStorage.getItem('user');
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const resolveSubmitterName = (data) => {
+    if (!data || typeof data !== 'object') return '';
+
+    const generalForm = data.general_form || {};
+
+    const candidates = [
+      data.requester_name,
+      data.originator_name,
+      data.created_by_name,
+      data.user_name,
+      data.user?.name,
+      data.requester?.name,
+      data.meta?.requester_name,
+      data.meta?.user?.name,
+      generalForm.requester_name,
+      generalForm.originator_name,
+      generalForm.created_by_name,
+      generalForm.request_user_name,
+      generalForm.requester?.name,
+      generalForm.user?.name,
+      generalForm.originators?.name,
+    ];
+
+    const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
+    return resolved ? resolved.trim() : '';
+  };
+
+  const ensurePreparedApproval = (approvalsList, fallbackName, metadata) => {
+    if (!Array.isArray(approvalsList)) return approvalsList;
+
+    const createdAt = metadata?.created_at || metadata?.general_form?.created_at || metadata?.general_form?.datetime || '';
+    let preparedFound = false;
+
+    const updated = approvalsList.map((approval) => {
+      if (!approval) return approval;
+
+      const label = (approval.label || approval.role || '').toLowerCase();
+      if (!label.includes('prepared')) {
+        return approval;
+      }
+
+      preparedFound = true;
+      const nameCandidates = [
+        approval.name,
+        approval.actual_user_name,
+        approval.actual_user_full_name,
+        approval.user?.name,
+        approval.raw?.name,
+        fallbackName,
+      ].filter((value) => typeof value === 'string' && value.trim());
+      const name = nameCandidates.length ? nameCandidates[0].trim() : '';
+
+      return {
+        ...approval,
+        name,
+        actual_user_name: name || approval.actual_user_name,
+        acted: approval.acted ?? Boolean(name),
+        date: approval.date || createdAt || approval.acted_at || approval.updated_at || '',
+      };
+    });
+
+    if (!preparedFound && fallbackName) {
+      return [
+        {
+          label: 'Prepared by',
+          name: fallbackName,
+          acted: true,
+          date: createdAt || new Date().toISOString(),
+        },
+        ...updated,
+      ];
+    }
+
+    return updated;
+  };
+
+  // Track original attachments (files that were loaded from server) to detect deletions
+  const [originalAttachments, setOriginalAttachments] = useState(() => {
+    const initialAttachments = resolveInitialAttachments(initialData);
+    // Only track files that are already saved on server (have downloadUrl or isRemote)
+    return initialAttachments.filter(att => att.downloadUrl || att.isRemote || att.id);
+  });
+
+  const [formData, setFormData] = useState(() => {
+    const user = getCurrentUser();
+    const initialRequester = resolveSubmitterName(initialData);
+    
+    // Check if iss_remark is in files
+    const files = initialData?.files || initialData?.general_form?.files || [];
+    const issFile = files.find(file => file.type === 'iss_remark' || file.category === 'iss');
+    
+    // Also check for nested files
+    const nestedFiles = initialData?.general_form?.files || [];
+    const nestedIssFile = nestedFiles.find(file => 
+      file.type === 'iss_remark' || 
+      file.category === 'iss' ||
+      file.file_type === 'iss_remark' ||
+      file.name?.includes('ISS') ||
+      file.description?.includes('ISS')
+    );
+    
+    // Check if iss_remark might be stored as a string in a different field
+    const possibleIssFields = [
+      'iss_number',
+      'iss_no',
+      'iss_code',
+      'document_number',
+      'doc_no'
+    ];
+    
+    let issNumber = null;
+    possibleIssFields.forEach(field => {
+      if (initialData?.[field]) {
+        issNumber = initialData[field];
+      }
+      if (initialData?.general_form?.[field]) {
+        issNumber = initialData.general_form[field];
+      }
+    });
+    
+    // Convert asset_type from backend format ("on"/"off") to frontend format ("Other income sell"/"Not sell")
+    const convertAssetTypeToCaseType = (value) => {
+      if (value === 'on') return 'Other income sell';
+      if (value === 'off') return 'Not sell';
+      // If already in frontend format, return as is
+      if (value === 'Other income sell' || value === 'Not sell') return value;
+      // Default fallback
+      return 'Not sell';
+    };
+    
+    return {
+      branch: "",
+      // Preserve caseType from initialData if it exists, otherwise default to "Not sell"
+      // Convert asset_type from backend if needed
+      caseType: convertAssetTypeToCaseType(
+        initialData?.caseType || 
+        initialData?.general_form?.caseType || 
+        initialData?.case_type || 
+        initialData?.general_form?.case_type ||
+        initialData?.asset_type ||
+        initialData?.general_form?.asset_type ||
+        "off"
+      ),
+      datetime: new Date().toISOString().slice(0, 16),
+      items: [],
+      reason: "",
+      g_remark: "",
+      requester_name: initialRequester || user?.name || "",
+      attachments: resolveInitialAttachments(initialData),
+      issue_remarks: initialData?.issue_remarks || [],
+      iss_remark: (() => {
+        // Priority 1: Direct iss_remark or iss_remark_type field from backend
+        if (initialData?.iss_remark) return initialData.iss_remark;
+        if (initialData?.iss_remark_type) return initialData.iss_remark_type;
+        if (initialData?.general_form?.iss_remark) return initialData.general_form.iss_remark;
+        if (initialData?.general_form?.iss_remark_type) return initialData.general_form.iss_remark_type;
+        
+        // Priority 2: Extract from general_form_files - the reason field contains the remark ID
+        const allFiles = [
+          ...(Array.isArray(initialData?.general_form?.files) ? initialData.general_form.files : []),
+          ...(Array.isArray(initialData?.general_form?.general_form_files) ? initialData.general_form.general_form_files : []),
+          ...(Array.isArray(initialData?.general_form_files) ? initialData.general_form_files : []),
+          ...(Array.isArray(initialData?.files) ? initialData.files : [])
+        ];
+        
+        // Find ISS_DOCUMENT files - prefer the one with ISS number (from issue stage) over the one from acknowledge stage
+        const issFiles = allFiles.filter(f => f && f.file === 'ISS_DOCUMENT');
+        
+        // Prefer the one with an ISS number (name field not empty) - this is from the issue stage
+        // If multiple have names, get the most recent one (highest ID or latest created_at)
+        let issFile = issFiles.find(f => f.name && f.name.trim() !== '' && f.name !== 'ISS_DOCUMENT');
+        
+        // If no file with ISS number found, get the most recent one (sorted by ID descending or created_at)
+        if (!issFile && issFiles.length > 0) {
+          issFiles.sort((a, b) => {
+            // Sort by ID descending (most recent first)
+            if (a.id && b.id) return b.id - a.id;
+            // Or by created_at if available
+            if (a.created_at && b.created_at) {
+              return new Date(b.created_at) - new Date(a.created_at);
+            }
+            return 0;
+          });
+          issFile = issFiles[0];
+        }
+        
+        if (issFile && issFile.reason) {
+          // reason field contains the remark ID
+          return issFile.reason;
+        }
+        
+        return null;
+      })(),
+      iss_numbers: Array.isArray(initialData?.iss_numbers)
+        ? [...initialData.iss_numbers]
+        : Array.isArray(initialData?.general_form?.iss_numbers)
+          ? [...initialData.general_form.iss_numbers]
+          : [],
+      systemQtyUpdated: Boolean(initialData?.systemQtyUpdated || initialData?.acc_status),
+      approvals: [
+        { label: "Prepared by", name: initialRequester || user?.name || "", date: new Date().toISOString() },
+        { label: "Checked by", name: "", date: "" },
+        { label: "Approved by", name: "", date: "" },
+        { label: "Issued by", name: "", date: "" },
+      ],
+    };
+  });
+
+  const [hasInvestigation, setHasInvestigation] = useState(false);
+  
+  const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+  
+  const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [successModalAction, setSuccessModalAction] = useState('');
+  const [successModalMessage, setSuccessModalMessage] = useState('');
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [errorModalMessage, setErrorModalMessage] = useState('');
+  // Use ref for synchronous duplicate submission prevention
+  const isSubmittingRef = useRef(false);
+  // Track submission ID to detect duplicate submissions
+  const submissionIdRef = useRef(null);
+  
+  // Track if form has been initialized to prevent overwriting user input
+  const formInitializedRef = useRef(false);
+  // Track if approvals have been fetched to prevent duplicate fetches
+  const approvalsFetchRef = useRef(false);
+  // Track if branch has been bootstrapped to prevent infinite loop
+  const branchBootstrappedRef = useRef(false);
+
+  useEffect(() => {
+    setCurrentUser(getCurrentUser());
+
+    const handleStorageChange = (event) => {
+      if (event?.key && event.key !== 'user') return;
+      setCurrentUser(getCurrentUser());
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  const normalizeRole = (value) => {
+    const raw = (value || '').toString().toLowerCase().trim();
+    if (!raw) return '';
+
+
+    // IMPORTANT: Check for operation manager patterns FIRST (before BM)
+    // This ensures "assistant operation manager" is detected as op_manager, not bm
+    if (/assistant.*operation.*manager|assistant.*op.*manager|assistant\s*op\s*manager/i.test(value)) {
+      return 'op_manager';
+    }
+    if (/operation.*manager|op.*manager|operation_manager|op_manager|^op$|^a2$/i.test(raw)) {
+      return 'op_manager';
+    }
+
+    if (/branch\s*lp|loss\s*prevention|checker|branch_checker|lp/i.test(value)) return 'branch_lp';
+    // Check for BM/ABM but exclude operation manager patterns
+    if (/bm|branch manager|abm/.test(raw) && !/operation|assistant.*op|op.*manager/.test(raw)) return 'bm';
+    if (/account|ac_?acknowledged/.test(raw)) return 'account';
+    if (/supervisor|cs/.test(raw)) return 'supervisor';
+    
+    return raw;
+  };
+
+  const extractRoleValue = (user) => {
+    if (!user || typeof user !== 'object') return '';
+
+
+    // First check user_type - A2 maps to operation manager
+    // Check in multiple locations: direct field, nested role object, etc.
+    const userTypeCandidates = [
+      user?.user_type,
+      user?.userType,
+      user?.role?.user_type,
+      user?.role?.userType,
+      user?.role_type?.user_type,
+      user?.roleType?.user_type,
+    ].filter(Boolean);
+    
+    for (const candidate of userTypeCandidates) {
+      const upperCandidate = candidate.toString().toUpperCase().trim();
+      if (upperCandidate === 'A2' || upperCandidate === 'OP') {
+        return 'op_manager';
+      }
+      // Map A1 (approver / branch manager) to 'bm' for role resolution
+      if (upperCandidate === 'A1' || upperCandidate === 'APPROVER') {
+        return 'bm';
+      }
+    }
+
+    // Check position/designation field FIRST - "assistant operation manager" should map to op_manager
+    // This must be checked before role_name to avoid false matches
+    const position = user?.position || user?.designation || '';
+    if (position) {
+      const positionLower = position.toString().toLowerCase().trim();
+      if (positionLower.includes('assistant') && positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+      if (positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+    }
+
+    const roleKeys = [
+      'user_type', // Check user_type first (A2 = operation manager, OP = operation manager)
+      'userType',
+      'position', // Check position early - "assistant operation manager" is here
+      'designation',
+      'role',
+      'role_name',
+      'roleName',
+      'user_role',
+      'userRole',
+      'role_type',
+      'roleType',
+      'type',
+      'roles',
+      'user_roles',
+    ];
+
+    const nestedKeys = [
+      'user_type', // Check user_type in nested objects too
+      'userType',
+      'name',
+      'role',
+      'role_name',
+      'roleName',
+      'type',
+      'code',
+      'title',
+    ];
+
+    const extractFromValue = (value) => {
+      if (typeof value === 'string') {
+        // If value is user_type (A2 or OP), normalize to op_manager
+        const upperValue = value.toUpperCase().trim();
+        if (upperValue === 'A2' || upperValue === 'OP') {
+          return 'op_manager';
+        }
+        return value.trim();
+      }
+      if (Array.isArray(value)) {
+        for (const entry of value) {
+          const nested = extractFromValue(entry);
+          if (nested) return nested;
+        }
+      }
+      if (typeof value === 'object' && value) {
+        for (const key of nestedKeys) {
+          const nested = value[key];
+          if (typeof nested === 'string' && nested.trim()) {
+            // If key is user_type or userType, check if value is A2 or OP
+            if ((key === 'user_type' || key === 'userType') && (nested.toUpperCase().trim() === 'A2' || nested.toUpperCase().trim() === 'OP')) {
+              return 'op_manager';
+            }
+            return nested.trim();
+          }
+        }
+      }
+      return '';
+    };
+
+    for (const key of roleKeys) {
+      const value = user[key];
+      if (value !== undefined && value !== null) {
+      }
+      const extracted = extractFromValue(value);
+      if (extracted) {
+        
+        // CRITICAL: If extracted value is user_type A2 or OP, return op_manager immediately
+        const extractedUpper = extracted.toString().toUpperCase().trim();
+        if (extractedUpper === 'A2' || extractedUpper === 'OP') {
+          return 'op_manager';
+        }
+        
+        // If extracted value is "assistant operation manager" or similar, normalize it
+        const extractedLower = extracted.toString().toLowerCase().trim();
+        if (extractedLower.includes('assistant') && extractedLower.includes('operation') && extractedLower.includes('manager')) {
+          return 'op_manager';
+        }
+        if (extractedLower.includes('operation') && extractedLower.includes('manager')) {
+          return 'op_manager';
+        }
+        
+        // If extracted value is "approver" and user_type is A2, return op_manager
+        // (Don't return 'bm' if user_type is A2)
+        if (extractedLower === 'approver' || extractedLower === 'bm' || extractedLower === 'branch manager') {
+          // Double-check user_type before returning 'bm'
+          const checkUserType = (user?.user_type || user?.userType || user?.role?.user_type || user?.role?.userType || '').toString().toUpperCase().trim();
+          if (checkUserType === 'A2' || checkUserType === 'OP') {
+            return 'op_manager';
+          }
+        }
+        
+        return extracted;
+      }
+    }
+
+    const roleIdCandidates = [
+      user?.role_id,
+      user?.roleId,
+      user?.role?.id,
+      user?.role?.role_id,
+    ].filter((value) => typeof value === 'number' || (typeof value === 'string' && value.trim()));
+
+    if (roleIdCandidates.length) {
+      const roleIdMap = new Map([
+        [2, 'branch_lp'],
+        [3, 'bm'],
+        [4, 'op_manager'],
+        [5, 'op_manager'],
+        [7, 'account'], // Branch Account
+        [8, 'account'], // Also account
+        [10, 'supervisor'], // Supervisor
+      ]);
+
+      for (const candidate of roleIdCandidates) {
+        const numeric = typeof candidate === 'string' ? Number(candidate) : candidate;
+        if (!Number.isNaN(numeric) && roleIdMap.has(numeric)) {
+          return roleIdMap.get(numeric);
+        }
+      }
+    }
+
+    return '';
+  };
+
+  const getRole = () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      if (!storedUser) return '';
+
+      return normalizeRole(extractRoleValue(storedUser));
+    } catch { 
+      return ''; 
+    }
+  };
+
+  const getUserRole = () => {
+    // COMPREHENSIVE user_type check from ALL possible sources
+    const getAllUserTypes = () => {
+      const sources = [];
+      
+      // Check currentUser (from localStorage)
+      if (currentUser) {
+        sources.push(
+          currentUser?.user_type,
+          currentUser?.userType,
+          currentUser?.role?.user_type,
+          currentUser?.role?.userType,
+          currentUser?.role_type?.user_type,
+          currentUser?.roleType?.user_type,
+        );
+      }
+      
+      // Check initialData
+      if (initialData) {
+        sources.push(
+          initialData?.current_user?.user_type,
+          initialData?.currentUser?.user_type,
+          initialData?.current_user?.userType,
+          initialData?.currentUser?.userType,
+          initialData?.current_user?.role?.user_type,
+          initialData?.currentUser?.role?.user_type,
+          initialData?.user?.user_type,
+          initialData?.user?.userType,
+          initialData?.user_type,
+          initialData?.userType,
+        );
+      }
+      
+      // Check localStorage directly
+      try {
+        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        if (storedUser) {
+          sources.push(
+            storedUser?.user_type,
+            storedUser?.userType,
+            storedUser?.role?.user_type,
+            storedUser?.role?.userType,
+          );
+        }
+      } catch (e) {}
+      
+      return sources.filter(Boolean);
+    };
+    
+    const allUserTypes = getAllUserTypes();
+    
+    // Check if ANY source has A2 or OP
+    for (const userType of allUserTypes) {
+      const upperType = userType.toString().toUpperCase().trim();
+      if (upperType === 'A2' || upperType === 'OP') {
+        return 'op_manager';
+      }
+    }
+
+    const backendSources = [
+      initialData?.current_user,
+      initialData?.currentUser,
+      initialData?.user,
+      initialData?.meta?.current_user,
+      initialData?.meta?.user,
+    ].filter(Boolean);
+
+    let backendRole = '';
+    for (const source of backendSources) {
+      backendRole = extractRoleValue(source);
+      if (backendRole) {
+        break;
+      }
+    }
+
+    if (!backendRole) {
+      const scalarCandidates = [
+        initialData?.current_user_role,
+        initialData?.currentUserRole,
+        initialData?.role,
+        initialData?.user_role,
+        initialData?.userRole,
+        initialData?.current_role,
+        initialData?.user_type, // Also check user_type from initialData
+      ].filter((item) => typeof item === 'string' && item.trim().length);
+      backendRole = scalarCandidates.length ? scalarCandidates[0] : '';
+      if (backendRole) {
+      }
+    }
+
+    const extractedFromCurrentUser = extractRoleValue(currentUser);
+    if (extractedFromCurrentUser) {
+    }
+    
+    const role = extractedFromCurrentUser || backendRole || getRole();
+    
+    // BEFORE normalization, check if user_type is A2 or OP from ALL sources - if so, return op_manager immediately
+    const preNormalizeUserTypes = [
+      currentUser?.user_type,
+      currentUser?.userType,
+      currentUser?.role?.user_type,
+      currentUser?.role?.userType,
+      initialData?.current_user?.user_type,
+      initialData?.currentUser?.user_type,
+      initialData?.current_user?.role?.user_type,
+      initialData?.currentUser?.role?.user_type,
+      initialData?.user?.user_type,
+      initialData?.user?.userType,
+      initialData?.user_type,
+    ].filter(Boolean);
+    
+    
+    for (const userType of preNormalizeUserTypes) {
+      const upperUserType = userType.toString().toUpperCase().trim();
+      if (upperUserType === 'A2' || upperUserType === 'OP') {
+        return 'op_manager';
+      }
+    }
+    
+    const normalized = normalizeRole(role);
+    
+    // If normalized is still 'bm' but user_type is A2 or position contains 'operation manager', force override
+    if (normalized === 'bm') {
+      const allPositionFields = [
+        currentUser?.position,
+        currentUser?.designation,
+        initialData?.current_user?.position,
+        initialData?.currentUser?.position,
+      ].filter(Boolean);
+      
+      for (const posField of allPositionFields) {
+        const posLower = posField.toString().toLowerCase().trim();
+        if (posLower.includes('assistant') && posLower.includes('operation') && posLower.includes('manager')) {
+          return 'op_manager';
+        }
+        if (posLower.includes('operation') && posLower.includes('manager')) {
+          return 'op_manager';
+        }
+      }
+    }
+
+    // FINAL check: if user_type is A2 or OP from ANY source, force op_manager
+    const finalUserTypes = [
+      currentUser?.user_type,
+      currentUser?.userType,
+      currentUser?.role?.user_type,
+      currentUser?.role?.userType,
+      initialData?.current_user?.user_type,
+      initialData?.currentUser?.user_type,
+      initialData?.current_user?.role?.user_type,
+      initialData?.currentUser?.role?.user_type,
+      initialData?.user?.user_type,
+      initialData?.user?.userType,
+      initialData?.user_type,
+    ].filter(Boolean);
+    
+    
+    for (const userType of finalUserTypes) {
+      const upperUserType = userType.toString().toUpperCase().trim();
+      if ((upperUserType === 'A2' || upperUserType === 'OP') && normalized !== 'op_manager') {
+        return 'op_manager';
+      }
+    }
+
+    // Check position field - "assistant operation manager" should map to op_manager
+    const position = currentUser?.position || currentUser?.designation || 
+                    initialData?.current_user?.position || 
+                    initialData?.currentUser?.position || '';
+    if (position) {
+      const positionLower = position.toString().toLowerCase().trim();
+      if (positionLower.includes('assistant') && positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+      if (positionLower.includes('operation') && positionLower.includes('manager')) {
+        return 'op_manager';
+      }
+    }
+
+    return normalized;
+  };
+  
+  const userRole = useMemo(() => {
+    const role = getUserRole();
+    return role;
+  }, [currentUser]);
+  
+  // Robust checker detection: combines getUserRole(), currentUser fields and initialData
+  const isCurrentUserChecker = useMemo(() => {
+    try {
+      const fromGet = (getUserRole() || '').toString().toLowerCase();
+      // Treat explicit 'branch_lp' role and role_id 2 as checker as requested
+      if (fromGet === 'branch_lp') return true;
+      if (fromGet.includes('check') || fromGet === 'c' || fromGet === 'cs') return true;
+      const cur = currentUser || {};
+      // Check numeric role id fields that may indicate branch_lp (role_id === 2)
+      const roleIdCandidates = [
+        cur.role_id,
+        cur.roleId,
+        cur.role?.id,
+        cur.role?.role_id,
+      ].filter(Boolean);
+      for (const rid of roleIdCandidates) {
+        const numeric = typeof rid === 'string' ? Number(rid) : rid;
+        if (!Number.isNaN(numeric) && Number(numeric) === 2) return true;
+      }
+      const userType = (cur.user_type || cur.userType || '').toString().toLowerCase();
+      if (userType === 'c' || userType === 'cs') return true;
+      const roleCandidates = [
+        cur.role,
+        cur.role_name,
+        cur.roleName,
+        cur.position,
+        cur.job_title,
+        cur.designation
+      ].filter(Boolean).map(v => v.toString().toLowerCase());
+      for (const r of roleCandidates) {
+        if (r.includes('check') || r.includes('checker')) return true;
+      }
+      // Also check initialData if available (sometimes backend provides user info there)
+      const initRoles = [
+        initialData?.current_user?.role,
+        initialData?.current_user?.role_name,
+        initialData?.user?.role,
+        initialData?.user?.role_name
+      ].filter(Boolean).map(v => v.toString().toLowerCase());
+      for (const r of initRoles) {
+        if (r.includes('check') || r.includes('checker')) return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }, [currentUser, initialData]);
+
+  // Resolve form status from multiple possible fields (formData, nested general_form, or initialData)
+  const resolvedStatusRaw = formData?.status || formData?.general_form?.status || initialData?.status || initialData?.general_form?.status || initialData?.generalForm?.status || '';
+  const resolvedStatus = resolvedStatusRaw ? String(resolvedStatusRaw).trim().replace(/\s+/g, ' ') : '';
+  const resolvedStatusLower = resolvedStatus.toLowerCase();
+  // Force-hide UI for checkers when viewing a form — but only when the form is already Checked.
+  // This ensures checkers can still see remark/attachments on Ongoing forms.
+  const hideUiForCheckerInView = (mode === 'view' || mode === 'readonly') && isCurrentUserChecker && (resolvedStatusLower === 'checked');
+  
+  // Detect if the current user is the checker who already acted on this form (checked)
+  const isCheckerWhoApproved = useMemo(() => {
+    try {
+      const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId || currentUser?.user_id || currentUser?.adminId;
+      const currentUserName = (currentUser?.name || currentUser?.full_name || currentUser?.username || '').toString().toLowerCase().trim();
+      const currentUserEmail = (currentUser?.email || currentUser?.user_email || '').toString().toLowerCase().trim();
+      if (!approvals.length) return false;
+
+      const checkerApproval = approvals.find(approval => {
+        const userTypeRaw = (approval?.user_type || approval?.raw?.user_type || approval?.user?.role?.user_type || approval?.role_type || '').toString().toLowerCase();
+        const label = (approval?.label || approval?.role || approval?.raw?.label || '').toString().toLowerCase();
+        const adminId = approval?.admin_id || approval?.raw?.admin_id;
+        const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+        const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+        const allIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+        const idMatches = currentUserId ? allIds.some(id => String(id) === String(currentUserId)) : false;
+        const approvalName = (approval?.actual_user_name || approval?.name || approval?.raw?.actual_user_name || approval?.raw?.name || approval?.user?.name || '').toString().toLowerCase().trim();
+        const nameMatches = currentUserName && approvalName && approvalName === currentUserName;
+        const approvalEmail = (approval?.actual_user_email || approval?.email || approval?.user?.email || '').toString().toLowerCase().trim();
+        const emailMatches = currentUserEmail && approvalEmail && approvalEmail === currentUserEmail;
+
+        const isCheckerApproval = userTypeRaw === 'c' || userTypeRaw === 'cs' || userTypeRaw.includes('check') || label.includes('check') || (approval?.role || '').toString().toLowerCase().includes('checker');
+
+        return isCheckerApproval && (idMatches || nameMatches || emailMatches);
+      });
+
+      return Boolean(checkerApproval) && (String((formData?.status || formData?.general_form?.status || initialData?.status || initialData?.general_form?.status) || '').toLowerCase().trim() === 'checked');
+    } catch (e) {
+      return false;
+    }
+  }, [currentUser, formData?.approvals, formData?.status]);
+
+  // Check if user is operation manager based on approvals (matching Laravel Op_Manager logic)
+  // Laravel Op_Manager($data) checks:
+  // - ApprovalProcessUser where user_type='OP', general_form_id=$data->id, admin_id=getAuthUser()->id
+  // - AND status in ['BM Approved', 'Approved', 'HR Checked']
+  // - AND user exists
+  const isOpManagerByApproval = useMemo(() => {
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    if (!currentUserId) {
+      return false;
+    }
+    
+    // Get general_form_id from multiple sources
+    const generalFormId = formData?.general_form_id || formData?.generalFormId || formData?.id || initialData?.id || initialData?.generalFormId || initialData?.general_form_id;
+    if (!generalFormId) {
+      return false;
+    }
+    
+    const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+    
+    // Check if user has approval entry with user_type: 'OP' or 'A2'
+    // Match Laravel exactly: user_type='OP', admin_id=current_user_id, status in ['BM Approved', 'Approved', 'HR Checked']
+    // Also check 'A2' since some approvals might use 'A2' instead of 'OP'
+    // IMPORTANT: The approval entry might have status='Pending' when form is 'BM Approved'
+    // Laravel checks admin_id, not actual_user_id (actual_user_id is null until approval is done)
+    const opApproval = approvals.find(approval => {
+      // Check admin_id (Laravel checks this) - this is set when approval entry is created
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      // actual_user_id might be null until approval is done
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      // Check all possible user ID fields
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const approvalStatus = (approval?.status || approval?.raw?.status || '').toString().trim();
+      
+      // Laravel checks user_type='OP', but also check 'A2' for compatibility
+      const userTypeMatches = userType === 'OP' || userType === 'A2';
+      
+      // Check if admin_id matches current user (Laravel checks admin_id=getAuthUser()->id)
+      // admin_id is the key field - it's set when the approval entry is assigned to the user
+      // NOTE: The API response doesn't include admin_id, so we need to check differently
+      const userIdMatches = adminId && (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId));
+      
+      // Also check other user ID fields as fallback
+      const otherUserIdMatches = allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+      
+      const formStatus = (formData?.status || '').toString().trim();
+      const formStatusMatches = formStatus === 'BM Approved' || formStatus === 'BMApproved';
+      
+      // Get total amount for fallback check
+      const totalAmount = Number(
+        formData?.general_form?.total_amount
+        ?? formData?.total_amount
+        ?? formData?.general_form?.totalAmount
+        ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
+        ?? 0
+      );
+      const requiresOpManagerApproval = totalAmount > 500000;
+      
+      // Laravel checks status in ['BM Approved', 'Approved', 'HR Checked']
+      // But when form is 'BM Approved', the OP approval entry might still be 'Pending' until approval
+      // So if form status is 'BM Approved' and amount > 500000, allow it even if approval status is 'Pending'
+      const statusMatches = ['BM Approved', 'BMApproved', 'Approved', 'HR Checked'].includes(approvalStatus);
+      
+      // CRITICAL: Since API doesn't return admin_id in the response, we need a different approach
+      // Laravel's Op_Manager() checks admin_id, but since we don't have it in the API response,
+      // we need to check if there's an OP approval entry when form is 'BM Approved' with amount > 500000
+      // The backend will verify admin_id match when submitting the approval (like Laravel does)
+      
+      // If form is 'BM Approved', amount > 500000, and there's an OP approval entry,
+      // allow the operation manager to see the button (backend will verify admin_id on submit)
+      // This matches Laravel blade behavior - it shows the button if Op_Manager() returns true
+      // Since API doesn't return admin_id, we check if OP approval entry exists and let backend verify
+      const hasOPApprovalEntry = userTypeMatches;
+      
+      // Check if admin_id matches if it's available (might be in raw object or other sources)
+      // Note: API response doesn't include admin_id, so this will often be false, but check anyway
+      const adminIdMatches = adminId ? (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId)) : false;
+      
+      // Fallback: If form is 'BM Approved' and amount > 500000, and we have OP/A2 approval entry,
+      // allow it (backend will verify admin_id when approval is submitted)
+      // This handles the case where admin_id is not in API response
+      // Since Laravel blade works, the approval entry must exist with matching admin_id in database
+      // We'll show the button and let backend verify on submit
+      const fallbackMatch = formStatusMatches && requiresOpManagerApproval && hasOPApprovalEntry;
+      
+      // Match if: 
+      // 1. (user_type matches AND admin_id matches AND status matches Laravel's check), OR
+      // 2. (fallback: form is BM Approved, amount > 500000, and OP approval entry exists)
+      // The second case handles when API doesn't return admin_id - backend will verify on submit
+      const matches = (userTypeMatches && adminIdMatches && statusMatches) || fallbackMatch;
+      
+      if (userTypeMatches) {
+        // Found OP/A2 approval entry
+      }
+      
+      return matches;
+    });
+    
+    // If we found an OP approval entry that matches, return true
+    // Also check if user role is op_manager (from role_id or role name)
+    const hasOpApprovalEntry = Boolean(opApproval);
+    const result = hasOpApprovalEntry && currentUser;
+    
+    return Boolean(result);
+  }, [currentUser, formData.approvals, formData.status, formData.general_form_id, formData.generalFormId, formData.id, initialData?.id, initialData?.generalFormId, initialData?.general_form_id]);
+
+  // User is op_manager if role name matches OR if they have OP approval entry
+  const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
+  
+  
+
+  // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
+  // Laravel Ac_Manager() checks: ApprovalProcessUser where user_type='AC', admin_id=current_user_id, status='OPApproved'
+  // Check if Branch Manager is viewing a form they already approved - hide buttons in this case
+  const isBMViewingOwnApprovedForm = useMemo(() => {
+    const role = getUserRole();
+    const isBMOrABM = role === 'bm' || role === 'abm';
+    if (!isBMOrABM) return false;
+    
+    const normalizedStatus = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+    if (normalizedStatus !== 'BM Approved' && normalizedStatus !== 'BMApproved') {
+      return false;
+    }
+    
+    const currentUserName = currentUser?.name || '';
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId || null;
+    const approvals = formData?.approvals || [];
+    
+    // Find if current user is the one who approved (BM Approved status)
+    const approvedByApproval = approvals.find(a => {
+      const label = (a.label || '').toLowerCase();
+      const isBMApprovalLabel = label.includes('bm approved') || 
+                                (label.includes('approved by') && !label.includes('operation'));
+      
+      if (!isBMApprovalLabel) return false;
+      
+      // Check name fields - extract name from text that might include role in parentheses
+      const approvalNameRaw = a.name || a.actual_user_name || a.assigned_name || 
+                          a.approver_name || a.user?.name || a.user_name || '';
+      // Remove role information in parentheses (e.g., "Kyaw Swar Win (BM/ABM)" -> "Kyaw Swar Win")
+      const approvalName = approvalNameRaw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      const currentUserNameClean = currentUserName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+      
+      const nameMatches = approvalName && currentUserNameClean && 
+                         (approvalName.toLowerCase() === currentUserNameClean.toLowerCase() ||
+                          approvalName.toLowerCase().includes(currentUserNameClean.toLowerCase()) ||
+                          currentUserNameClean.toLowerCase().includes(approvalName.toLowerCase()));
+      
+      // Check user ID if available
+      const approvalUserId = a.admin_id || a.actual_user_id || a.user_id || a.user?.id || null;
+      const idMatches = currentUserId && approvalUserId && 
+                       (Number(approvalUserId) === Number(currentUserId));
+      
+      return nameMatches || idMatches;
+    });
+    
+    // Debug logging
+    // Removed console.log for BM Viewing Own Approved Form Check
+    
+    return !!approvedByApproval;
+  }, [currentUser, formData.status, formData.approvals]);
+
+  const isAccountByApproval = useMemo(() => {
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    if (!currentUserId) return false;
+    
+    const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+    if (!approvals.length) return false;
+    
+    // Check if user has approval entry with user_type: 'AC' (Account)
+    const accountApproval = approvals.find(approval => {
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      const userType = approval?.user_type || approval?.raw?.user_type || '';
+      const approvalStatus = approval?.status || approval?.raw?.status || '';
+      const label = (approval?.label || approval?.role || '').toString().toLowerCase();
+      
+      const userTypeMatches = (userType === 'AC' || userType === 'ACK');
+      const labelMatches = label.includes('account') || label.includes('acknowledge');
+      
+      let userIdMatches = false;
+      if (allUserIds.length > 0) {
+        userIdMatches = allUserIds.some(id => 
+          String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+        );
+      } else if (labelMatches && userTypeMatches) {
+        const currentStatus = (formData.status || '').trim();
+        userIdMatches = ['OPApproved', 'OP Approved', 'BM Approved', 'BMApproved', 'Completed'].includes(currentStatus);
+      }
+      
+      // Laravel Ac_Manager checks status === 'OPApproved'
+      const statusMatches = ['OPApproved', 'OP Approved', 'BM Approved', 'BMApproved', 'Pending'].includes(approvalStatus);
+      const formStatus = (formData.status || '').trim();
+      const formStatusAllows = ['OPApproved', 'OP Approved', 'BM Approved', 'BMApproved', 'Completed'].includes(formStatus);
+      
+      return (userTypeMatches || labelMatches) && userIdMatches && (statusMatches || formStatusAllows);
+    });
+    
+    return Boolean(accountApproval);
+  }, [currentUser, formData.approvals, formData.status]);
+
+  // User is account if role name matches OR if they have AC approval entry
+  const isAccount = userRole === 'account' || isAccountByApproval;
+
+  const isDocumentOwner = currentUser?.id === initialData?.userId;
+  // When the document owner is viewing an existing Ongoing form in view mode (not add/edit),
+  // they should not be allowed to add products, edit remark, upload attachments, or delete attachments.
+  const isDocumentOwnerViewingOngoingBack = useMemo(() => {
+    const status = (formData?.status || '').toString().toLowerCase();
+    const isOngoing = status === 'ongoing';
+    // Consider view mode if not editing, or specially when in 'add' mode but the form already has an id (submitted)
+    const isViewMode = (mode !== 'add' && mode !== 'edit') || (mode === 'add' && Boolean(formData?.id));
+    return Boolean(isDocumentOwner && isOngoing && isViewMode);
+  }, [isDocumentOwner, formData?.status, mode, formData?.id]);
+
+  
+  // Fix incorrect "Checked by" name if current user is supervisor and their name is in Checked by
+  useEffect(() => {
+    const currentUser = getCurrentUser();
+    const userRole = getUserRole();
+    
+    if (userRole === 'supervisor' && formData.approvals) {
+      const checkedByApproval = formData.approvals.find(a => 
+        a.label?.toLowerCase().includes('checked by') && 
+        a.name === currentUser?.name
+      );
+      
+      if (checkedByApproval) {
+        setFormData(prev => ({
+          ...prev,
+          approvals: prev.approvals.map(approval => 
+            approval.label?.toLowerCase().includes('checked by')
+              ? { ...approval, name: '', status: 'Pending', acted: false }
+              : approval
+          )
+        }));
+      }
+    }
+  }, [formData.status]); // Run when status changes
+
+  // Memoize derived values to prevent unnecessary re-renders
+  const isApprover = true;
+  
+  const resolveBackendStatus = (action) => {
+    switch ((action || '').trim()) {
+      case 'BMApproved':
+        return 'BM Approved';
+      case 'Proceed':
+        return 'Completed';
+      case 'OPApproved':
+        return 'Completed';
+      case 'Ac_Acknowledged':
+        // Operation Manager acknowledges - form status should be Ac_Acknowledged
+        // Account users will then see it and can issue it (which changes to Completed)
+        return 'Ac_Acknowledged';
+      case 'BMApprovedMem':
+        return 'Checked';
+      case 'Completed':
+        return 'Completed';
+      case 'SupervisorIssued':
+        return 'Completed'; // Supervisor step removed - map to Completed
+      case 'BackToPrevious':
+        // Send the btp value directly to backend (op_btp, bm_btp, bracc_btp)
+        // Backend will handle the status change based on the btp value:
+        // - op_btp: goes back to 'Checked' (OP Manager sending back from OPApproved)
+        // - bm_btp: goes back to 'Ongoing' (BM sending back from Checked)
+        // - bracc_btp: goes back to 'BM Approved' or 'Checked' (Account sending back)
+        if (apiActions?.btp) {
+          return apiActions.btp; // Send btp value directly (op_btp, bm_btp, bracc_btp)
+        }
+        // Fallback: determine based on current status
+        // This fallback logic matches the backend's api_actions method
+        const currentStatus = formData.status || '';
+        const normalizedStatus = currentStatus.trim();
+        
+        // OP Manager clicking back from 'OP Approved' → op_btp
+        if (normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') {
+          return 'op_btp';
+        } 
+        // Account/Branch Account clicking back from 'Acknowledged' or similar statuses → bracc_btp
+        else if (normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
+          return 'bracc_btp';
+        }
+        // BM or Account clicking back from 'BM Approved' → bracc_btp (Account user)
+        else if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') {
+          return 'bracc_btp';
+        }
+        // BM clicking back from 'Checked' → bm_btp (goes back to Ongoing)
+        else if (normalizedStatus === 'Checked') {
+          return 'bm_btp';
+        }
+        return 'Checked'; // Default fallback
+      case 'backtoprevious':
+        // Handle lowercase variant - use apiActions.btp if available
+        if (apiActions?.btp) {
+          return apiActions.btp;
+        }
+        return 'Checked'; // Default fallback
+      case 'Cancel':
+        return 'Cancel';
+      default:
+        return action;
+    }
+  };
+  
+  const acknowledgeAliases = new Set([
+    'acknowledge',
+    'account',
+    'ack',
+    'acknowledged',
+    'acknowledgement',
+    'branch_account',
+    'branchaccount',
+    'supervisor',
+  ]);
+
+  const isAcknowledgeUser = acknowledgeAliases.has(userRole);
+
+  if (process.env.NODE_ENV !== 'production') {
+    // eslint-disable-next-line no-console
+  }
+  
+  // Resolve investigation data from multiple possible sources
+  const investigationData = useMemo(() => {
+    return formData?.investigation || 
+           formData?.investigate || 
+           formData?.general_form?.investigation || 
+           formData?.general_form?.investigate || 
+           null;
+  }, [formData?.investigation, formData?.investigate, formData?.general_form?.investigation, formData?.general_form?.investigate]);
+
+  // Normalize percentage values for validation
+  const normalizeInvestigationPct = useCallback((value) => {
+    if (value === null || typeof value === 'undefined' || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }, []);
+
+  const baseInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.bm_company ?? investigationData.companyPct),
+      normalizeInvestigationPct(investigationData.bm_user ?? investigationData.userPct),
+      normalizeInvestigationPct(investigationData.bm_income ?? investigationData.incomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
+  const operationInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.op_company ?? investigationData.opCompanyPct),
+      normalizeInvestigationPct(investigationData.op_user ?? investigationData.opUserPct),
+      normalizeInvestigationPct(investigationData.op_income ?? investigationData.opIncomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
+  const accountInvestigationValidation = useMemo(() => {
+    if (!investigationData) return { hasAny: false, hasAll: false, total: 0, isValid: false };
+    const values = [
+      normalizeInvestigationPct(investigationData.acc_company ?? investigationData.accCompanyPct),
+      normalizeInvestigationPct(investigationData.acc_user ?? investigationData.accUserPct),
+      normalizeInvestigationPct(investigationData.acc_income ?? investigationData.accIncomePct),
+    ];
+    const hasAny = values.some(v => v !== null);
+    const hasAll = values.every(v => v !== null);
+    const total = hasAll ? values.reduce((sum, v) => sum + v, 0) : 0;
+    return {
+      hasAny,
+      hasAll,
+      total,
+      isValid: hasAll && Math.abs(total - 100) < 0.01 && total > 0,
+    };
+  }, [investigationData, normalizeInvestigationPct]);
+
+  // Check if investigation form is filled (required for BM approval at Checked status)
+  const isInvestigationFilled = useMemo(() => {
+    if (!investigationData) {
+      return false;
+    }
+    
+    // Check if BM reason is filled (required for BM role)
+    const hasBmReason = Boolean(investigationData.bm_reason && investigationData.bm_reason.trim());
+    
+    // Investigation is filled if it has BM reason and valid percentages
+    return hasBmReason && baseInvestigationValidation.isValid;
+  }, [investigationData, baseInvestigationValidation]);
+  
+  const showInvestigationButton = () => {
+    const statusRaw =
+      formData.status ??
+      formData.general_form?.status ??
+      formData.big_damage_issue?.status ??
+      'Ongoing';
+    const status = (statusRaw || '').toString().trim();
+    
+    // Show investigation button when status is Completed, Issued, or SupervisorIssued
+    if (status === 'Completed' || status === 'Issued' || status === 'SupervisorIssued') {
+      return true;
+    }
+    
+    // Show investigation button for all users at Ac_Acknowledged stage
+    if (status === 'Ac_Acknowledged' || status === 'Acknowledged') {
+      return true;
+    }
+    
+    // Supervisor can view investigation form at Ac_Acknowledged stage
+    if (userRole === 'supervisor' && (status === 'Approved')) {
+      return true;
+    }
+    
+    const isBM = ['bm', 'abm'].includes(userRole);
+
+    // Always show button for BM/ABM in Checked status or beyond
+    if (
+      isBM &&
+      ['Checked', 'BM Approved', 'BMApproved', 'OPApproved', 'OP Approved'].includes(status)
+    ) {
+      return true;
+    }
+
+    // Account users can view investigation at OPApproved or BM Approved stages
+    if (userRole === 'account' && (status === 'OPApproved' || status === 'OP Approved' || status === 'BM Approved' || status === 'BMApproved')) {
+      return true;
+    }
+
+    // For other roles, check if there's investigation data
+    const hasInvestigation = Boolean(
+      formData.investigation ||
+      formData.investigate ||
+      formData.general_form?.investigation ||
+      formData.general_form?.investigate ||
+      formData.big_damage_issue?.investigation ||
+      formData.big_damage_issue?.investigate
+    );
+    
+    if (hasInvestigation) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Fetch approvals separately if not included in initialData (for existing forms after reload)
+  useEffect(() => {
+    const fetchApprovals = async () => {
+      // Only fetch if we have a general_form_id and we haven't fetched yet
+      const generalFormId = initialData?.generalFormId || 
+                           initialData?.general_form_id || 
+                           initialData?.id ||
+                           initialData?.general_form?.id;
+      
+      if (!generalFormId || approvalsFetchRef.current || mode === 'add' || !formInitializedRef.current) return;
+      
+      // Check if we already have approvals with comments
+      const currentApprovals = formData.approvals || [];
+      const hasCApprovalWithComment = currentApprovals.some(a => 
+        a?.user_type === 'C' && a?.comment && a.comment.trim() !== ''
+      );
+      
+      // Check if we have OP approval entry (for operation manager detection)
+      const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+      const hasOPApproval = currentUserId && currentApprovals.some(a => {
+        const adminId = a?.admin_id || a?.raw?.admin_id;
+        const userType = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+        return (userType === 'OP' || userType === 'A2') && 
+               adminId && 
+               (String(adminId) === String(currentUserId) || Number(adminId) === Number(currentUserId));
+      });
+      
+      // Fetch if we don't have a 'C' approval with comment OR if we don't have OP approval (for operation manager)
+      if (!hasCApprovalWithComment || !hasOPApproval) {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) return;
+          
+          approvalsFetchRef.current = true; // Prevent duplicate fetches
+          
+          const response = await fetch(`/api/general-forms/${generalFormId}/approvals`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Accept': 'application/json',
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const apiApprovals = Array.isArray(data.data) ? data.data : (Array.isArray(data) ? data : []);
+            
+            // Update approvals with API data if we got results
+            if (apiApprovals.length > 0) {
+              setFormData(prev => ({
+                ...prev,
+                approvals: apiApprovals, // Use API approvals (they have the latest data including comments)
+              }));
+            } else {
+            }
+          }
+        } catch (error) {
+          // Silently handle error - approvals will use defaults
+          approvalsFetchRef.current = false; // Reset on error so we can retry
+        }
+      }
+    };
+    
+    // Only fetch after form is initialized (wait a bit to ensure initialization is complete)
+    const timer = setTimeout(() => {
+      if (formInitializedRef.current) {
+        fetchApprovals();
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [initialData?.generalFormId || initialData?.general_form_id || initialData?.id, mode]);
+
+  useEffect(() => {
+    // Only initialize form data once when initialData is first loaded
+    // This prevents overwriting user input when initialData changes due to SWR revalidation
+    if (initialData && typeof initialData === 'object' && !formInitializedRef.current) {
+      // Check if investigation data exists in any of the possible locations
+      const investigationData = 
+        initialData.investigation ||
+        initialData.investigate ||
+        initialData.general_form?.investigation ||
+        initialData.general_form?.investigate ||
+        initialData.big_damage_issue?.investigation ||
+        initialData.big_damage_issue?.investigate;
+      
+      const hasInvestigationData = Boolean(investigationData);
+      
+      // Removed console.log for investigation data initialization
+      
+      setHasInvestigation(hasInvestigationData);
+      
+      // Merge investigation data into formData if it exists
+      const mergedData = { ...initialData };
+      if (investigationData) {
+        mergedData.investigation = investigationData;
+      }
+      
+      setFormData(prev => {
+        const resolvedRequester = resolveSubmitterName(mergedData) || prev.requester_name || '';
+        // Get approvals from multiple possible sources
+        const sourceApprovals = Array.isArray(mergedData.approvals) && mergedData.approvals.length > 0
+          ? mergedData.approvals
+          : Array.isArray(mergedData.general_form?.approvals) && mergedData.general_form.approvals.length > 0
+            ? mergedData.general_form.approvals
+            : prev.approvals;
+        const approvalsWithPrepared = ensurePreparedApproval(sourceApprovals, resolvedRequester, mergedData.general_form || mergedData);
+        
+        // Ensure Operation Manager approval is preserved for completed/issued/acknowledged forms
+        const currentStatus = (mergedData?.status || mergedData?.general_form?.status || '').trim();
+        const isCompletedOrIssued = ['Completed', 'Issued', 'SupervisorIssued', 'OPApproved', 'OP Approved', 'Ac_Acknowledged', 'Acknowledged'].includes(currentStatus);
+        const totalAmount = Number(
+          mergedData?.general_form?.total_amount
+          ?? mergedData?.total_amount
+          ?? mergedData?.general_form?.totalAmount
+          ?? mergedData?.totalAmount
+          ?? 0
+        );
+        const requiresOpManagerApproval = totalAmount > 500000;
+        
+        let finalApprovals = approvalsWithPrepared;
+        
+        // If form requires OP Manager approval and is in a relevant status, ensure the approval exists and has name
+        if (isCompletedOrIssued && requiresOpManagerApproval) {
+          // Find existing OP Manager approval
+          const opManagerApprovalIndex = finalApprovals.findIndex(a => {
+            const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
+            return userType === "op" || userType === "a2";
+          });
+          
+          // Get Operation Manager name from formData
+          const opManagerName = mergedData?.op_manager_name ||
+                               mergedData?.general_form?.op_manager_name ||
+                               mergedData?.op_manager_user?.name ||
+                               mergedData?.general_form?.op_manager_user?.name ||
+                               mergedData?.operation_manager_name ||
+                               mergedData?.general_form?.operation_manager_name;
+          
+          if (opManagerApprovalIndex >= 0) {
+            // Approval exists - ensure it has the name populated
+            const existingApproval = finalApprovals[opManagerApprovalIndex];
+            const hasName = existingApproval?.actual_user_name || 
+                           existingApproval?.name || 
+                           existingApproval?.raw?.actual_user_name ||
+                           existingApproval?.acknowledges?.name ||
+                           existingApproval?.raw?.acknowledges?.name;
+            
+            // If approval exists but doesn't have name, populate it from formData
+            if (!hasName && opManagerName) {
+              finalApprovals[opManagerApprovalIndex] = {
+                ...existingApproval,
+                actual_user_name: opManagerName,
+                name: opManagerName,
+                // Preserve raw data if it exists
+                raw: existingApproval?.raw ? {
+                  ...existingApproval.raw,
+                  actual_user_name: opManagerName,
+                  name: opManagerName,
+                } : { actual_user_name: opManagerName, name: opManagerName },
+              };
+            }
+          } else {
+            // Approval doesn't exist - try to find it from source or create virtual one
+            if (opManagerName) {
+              // Find the OP Manager approval from the original approvals array
+              const opApprovalFromSource = sourceApprovals.find(a => {
+                const userType = (a?.user_type || a?.raw?.user_type || "").toLowerCase();
+                return userType === "op" || userType === "a2";
+              });
+              
+              // If found in source, use it and ensure name is populated
+              if (opApprovalFromSource) {
+                const hasName = opApprovalFromSource?.actual_user_name || 
+                               opApprovalFromSource?.name || 
+                               opApprovalFromSource?.raw?.actual_user_name;
+                
+                if (hasName) {
+                  finalApprovals = [...finalApprovals, opApprovalFromSource];
+                } else {
+                  // Populate name from formData
+                  finalApprovals = [...finalApprovals, {
+                    ...opApprovalFromSource,
+                    actual_user_name: opManagerName,
+                    name: opManagerName,
+                    raw: opApprovalFromSource?.raw ? {
+                      ...opApprovalFromSource.raw,
+                      actual_user_name: opManagerName,
+                      name: opManagerName,
+                    } : { actual_user_name: opManagerName, name: opManagerName },
+                  }];
+                }
+              } else {
+                // Create a virtual approval entry for display
+                finalApprovals = [...finalApprovals, {
+                  label: 'Operation Mgr Approved by',
+                  role: 'Operation Manager',
+                  user_type: 'OP',
+                  actual_user_name: opManagerName,
+                  name: opManagerName,
+                  acted: true,
+                  status: 'Approved',
+                  date: mergedData?.general_form?.updated_at || mergedData?.updated_at || new Date().toISOString(),
+                }];
+              }
+            }
+          }
+        }
+        
+        const issueRemarks = Array.isArray(mergedData.issue_remarks)
+          ? mergedData.issue_remarks
+          : Array.isArray(mergedData.general_form?.issue_remarks)
+            ? mergedData.general_form.issue_remarks
+            : prev.issue_remarks || [];
+
+        // Ensure items have account codes preserved
+        const loadedItems = Array.isArray(mergedData.items) ? mergedData.items : prev.items;
+        const itemsWithAccountCodes = loadedItems.map(item => {
+          // Preserve account codes from multiple possible sources
+          const accCode1 = item?.acc_code1 ?? item?.acc_code ?? null;
+          const accCode = item?.acc_code ?? item?.acc_code1 ?? null;
+          
+          return {
+            ...item,
+            acc_code1: accCode1,
+            acc_code: accCode,
+          };
+        });
+      
+        
+        const newAttachments = resolveInitialAttachments(mergedData, prev.attachments);
+        // Update original attachments when form data is loaded/merged
+        const serverAttachments = newAttachments.filter(att => att.downloadUrl || att.isRemote || att.id);
+        if (serverAttachments.length > 0) {
+          setOriginalAttachments(serverAttachments);
+        }
+        
+        return {
+          ...prev,
+          ...mergedData,
+          branch: mergedData?.branch || mergedData?.branch_name || prev.branch,
+          items: itemsWithAccountCodes,
+          attachments: newAttachments,
+          investigation: investigationData || mergedData?.investigation || prev.investigation || null, // Explicitly preserve investigation
+          issue_remarks: issueRemarks,
+          iss_remark: mergedData?.iss_remark ?? 
+            mergedData?.iss_remark_type ??
+            mergedData?.general_form?.iss_remark ?? 
+            mergedData?.general_form?.iss_remark_type ??
+            // Check general_form_files for ISS remark - remark ID is stored in reason field
+            (() => {
+              const allFiles = [
+                ...(Array.isArray(mergedData?.general_form?.files) ? mergedData.general_form.files : []),
+                ...(Array.isArray(mergedData?.general_form?.general_form_files) ? mergedData.general_form.general_form_files : []),
+                ...(Array.isArray(mergedData?.general_form_files) ? mergedData.general_form_files : []),
+                ...(Array.isArray(mergedData?.files) ? mergedData.files : [])
+              ];
+              
+              // Find ISS_DOCUMENT files - prefer the one with ISS number (from issue stage) over the one from acknowledge stage
+              const issFiles = allFiles.filter(f => f && f.file === 'ISS_DOCUMENT');
+              
+              // Prefer the one with an ISS number (name field not empty) - this is from the issue stage
+              // If multiple have names, get the most recent one (highest ID or latest created_at)
+              let issFile = issFiles.find(f => f.name && f.name.trim() !== '' && f.name !== 'ISS_DOCUMENT');
+              
+              // If no file with ISS number found, get the most recent one (sorted by ID descending or created_at)
+              if (!issFile && issFiles.length > 0) {
+                issFiles.sort((a, b) => {
+                  // Sort by ID descending (most recent first)
+                  if (a.id && b.id) return b.id - a.id;
+                  // Or by created_at if available
+                  if (a.created_at && b.created_at) {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                  }
+                  return 0;
+                });
+                issFile = issFiles[0];
+              }
+
+              if (issFile && issFile.reason) {
+                // reason field contains the remark ID
+                return String(issFile.reason);
+              }
+              return null;
+            })() ??
+            prev.iss_remark ?? null,
+          iss_numbers: Array.isArray(mergedData?.iss_numbers)
+            ? [...mergedData.iss_numbers]
+            : Array.isArray(mergedData?.general_form?.iss_numbers)
+              ? [...mergedData.general_form.iss_numbers]
+              : prev.iss_numbers || [],
+          systemQtyUpdated: Boolean(
+            mergedData?.systemQtyUpdated
+            || mergedData?.acc_status
+            || mergedData?.general_form?.systemQtyUpdated
+            || mergedData?.general_form?.acc_status
+            || prev.systemQtyUpdated
+          ),
+          requester_name: resolvedRequester,
+          approvals: finalApprovals,
+        };
+      });
+      
+      // Mark form as initialized to prevent future overwrites
+      formInitializedRef.current = true;
+    }
+  }, [initialData]);
+
+  useEffect(() => {
+    const bootstrapBranch = async () => {
+      // Prevent multiple runs - only bootstrap once per mode change
+      if (branchBootstrappedRef.current || (formData.branch || '').trim()) {
+        return;
+      }
+      
+      branchBootstrappedRef.current = true; // Mark as bootstrapped
+      
+      try {
+        let storedUser = JSON.parse(localStorage.getItem('user'));
+        const token = localStorage.getItem('token');
+        let branchId = storedUser?.from_branch_id;
+        
+        // If branch ID is missing, try to refresh user info from API
+        if (!branchId && token) {
+          try {
+            const meResponse = await fetch('/api/me', {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: 'application/json',
+              },
+            });
+            if (meResponse.ok) {
+              const meData = await meResponse.json();
+              if (meData?.user?.from_branch_id) {
+                // Update localStorage with refreshed user info
+                storedUser = { ...storedUser, ...meData.user };
+                // Ensure user_type present
+                if (!storedUser.user_type) {
+                  if (storedUser.employee_number === '666-666666' || storedUser.emp_id === '666-666666') {
+                    storedUser.user_type = 'A2';
+                  } else if (Number(storedUser.role_id) === 3) {
+                    storedUser.user_type = 'A1';
+                  }
+                }
+                localStorage.setItem('user', JSON.stringify(storedUser));
+                branchId = meData.user.from_branch_id;
+              }
+            }
+          } catch (e) {
+            // Silently fail, continue with fallback
+          }
+        }
+        
+        if (!branchId) {
+          const fallback = storedUser?.branch_name || storedUser?.from_branch_name;
+          if (fallback) {
+            setFormData(prev => ({ ...prev, branch: fallback }));
+          }
+          return;
+        }
+        const res = await fetch('/api/branches', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        });
+        if (!res.ok) {
+          const fallback = storedUser?.branch_name || storedUser?.from_branch_name;
+          if (fallback) {
+            setFormData(prev => ({ ...prev, branch: fallback }));
+          }
+          return;
+        }
+        const json = await res.json();
+        const list = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : (Array.isArray(json?.data?.data) ? json.data.data : []));
+        const found = list.find(b => String(b.id) === String(branchId));
+        if (found?.branch_name) {
+          setFormData(prev => ({ ...prev, branch: found.branch_name }));
+        } else {
+          const fallback = storedUser?.branch_name || storedUser?.from_branch_name;
+          if (fallback) {
+            setFormData(prev => ({ ...prev, branch: fallback }));
+          }
+        }
+      } catch (_) {
+        try {
+          const storedUser = JSON.parse(localStorage.getItem('user'));
+          const fallback = storedUser?.branch_name || storedUser?.from_branch_name;
+          if (fallback) {
+            setFormData(prev => ({ ...prev, branch: fallback }));
+          }
+        } catch {}
+      }
+    };
+    bootstrapBranch();
+    
+    // Reset bootstrap flag when mode changes
+    return () => {
+      if (mode === 'add') {
+        branchBootstrappedRef.current = false;
+      }
+    };
+  }, [mode]); // Removed formData.branch from dependencies to prevent infinite loop
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
+  const [dupModal, setDupModal] = useState({ open: false, code: '' });
+  const [notFoundModal, setNotFoundModal] = useState({ open: false, code: '' });
+  const [isSearching, setIsSearching] = useState(false);
+  const [confirmationModal, setConfirmationModal] = useState({ 
+    isOpen: false, 
+    action: null,
+    emptyFields: []
+  });
+  const [validationErrorModal, setValidationErrorModal] = useState({
+    isOpen: false,
+    errors: []
+  });
+
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
+  const handleOpenAddProductModal = () => setIsAddProductModalOpen(true);
+  const handleCloseAddProductModal = () => setIsAddProductModalOpen(false);
+
+  const handleAddItem = item => {
+    setFormData(prev => {
+      const newItems = [...prev.items, item];
+      return { ...prev, items: newItems };
+    });
+  };
+
+  const handleRemoveItem = useCallback(id => {
+    setFormData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+  }, []);
+
+  const handleItemsChange = useCallback((updatedItems) => {
+    // Remove duplicates by ID before updating
+    const itemsById = new Map();
+    updatedItems.forEach(item => {
+      const id = item.id || item.specific_form_id;
+      if (id) {
+        const idStr = String(id);
+        // Always use the latest item if duplicate ID exists
+        itemsById.set(idStr, item);
+      }
+    });
+    const uniqueItems = Array.from(itemsById.values());
+    
+    setFormData(prev => ({
+      ...prev,
+      items: uniqueItems.map(item => ({
+        ...item,
+        // Preserve category field explicitly
+        category: item.category || prev.items.find(i => (i.id === item.id || i.code === item.code))?.category || '',
+        category_id: item.category_id || prev.items.find(i => (i.id === item.id || i.code === item.code))?.category_id || null,
+        amount: Number(item.amount ?? item.total ?? 0),
+        total: Number(item.total ?? item.amount ?? 0)
+      }))
+    }));
+  }, []);
+
+  const handleItemFieldChange = useCallback((index, field, value) => {
+    setFormData(prev => {
+      if (!Array.isArray(prev.items) || !prev.items[index]) {
+        return prev;
+      }
+
+      const nextItems = [...prev.items];
+      const numericFields = new Set([
+        'request_qty',
+        'actual_qty',
+        'final_qty',
+        'price',
+        'amount',
+        'total',
+        'system_qty'
+      ]);
+
+      const nextValue = numericFields.has(field)
+        ? Number(value ?? 0)
+        : value;
+
+      // CRITICAL: Prevent request_qty from being updated when actual_qty changes
+      // request_qty should only be set once (when actual_qty is first entered) and then remain independent
+      const currentItem = nextItems[index];
+      if (field === 'request_qty') {
+        // Only update request_qty if it hasn't been set yet (is null/undefined/empty string/0)
+        // Once request_qty has a non-zero value, it should remain independent
+        const existingRequestQty = currentItem.request_qty;
+        const isRequestQtyUnset = existingRequestQty === null || 
+                                  existingRequestQty === undefined || 
+                                  existingRequestQty === '' ||
+                                  existingRequestQty === 0 ||
+                                  (typeof existingRequestQty === 'string' && existingRequestQty.trim() === '');
+        
+        if (!isRequestQtyUnset) {
+          // request_qty has been set, preserve it - don't update
+          return prev;
+        }
+      }
+
+      // Preserve category when updating other fields
+      nextItems[index] = {
+        ...currentItem,
+        [field]: nextValue,
+        // Ensure category is preserved
+        category: currentItem.category || prev.items[index]?.category || '',
+        category_id: currentItem.category_id || prev.items[index]?.category_id || null,
+      };
+
+      return {
+        ...prev,
+        items: nextItems
+      };
+    });
+  }, []);
+
+  const handleSearchProduct = async (productCode, caseType = 'Not sell', onSuccess) => {
+    if (!productCode?.trim()) {
+      return;
+    }
+
+    const code = productCode.trim();
+
+    // Check if product already exists in the form
+    const productExists = formData.items.some(item => 
+      item.code?.toLowerCase() === code.toLowerCase()
+    );
+
+    if (productExists) {
+      setDupModal({ open: true, code });
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      const storedUser = JSON.parse(localStorage.getItem("user"));
+      const token = localStorage.getItem("token");
+      const branchId = storedUser?.from_branch_id;
+
+      if (!token) {
+        alert('Please login again. Missing authentication token.');
+        return;
+      }
+
+      if (!branchId) {
+        alert('Missing branch information. Please re-login.');
+        return;
+      }
+
+      const response = await fetch(
+        `/api/big-damage-issues/search_product/${encodeURIComponent(code)}/${branchId}`,
+        {
+          headers: { 
+            'Authorization': `Bearer ${token}`, 
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          credentials: 'include',
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        if (response.status === 404) {
+          setNotFoundModal({ open: true, code });
+          return;
+        }
+        
+        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      }
+
+      const responseData = await response.json().catch(() => {
+        throw new Error('Invalid server response');
+      });
+
+      if (!responseData || !Array.isArray(responseData) || responseData.length === 0) {
+        setNotFoundModal({ open: true, code });
+        return;
+      }
+
+      const [info, sysQty = 0] = responseData;
+      const price = Number(info?.price) || 0;
+
+      // Get category from multiple possible sources (matching how items are loaded from backend)
+      const category = info?.category || 
+                       info?.categories?.name || 
+                       info?.product_category_name || 
+                       info?.Category_Name ||
+                       '';
+
+      const newItem = {
+        id: Math.floor(Date.now() + Math.random() * 1000), // Ensure integer ID
+        category: category,
+        category_id: info?.category_id || info?.maincatid || null,
+        product_code: info.product_code || code,
+        code: info.product_code || code,
+        product_name: info.product_name || "",
+        name: info.product_name || "",
+        unit: info.unit || "",
+        system_qty: Number(sysQty) || 0,
+        request_qty: '', // Initialize as empty string, will be set when user enters actual_qty
+        actual_qty: '', // Initialize as empty string, user will enter the value
+        final_qty: '', // Initialize as empty string, user will enter the value
+        price,
+        amount: 0, // Calculate initial amount (will be calculated when qty is entered)
+        remark: "",
+        img: [],
+      };
+
+      // Add the new item to the form and update caseType
+      setFormData(prev => {
+        const updatedItems = [...prev.items, newItem];
+        return {
+          ...prev,
+          items: updatedItems,
+          // Update form caseType based on the selected caseType when adding product
+          // If user selects "Other income sell", update the form's caseType
+          caseType: caseType || prev.caseType
+        };
+      });
+
+      // Auto-focus on qty field based on form status
+      // In Checked stage: focus on actual_qty
+      // In Ongoing stage: focus on request_qty (which shows as Actual Qty in add mode)
+      // In other stages: focus on final_qty
+      const currentStatus = (formData.status || '').trim();
+      const isCheckedStage = currentStatus === 'Checked' || currentStatus === 'checked';
+      const isOngoingStage = currentStatus === 'Ongoing' || currentStatus === 'ongoing' || mode === 'add';
+      
+      const tryFocusQtyField = (attempt = 1, maxAttempts = 8) => {
+        setTimeout(() => {
+          // Try multiple selectors to find the qty input field
+          let qtyInput = null;
+          
+          // Strategy 1: Check status and prioritize the correct field
+          if (isCheckedStage) {
+            // In Checked stage, prioritize actual_qty
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="actual_qty"][data-auto-focus-target="true"]`);
+            if (!qtyInput) {
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="actual_qty"]`);
+            }
+          } else if (isOngoingStage) {
+            // In Ongoing stage, prioritize request_qty (which is the editable field)
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"][data-auto-focus-target="true"]`);
+            if (!qtyInput) {
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+            }
+          } else {
+            // In other stages (BM Approved, etc.), prioritize final_qty
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"][data-auto-focus-target="true"]`);
+            if (!qtyInput) {
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"]`);
+            }
+          }
+          
+          // Strategy 2: Try by data-auto-focus-target for any qty field
+          if (!qtyInput) {
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-auto-focus-target="true"]`);
+          }
+          
+          // Strategy 3: Try by data-qty-field attribute
+          if (!qtyInput) {
+            qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-qty-field="true"]`);
+          }
+          
+          // Strategy 4: Try by data-item-id only and find any qty-related field (prioritize based on status)
+          if (!qtyInput) {
+            const allInputs = document.querySelectorAll(`input[data-item-id="${newItem.id}"]`);
+            // Prioritize based on status
+            const priorityFields = isCheckedStage 
+              ? ['actual_qty', 'request_qty', 'final_qty']
+              : isOngoingStage
+              ? ['request_qty', 'actual_qty', 'final_qty']
+              : ['final_qty', 'actual_qty', 'request_qty'];
+            
+            for (const priorityField of priorityFields) {
+              for (const input of allInputs) {
+                const field = input.getAttribute('data-field');
+                if (field === priorityField) {
+                  qtyInput = input;
+                  break;
+                }
+              }
+              if (qtyInput) break;
+            }
+          }
+          
+          // Strategy 5: Find the last row in tbody and get the qty field (prioritize based on status)
+          if (!qtyInput) {
+            const tbody = document.querySelector('tbody');
+            if (tbody) {
+              const rows = tbody.querySelectorAll('tr');
+              if (rows.length > 0) {
+                const lastRow = rows[rows.length - 1];
+                // Prioritize based on status
+                const priorityFields = isCheckedStage 
+                  ? ['actual_qty', 'request_qty', 'final_qty']
+                  : isOngoingStage
+                  ? ['request_qty', 'actual_qty', 'final_qty']
+                  : ['final_qty', 'actual_qty', 'request_qty'];
+                
+                for (const priorityField of priorityFields) {
+                  qtyInput = lastRow.querySelector(`input[data-field="${priorityField}"][data-auto-focus-target="true"]`);
+                  if (qtyInput) break;
+                  qtyInput = lastRow.querySelector(`input[data-field="${priorityField}"]`);
+                  if (qtyInput) break;
+                }
+                
+                // Then try data-auto-focus-target for any qty field
+                if (!qtyInput) {
+                  qtyInput = lastRow.querySelector('input[data-auto-focus-target="true"]');
+                }
+                // If not found, get first numeric input
+                if (!qtyInput) {
+                  const numericInputs = lastRow.querySelectorAll('input[type="text"][inputmode="numeric"]');
+                  if (numericInputs.length > 0) {
+                    qtyInput = numericInputs[0];
+                  }
+                }
+              }
+            }
+          }
+          
+          // Strategy 6: Find by item ID in the table - search all rows (prioritize based on status)
+          if (!qtyInput) {
+            const allRows = document.querySelectorAll('tbody tr');
+            const priorityFields = isCheckedStage 
+              ? ['actual_qty', 'request_qty', 'final_qty']
+              : isOngoingStage
+              ? ['request_qty', 'actual_qty', 'final_qty']
+              : ['final_qty', 'request_qty', 'actual_qty'];
+            
+            for (const priorityField of priorityFields) {
+              for (const row of allRows) {
+                const input = row.querySelector(`input[data-item-id="${newItem.id}"][data-field="${priorityField}"]`);
+                if (input) {
+                  qtyInput = input;
+                  break;
+                }
+              }
+              if (qtyInput) break;
+            }
+          }
+          
+          // Strategy 7: Find the input that has the item ID anywhere in the row (prioritize based on status)
+          if (!qtyInput) {
+            const allRows = document.querySelectorAll('tbody tr');
+            const priorityFields = isCheckedStage 
+              ? ['actual_qty', 'request_qty', 'final_qty']
+              : isOngoingStage
+              ? ['request_qty', 'actual_qty', 'final_qty']
+              : ['final_qty', 'request_qty', 'actual_qty'];
+            
+            for (const priorityField of priorityFields) {
+              for (const row of allRows) {
+                const inputs = row.querySelectorAll('input[data-item-id]');
+                for (const input of inputs) {
+                  if (input.getAttribute('data-item-id') === String(newItem.id)) {
+                    const field = input.getAttribute('data-field');
+                    if (field === priorityField) {
+                      qtyInput = input;
+                      break;
+                    }
+                  }
+                }
+                if (qtyInput) break;
+              }
+              if (qtyInput) break;
+            }
+          }
+          
+          if (qtyInput) {
+            // Use requestAnimationFrame to ensure DOM is fully ready
+            requestAnimationFrame(() => {
+              qtyInput.focus();
+              qtyInput.select(); // Select the text so user can type immediately
+              // Scroll into view to ensure the field is visible
+              qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+            return true; // Successfully focused
+          } else if (attempt < maxAttempts) {
+            // Retry with longer delay
+            tryFocusQtyField(attempt + 1, maxAttempts);
+          }
+          return false;
+        }, attempt * 200); // Increase delay with each attempt: 200ms, 400ms, 600ms, etc.
+      };
+      
+      // Start trying to focus immediately
+      tryFocusQtyField();
+
+      // Show success modal
+      setSuccessModalMessage(t('messages.productAdded', { defaultValue: 'Product added successfully' }));
+      setSuccessModalAction('submit');
+      setIsSuccessModalOpen(true);
+
+      // Call success callback if provided (to close modal, etc.)
+      if (onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+          // After modal closes, try to focus on qty field again with fresh attempts
+          setTimeout(() => {
+            // Retry focusing after modal closes - create a new function instance
+            const retryFocus = (attempt = 1, maxAttempts = 5) => {
+              setTimeout(() => {
+                let qtyInput = null;
+                
+                // Try all the same strategies as the main focus function, prioritizing final_qty
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"][data-auto-focus-target="true"]`);
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"]`);
+                }
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-auto-focus-target="true"]`);
+                }
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+                }
+                if (!qtyInput) {
+                  qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-qty-field="true"]`);
+                }
+                if (!qtyInput) {
+                  const allInputs = document.querySelectorAll(`input[data-item-id="${newItem.id}"]`);
+                  // Prioritize final_qty
+                  for (const input of allInputs) {
+                    const field = input.getAttribute('data-field');
+                    if (field === 'final_qty') {
+                      qtyInput = input;
+                      break;
+                    }
+                  }
+                  if (!qtyInput) {
+                    for (const input of allInputs) {
+                      const field = input.getAttribute('data-field');
+                      if (field === 'request_qty' || field === 'actual_qty') {
+                        qtyInput = input;
+                        break;
+                      }
+                    }
+                  }
+                }
+                if (!qtyInput) {
+                  const tbody = document.querySelector('tbody');
+                  if (tbody) {
+                    const rows = tbody.querySelectorAll('tr');
+                    if (rows.length > 0) {
+                      const lastRow = rows[rows.length - 1];
+                      qtyInput = lastRow.querySelector('input[data-field="final_qty"][data-auto-focus-target="true"]');
+                      if (!qtyInput) {
+                        qtyInput = lastRow.querySelector('input[data-field="final_qty"]');
+                      }
+                      if (!qtyInput) {
+                        qtyInput = lastRow.querySelector('input[data-auto-focus-target="true"]');
+                      }
+                      if (!qtyInput) {
+                        qtyInput = lastRow.querySelector('input[data-field="request_qty"]');
+                      }
+                      if (!qtyInput) {
+                        const numericInputs = lastRow.querySelectorAll('input[type="text"][inputmode="numeric"]');
+                        if (numericInputs.length > 0) {
+                          qtyInput = numericInputs[0];
+                        }
+                      }
+                    }
+                  }
+                }
+                
+                if (qtyInput) {
+                  requestAnimationFrame(() => {
+                    qtyInput.focus();
+                    qtyInput.select();
+                    qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  });
+                } else if (attempt < maxAttempts) {
+                  retryFocus(attempt + 1, maxAttempts);
+                }
+              }, attempt * 200);
+            };
+            retryFocus();
+          }, 200);
+        }, 500);
+      } else {
+        // If no callback, still try to focus after modal auto-closes (typically after 1-2 seconds)
+        setTimeout(() => {
+          const retryFocus = (attempt = 1, maxAttempts = 5) => {
+            setTimeout(() => {
+              let qtyInput = null;
+              
+              // Try all the same strategies, prioritizing final_qty
+              qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"][data-auto-focus-target="true"]`);
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="final_qty"]`);
+              }
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-auto-focus-target="true"]`);
+              }
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-field="request_qty"]`);
+              }
+              if (!qtyInput) {
+                qtyInput = document.querySelector(`input[data-item-id="${newItem.id}"][data-qty-field="true"]`);
+              }
+              if (!qtyInput) {
+                const allInputs = document.querySelectorAll(`input[data-item-id="${newItem.id}"]`);
+                // Prioritize final_qty
+                for (const input of allInputs) {
+                  const field = input.getAttribute('data-field');
+                  if (field === 'final_qty') {
+                    qtyInput = input;
+                    break;
+                  }
+                }
+                if (!qtyInput) {
+                  for (const input of allInputs) {
+                    const field = input.getAttribute('data-field');
+                    if (field === 'request_qty' || field === 'actual_qty') {
+                      qtyInput = input;
+                      break;
+                    }
+                  }
+                }
+              }
+              if (!qtyInput) {
+                const tbody = document.querySelector('tbody');
+                if (tbody) {
+                  const rows = tbody.querySelectorAll('tr');
+                  if (rows.length > 0) {
+                    const lastRow = rows[rows.length - 1];
+                    qtyInput = lastRow.querySelector('input[data-field="final_qty"][data-auto-focus-target="true"]');
+                    if (!qtyInput) {
+                      qtyInput = lastRow.querySelector('input[data-field="final_qty"]');
+                    }
+                    if (!qtyInput) {
+                      qtyInput = lastRow.querySelector('input[data-auto-focus-target="true"]');
+                    }
+                    if (!qtyInput) {
+                      qtyInput = lastRow.querySelector('input[data-field="request_qty"]');
+                    }
+                    if (!qtyInput) {
+                      const numericInputs = lastRow.querySelectorAll('input[type="text"][inputmode="numeric"]');
+                      if (numericInputs.length > 0) {
+                        qtyInput = numericInputs[0];
+                      }
+                    }
+                  }
+                }
+              }
+              
+              if (qtyInput) {
+                requestAnimationFrame(() => {
+                  qtyInput.focus();
+                  qtyInput.select();
+                  qtyInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+              } else if (attempt < maxAttempts) {
+                retryFocus(attempt + 1, maxAttempts);
+              }
+            }, attempt * 200);
+          };
+          retryFocus();
+        }, 1500);
+      }
+
+    } catch (_error) {
+      setNotFoundModal({ open: true, code });
+    } finally {
+      setIsSearching(false);
+    }
+};
+
+  // Calculate totalAmount from items, but also check general_form.total_amount as fallback
+  const itemsTotal = formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => {
+        const amount = Number(i.amount || i.total || i.total_amount || 0);
+        return acc + (Number.isFinite(amount) ? amount : 0);
+      }, 0)
+    : 0;
+  
+  const dbTotal = Number(
+        formData?.general_form?.total_amount
+        ?? formData?.total_amount
+        ?? formData?.general_form?.totalAmount
+        ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
+        ?? initialData?.general_form?.total_amount
+        ?? initialData?.total_amount
+        ?? initialData?.general_form?.total
+        ?? initialData?.total
+        ?? 0
+      );
+  
+  // CRITICAL: Prioritize database total_amount over items total
+  // After BTP, backend recalculates using actual_qty, but items array might have amounts
+  // calculated from final_qty. Always trust the database total_amount when available.
+  const totalAmount = dbTotal > 0 ? dbTotal : itemsTotal;
+  
+  // DEBUG: Log total calculation for troubleshooting
+  if (formData.general_form_id || formData.generalFormId) {
+    console.log('[TOTAL_DEBUG] Total amount calculation', {
+      general_form_id: formData.general_form_id || formData.generalFormId,
+      items_count: formData.items?.length || 0,
+      items_total: itemsTotal,
+      db_total: dbTotal,
+      final_total: totalAmount,
+      using_db_total: dbTotal > 0,
+      using_items_total: dbTotal <= 0 && itemsTotal > 0,
+      items_detail: formData.items?.map(item => ({
+        product_code: item.product_code,
+        amount: item.amount,
+        total: item.total,
+        total_amount: item.total_amount,
+        price: item.price,
+        actual_qty: item.actual_qty,
+        final_qty: item.final_qty,
+        calculated_from_actual: (Number(item.price) || 0) * (Number(item.actual_qty) || 0),
+        calculated_from_final: (Number(item.price) || 0) * (Number(item.final_qty) || 0),
+      })) || [],
+      general_form_total: formData?.general_form?.total_amount,
+      root_total: formData?.total_amount,
+    });
+  }
+  const apiActions = initialData?.actions || {};
+  const statusText = (formData.status || '').trim();
+  const normalize = s => (s || '').toString();
+  
+  const prettyApprove = (appr) => {
+    const a = normalize(appr);
+    if (!a) return '';
+
+    switch (a) {
+      case 'BMApprovedMem':
+        return 'Check';
+      case 'BMApproved':
+        return 'Approve';
+      case 'OPApproved':
+        return 'Acknowledge';
+      case 'Ac_Acknowledged':
+        return 'Acknowledge';
+      case 'SupervisorIssued':
+        return 'Issue';
+      case 'Completed':
+        return 'Issue';
+      default:
+        return a;
+    }
+  };
+
+  // Get button color classes based on action type - matching Laravel blade Bootstrap classes
+  // btn-success = green, btn-warning = yellow, btn-danger = red, btn-info = blue
+  const getButtonColorClass = (action) => {
+    const a = normalize(action);
+    if (!a) return 'bg-[#198754] border-[#198754]';
+
+    switch (a) {
+      case 'BMApprovedMem':
+      case 'Checked':
+      case 'BMApproved':
+      case 'OPApproved':
+      case 'Ac_Acknowledged':
+      case 'Completed':
+      case 'Issue':
+      case 'SupervisorIssued':
+      case 'Submit':
+        // All action buttons are green
+        return 'bg-[#198754] border-[#198754]';
+      default:
+        // Default green for all actions
+        return 'bg-[#198754] border-[#198754]';
+    }
+  };
+
+  const deriveActions = () => {
+    const act = { ...apiActions };
+    const currentStatus = formData.status || 'Ongoing';
+    // Normalize status the same way as in useMemo
+    const normalizedStatus = (currentStatus || '').toString().trim().replace(/\s+/g, ' ');
+    
+    // FIRST: Check if Branch Manager is viewing a form they already approved - this takes priority
+    // If true, explicitly disable both buttons regardless of other conditions
+    const shouldHideButtonsForBM = isBMViewingOwnApprovedForm && 
+                                   (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved');
+    
+    
+    if (shouldHideButtonsForBM) {
+      // Force disable both buttons - this takes absolute priority
+      act.backToPrevious = false;
+      act.cancel = false;
+    } else {
+      // Map btp value to backToPrevious (matching Laravel logic)
+      // Laravel returns btp values: 'op_btp', 'bm_btp', 'bracc_btp' when back to previous is available
+      if (act.btp && (act.btp === 'op_btp' || act.btp === 'bm_btp' || act.btp === 'bracc_btp')) {
+        act.backToPrevious = true;
+      }
+      
+      // Add backToPrevious and cancel for BM Approved and Acknowledge statuses
+      // Also enable for branch account at branch account stage
+      const role = getUserRole();
+      const isBranchAccountUser = role === 'account' || 
+                                  role === 'branch_account' ||
+                                  currentUser?.role_id === 7 ||
+                                  (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
+                                  (currentUser?.role_name || '').toLowerCase().includes('branch account');
+      
+      const isAtBranchAccountStage = normalizedStatus === 'Ac_Acknowledged' || 
+                                     normalizedStatus === 'Acknowledged' ||
+                                     normalizedStatus === 'OPApproved' ||
+                                     normalizedStatus === 'OP Approved' ||
+                                     normalizedStatus === 'BM Approved' ||
+                                     normalizedStatus === 'BMApproved';
+      
+      if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || 
+          normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged' ||
+          (isBranchAccountUser && isAtBranchAccountStage)) {
+        
+        // Enable back to previous button for these statuses
+        if (!act.backToPrevious) {
+          act.backToPrevious = true;
+        }
+        
+        // Enable cancel button for these statuses
+        if (!act.cancel) {
+          act.cancel = true;
+        }
+      }
+      
+      // Ensure Operation Manager can see BackToPrevious / Cancel when the form is at operation manager stage
+      const isOpManagerUser = role === 'op_manager' || role === 'op manager' || Number(currentUser?.role_id) === 4 || Number(currentUser?.role_id) === 5;
+      if ((normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged' || normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved') && isOpManagerUser) {
+        act.backToPrevious = true;
+        act.cancel = true;
+      }
+    }
+    
+    // FINAL CHECK: If BM is viewing own approved form, force disable buttons again (safety check)
+    if (shouldHideButtonsForBM) {
+      act.backToPrevious = false;
+      act.cancel = false;
+    }
+    
+    // (moved) Hide BTP/Cancel/Acknowledge for regular users when form is BM Approved and amount > 500k
+    
+    if (!normalize(act.approve)) {
+      const role = getUserRole();
+      const currentStatus = formData.status || 'Ongoing';
+      
+      // Get total amount to check if Operation Manager approval is required
+      const totalAmount = Number(
+        formData?.general_form?.total_amount
+        ?? formData?.total_amount
+        ?? formData?.general_form?.totalAmount
+        ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
+        ?? 0
+      );
+      const requiresOpManagerApproval = totalAmount > 500000;
+
+      if (role === 'branch_lp' && currentStatus === 'Ongoing') {
+        act.approve = 'BMApprovedMem';
+      } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm' || role === 'branch_lp') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
+        act.approve = 'BMApproved';
+      } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
+        // Operation Manager should only approve if amount > 500000
+        // After Operation Manager acknowledges, form goes directly to Completed (no supervisor step)
+        if (requiresOpManagerApproval) {
+          act.approve = 'Ac_Acknowledged'; // Operation Manager acknowledgement should set Ac_Acknowledged
+        }
+      } else if (role === 'account') {
+        // Account can only issue after proper approval stage:
+        // - If amount > 500000: Must wait for Ac_Acknowledged (Operation Manager acknowledgment)
+        // - If amount <= 500000: Can issue at BM Approved (no Operation Manager stage)
+        if (requiresOpManagerApproval) {
+          // Amount exceeds 500000 - must wait for Operation Manager acknowledgment
+          if (currentStatus === 'Ac_Acknowledged' || currentStatus === 'Acknowledged' || currentStatus === 'OPApproved' || currentStatus === 'OP Approved') {
+            act.approve = 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
+          }
+        } else {
+          // Amount <= 500000 - can issue at BM Approved
+          if (currentStatus === 'BM Approved' || currentStatus === 'BMApproved') {
+            act.approve = 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
+          }
+        }
+      // Removed supervisor step - after Ac_Acknowledged, form goes directly to Completed
+      // Supervisor step is no longer needed for big damage issue forms
+      } else if (currentStatus === 'Ongoing' || currentStatus === '') {
+        act.approve = 'BMApproved';
+      }
+    }
+    
+    // ABSOLUTE FINAL CHECK: If BM is viewing own approved form, force disable buttons (must be last)
+    // This ensures nothing can override our decision to hide the buttons
+    const finalNormalizedStatus = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+    if (isBMViewingOwnApprovedForm && (finalNormalizedStatus === 'BM Approved' || finalNormalizedStatus === 'BMApproved')) {
+      act.backToPrevious = false;
+      act.cancel = false;
+    }
+    
+    return act;
+  };
+
+  const actions = deriveActions();
+
+  // Compute button visibility - explicitly hide for BM viewing own approved form
+  // Also hide when form is BM Approved (after BM approval, these buttons should not be visible)
+  const normalizedStatusForButtons = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+  const isBMApproved = normalizedStatusForButtons === 'BM Approved' || normalizedStatusForButtons === 'BMApproved';
+  
+  // Check if user is branch account
+  const isBranchAccount = userRole === 'account' || 
+                          userRole === 'branch_account' ||
+                          currentUser?.role_id === 7 || // Branch Account role ID
+                          (currentUser?.role?.name || '').toLowerCase().includes('branch account') ||
+                          (currentUser?.role_name || '').toLowerCase().includes('branch account');
+  
+  // Check if form is at branch account stage (BM Approved, Ac_Acknowledged, or Acknowledged)
+  const isBranchAccountStage = (formData.status === 'BM Approved' || 
+                                formData.status === 'BMApproved' ||
+                                formData.status === 'Ac_Acknowledged' || 
+                                formData.status === 'Acknowledged' ||
+                                formData.status === 'OPApproved' ||
+                                formData.status === 'OP Approved');
+  
+  // Check if user is Branch Manager and form status is Ongoing
+  // Hide buttons for Branch Manager when status is Ongoing (BM should only act after Checker has checked)
+  // Use case-insensitive comparison to be safe
+  const userRoleLower = (userRole || '').toLowerCase();
+  const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm' || Number(currentUser?.role_id) === 3 || (currentUser?.role?.name || '').toLowerCase().includes('approver') || userRoleLower.includes('approver');
+  const isOngoingStatus = (formData.status === 'Ongoing' || formData.status === 'ongoing');
+  const shouldHideButtonsForBMInOngoing = isBranchManager && isOngoingStatus;
+  
+  // Check if user is an approver role (for Add Product button visibility)
+  const isApproverRole = ['bm', 'abm', 'approver', 'manager', 'checker', 'supervisor'].some(r => userRoleLower.includes(r));
+  const isUserRole = userRoleLower === 'user';
+  const isCheckerRole = userRoleLower.includes('check') || userRoleLower === 'c' || userRoleLower === 'cs' || Number(currentUser?.role_id) === 2;
+  // Robust regular-user detection:
+  // - explicit 'user' in role/user_type OR
+  // - when no explicit role string is available (userRoleLower is empty) and the user is not any approver/manager/account/checker
+  const isRegularUser = (currentUser?.role || '').toString().toLowerCase().includes('user') ||
+                        (currentUser?.user_type || '').toString().toLowerCase() === 'user' ||
+                        // Treat role_id === 1 as regular user when provided by backend
+                        Number(currentUser?.role_id) === 1 ||
+                        Number(currentUser?.roleId) === 1 ||
+                        Number(currentUser?.role?.id) === 1 ||
+                        ((!userRoleLower || userRoleLower.trim() === '') && !isApproverRole && !isBranchAccount && !isBranchManager && !isCheckerRole);
+
+// Allow OP to see certain buttons when form is at OP-related statuses
+const isOpStageForButtons = (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved');
+
+  // Show buttons for branch account at branch account stage, or use existing logic for others
+  // Branch account should see buttons even when status is BM Approved
+  // Hide Back To Previous for BM in Ongoing status
+  const shouldShowBackToPrevious = !isBMViewingOwnApprovedForm && 
+                                   !shouldHideButtonsForBMInOngoing &&
+                                   !!(typeof actions !== 'undefined' && actions.backToPrevious) &&
+                                   !isCheckerRole &&
+                                   (isBranchAccount && isBranchAccountStage ? 
+                                     // Branch account at branch account stage (including BM Approved) - always show
+                                     true :
+                                     // Existing logic for other cases - hide if BM Approved
+                                     (!isBMApproved && formData.status !== 'Checked' && formData.status !== 'checked'));
+// Also allow OP to see BackToPrevious when appropriate
+let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && isOpStageForButtons);
+                                   // Also allow Operation Manager to see BackToPrevious on OP stages
+                                   // (covers cases where OP should be able to return forms)
+                                   const shouldShowBackToPreviousOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
+  
+  // Hide Cancel for BM in Ongoing status
+  const shouldShowCancel = !isBMViewingOwnApprovedForm && 
+                          !shouldHideButtonsForBMInOngoing &&
+                          !!(typeof actions !== 'undefined' && actions.cancel) &&
+                          !isCheckerRole &&
+                          (isBranchAccount && isBranchAccountStage ? 
+                            // Branch account at branch account stage (including BM Approved) - always show
+                            true :
+                            // Existing logic for other cases - hide if BM Approved
+                            (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
+// Also allow OP to see Cancel when appropriate
+let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButtons);
+                          // Also allow Operation Manager to see Cancel on OP stages
+                          const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
+
+  // Move the regular-user hiding logic here (after isRegularUser is defined)
+  const finalNormalizedStatusHigh = (formData.status || '').toString().trim().replace(/\s+/g, ' ');
+  const isBMApprovedHigh = finalNormalizedStatusHigh === 'BM Approved' || finalNormalizedStatusHigh === 'BMApproved';
+  const isHighAmount = Number(
+    formData?.general_form?.total_amount
+    ?? formData?.total_amount
+    ?? formData?.general_form?.totalAmount
+    ?? formData?.totalAmount
+    ?? formData?.general_form?.total
+    ?? formData?.total
+    ?? 0
+  ) > 500000;
+  if ((isRegularUser || isCheckerRole || isBranchManager) && isBMApprovedHigh && isHighAmount) {
+    if (typeof actions !== 'undefined') {
+      actions.backToPrevious = false;
+      actions.cancel = false;
+      delete actions.approve;
+    }
+    // Also ensure visibility flags are false
+    shouldShowBackToPreviousFinal = false;
+    shouldShowCancelFinal = false;
+  }
+
+  // Ensure OP Manager (user_type A2 / role op manager) sees Acknowledge, BackToPrevious and Cancel
+  // when form is BM Approved and total exceeds OP threshold (> 500,000).
+  try {
+    const currentUserTypeCheck = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+    const isOpUserType = currentUserTypeCheck === 'A2' || currentUserTypeCheck === 'OP';
+    const isOpRoleDetected = userRoleLower === 'op_manager' || userRoleLower === 'op' || userRoleLower.includes('operation manager') || userRoleLower.includes('op manager');
+    if ((isOpUserType || isOpRoleDetected) && isBMApprovedHigh && isHighAmount) {
+      // Allow OP to see Back and Cancel buttons even if other logic hid them
+      shouldShowBackToPreviousFinal = true;
+      shouldShowCancelFinal = true;
+      // Ensure actions exist so buttons will render (don't overwrite existing more permissive settings)
+      if (typeof actions !== 'undefined') {
+        if (!actions.backToPrevious) actions.backToPrevious = true;
+        if (!actions.cancel) actions.cancel = true;
+        if (!actions.approve) actions.approve = 'Ac_Acknowledged';
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Hide BackToPrevious and Cancel for regular users when form is at Ac_Acknowledged or OPApproved stages
+  try {
+    if (isRegularUser) {
+      const disallowedStatusesForRegular = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
+      if (disallowedStatusesForRegular.includes(resolvedStatusLower)) {
+        if (typeof actions !== 'undefined') {
+          actions.backToPrevious = false;
+          actions.cancel = false;
+        }
+        shouldShowBackToPreviousFinal = false;
+        shouldShowCancelFinal = false;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Additionally, hide BackToPrevious and Cancel for Branch Manager when form is at Ac_Acknowledged or OPApproved stages
+  try {
+    if (isBranchManager) {
+      const disallowedForBM = ['ac_acknowledged', 'acknowledged', 'opapproved', 'op approved'];
+      if (disallowedForBM.includes(resolvedStatusLower)) {
+        if (typeof actions !== 'undefined') {
+          actions.backToPrevious = false;
+          actions.cancel = false;
+        }
+        shouldShowBackToPreviousFinal = false;
+        shouldShowCancelFinal = false;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // Handle back button click - preserve pagination and filters
+  const handleBack = () => {
+    // First, try to get the return URL from sessionStorage (most reliable)
+    const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+    
+    if (storedReturnUrl) {
+      // Clear the stored URL after using it
+      sessionStorage.removeItem('bigDamageIssueReturnUrl');
+      
+      // Extract pathname and search from the stored URL
+      const urlParts = storedReturnUrl.split('?');
+      const pathname = urlParts[0] || '/big_damage_issue';
+      const search = urlParts[1] ? `?${urlParts[1]}` : '';
+      
+      // Navigate with search params - React Router will handle this properly
+      navigate(pathname + search, { replace: false });
+      return;
+    }
+    
+    // Fallback: Check location state for return URL
+    const returnUrl = location.state?.returnUrl;
+    if (returnUrl) {
+      const urlParts = returnUrl.split('?');
+      const pathname = urlParts[0] || '/big_damage_issue';
+      const search = urlParts[1] ? `?${urlParts[1]}` : '';
+      navigate(pathname + search, { replace: false });
+      return;
+    }
+    
+    // Fallback: Check location state for return page
+    const returnPage = location.state?.returnPage;
+    if (returnPage && returnPage > 1) {
+      navigate(`/big_damage_issue?page=${returnPage}`, { replace: false });
+      return;
+    }
+    
+    // Final fallback: Navigate to default list page
+    navigate('/big_damage_issue', { replace: false });
+  };
+
+  // Handle download PDF
+  const handleDownloadPdf = async () => {
+    try {
+      // Get the general_form_id from initialData
+      const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId;
+      
+      if (!generalFormId) {
+        setErrorModalMessage(t('messages.pdfFormIdNotFound'));
+        setIsErrorModalOpen(true);
+        return;
+      }
+
+      // Get the token for authentication
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setErrorModalMessage(t('messages.authRequired'));
+        setIsErrorModalOpen(true);
+        return;
+      }
+
+      // Import API config to get base URL
+      const config = await import('../../api/config');
+      const { API_BASE_URL } = config;
+      
+      // Construct the PDF URL - using the API route for print
+      // The route is /api/big-damage-issues/{general_form_id}/print
+      const pdfUrl = `${API_BASE_URL}/big-damage-issues/${generalFormId}/print`;
+      
+      
+      let timeoutId = null;
+      try {
+        // Create an AbortController for timeout
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 60000); // 60 second timeout
+        
+        // Fetch PDF with Bearer token authentication (API route)
+        const response = await fetch(pdfUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/pdf',
+          },
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        
+        if (timeoutId) clearTimeout(timeoutId);
+
+        // Check content type first
+        const contentType = response.headers.get('content-type') || '';
+        
+        if (!response.ok) {
+          // Clone response to read error without consuming body
+          const clonedResponse = response.clone();
+          let errorMessage = t('messages.errors.pdfInvalidResponse');
+          try {
+            const errorData = await clonedResponse.json();
+            if (errorData.message || errorData.error) {
+              errorMessage = errorData.message || errorData.error;
+            } else if (response.status === 401) {
+              errorMessage = t('messages.errors.pdfAuthFailed');
+            } else if (response.status === 404) {
+              errorMessage = t('messages.errors.notFound');
+            } else if (response.status === 500) {
+              errorMessage = t('messages.errors.serverError');
+            }
+          } catch (e) {
+            // Response is not JSON, use default message based on status
+            if (response.status === 401) {
+              errorMessage = t('messages.errors.pdfAuthFailed');
+            } else if (response.status === 404) {
+              errorMessage = t('messages.errors.notFound');
+            } else if (response.status === 500) {
+              errorMessage = t('messages.errors.serverError');
+            }
+          }
+          throw new Error(errorMessage);
+        }
+
+        // Check if response is HTML (likely a redirect to login page)
+        if (contentType && contentType.includes('text/html')) {
+          const clonedResponse = response.clone();
+          const htmlText = await clonedResponse.text();
+          if (htmlText.includes('login') || htmlText.includes('Login')) {
+            throw new Error(t('messages.errors.pdfAuthFailed'));
+          }
+          throw new Error(t('messages.errors.pdfInvalidResponse'));
+        }
+        
+        // Get the PDF blob
+        const blob = await response.blob();
+        
+        // Verify it's actually a PDF (check blob type and size)
+        if (blob.size === 0) {
+          throw new Error(t('messages.errors.pdfInvalidResponse'));
+        }
+        
+        if (!blob.type.includes('pdf') && blob.size > 0) {
+          // Might be an error response or HTML - read as text to check
+          const blobText = await blob.text();
+          if (blobText.includes('login') || blobText.includes('Login')) {
+            throw new Error(t('messages.errors.pdfAuthFailed'));
+          }
+          // Try to parse as JSON error
+          try {
+            const errorJson = JSON.parse(blobText);
+            throw new Error(errorJson.message || errorJson.error || t('messages.errors.pdfInvalidResponse'));
+          } catch (e) {
+            throw new Error(t('messages.errors.pdfInvalidResponse'));
+          }
+        }
+        
+        // Create a blob URL and download
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = `damage-form-${generalFormId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(blobUrl);
+        
+        setSuccessModalMessage(t('messages.pdfGenerated'));
+        setSuccessModalAction('submit');
+        setIsSuccessModalOpen(true);
+      } catch (fetchError) {
+        if (timeoutId) clearTimeout(timeoutId);
+        // Handle abort/timeout
+        if (fetchError.name === 'AbortError') {
+          throw new Error(t('messages.errors.timeout'));
+        }
+        throw fetchError;
+      }
+    } catch (error) {
+      const errorMessage = error.message || t('messages.pdfGenerateFailed');
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
+    }
+  };
+
+  // Show confirmation modal before submitting
+  const handleSubmitClick = (action) => {
+    // Prevent duplicate submissions using ref for synchronous check
+    if (isSubmittingRef.current || isSubmitting) {
+      return;
+    }
+    
+    // Validate cancel action - require reason/remark
+    if (action === 'Cancel' || action === 'cancel') {
+      if (!formData.reason || formData.reason.trim() === '') {
+        const errorMessage = t('messages.cancelReasonRequired', { 
+          defaultValue: 'Please provide a reason for canceling the form. The remark field in Supporting Info is required.' 
+        });
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [errorMessage]
+        });
+        return;
+      }
+    }
+    
+    // Validate back to previous action - require reason/remark/comment
+    if (action === 'BackToPrevious' || action === 'backtoprevious') {
+      const hasComment = (formData.comment && formData.comment.trim() !== '') ||
+                         (formData.reason && formData.reason.trim() !== '') ||
+                         (formData.remark && formData.remark.trim() !== '');
+      if (!hasComment) {
+        const errorMessage = t('messages.backToPreviousReasonRequired', { 
+          defaultValue: 'Please provide a remark in Supporting Info for back to previous action.' 
+        });
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [errorMessage]
+        });
+        return;
+      }
+    }
+    
+    // Validate that all items have quantity > 0
+    // Check request_qty, actual_qty, final_qty, or quantity depending on what's available
+    const itemsWithZeroQty = formData.items.filter(item => {
+      // Check all possible quantity fields
+      const requestQty = Number(item.request_qty ?? 0);
+      const actualQty = Number(item.actual_qty ?? 0);
+      const finalQty = Number(item.final_qty ?? 0);
+      const quantity = Number(item.quantity ?? 0);
+      
+      // If any quantity field is filled with a value > 0, consider it valid
+      const hasValidQty = requestQty > 0 || actualQty > 0 || finalQty > 0 || quantity > 0;
+      
+      return !hasValidQty;
+    });
+    if (itemsWithZeroQty.length > 0) {
+      const errorMessage = t('messages.itemsWithZeroQuantity', { 
+        defaultValue: 'Please ensure all products have a quantity greater than 0. Products with 0 quantity cannot be submitted.' 
+      });
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [errorMessage]
+      });
+      return;
+    }
+    
+    // Check if investigation is required for approval at Checked status
+    const status = (formData.status || '').toString().trim();
+    const normalizedStatus = status.replace(/\s+/g, ' ');
+    
+    // Validate remark and images when checking form in Ongoing status
+    const isCheckAction = action === 'Checked' || action === 'Check' || action === 'BMApprovedMem' || action === 'checked' || action === 'bmapprovedmem';
+    const isOngoingStatus = normalizedStatus === 'Ongoing' || normalizedStatus === 'ongoing';
+    
+    if (isCheckAction && isOngoingStatus) {
+      const checkErrors = [];
+      
+      // Validation for supporting info remark, product images, and remarks removed
+      // Users can now check/submit forms without these fields
+      
+      // If there are validation errors, show modal and return
+      if (checkErrors.length > 0) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: checkErrors
+        });
+        return;
+      }
+      
+    }
+    const role = getUserRole();
+    const isCheckedStatus = normalizedStatus === 'Checked';
+    const isApprovalAction = action === 'BMApproved' || action === 'BMApprovedMem' || action === 'BM Approved';
+    const isBMOrABM = role === 'bm' || role === 'abm';
+    
+    // If status is Checked and user is BM/ABM trying to approve, check if investigation is filled
+    if (isCheckedStatus && isApprovalAction && isBMOrABM && !isInvestigationFilled) {
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
+      return;
+    }
+
+    // Account issuing requires investigation form to be filled
+    const isIssueAction = action === 'Completed' || action === 'Issue' || action === 'SupervisorIssued';
+    if ((role === 'account' || isAccount) && isIssueAction) {
+      // Require BM investigation to be filled first
+      if (!isInvestigationFilled) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
+        return;
+      }
+
+      // Require Account responsibility percentages to be provided and valid
+      const accountSectionLabel = t('investigation.accountsReview', { defaultValue: 'Accounts Review' });
+      let accountError = '';
+      if (!accountInvestigationValidation.hasAny) {
+        accountError = t('investigation.percentagesRequiredForSection', { section: accountSectionLabel });
+      } else if (!accountInvestigationValidation.hasAll) {
+        accountError = t('investigation.percentagesMustIncludeForSection', { section: accountSectionLabel });
+      } else if (!accountInvestigationValidation.isValid) {
+        accountError = t('investigation.percentagesMustTotalForSection', { section: accountSectionLabel, total: accountInvestigationValidation.total.toFixed(2) });
+      }
+
+      if (accountError) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [accountError]
+        });
+        return;
+      }
+
+      // Validate ISS remark and account codes before issuing
+      const hasIssRemark = formData.iss_remark && formData.iss_remark.trim() !== '';
+      const items = Array.isArray(formData.items) ? formData.items : [];
+      const itemsWithoutAccountCode = items.filter(item => {
+        const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
+        return !accountCode || accountCode.trim() === '';
+      });
+      
+      const missingIssRemark = !hasIssRemark;
+      const missingAccountCodes = itemsWithoutAccountCode.length > 0;
+
+      if (missingIssRemark && missingAccountCodes) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.issRemarkAndAccountCodesRequired', { 
+            defaultValue: 'Please select ISS remark type and assign account codes to all products before issuing.' 
+          })]
+        });
+        return;
+      } else if (missingIssRemark) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.issRemarkRequired', { 
+            defaultValue: 'Please select ISS remark type before issuing the form.' 
+          })]
+        });
+        return;
+      } else if (missingAccountCodes) {
+        const productNames = itemsWithoutAccountCode
+          .map(item => item.name || item.product_name || item.code || 'Unknown')
+          .join(', ');
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [
+            t('messages.accountCodesRequired', { 
+              defaultValue: 'Please assign account codes to all products before issuing the form.' 
+            }),
+            `Products missing account codes: ${productNames}`
+          ]
+        });
+        return;
+      }
+    }
+
+    // Operation Manager acknowledgment at BM Approved requires investigation percentages
+    const isOpAckAction = action === 'Ac_Acknowledged' || action === 'OPApproved' || action === 'Acknowledged';
+    const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
+    if ((isOpManager || role === 'op_manager') && isBMApprovedStatus && isOpAckAction) {
+      // First check if base investigation is filled
+      if (!isInvestigationFilled) {
+      setValidationErrorModal({
+        isOpen: true,
+        errors: [t('messages.investigationRequired')]
+      });
+      return;
+      }
+      
+      // Then check if Operation Manager Review percentages are filled
+      const operationSectionLabel = t('investigation.operationManagerReview', { defaultValue: 'Operation Manager Review' });
+      let operationError = '';
+      if (!operationInvestigationValidation.hasAny) {
+        operationError = t('investigation.percentagesRequiredForSection', { section: operationSectionLabel });
+      } else if (!operationInvestigationValidation.hasAll) {
+        operationError = t('investigation.percentagesMustIncludeForSection', { section: operationSectionLabel });
+      } else if (!operationInvestigationValidation.isValid) {
+        operationError = t('investigation.percentagesMustTotalForSection', { section: operationSectionLabel, total: operationInvestigationValidation.total.toFixed(2) });
+      }
+
+      if (operationError) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [operationError]
+        });
+        return;
+      }
+    }
+    
+    // Check for empty fields before showing confirmation modal
+    const emptyFields = [];
+    
+    if (!formData.branch || formData.branch.trim() === '') {
+      emptyFields.push(t('messages.errors.validation.branch', { defaultValue: 'Branch' }));
+    }
+    
+    // Only validate datetime in non-add modes (datetime is auto-set in add mode)
+    if (mode !== 'add' && (!formData.datetime || formData.datetime.trim() === '')) {
+      emptyFields.push(t('messages.errors.validation.dateTime', { defaultValue: 'Date/Time' }));
+    }
+    
+    if (!formData.requester_name || formData.requester_name.trim() === '') {
+      emptyFields.push(t('messages.errors.validation.requesterName', { defaultValue: 'Requester Name' }));
+    }
+    
+    // Check if any products are added (applies to all modes)
+    const items = Array.isArray(formData.items) ? formData.items : [];
+    if (items.length === 0) {
+      emptyFields.push(t('messages.errors.validation.noProducts', { defaultValue: 'Please add at least one product before submitting.' }));
+    }
+    
+    // Validation for product images, remarks, and supporting info attachments removed
+    // Users can now submit forms without these fields
+    const isAddMode = mode === 'add';
+    
+    // Prevent submission if required fields are missing
+    if (emptyFields.length > 0) {
+      // Show validation error modal instead of toast
+      setValidationErrorModal({
+        isOpen: true,
+        errors: emptyFields
+      });
+      return; // Prevent submission
+    }
+    
+    setConfirmationModal({ isOpen: true, action, emptyFields });
+  };
+
+  // Handle confirmation - proceed with actual submission
+  const handleConfirmSubmit = async () => {
+    // Prevent duplicate submissions using ref for synchronous check
+    if (isSubmittingRef.current || isSubmitting) {
+      return;
+    }
+    
+    const actionToSubmit = confirmationModal.action;
+    setConfirmationModal({ isOpen: false, action: null, emptyFields: [] });
+    if (actionToSubmit) {
+      // Prevent acknowledgement actions when investigation is not filled.
+      const isOpAckAction = ['Ac_Acknowledged', 'Acknowledged', 'OPApproved', 'opapproved'].includes(actionToSubmit);
+      const statusRaw =
+        formData.status ??
+        formData.general_form?.status ??
+        formData.big_damage_issue?.status ??
+        'Ongoing';
+      const normalizedStatus = (statusRaw || '').toString().trim();
+      const isBMApprovedStatus = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
+
+      // Operation Manager must fill investigation form percentages before acknowledging
+      if (isOpAckAction && isBMApprovedStatus) {
+        // First check if base investigation is filled
+        if (!isInvestigationFilled) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.investigationRequired')]
+        });
+        return;
+        }
+        
+        // Then check if Operation Manager Review percentages are filled
+        const operationSectionLabel = t('investigation.operationManagerReview', { defaultValue: 'Operation Manager Review' });
+        let operationError = '';
+        if (!operationInvestigationValidation.hasAny) {
+          operationError = t('investigation.percentagesRequiredForSection', { section: operationSectionLabel });
+        } else if (!operationInvestigationValidation.hasAll) {
+          operationError = t('investigation.percentagesMustIncludeForSection', { section: operationSectionLabel });
+        } else if (!operationInvestigationValidation.isValid) {
+          operationError = t('investigation.percentagesMustTotalForSection', { section: operationSectionLabel, total: operationInvestigationValidation.total.toFixed(2) });
+        }
+
+        if (operationError) {
+          setValidationErrorModal({
+            isOpen: true,
+            errors: [operationError]
+          });
+          return;
+        }
+      }
+
+      await handleSubmit(actionToSubmit);
+    }
+  };
+
+  // Handle cancellation - close modal without submitting
+  const handleCancelSubmit = () => {
+    setConfirmationModal({ isOpen: false, action: null, emptyFields: [] });
+  };
+
+  //Handle form submission (actual submission logic)
+  const handleSubmit = async (action) => {
+    // Generate unique submission ID for tracking
+    const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Prevent duplicate submissions using ref for synchronous check
+    if (isSubmittingRef.current || isSubmitting) {
+      return;
+    }
+   
+    try {
+      submissionIdRef.current = currentSubmissionId;
+      setError('');
+      setSuccessMessage('');
+      isSubmittingRef.current = true; // Set ref immediately (synchronous)
+      setIsSubmitting(true);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error(t('messages.errors.authTokenNotFound'));
+      }
+
+      const generalFormId = initialData?.id || initialData?.generalFormId || formData?.generalFormId || null;
+      const isExistingForm = Boolean(generalFormId);
+
+      const urlParams = new URLSearchParams(window.location.search);
+      const formId = urlParams.get('form_id') || 1;
+      const layoutId = urlParams.get('layout_id') || 1;
+
+      const items = Array.isArray(formData.items) ? formData.items : [];
+      if (!items.length) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.addProductRequired')]
+        });
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+      
+      const hasValidProduct = items.some((item) => (item?.code || item?.product_code || '').toString().trim());
+      if (!hasValidProduct) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.productCodeRequired')]
+        });
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Helper function to safely convert to number, handling strings, null, undefined
+      const safeNumber = (value) => {
+        if (value === null || value === undefined || value === '') return 0;
+        // Handle string values like "2" or "2.5"
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          if (trimmed === '') return 0;
+          const num = Number(trimmed);
+          return Number.isFinite(num) && num >= 0 ? num : 0;
+        }
+        const num = Number(value);
+        return Number.isFinite(num) && num >= 0 ? num : 0;
+      };
+
+      // Helper function to find quantity from multiple possible fields
+      const findQuantity = (item) => {
+        // Try all possible quantity fields in priority order
+        // Check both direct access and string conversions
+        const fields = [
+          item?.request_qty,
+          item?.actual_qty,
+          item?.final_qty,
+          item?.product_type,
+          item?.qty,
+          item?.quantity
+        ];
+        
+        for (const field of fields) {
+          // Check if field exists and is not empty/null/undefined
+          // Also check for string "0" which should be treated as 0
+          if (field !== null && field !== undefined && field !== '' && String(field).trim() !== '0') {
+            const qty = safeNumber(field);
+            // Return first valid quantity > 0 found
+            if (qty > 0) return qty;
+          }
+        }
+        
+        // Fallback: if item has amount and price, calculate quantity
+        const price = safeNumber(item?.price);
+        const amount = safeNumber(item?.amount);
+        if (amount > 0 && price > 0) {
+          const calculatedQty = amount / price;
+          if (calculatedQty > 0 && Number.isFinite(calculatedQty)) {
+            return calculatedQty;
+          }
+        }
+        
+        return 0;
+      };
+
+      // Filter out items with 0 quantity or no product code before processing
+      // This prevents errors for old forms where items might have 0 quantity
+      const validItems = items.filter((item) => {
+        const productCode = (item?.product_code || item?.code || '').toString().trim();
+        if (!productCode) return false; // Skip items without product code
+        
+        // Find quantity using improved detection (checks multiple fields and calculates from amount/price)
+        const qty = findQuantity(item);
+        
+        // Item is valid if it has quantity > 0
+        return qty > 0;
+      });
+
+
+      // Critical validation - items are still required (blocking error)
+      if (validItems.length === 0) {
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [t('messages.addProductRequired')]
+        });
+        isSubmittingRef.current = false;
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Note: Reason/Remark/Comment can be null in create stage
+      // Note: File attachments are optional in submit step
+      // Note: Empty fields are already shown in confirmation modal, no need to show again here
+
+      const normalizedItems = validItems.map((item, index) => {
+        const productCode = (item?.product_code || item?.code || '').toString().trim();
+        
+        // CRITICAL: Preserve request_qty from item state - it should be independent of actual_qty
+        // Only use fallback if request_qty is truly null/undefined/empty/0
+        // Priority: request_qty (if set to non-zero) > actual_qty (for initialization) > final_qty > product_type
+        let finalRequestQty;
+        const requestQtyValue = item?.request_qty;
+        // Treat 0 as unset because it's the default initialization value
+        const isRequestQtySet = requestQtyValue !== null && 
+                                requestQtyValue !== undefined && 
+                                requestQtyValue !== '' &&
+                                requestQtyValue !== 0 &&
+                                !(typeof requestQtyValue === 'string' && requestQtyValue.trim() === '');
+        
+        if (isRequestQtySet) {
+          // request_qty has been explicitly set to a non-zero value, use it
+          finalRequestQty = safeNumber(requestQtyValue);
+        } else {
+          // request_qty hasn't been set yet (is null/undefined/empty/0), use actual_qty as fallback (for initialization)
+          const rawQty = item?.actual_qty ?? item?.final_qty ?? item?.product_type ?? 0;
+          finalRequestQty = safeNumber(rawQty);
+        }
+        
+        const systemQty = safeNumber(item?.system_qty);
+        const priceValue = Number(item?.price);
+        const price = Number.isFinite(priceValue) ? priceValue : 0;
+        const remark = item?.remark ?? '';
+        const productName = item?.product_name || item?.name || '';
+        const unit = item?.unit || '';
+
+        // Resolve actual and final quantities, preserving original values
+        // CRITICAL: Preserve request_qty and actual_qty from the item - don't use final_qty as fallback
+        // request_qty and actual_qty should remain unchanged when final_qty is modified
+        const resolvedActual = (item?.actual_qty !== undefined && item?.actual_qty !== null)
+          ? safeNumber(item.actual_qty)
+          : ((item?.request_qty !== undefined && item?.request_qty !== null)
+              ? safeNumber(item.request_qty)
+              : finalRequestQty);
+        
+        // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
+        const resolvedFinal = (item?.final_qty !== undefined && item?.final_qty !== null)
+          ? safeNumber(item.final_qty)
+          : ((item?.product_type !== undefined && item?.product_type !== null)
+              ? safeNumber(item.product_type)
+              : finalRequestQty);
+        
+        // CRITICAL: Amount/total calculation depends on the form status:
+        // - Checked: price * actual_qty (user edits actual_qty in Checked stage)
+        // - BM Approved: price * actual_qty
+        // - Other stages: price * final_qty
+        const currentFormStatus = (formData.status || '').trim();
+        const isBMApprovedStatus = currentFormStatus === 'BM Approved' || currentFormStatus === 'BMApproved';
+        const isCheckedStatus = currentFormStatus === 'Checked' || currentFormStatus === 'checked';
+        // Use actual_qty for BM Approved and Checked stages, final_qty for other stages
+        const qtyForAmount = (isBMApprovedStatus || isCheckedStatus) ? resolvedActual : resolvedFinal;
+        const computedAmount = price * qtyForAmount;
+        const parsedAmount = Number(item?.amount);
+        // Only use parsedAmount if it matches the expected calculation
+        // This prevents stale amount values from being used
+        const expectedAmount = price * qtyForAmount;
+        const amount = (Number.isFinite(parsedAmount) && Math.abs(parsedAmount - expectedAmount) < 0.01) 
+          ? parsedAmount 
+          : computedAmount;
+        const accountCode = item?.acc_code1 ?? item?.acc_code ?? '';
+        const rawSpecificId = item?.specific_form_id ?? item?.id ?? item?.specific_id ?? '';
+        
+        // Ensure specific_form_id is always an integer (database expects bigint)
+        // Convert to integer: if it's a number (including decimal), use Math.floor
+        // If it's a string that represents a number, parse and floor it
+        let specificId = '';
+        if (rawSpecificId !== '' && rawSpecificId !== null && rawSpecificId !== undefined) {
+          const parsed = typeof rawSpecificId === 'number' 
+            ? rawSpecificId 
+            : (typeof rawSpecificId === 'string' && rawSpecificId.trim() !== '' 
+                ? parseFloat(rawSpecificId) 
+                : null);
+          
+          if (parsed !== null && !isNaN(parsed)) {
+            specificId = Math.floor(parsed).toString();
+          }
+        }
+        
+        // Get product_category_id from multiple possible sources
+        const categoryId = item?.product_category_id || 
+                          item?.category_id || 
+                          item?.maincatid || 
+                          null;
+        const normalizedCategoryId = (categoryId === '' || categoryId === 'undefined' || categoryId === null || isNaN(categoryId))
+          ? null
+          : Number(categoryId);
+
+        return {
+          product_code: productCode,
+          product_name: productName,
+          unit,
+          request_qty: finalRequestQty,
+          actual_qty: resolvedActual,
+          final_qty: resolvedFinal,
+          price,
+          amount,
+          system_qty: systemQty,
+          remark,
+          acc_code1: accountCode,
+          specific_form_id: specificId,
+          product_type: item?.product_type ?? resolvedFinal,
+          product_category_id: normalizedCategoryId,
+        };
+      });
+
+      // Arrays will be declared later before use
+
+      // Import with debug logging
+      const config = await import('../../api/config');
+      const { apiFetch } = config;
+      
+      // Set the correct endpoint based on the mode
+      const formIdNum = parseInt(formId, 10) || 1;
+      const layoutIdNum = parseInt(layoutId, 10) || 1;
+      const endpoint = isExistingForm
+        ? `/big-damage-issues/${generalFormId}`
+        : `/big-damage-issues/${formIdNum}/${layoutIdNum}`;
+
+      const method = isExistingForm ? 'POST' : 'POST';
+
+      const formDataToSend = new FormData();
+      
+      const excludedFormKeys = new Set([
+        'items',
+        'approvals',
+        'account_codes',
+        'issue_remarks',
+        'attachments',
+        'general_form',
+        'general_form_files',
+        'files',
+        'actions',
+        'big_damage_issue',
+        'meta',
+        'caseType', // Exclude caseType - we convert it to asset_type manually
+      ]);
+
+      Object.entries(formData).forEach(([key, value]) => {
+        if (excludedFormKeys.has(key)) return;
+
+        if (value instanceof Date) {
+          // Convert to Y-m-d H:i:s format for Laravel
+          const year = value.getFullYear();
+          const month = String(value.getMonth() + 1).padStart(2, '0');
+          const day = String(value.getDate()).padStart(2, '0');
+          const hours = String(value.getHours()).padStart(2, '0');
+          const minutes = String(value.getMinutes()).padStart(2, '0');
+          const seconds = String(value.getSeconds()).padStart(2, '0');
+          formDataToSend.append(key, `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`);
+          return;
+        }
+
+        if (value instanceof File) {
+          formDataToSend.append(key, value);
+          return;
+        }
+
+        if (Array.isArray(value)) {
+          const hasComplexEntries = value.some((entry) => entry && typeof entry === 'object' && !(entry instanceof File));
+          if (hasComplexEntries) {
+            return;
+          }
+
+          value.forEach((entry) => {
+            if (entry !== undefined && entry !== null && entry !== '') {
+              formDataToSend.append(`${key}[]`, entry);
+            }
+          });
+          return;
+        }
+
+        if (value !== null && typeof value === 'object') {
+          return;
+        }
+
+        if (value !== null && value !== undefined) {
+          // Special handling for datetime field - convert to Laravel format
+          if (key === 'datetime' && typeof value === 'string') {
+            // Handle various datetime formats
+            let datetimeValue = value;
+            
+            // Remove any ISO timezone suffixes (.000000Z, :00, etc.)
+            datetimeValue = datetimeValue.replace(/\.\d+Z.*$/, '');
+            datetimeValue = datetimeValue.replace(/Z.*$/, '');
+            
+            // Convert from 2025-11-24T04:02 to 2025-11-24 04:02:00
+            if (datetimeValue.includes('T')) {
+              datetimeValue = datetimeValue.replace('T', ' ');
+            }
+            
+            // Add seconds if not present
+            if (datetimeValue.length === 16) { // YYYY-MM-DD HH:MM format
+              datetimeValue += ':00';
+            }
+            
+            formDataToSend.append(key, datetimeValue);
+          } else {
+            formDataToSend.append(key, value);
+          }
+        }
+      });
+
+      // Get user_id from multiple sources
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = formData.user_id
+        ?? initialData?.user_id
+        ?? initialData?.user?.id
+        ?? initialData?.user?.user_id
+        ?? storedUser?.id
+        ?? storedUser?.admin_id
+        ?? storedUser?.user_id
+        ?? null;
+
+      if (userId) {
+        formDataToSend.append('user_id', userId);
+      }
+      
+      // Add branch_id if not already present
+      const branchId = formData.branch_id 
+        ?? initialData?.branch_id
+        ?? storedUser?.from_branch_id
+        ?? storedUser?.branch_id
+        ?? null;
+        
+      if (branchId) {
+        formDataToSend.append('branch_id', branchId);
+      }
+      
+      // Add form_id and layout_id for new forms
+      if (!isExistingForm) {
+        const formIdNum = parseInt(formId, 10) || 1;
+        const layoutIdNum = parseInt(layoutId, 10) || 1;
+        formDataToSend.append('form_id', formIdNum);
+        formDataToSend.append('layout_id', layoutIdNum);
+      }
+
+      if (isExistingForm) {
+        formDataToSend.append('_method', 'PATCH');
+      }
+
+      // Convert caseType to asset_type format expected by backend
+      // "Other income sell" -> "on", "Not sell" -> "off"
+      // IMPORTANT: Always use formData.caseType first (user's current selection)
+      // Only fall back to initialData if formData.caseType is not set
+      const currentCaseType = (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== '')
+        ? formData.caseType
+        : (initialData?.caseType || 'Not sell');
+
+      // Normalize the caseType value (handle variations)
+      const normalizedCaseType = String(currentCaseType).trim();
+
+      // Convert to backend format
+      let assetType = 'off'; // Default to 'off' (Not sell)
+      if (normalizedCaseType === 'Other income sell' || normalizedCaseType.toLowerCase() === 'other income sell') {
+        assetType = 'on';
+      } else if (normalizedCaseType === 'Not sell' || normalizedCaseType.toLowerCase() === 'not sell') {
+        assetType = 'off';
+      }
+
+      // Always include asset_type for both new and existing forms
+      // This will override any asset_type that might have been set earlier
+      formDataToSend.append('asset_type', assetType);
+      
+      // Send items in nested format that Laravel expects: items[0][product_code], items[1][product_code], etc.
+      // Laravel Repository expects: $request['items'] as an array
+      normalizedItems.forEach((item, index) => {
+        Object.entries(item).forEach(([key, value]) => {
+          // Special handling for numeric fields - include 0 values
+          const isNumericField = ['request_qty', 'actual_qty', 'final_qty', 'system_qty', 'price', 'amount', 'product_type'].includes(key);
+          
+          if (value !== undefined && value !== null) {
+            // For numeric fields, include 0 values
+            // Ensure specific_form_id is sent as integer string
+            if (key === 'specific_form_id' && value !== '') {
+              const intValue = Math.floor(Number(value));
+              formDataToSend.append(`items[${index}][${key}]`, intValue.toString());
+            } else if (isNumericField || value !== '') {
+              formDataToSend.append(`items[${index}][${key}]`, value);
+            }
+          }
+        });
+      });
+
+      // NOTE: Laravel backend needs BOTH formats for updates
+      // - Nested format items[0][key] for creating items
+      // - Array format field[] for updating items (edit_product method)
+      
+      // These arrays are required by the edit_product method in Repository
+      const appendArrayField = (key, values) => {
+        values.forEach((value, index) => {
+          const valueToSend = (value !== undefined && value !== null) ? value : '';
+          // Ensure specific_form_id is sent as integer string
+          if (key === 'specific_form_id' && valueToSend !== '') {
+            const intValue = Math.floor(Number(valueToSend));
+            formDataToSend.append(`${key}[]`, intValue.toString());
+          } else {
+            formDataToSend.append(`${key}[]`, valueToSend);
+          }
+        });
+      };
+      
+      // Map arrays from normalized items
+      const productCodes = normalizedItems.map((item) => item.product_code);
+      const productNames = normalizedItems.map((item) => item.product_name ?? '');
+      const units = normalizedItems.map((item) => item.unit ?? '');
+      const systemQtys = normalizedItems.map((item) => item.system_qty ?? 0);
+      const requestQtys = normalizedItems.map((item) => item.request_qty ?? 0);
+      const actualQtys = normalizedItems.map((item) => item.actual_qty ?? 0);
+      const finalQtys = normalizedItems.map((item) => item.final_qty ?? 0);
+      const prices = normalizedItems.map((item) => item.price ?? 0);
+      const amounts = normalizedItems.map((item) => item.amount ?? 0);
+      const remarks = normalizedItems.map((item) => item.remark ?? '');
+      const productTypes = normalizedItems.map((item) => item.product_type ?? 'Damage');
+      const productCategoryIds = normalizedItems.map((item) => item.product_category_id ?? null);
+      // CRITICAL: specific_form_id array should ONLY contain valid IDs of existing items
+      // New items should NOT have their (empty) specific_form_id in this array
+      // The backend uses count(specific_form_id) to determine where existing items end and new items begin
+      const specificFormIds = normalizedItems
+        .map((item, index) => {
+          const fallback = items[index]?.specific_form_id ?? items[index]?.id ?? '';
+          return item.specific_form_id ?? fallback;
+        })
+        .filter(id => id !== '' && id !== null && id !== undefined && id !== 0 && id !== '0');
+      const accountCodeLines = normalizedItems.map((item) => item.acc_code1 ?? '');
+      
+      // Append all arrays
+      appendArrayField('product_code', productCodes);
+      appendArrayField('product_name', productNames);
+      appendArrayField('unit', units);
+      appendArrayField('system_qty', systemQtys);
+      appendArrayField('request_qty', requestQtys);
+      appendArrayField('actual_qty', actualQtys);
+      appendArrayField('final_qty', finalQtys);
+      appendArrayField('price', prices);
+      appendArrayField('amount', amounts);
+      appendArrayField('total', amounts);
+      appendArrayField('remark', remarks);
+      appendArrayField('product_type', productTypes);
+      appendArrayField('product_category_id', productCategoryIds);
+      appendArrayField('specific_form_id', specificFormIds);
+      appendArrayField('acc_code1', accountCodeLines);
+      // Also include legacy 'acc_code' key (backend may expect either)
+      appendArrayField('acc_code', accountCodeLines);
+      
+      // If any account codes are present, mark the form as "Other income sell" for backend/listing
+      const hasAccountCodes = accountCodeLines.some(code => code !== undefined && code !== null && String(code).trim() !== '');
+      if (hasAccountCodes) {
+        // Backend expects case_type or asset_type to indicate Other income sell
+        formDataToSend.append('case_type', 'Other income sell');
+        formDataToSend.append('asset_type', 'on');
+        // Also include camelCase variants in case backend expects them
+        formDataToSend.append('caseType', 'Other income sell');
+        formDataToSend.append('assetType', 'on');
+      }
+
+      const commentValue = [formData.comment, formData.reason, formData.remark]
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find((value) => value.length > 0) || '';
+
+      if (commentValue.length) {
+        formDataToSend.append('comment', commentValue);
+      }
+      
+      // Reason and g_remark can be empty in create stage - send empty string or null
+      // Don't force N/A as default
+      
+      
+      // Send the selected issue remark - always send it if it exists
+      // The backend needs this to save the ISS remark type
+      if (formData.iss_remark !== null && formData.iss_remark !== undefined && formData.iss_remark !== '') {
+        formDataToSend.append('iss_remark', formData.iss_remark);
+      }
+      
+      // Account codes are already included in items[i][acc_code1] above
+      // No need to send separate acc_code1[] array
+      
+      // Include investigation form data when approving at Checked stage (BMApprovedMem) or Completed stage
+      // This allows the backend to update the investigation form when status changes
+      const investigation = formData?.investigation || 
+                           formData?.investigate || 
+                           formData?.general_form?.investigation || 
+                           formData?.general_form?.investigate || 
+                           null;
+      
+      // When action is Checked/BMApprovedMem, include BM investigation data (bm_reason, bm_company, bm_user, bm_income)
+      if (action === 'Checked' || action === 'BMApprovedMem' || action === 'checked' || action === 'bmapprovedmem') {
+        if (investigation) {
+          // Send BM reason if it exists
+          if (investigation.bm_reason !== null && investigation.bm_reason !== undefined && investigation.bm_reason.trim() !== '') {
+            formDataToSend.append('bm_reason', investigation.bm_reason);
+          }
+          
+          // Send BM percentages if they exist
+          if (investigation.bm_company !== null && investigation.bm_company !== undefined) {
+            formDataToSend.append('bm_company', investigation.bm_company);
+          }
+          if (investigation.bm_user !== null && investigation.bm_user !== undefined) {
+            formDataToSend.append('bm_user', investigation.bm_user);
+          }
+          if (investigation.bm_income !== null && investigation.bm_income !== undefined) {
+            formDataToSend.append('bm_income', investigation.bm_income);
+          }
+          
+          // Send BDI reason (category) if it exists
+          if (investigation.bdi_reason !== null && investigation.bdi_reason !== undefined && investigation.bdi_reason.trim() !== '') {
+            // Map reason to flag (thief, delivery, natural, discipline, accident, safety, other)
+            const reasonMap = {
+              'thief': 'thief',
+              'delivery': 'delivery',
+              'natural': 'natural',
+              'discipl': 'discipline', // Backend stores 'discipl' but we send 'discipline'
+              'discipline': 'discipline',
+              'accident': 'accident',
+              'safety': 'safety',
+              'other': 'other'
+            };
+            const reasonKey = investigation.bdi_reason.toLowerCase();
+            const flagKey = reasonMap[reasonKey];
+            if (flagKey) {
+              formDataToSend.append(flagKey, '1');
+            }
+          }
+        }
+      }
+      
+      // When status is 'Completed', send approval fields for "Issued by" (ACK user_type)
+      // The backend expects these fields to update the approval record
+      // Note: actual_user_id is also appended later, but we need to ensure all fields are sent
+      if (action === 'Completed' || action === 'completed') {
+        // Use the same user resolution logic as below to ensure consistency
+        const user = currentUser || getCurrentUser() || {};
+        
+        // Prioritize full_name over name to get the correct logged-in user name
+        const approverName = [
+          user?.full_name,      // Most accurate - full name
+          user?.fullName,       // Alternative full name field
+          user?.name,           // Fallback to name
+          user?.username,       // Username as last resort
+          user?.user_name,
+        ].find((value) => typeof value === 'string' && value.trim()) || '';
+        
+        const approverFullName = user?.full_name || user?.fullName || approverName || '';
+        const approverBranch = user?.branch_short_name || user?.branch_name || user?.branch || '';
+        
+        // actual_user_id will be appended later, but we need these specific fields for ACK approval
+        if (approverName) {
+          formDataToSend.append('actual_user_name', approverName.trim());
+        }
+        if (approverFullName) {
+          formDataToSend.append('actual_user_full_name', approverFullName.trim());
+        }
+        if (approverBranch) {
+          formDataToSend.append('actual_user_branch', approverBranch.trim());
+        }
+        
+        // Include investigation form data (account percentages) when acknowledging
+        // This allows the backend to update the investigation form when status changes to Completed
+        if (investigation) {
+          // Send account percentages if they exist
+          if (investigation.acc_company !== null && investigation.acc_company !== undefined) {
+            formDataToSend.append('acc_company', investigation.acc_company);
+          }
+          if (investigation.acc_user !== null && investigation.acc_user !== undefined) {
+            formDataToSend.append('acc_user', investigation.acc_user);
+          }
+          if (investigation.acc_income !== null && investigation.acc_income !== undefined) {
+            formDataToSend.append('acc_income', investigation.acc_income);
+          }
+        }
+      }
+      
+      const enhanceApprovalsWithAction = (approvalsList, triggeredAction) => {
+        if (!triggeredAction) return approvalsList;
+
+        const actionKey = triggeredAction.toLowerCase();
+        
+        const actionableKeys = ['bmapproved', 'bm approved', 'bmapprovedmem', 'checked', 'opapproved', 'proceed', 'ac_acknowledged', 'completed'];
+        if (!actionableKeys.includes(actionKey)) {
+          return approvalsList;
+        }
+
+        const userInfo = currentUser || getCurrentUser();
+        const userName = userInfo?.full_name || userInfo?.fullName || userInfo?.name || '';
+        const userFullName = userInfo?.full_name || userInfo?.fullName || '';
+        const userBranch = userInfo?.branch_short_name || userInfo?.branch_name || userInfo?.branch || '';
+        const nowIso = new Date().toISOString();
+
+        let workingList = Array.isArray(approvalsList)
+          ? approvalsList.map((approval) => ({ ...approval }))
+          : [];
+
+        const decorate = (approval, defaults) => {
+          const label = approval.label || defaults.label;
+          const role = approval.role || defaults.role;
+          const userType = approval.user_type || defaults.user_type;
+          const rawBase = { ...(approval.raw || {}) };
+
+          const raw = {
+            ...rawBase,
+            status: defaults.status,
+          };
+
+          if (commentValue) raw.comment = commentValue;
+          if (userName) raw.actual_user_name = userName;
+          if (userBranch) raw.actual_user_branch = userBranch;
+          raw.acted_at = nowIso;
+          if (defaults.user_type) raw.user_type = defaults.user_type;
+
+          return {
+            ...approval,
+            label,
+            role,
+            user_type: userType,
+            status: defaults.status,
+            acted: true,
+            comment: commentValue || approval.comment || '',
+            name: userName || approval.name || '',
+            date: nowIso,
+            acted_at: nowIso,
+            actual_user_id: userInfo?.id ?? approval.actual_user_id ?? null,
+            actual_user_name: userName || approval.actual_user_name || '',
+            actual_user_full_name: userFullName || approval.actual_user_full_name || '',
+            actual_user_branch: userBranch || approval.actual_user_branch || '',
+            raw,
+          };
+        };
+
+        const updateOrInsert = (defaults) => {
+          let updated = false;
+          workingList = workingList.map((approval) => {
+            if (defaults.match(approval)) {
+              updated = true;
+              return decorate(approval, defaults);
+            }
+            return approval;
+          });
+
+          if (!updated) {
+            workingList.push(
+              decorate(
+                {
+                  label: defaults.label,
+                  role: defaults.role,
+                  user_type: defaults.user_type,
+                },
+                defaults
+              )
+            );
+          }
+        };
+
+        if (['bmapproved', 'bm approved'].includes(actionKey)) {
+          updateOrInsert({
+            match: (approval) => {
+              const label = (approval?.label || '').toLowerCase();
+              const userType = (approval?.user_type || '').toLowerCase();
+              return label.includes('bm approved') || userType === 'a1';
+            },
+            label: 'BM Approved by',
+            role: 'BM/ABM',
+            user_type: 'A1',
+            status: 'BM Approved',
+          });
+        }
+
+        if (['bmapprovedmem', 'checked'].includes(actionKey)) {
+          updateOrInsert({
+            match: (approval) => {
+              const label = (approval?.label || '').toLowerCase();
+              const userType = (approval?.user_type || '').toLowerCase();
+              return label.includes('checked by') || userType === 'c' || userType === 'cs';
+            },
+            label: 'Checked by',
+            role: 'Branch LP',
+            user_type: 'C',
+            status: 'Checked',
+          });
+        }
+
+        if (['opapproved', 'proceed'].includes(actionKey)) {
+          updateOrInsert({
+            match: (approval) => {
+              const label = (approval?.label || '').toLowerCase();
+              const userType = (approval?.user_type || '').toLowerCase();
+              return label.includes('operation') || userType === 'op';
+            },
+            label: 'Operation Mgr Approved by',
+            role: 'Operation Manager',
+            user_type: 'OP',
+            status: 'OPApproved',
+          });
+        }
+
+        if (['ac_acknowledged'].includes(actionKey)) {
+          // Operation Manager acknowledgment - update OP approval
+          const currentUserRole = getUserRole();
+          const isOperationManager = currentUserRole === 'op_manager';
+          
+          if (isOperationManager) {
+            updateOrInsert({
+              match: (approval) => {
+                const label = (approval?.label || '').toLowerCase();
+                const userType = (approval?.user_type || '').toLowerCase();
+                // Match user_type: 'OP' or 'A2' (Operation Manager) or label that indicates operation manager
+                return (userType === 'op' || userType === 'a2') || label.includes('operation') || label.includes('op');
+              },
+              label: 'Acknowledged by',
+              role: 'Operation Manager',
+              user_type: 'OP',
+              status: 'Ac_Acknowledged',
+            });
+          }
+        }
+
+        if (['completed'].includes(actionKey)) {
+          // Check if this is Account issuing the form
+          const currentUserRole = getUserRole();
+          const isAccountUser = currentUserRole === 'account';
+          
+          if (isAccountUser) {
+            // Account issues the form - update AC approval with "Issued by" label
+            updateOrInsert({
+              match: (approval) => {
+                const label = (approval?.label || '').toLowerCase();
+                const userType = (approval?.user_type || '').toLowerCase();
+                // Match user_type: 'AC' (Account) or label that indicates account
+                return userType === 'ac' || label.includes('account') || label.includes('acknowledge') || label.includes('issued');
+              },
+              label: 'Issued by',
+              role: 'Branch Account',
+              user_type: 'AC',
+              status: 'Completed',
+            });
+          } else {
+            // For non-account users (like supervisor), handle Completed status
+            // Clear the "Checked by" name if it incorrectly has the supervisor's name
+            updateOrInsert({
+              match: (approval) => {
+                const label = (approval?.label || '').toLowerCase();
+                return label.includes('checked by');
+              },
+              label: 'Checked by',
+              role: 'Checker',
+              user_type: 'C',
+              status: 'Pending',
+              name: '', // Clear the name
+              acted: false,
+            });
+            
+            updateOrInsert({
+              match: (approval) => {
+                const label = (approval?.label || '').toLowerCase();
+                return label.includes('issued by');
+              },
+              label: 'Issued by',
+              role: 'Supervisor',
+              user_type: 'ACK',
+              status: 'Completed',
+              // Ensure the name is set from current user
+              name: userName || userInfo?.name || '',
+            });
+          }
+        }
+
+        return workingList;
+      };
+      if (formData.approvals && Array.isArray(formData.approvals)) {
+        formDataToSend.append('approvals', JSON.stringify(formData.approvals));
+      }
+
+      const totalAmount = normalizedItems.reduce((acc, item) => {
+        const parsed = Number(item.amount);
+        return acc + (Number.isFinite(parsed) ? parsed : 0);
+      }, 0);
+      formDataToSend.append('total_amount', totalAmount);
+      
+      // Detect deleted files (files that were in originalAttachments but not in current attachments)
+      const currentAttachmentIds = new Set(
+        (formData.attachments || [])
+          .filter(att => att.id || att.downloadUrl || att.file)
+          .map(att => att.id || att.file || att.downloadUrl)
+      );
+      
+      const deletedFiles = (originalAttachments || []).filter(originalAtt => {
+        const originalId = originalAtt.id || originalAtt.file || originalAtt.downloadUrl;
+        return originalId && !currentAttachmentIds.has(originalId);
+      });
+      
+      // Send deleted file IDs to backend so they can be removed
+      if (deletedFiles.length > 0) {
+        const deletedFileIds = deletedFiles
+          .map(file => file.id || file.file || file.downloadUrl)
+          .filter(Boolean);
+        if (deletedFileIds.length > 0) {
+          formDataToSend.append('deleted_file_ids', JSON.stringify(deletedFileIds));
+          // Also try alternative key names that backend might expect
+          deletedFileIds.forEach((fileId, index) => {
+            formDataToSend.append(`deleted_files[${index}]`, fileId);
+          });
+        }
+      }
+      
+      // Send supporting info attachments (files uploaded in SupportingInfo component)
+      if (formData.attachments && Array.isArray(formData.attachments)) {
+        const filesToSend = formData.attachments.filter(attachment => attachment?.fileObject instanceof File);
+        if (filesToSend.length > 0) {
+          filesToSend.forEach((attachment) => {
+            formDataToSend.append('file1[]', attachment.fileObject);
+          });
+        }
+      }
+
+      const itemIds = [];
+      let imageUploadCount = 0;
+      
+      normalizedItems.forEach((item, index) => {
+        const sourceItem = items[index] || item;
+        
+        // Check for various possible ID fields
+        const itemId = item?.id || item?.specific_form_id;
+        const productCode = (() => {
+          const candidates = [
+            sourceItem?.product_code,
+            item?.product_code,
+            sourceItem?.code,
+            item?.code,
+          ];
+          const found = candidates.find((value) => typeof value === 'string' && value.trim());
+          return found ? found.trim() : '';
+        })();
+
+        if (itemId) {
+          itemIds.push(itemId);
+        } else if (productCode) {
+          itemIds.push(productCode);
+        }
+
+        const uploadKey = productCode || itemId;
+
+        if (uploadKey) {
+
+          // Check if item has uploaded images with fileObject
+          const imageCandidates = {
+            img: sourceItem?.img ?? item?.img,
+            images: sourceItem?.images ?? item?.images,
+            photos: sourceItem?.photos ?? item?.photos,
+            attachments: sourceItem?.attachments ?? item?.attachments,
+            damage_images: sourceItem?.damage_images ?? item?.damage_images,
+            originalItem: sourceItem?.originalItem ?? item?.originalItem,
+          };
+          
+          const itemImages = extractImageArray(imageCandidates);
+          
+          itemImages.forEach((image, imgIndex) => {
+            if (image?.fileObject instanceof File) {
+              imageUploadCount++;
+              formDataToSend.append(`${uploadKey}[${imgIndex}]`, image.fileObject);
+            }
+          });
+        }
+      });
+      
+      
+      if (itemIds.length > 0) {
+        formDataToSend.append('img_product', JSON.stringify(itemIds));
+      }
+
+      if (action) {
+        const backendStatus = resolveBackendStatus(action);
+        
+        // Handle BackToPrevious action - send btp value as separate field
+        const isBackToPrevious = action === 'BackToPrevious' || action === 'backtoprevious';
+        if (isBackToPrevious && backendStatus) {
+          // For back to previous, send btp value as 'btp' field
+          // Backend expects: op_btp, bm_btp, or bracc_btp
+          if (backendStatus === 'op_btp' || backendStatus === 'bm_btp' || backendStatus === 'bracc_btp') {
+            formDataToSend.append('btp', backendStatus);
+            
+            // Determine target status based on btp value
+            let targetStatus = '';
+            if (backendStatus === 'op_btp') {
+              targetStatus = 'Checked'; // OP Manager sending back from OPApproved → Checked
+            } else if (backendStatus === 'bm_btp') {
+              targetStatus = 'Ongoing'; // BM sending back from Checked → Ongoing
+            } else if (backendStatus === 'bracc_btp') {
+              // Account sending back - determine based on current status
+              const currentStatus = formData.status || '';
+              const normalizedStatus = currentStatus.trim();
+              if (normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged') {
+                // Account sending back from Acknowledged → BM Approved or Checked
+                targetStatus = 'BM Approved';
+              } else if (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') {
+                // Account sending back from BM Approved → Checked
+                targetStatus = 'Checked';
+              } else {
+                targetStatus = 'Checked'; // Default fallback
+              }
+            }
+            
+            // Send target status
+            if (targetStatus) {
+              formDataToSend.append('status', targetStatus);
+            }
+          } else {
+          }
+        } else if (backendStatus) {
+          // For other actions, send status normally
+          formDataToSend.append('status', backendStatus);
+        }
+
+        // Explicitly ensure reason is sent for Cancel action
+        if ((action === 'Cancel' || action === 'cancel') && formData.reason) {
+          formDataToSend.append('reason', formData.reason);
+        }
+
+        const user = currentUser || getCurrentUser() || {};
+        
+        const resolvedUserId = user?.id
+          ?? user?.user_id
+          ?? user?.admin_id
+          ?? user?.userId
+          ?? user?.adminId
+          ?? null;
+        if (resolvedUserId !== null && resolvedUserId !== undefined && resolvedUserId !== '') {
+          formDataToSend.append('actual_user_id', resolvedUserId);
+        }
+
+        // Prioritize full_name over name to get the correct user name
+        const resolvedUserName = [
+          user?.full_name,      // Most accurate - full name
+          user?.fullName,       // Alternative full name field
+          user?.name,           // Fallback to name
+          user?.username,       // Username as last resort
+          user?.user_name,
+          user?.display_name,
+          user?.displayName,
+        ].find((value) => typeof value === 'string' && value.trim());
+        
+        if (resolvedUserName) {
+          formDataToSend.append('actual_user_name', resolvedUserName.trim());
+        }
+
+        const resolvedFullName = [
+          user?.full_name,
+          user?.fullName,
+          user?.name,
+          user?.username,
+          user?.user_name,
+          user?.display_name,
+          user?.displayName,
+          resolvedUserName,
+        ].find((value) => typeof value === 'string' && value.trim());
+        if (resolvedFullName) {
+          formDataToSend.append('actual_user_full_name', resolvedFullName.trim());
+        }
+
+        const userBranch = [
+          user?.branch_short_name,
+          user?.branchShortName,
+          user?.branch_name,
+          user?.branchName,
+          user?.branch,
+        ].find((value) => typeof value === 'string' && value.trim());
+        if (userBranch) {
+          formDataToSend.append('actual_user_branch', userBranch.trim());
+        }
+
+        const resolvedBranchId = user?.branch_id
+          ?? user?.branchId
+          ?? user?.from_branch_id
+          ?? user?.fromBranchId;
+        if (resolvedBranchId !== null && resolvedBranchId !== undefined && resolvedBranchId !== '') {
+          formDataToSend.append('actual_user_branch_id', resolvedBranchId);
+        }
+
+      }
+      
+      // Ensure actual_user_branch is always sent (might be required by backend)
+      if (!formDataToSend.has('actual_user_branch')) {
+        const user = currentUser || getCurrentUser() || JSON.parse(localStorage.getItem('user') || '{}');
+        const userBranch = user?.branch_short_name || user?.branch_name || user?.branch || 'N/A';
+        formDataToSend.append('actual_user_branch', userBranch);
+      }
+      
+      if (isExistingForm) formDataToSend.append('general_form_id', generalFormId);
+      
+      // Add unique submission ID to track duplicate submissions
+      const requestId = submissionIdRef.current || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      formDataToSend.append('_submission_id', requestId);
+
+      try {
+        // Log before making API call to detect duplicate calls
+        
+        // CRITICAL: Double-check we're not already submitting right before API call
+        if (!isSubmittingRef.current) {
+          isSubmittingRef.current = true; // Force set it
+        }
+        
+        // Make the API call with detailed logging
+        const response = await apiFetch(endpoint, {
+          method: method,
+          body: formDataToSend,
+        }).catch(async (error) => {
+          // If we get a response with an error status, log available error data
+          if (error.response) {
+            let errorData = error.data;
+
+            if (!errorData && error.response && !error.response.bodyUsed) {
+              try {
+                errorData = await error.response.json();
+              } catch (jsonError) {
+                try {
+                  errorData = await error.response.text();
+                } catch (textError) {
+                  errorData = null;
+                }
+              }
+            }
+
+
+            const formattedError = new Error(`HTTP error! status: ${(error.status || error.response.status)} - ${error.response.statusText}`);
+            formattedError.status = error.status || error.response.status;
+            formattedError.data = errorData;
+            formattedError.response = error.response;
+            throw formattedError;
+          }
+          throw error;
+        });
+
+        if (!response) {
+          throw new Error(t('messages.errors.noResponse'));
+        }
+
+        // Handle successful response
+        // Extract general_form_id from response early so it's accessible throughout the function
+        let responseGeneralFormId = null;
+        if (response && typeof response === 'object') {
+          // Preserve general_form_id from response if available
+          responseGeneralFormId = response?.general_form_id 
+            ?? response?.generalFormId 
+            ?? response?.general_form?.id
+            ?? response?.id
+            ?? response?.data?.general_form_id
+            ?? response?.data?.generalFormId
+            ?? response?.data?.id
+            ?? response?.data?.general_form?.id
+            ?? null;
+          
+          // Get form status from response - avoid response.status (HTTP status code)
+          // Check form status fields first, then fallback to current formData.status
+          const nextStatus = response?.form_status
+            || response?.status_field
+            || response?.general_form?.status
+            || response?.general_form?.form_status
+            || response?.data?.status
+            || response?.data?.general_form?.status
+            || formData.status;
+
+          const normalizedNextStatus = (nextStatus || '').replace(/\s+/g, '').toLowerCase();
+
+          // For actions that update approvals (like Completed/Issued), use backend response if available
+          // Otherwise, use enhanced local approvals as fallback
+          let finalApprovals;
+          if (response.approvals && Array.isArray(response.approvals) && response.approvals.length > 0) {
+            // Backend returned fresh approvals - use them (they have the latest data from database)
+            // Ensure it's a plain array (Laravel collections might not be properly converted)
+            finalApprovals = Array.isArray(response.approvals) ? [...response.approvals] : Object.values(response.approvals || {});
+            
+            // For "Checked" action, check if we sent a comment but backend response doesn't include 'C' approval with comment
+            // This can happen with new forms where the 'C' approval might not be in the response yet
+            if (action === 'Checked' || action === 'checked') {
+              const commentValue = [formData.comment, formData.reason, formData.remark]
+                .map((value) => (typeof value === 'string' ? value.trim() : ''))
+                .find((value) => value.length > 0) || '';
+              
+              const cApproval = finalApprovals.find(a => a.user_type === 'C');
+              const csApproval = finalApprovals.find(a => a.user_type === 'CS');
+              
+              // If we have a comment but no 'C' approval with comment, add/merge it
+              if (commentValue && (!cApproval || !cApproval.comment)) {
+                const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+                const userName = storedUser?.name || formData.requester_name || '';
+                const userId = storedUser?.id || storedUser?.admin_id || formData.user_id || null;
+                const branchId = storedUser?.branch_id || storedUser?.from_branch_id || formData.branch_id || null;
+                
+                // Get branch name
+                const branchName = formData.branch_name || storedUser?.branch_name || storedUser?.from_branch_name || '';
+                
+                // Create or update 'C' approval with comment
+                if (cApproval) {
+                  // Update existing 'C' approval with comment
+                  const cIndex = finalApprovals.findIndex(a => a.user_type === 'C');
+                  finalApprovals[cIndex] = {
+                    ...cApproval,
+                    comment: commentValue,
+                    actual_user_id: cApproval.actual_user_id || userId,
+                    actual_user_name: cApproval.actual_user_name || userName,
+                    actual_user_full_name: cApproval.actual_user_full_name || userName,
+                    actual_user_branch: cApproval.actual_user_branch || branchName,
+                    acted: true,
+                    status: 'Checked',
+                  };
+                } else {
+                  // Add new 'C' approval with comment (backend might not have returned it yet)
+                  finalApprovals.push({
+                    user_type: 'C',
+                    label: 'Checked by',
+                    role: 'Branch LP',
+                    comment: commentValue,
+                    actual_user_id: userId,
+                    actual_user_name: userName,
+                    actual_user_full_name: userName,
+                    actual_user_branch: branchName,
+                    acted: true,
+                    status: 'Checked',
+                    date: new Date().toISOString(),
+                    acted_at: new Date().toISOString(),
+                    name: userName,
+                  });
+                }
+              }
+            }
+          } else {
+            // Fallback to enhanced local approvals if backend didn't return them
+            const baseApprovals = formData.approvals || [];
+            finalApprovals = enhanceApprovalsWithAction(baseApprovals, action) || baseApprovals;
+          }
+
+          // Extract ISS remark from response if available, otherwise preserve current value
+          const responseIssRemark = response?.iss_remark ?? 
+                                   response?.iss_remark_type ??
+                                   response?.general_form?.iss_remark ??
+                                   response?.general_form?.iss_remark_type ??
+                                   (() => {
+                                     // Check general_form_files in response for ISS remark
+                                     const allFiles = [
+                                       ...(Array.isArray(response?.general_form?.files) ? response.general_form.files : []),
+                                       ...(Array.isArray(response?.general_form?.general_form_files) ? response.general_form.general_form_files : []),
+                                       ...(Array.isArray(response?.general_form_files) ? response.general_form_files : []),
+                                       ...(Array.isArray(response?.files) ? response.files : [])
+                                     ];
+                                     
+                                     // Find ISS_DOCUMENT files - prefer the one with ISS number (from issue stage)
+                                     const issFiles = allFiles.filter(f => f && f.file === 'ISS_DOCUMENT');
+                                     
+                                     // Prefer the one with an ISS number (name field not empty) - this is from the issue stage
+                                     let issFile = issFiles.find(f => f.name && f.name.trim() !== '' && f.name !== 'ISS_DOCUMENT');
+                                     
+                                     // If no file with ISS number found, get the most recent one
+                                     if (!issFile && issFiles.length > 0) {
+                                       issFiles.sort((a, b) => {
+                                         if (a.id && b.id) return b.id - a.id;
+                                         if (a.created_at && b.created_at) {
+                                           return new Date(b.created_at) - new Date(a.created_at);
+                                         }
+                                         return 0;
+                                       });
+                                       issFile = issFiles[0];
+                                     }
+                                     
+                                     return issFile?.reason ? String(issFile.reason) : null;
+                                   })();
+
+          // Use response items if available (they may have updated account codes), otherwise keep current items
+          const responseItems = Array.isArray(response?.items) ? response.items : 
+                               Array.isArray(response?.general_form?.items) ? response.general_form.items :
+                               null;
+          
+          // Resolve attachments from response - these are the files that were uploaded and saved by the backend
+          const responseAttachments = resolveInitialAttachments(response, []);
+          
+          // If no attachments in response but we have a general_form_id, fetch them from the backend
+          // This is needed because files are stored separately and may not be in the submission response
+          let finalAttachments = responseAttachments;
+          if (responseAttachments.length === 0 && responseGeneralFormId) {
+            try {
+              const token = localStorage.getItem("token");
+              if (token) {
+                const filesResponse = await apiFetch('/big-damage-issues/get-image', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                  },
+                  body: JSON.stringify({
+                    type: 'all', // 'all' for operation/owner uploads
+                    id: responseGeneralFormId
+                  })
+                });
+                
+                const operationFilesData = filesResponse?.img || [];
+                if (Array.isArray(operationFilesData) && operationFilesData.length > 0) {
+                  finalAttachments = operationFilesData.map(file => ({
+                    id: file.id || `doc_${file.file}`,
+                    name: file.name || file.file,
+                    file: file.file,
+                    downloadUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
+                    previewUrl: `/api/public-files/${encodeURIComponent(file.file)}`,
+                    size: file.size || null,
+                    acc_type: file.acc_type || null,
+                    isRemote: true, // Mark as remote file
+                  }));
+                } else {
+                }
+              }
+            } catch (error) {
+              // Log error for debugging
+            }
+          }
+          
+          
+          // Update originalAttachments with the final attachments (so we can track deletions in future edits)
+          if (finalAttachments.length > 0) {
+            const serverAttachments = finalAttachments.filter(att => att.downloadUrl || att.isRemote || att.id);
+            if (serverAttachments.length > 0) {
+              setOriginalAttachments(serverAttachments);
+            }
+          }
+          
+          setFormData((prev) => {
+            // Merge attachments: use fetched attachments if available, otherwise keep existing
+            const mergedAttachments = finalAttachments.length > 0 
+              ? finalAttachments 
+              : prev.attachments;
+            
+            // Update general_form with remark and total_amount from BTP response if available
+            const responseTotalAmount = response?.total_amount;
+            const prevTotalAmount = prev?.general_form?.total_amount ?? prev?.total_amount;
+            
+            // DEBUG: Log total_amount update
+            if (responseTotalAmount !== undefined) {
+              console.log('[BTP] Frontend: Updating total_amount from response', {
+                general_form_id: responseGeneralFormId,
+                response_total_amount: responseTotalAmount,
+                previous_total_amount: prevTotalAmount,
+                difference: responseTotalAmount - (prevTotalAmount || 0),
+                response_keys: Object.keys(response || {}),
+              });
+            }
+            
+            const updatedGeneralForm = {
+              ...(prev.general_form || {}),
+              status: nextStatus,
+              // Update remark from BTP response - this is the "Back to Previous" remark
+              ...(response?.remark !== undefined ? { remark: response.remark } : {}),
+              // CRITICAL: Update total_amount from BTP response to reflect recalculated amount
+              ...(responseTotalAmount !== undefined ? { total_amount: responseTotalAmount } : {}),
+            };
+            
+            const updated = {
+              ...prev,
+              status: nextStatus,
+              // Preserve general_form_id - critical for investigation modal
+              general_form_id: responseGeneralFormId ?? prev.general_form_id ?? prev.generalFormId,
+              generalFormId: responseGeneralFormId ?? prev.generalFormId ?? prev.general_form_id,
+              approvals: finalApprovals, // Use backend approvals when available
+              iss_remark: responseIssRemark ?? formData.iss_remark ?? prev.iss_remark, // Use response value if available, otherwise keep current
+              items: responseItems ?? formData.items, // Use response items if available (they contain updated account codes)
+              // Update attachments - use fetched files from backend
+              attachments: mergedAttachments,
+              // Update general_form with BTP remark and total_amount
+              general_form: updatedGeneralForm,
+              // Also update total_amount at root level for compatibility
+              ...(responseTotalAmount !== undefined ? { total_amount: responseTotalAmount } : {}),
+              response: {
+                ...response,
+                approvals: finalApprovals
+              },
+            };
+            
+            // DEBUG: Log final state after update
+            if (responseTotalAmount !== undefined) {
+              console.log('[BTP] Frontend: Total amount after state update', {
+                general_form_id: responseGeneralFormId,
+                updated_general_form_total: updated.general_form?.total_amount,
+                updated_root_total: updated.total_amount,
+                items_count: updated.items?.length || 0,
+                items_total_calculated: updated.items?.reduce((sum, item) => {
+                  const amount = Number(item.amount || item.total || item.total_amount || 0);
+                  return sum + (Number.isFinite(amount) ? amount : 0);
+                }, 0) || 0,
+              });
+            }
+            return updated;
+          });
+
+          // Trigger backend system update and finalize step (best-effort, do not block UX)
+          (async () => {
+            try {
+              if (!responseGeneralFormId) return;
+              const { apiRequest } = await import('../../utils/api');
+              // 1) Update system quantities (existing endpoint used elsewhere)
+              try {
+                await apiRequest('/api/big-damage-issues/sys_update', {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    general_form_id: responseGeneralFormId,
+                    form_id: formId,
+                    layout_id: layoutId
+                  })
+                });
+              } catch (e) {
+              }
+
+              // 2) Call optional finalize endpoint (if backend expects an explicit finalize)
+              try {
+                await apiRequest(`/api/big-damage-issues/${responseGeneralFormId}/finalize`, {
+                  method: 'POST',
+                });
+              } catch (e) {
+                // Not all backends expose this endpoint; ignore failures
+              }
+
+              // 3) Explicitly trigger other-income processing for API clients to ensure parity with Blade flow
+              try {
+                if (responseGeneralFormId) {
+                  await apiRequest(`/api/big-damage-issues/${responseGeneralFormId}/process-other-income`, {
+                    method: 'POST',
+                    body: JSON.stringify({ actual_user_id: formData.user_id || formData.actual_user_id || null })
+                  });
+                }
+              } catch (e) {
+              }
+              
+              // 4) Ensure general_forms.total_amount is persisted in backend.
+              // Some backends do not automatically recalculate/persist the general_form total when items change,
+              // so explicitly PATCH the general form with the computed total to keep DB in sync.
+              try {
+                if (responseGeneralFormId) {
+                  // Prefer responseItems (backend-returned items) for most-accurate totals, fall back to current formData.items
+                  const itemsForTotal = Array.isArray(responseItems) && responseItems.length > 0
+                    ? responseItems
+                    : (Array.isArray(formData.items) ? formData.items : []);
+
+                  const computedTotal = itemsForTotal.reduce((acc, it) => {
+                    const n = Number(it.total ?? it.amount ?? it.total_amount ?? 0);
+                    return acc + (Number.isFinite(n) ? n : 0);
+                  }, 0);
+
+                  // Only send update if computed total is a finite number
+                  if (Number.isFinite(computedTotal)) {
+                    try {
+                      await apiRequest(`/api/general-forms/${responseGeneralFormId}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ total_amount: computedTotal })
+                      });
+                    } catch (innerErr) {
+                      // Not critical - log and continue
+                    }
+                  }
+                }
+              } catch (e) {
+              }
+  
+          // Notify other parts of the app (lists/dashboards) to refresh their data
+          try {
+            if (typeof window !== 'undefined' && window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('big-damage-updated', {
+                detail: { generalFormId: responseGeneralFormId }
+              }));
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          // 4) Check if backend wants us to redirect (e.g., for Other Income Sell forms)
+          if (response?.redirect?.should_redirect && response?.redirect?.redirect_to) {
+            // Give a brief moment for events to propagate, then redirect
+            setTimeout(() => {
+              window.location.href = response.redirect.redirect_to;
+            }, 500);
+            return; // Don't proceed with normal success handling if redirecting
+          }
+            } catch (err) {
+            }
+          })();
+
+        }
+
+        // Check if this is a "Back to Previous" action - navigate to list instead of reloading
+        const isBackToPreviousAction = action === 'BackToPrevious' || action === 'backtoprevious';
+        
+        if (isBackToPreviousAction) {
+          // For back to previous, navigate to list to avoid stale data issues
+          const message = t('messages.formSentBackToPrevious', { defaultValue: 'Form sent back to previous successfully' });
+          setSuccessMessage(message);
+          setSuccessModalMessage(message);
+          setSuccessModalAction('BackToPrevious');
+          setIsSuccessModalOpen(true);
+        
+          // Navigate to list page after modal closes (1 second)
+          setTimeout(() => {
+            const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+            if (storedReturnUrl) {
+              sessionStorage.removeItem('bigDamageIssueReturnUrl');
+              const urlParts = storedReturnUrl.split('?');
+              const pathname = urlParts[0] || '/big_damage_issue';
+              const search = urlParts[1] ? `?${urlParts[1]}` : '';
+              navigate(pathname + search, { replace: true });
+            } else {
+              navigate('/big_damage_issue', { replace: true });
+            }
+          }, 1500);
+          
+          return response;
+        }
+        
+        // Mark notifications as read when button action is successfully completed
+        // This ensures the unread badge disappears after the user completes their action
+        const generalFormId = formData.general_form_id || formData.generalFormId || responseGeneralFormId;
+        if (generalFormId && action && action !== 'Edit') {
+          try {
+            const token = localStorage.getItem('token');
+            if (token) {
+              // Mark notifications as read for this form
+              // Try with both form_id values for Big Damage Issue (1 and 8)
+              const markAsReadRequests = [
+                { form_id: 1, general_form_id: generalFormId, specific_form_id: generalFormId },
+                { form_id: 8, general_form_id: generalFormId, specific_form_id: generalFormId }
+              ];
+              
+              // Fire and forget - don't wait for response
+              markAsReadRequests.forEach(payload => {
+                fetch('/api/notifications/mark-as-read', {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                  },
+                  credentials: 'include',
+                  body: JSON.stringify(payload)
+                }).catch(err => {
+                });
+              });
+              
+              // Dispatch event to refresh notifications
+              window.dispatchEvent(new CustomEvent('notificationsUpdated', { 
+                detail: { forceRefresh: true, generalFormId: generalFormId } 
+              }));
+            }
+          } catch (error) {
+          }
+        }
+        
+        // Get the success message based on the action
+        let message = t('messages.formSubmitted');
+        let actionType = 'submit';
+        
+        if (action === 'Check' || action === 'CheckMem') {
+          message = t('messages.formChecked', { defaultValue: 'Form checked successfully' });
+          actionType = 'check';
+        } else if (action === 'Approve' || action === 'BMApproved' || action === 'BMApprovedMem') {
+          message = t('messages.formApproved', { defaultValue: 'Form approved successfully' });
+          actionType = 'approve';
+        } else if (action === 'Acknowledge' || action === 'AcAcknowledge') {
+          message = t('messages.formAcknowledged', { defaultValue: 'Form acknowledged successfully' });
+          actionType = 'acknowledge';
+        } else if (action === 'Issue' || action === 'SupervisorIssue') {
+          message = t('messages.formIssued', { defaultValue: 'Form issued successfully' });
+          actionType = 'issue';
+        } else if (action === 'Cancel' || action === 'cancel') {
+          message = t('messages.formCanceled', { defaultValue: 'Form canceled successfully' });
+          actionType = 'cancel';
+        } else if (action === 'Submit') {
+          message = t('messages.formSubmitted', { defaultValue: 'Form submitted successfully' });
+          actionType = 'submit';
+        }
+        
+        setSuccessMessage(message);
+        setSuccessModalMessage(message);
+        setSuccessModalAction(actionType);
+        setIsSuccessModalOpen(true);
+        
+        // If this was a save as draft, update the URL with the new form ID
+        if (response && response.id && !isEditMode) {
+          window.history.replaceState({}, '', `?form_id=${response.id}`);
+        }
+
+        // Redirect to issue list page after a short delay to show the success message
+        setTimeout(() => {
+          // Always redirect to Big Damage Issue list page after successful form submission
+          // Get the return URL from sessionStorage if available (to preserve filters/pagination)
+          const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+          
+          if (storedReturnUrl) {
+            // Clear the stored URL after using it
+            sessionStorage.removeItem('bigDamageIssueReturnUrl');
+            
+            // Extract pathname and search from the stored URL
+            const urlParts = storedReturnUrl.split('?');
+            const pathname = urlParts[0] || '/big_damage_issue';
+            const search = urlParts[1] ? `?${urlParts[1]}` : '';
+            
+            // Navigate with search params to preserve filters/pagination
+            navigate(pathname + search, { replace: true });
+          } else {
+            // Fallback: Navigate to default Big Damage Issue list page
+            navigate('/big_damage_issue', { replace: true });
+          }
+        }, 1500);
+
+        return response;
+      } catch (apiError) {
+        let errorMessage = t('messages.errors.formSubmitFailed');
+        
+        if (apiError.status === 404) {
+          errorMessage = t('messages.errors.notFound');
+        } else if (apiError.status === 401) {
+          errorMessage = t('messages.errors.sessionExpired');
+          // Redirect to login
+          window.location.href = '/login';
+          return; // Stop further execution
+        } else if (apiError.status === 403) {
+          errorMessage = t('messages.errors.forbidden');
+        } else if (apiError.status === 422) {
+          // Validation error - show the exact error message from server
+          errorMessage = apiError.message || t('messages.errors.validationError');
+        } else if (apiError.status === 500) {
+          errorMessage = t('messages.errors.serverError');
+        } else if (apiError.status === 503) {
+          errorMessage = t('messages.errors.serverUnavailable');
+        } else if (apiError.name === 'TypeError' && apiError.message.includes('fetch')) {
+          errorMessage = t('messages.errors.networkError');
+        } else if (apiError.data && apiError.data.message) {
+          errorMessage = apiError.data.message;
+        } else if (apiError.message) {
+          // Check if it's a known error message, otherwise use the message as-is
+          if (apiError.message.includes('token') || apiError.message.includes('authentication')) {
+            errorMessage = t('messages.errors.authTokenNotFound');
+          } else if (apiError.message.includes('timeout')) {
+            errorMessage = t('messages.errors.timeout');
+          } else if (apiError.message.includes('network') || apiError.message.includes('Failed to fetch')) {
+            errorMessage = t('messages.errors.networkError');
+          } else {
+            errorMessage = apiError.message;
+          }
+        } else {
+          errorMessage = t('messages.errors.unknownError');
+        }
+        
+        setError(errorMessage);
+        setSuccessMessage('');
+        
+        // Show error modal
+        setErrorModalMessage(errorMessage);
+        setIsErrorModalOpen(true);
+        
+        throw apiError; // Re-throw to be caught by the outer catch
+      }
+    } catch (error) {
+      let errorMessage = t('messages.errors.unknownError');
+      
+      // Handle specific error types
+      if (error.message) {
+        if (error.message.includes('token') || error.message.includes('authentication')) {
+          errorMessage = t('messages.errors.authTokenNotFound');
+        } else if (error.message.includes('network') || error.message.includes('Failed to fetch')) {
+          errorMessage = t('messages.errors.networkError');
+        } else if (error.message.includes('timeout')) {
+          errorMessage = t('messages.errors.timeout');
+        } else if (error.message.includes('Invalid') || error.message.includes('invalid')) {
+          errorMessage = t('messages.errors.invalidResponse');
+        } else {
+          // Use the error message if it's already user-friendly, otherwise use generic message
+          errorMessage = error.message || errorMessage;
+        }
+      }
+      
+      setError(errorMessage);
+      setSuccessMessage('');
+      
+      // Show error modal
+      setErrorModalMessage(errorMessage);
+      setIsErrorModalOpen(true);
+      
+      throw error;
+    } finally {
+      isSubmittingRef.current = false; // Reset ref
+      submissionIdRef.current = null; // Clear submission ID
+      setIsSubmitting(false);
+    }
+
+  };
+
+  // Determine which buttons to show based on user role and form status
+  const showApproveButton = () => {
+    // Don't return early if status is missing - check if user has OP approval assignment first
+    // The form data might still be loading, but we can check approvals array
+    const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    
+    // Check if user has OP approval entry assigned to them (even if role_id is not 4 or 5)
+    const hasOpApprovalAssignment = approvals.some(approval => {
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+      
+      // Check if user_type is OP or A2 AND user ID matches
+      const userTypeMatches = (userType === 'OP' || userType === 'A2');
+      const userIdMatches = currentUserId && allUserIds.some(id => 
+        String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+      );
+      
+      
+      return userTypeMatches && userIdMatches;
+    });
+    
+    // If user has OP approval assignment but no status yet (and no resolvedStatus), wait for form data to load
+    if (hasOpApprovalAssignment && !(formData.status || resolvedStatus)) {
+      return false;
+    }
+
+    const role = userRole?.toLowerCase?.() || '';
+    // Normalize status by using formData.status first, then fallback to resolvedStatus
+    const status = (formData.status || resolvedStatus || '').toString().trim();
+    const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
+    
+    // Get total amount to check if Operation Manager approval is required
+    // Calculate from items first (like main totalAmount), then fallback to formData fields
+    const totalAmount = formData.items && formData.items.length > 0 
+      ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+      : Number(
+      formData?.general_form?.total_amount
+      ?? formData?.total_amount
+      ?? formData?.general_form?.totalAmount
+      ?? formData?.totalAmount
+          ?? formData?.general_form?.total
+          ?? formData?.total
+          ?? initialData?.general_form?.total_amount
+          ?? initialData?.total_amount
+          ?? initialData?.general_form?.total
+          ?? initialData?.total
+      ?? 0
+    );
+    const requiresOpManagerApproval = totalAmount > 500000;
+    
+    // Extra: hide approve button for regular users when form is BM Approved and total > 500k
+    try {
+      if (isRegularUser && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved') && totalAmount > 500000) {
+        return false;
+      }
+    } catch (e) {
+      // ignore
+    }
+    
+    // CRITICAL: Check role_id directly for Operation Manager (role_id 4 or 5)
+    // This takes priority over role_name because a user might have role_name="BM" but role_id=4 (Operation Manager)
+    const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+    const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
+    
+    // Note: hasOpApprovalAssignment is already calculated at the top of this function
+    
+    // Final check: User is Operation Manager if:
+    // 1. role_id is 4 or 5, OR
+    // 2. role name is 'op_manager', OR
+    // 3. isOpManagerByApproval is true, OR
+    // 4. user has OP approval entry assigned to them
+    const userTypeLowerCheck = (
+      (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
+      (initialData?.current_user?.user_type || initialData?.currentUser?.user_type || initialData?.user?.user_type || initialData?.userType) ||
+      (currentUser?.role_name || currentUser?.roleName || '')
+    ).toString().toLowerCase();
+    const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
+    let isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+
+    // Fallback: if user has shared role_id (3) and there's an OP/A2 approval entry for this form,
+    // and the form requires OP approval (amount > 500000), treat user as OP for UI purposes.
+    // Backend will still enforce actual admin_id on submit.
+    try {
+      const currentRoleId = Number(currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || 0);
+      const approvalsList = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const hasOpApprovalEntryAny = approvalsList.some(a => {
+        const ut = (a?.user_type || a?.raw?.user_type || '').toString().toUpperCase();
+        return ut === 'OP' || ut === 'A2';
+      });
+      if (!isOpManagerFinal && currentRoleId === 3 && hasOpApprovalEntryAny && requiresOpManagerApproval) {
+        isOpManagerFinal = true;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Extra permissive fallback: when role_id === 3 (shared BM/OP) and the form requires OP approval,
+    // treat the current user as OP for UI purposes so they can see the acknowledge button.
+    // The backend will still verify the actual OP assignment/admin_id on submit.
+    try {
+      const currentRoleId2 = Number(currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || 0);
+      if (!isOpManagerFinal && currentRoleId2 === 3 && requiresOpManagerApproval) {
+        isOpManagerFinal = true;
+      }
+    } catch (e) {
+      // ignore
+    }
+    
+    
+    // EARLY RETURN: For account users with forms > 500000, check Operation Manager approval first
+    // This is a critical check - account users should NEVER see approve button if OP Manager hasn't approved
+    if ((isAccount || role === 'account') && requiresOpManagerApproval) {
+      const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const opManagerApproval = approvals.find(approval => {
+        const userType = (approval?.user_type || approval?.raw?.user_type || '').toLowerCase();
+        return userType === 'op' || userType === 'a2';
+      });
+      
+      // Check if Operation Manager approval is pending
+      const opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
+      const hasActualUser = opManagerApproval?.actual_user_id || 
+                           opManagerApproval?.raw?.actual_user_id ||
+                           opManagerApproval?.actual_user_name ||
+                           opManagerApproval?.raw?.actual_user_name ||
+                           opManagerApproval?.acted;
+      const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || !hasActualUser;
+      
+      // Check if status indicates Operation Manager has approved/acknowledged
+      const isOPApproved = normalizedStatus === 'OPApproved' || 
+                          normalizedStatus === 'OP Approved' ||
+                          normalizedStatus.toLowerCase() === 'opapproved' ||
+                          normalizedStatus.toLowerCase() === 'op approved';
+      const isAcknowledged = normalizedStatus === 'Ac_Acknowledged' || 
+                            normalizedStatus === 'Acknowledged';
+      const opManagerHasApprovedOrAcknowledged = isOPApproved || isAcknowledged;
+      
+      // CRITICAL: If Operation Manager approval is pending OR status doesn't indicate OP has approved/acknowledged, hide button
+      // This ensures account users can NEVER approve before Operation Manager
+      // If status is Ac_Acknowledged, it means OP has already acknowledged, so allow button
+      if (isOpApprovalPending && !isAcknowledged) {
+        return false; // Force return false - do not proceed to other checks
+      }
+      
+      // If status is Ac_Acknowledged, allow button to show (OP has acknowledged)
+      if (isAcknowledged) {
+        // Status indicates acknowledgment - allow button to show
+        // Continue to normal flow below
+      } else if (!opManagerHasApprovedOrAcknowledged) {
+        return false; // Status doesn't indicate OP approval/acknowledgment
+      }
+      
+      // If we reach here, Operation Manager has approved and status is OPApproved
+      // Continue to normal flow below
+    }
+
+    let result = false;
+
+    // Hide approve button for Branch Manager when status is Ongoing
+    // BM should only see approve button when status is Checked (after checker has checked)
+    if ((role === 'bm' || role === 'abm') && status === 'Ongoing') {
+      return false; // Hide approve button for BM in Ongoing status
+    }
+
+    if ((role === 'bm' || role === 'abm') && status === 'Checked') {
+      result = true;
+    } else if (['branch_lp', 'checker', 'cs', 'loss prevention'].includes(role) && status === 'Ongoing') {
+      result = true;
+    } else if (isOpManagerFinal && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked' || status === 'BM Approved' || status === 'BMApproved' || status === 'Checked')) {
+      // Operation Manager should see approve button when:
+      // 1. Form status is "BM Approved" or "Checked"
+      // 2. AND (amount > 500000 OR user has OP approval assignment)
+      // Show button if:
+      // 1. Amount > 500000 (requires OP Manager approval), OR
+      // 2. User has OP approval assignment (they're assigned to approve this form)
+      // The second condition handles cases where amount isn't loaded yet or user is assigned regardless of amount
+      if (requiresOpManagerApproval || hasOpApprovalAssignment) {
+        result = true; // Show approve button for OP Manager
+      }
+    } else if ((role === 'bm' || role === 'abm') && (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved')) {
+      // BM/ABM can also see approve button at BM Approved status (for re-approval or other actions)
+      result = true;
+    } else if (isAccount || role === 'account') {
+      // Account can only acknowledge after proper approval stage:
+      // - If amount > 500000: Must wait for OPApproved (Operation Manager approval)
+      // - If amount <= 500000: Can acknowledge at BM Approved (no Operation Manager stage)
+      
+      // Check if Operation Manager has actually approved by checking approvals array
+      const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const opManagerApproval = approvals.find(approval => {
+        const userType = (approval?.user_type || approval?.raw?.user_type || '').toLowerCase();
+        return userType === 'op' || userType === 'a2';
+      });
+      
+      // Check if status indicates BM Approved (case-insensitive, handles variations)
+      const isBMApproved = normalizedStatus.toLowerCase() === 'bm approved' || 
+                          normalizedStatus === 'BMApproved' ||
+                          normalizedStatus.toLowerCase() === 'bmapproved';
+      
+      // Check if status indicates OP Approved (case-insensitive, handles variations)
+      const isOPApproved = normalizedStatus === 'OPApproved' || 
+                          normalizedStatus === 'OP Approved' ||
+                          normalizedStatus.toLowerCase() === 'opapproved' ||
+                          normalizedStatus.toLowerCase() === 'op approved';
+      
+      // Check if status indicates Ac_Acknowledged (Operation Manager has acknowledged)
+      const isAcknowledged = normalizedStatus === 'Ac_Acknowledged' || 
+                            normalizedStatus === 'Acknowledged';
+      
+      // Define variables in broader scope for logging
+      let opApprovalStatus = '';
+      let isOpApprovalPending = false;
+      let opManagerHasApproved = false;
+      
+      if (requiresOpManagerApproval) {
+        // Amount exceeds 500000 - must wait for Operation Manager approval
+        // Check if Operation Manager approval exists and is still pending
+        opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
+        isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
+                                   (!opManagerApproval?.actual_user_id && 
+                                    !opManagerApproval?.raw?.actual_user_id &&
+                                    !opManagerApproval?.actual_user_name &&
+                                    !opManagerApproval?.raw?.actual_user_name &&
+                                    !opManagerApproval?.acted);
+        
+        // Operation Manager has approved if:
+        // 1. Status is OPApproved/OP Approved, OR
+        // 2. Status is Ac_Acknowledged/Acknowledged (OP has acknowledged), OR
+        // 3. There's an OP approval entry with actual_user_id or actual_user_name (has been acted upon)
+        opManagerHasApproved = isOPApproved || isAcknowledged ||
+          (opManagerApproval && !isOpApprovalPending && (
+            opManagerApproval.actual_user_id || 
+            opManagerApproval.raw?.actual_user_id ||
+            opManagerApproval.actual_user_name ||
+            opManagerApproval.raw?.actual_user_name ||
+            opManagerApproval.acted ||
+            (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
+          ));
+        
+        // Only show button if Operation Manager has actually approved/acknowledged
+        // If status is Ac_Acknowledged, allow button to show only if systemQtyUpdated is true
+        if (isAcknowledged) {
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          result = systemQtyUpdated; // Only show button if system quantity is updated
+        } else if (isBMApproved || isOpApprovalPending) {
+          result = false; // Explicitly false - must wait for OP approval
+        } else {
+          // Check if system quantity has been updated before showing button
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          result = !!(opManagerHasApproved && systemQtyUpdated);
+        }
+      } else {
+        // Amount <= 500000 - can acknowledge at BM Approved only if systemQtyUpdated is true
+        const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+        result = !!(isBMApproved && systemQtyUpdated);
+      }
+      
+    }
+    // Supervisor should NOT see approve button - they have a separate Issue button
+    return !!result; // Ensure boolean return value
+  };
+
+  const showRejectButton = () => {
+    if (!formData.status) return false;
+    
+    const role = userRole;
+    const status = formData.status;
+    
+    if ((role === 'bm' || role === 'abm') && (status === 'Ongoing' || status === 'Checked')) {
+      return true;
+    }
+    
+    if (role === 'op_manager' && status === 'BM Approved') {
+      return true;
+    }
+    
+    return false;
+  };
+
+const resolveApproveAction = () => {
+  const role = getUserRole();
+  const status = (formData.status || '').toString().trim();
+  const normalizedStatus = status.replace(/\s+/g, ' '); // Normalize multiple spaces to single space
+  
+  // Get total amount to check if Operation Manager approval is required
+  // Calculate from items first (like main totalAmount), then fallback to formData fields
+  const totalAmount = formData.items && formData.items.length > 0 
+    ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+    : Number(
+    formData?.general_form?.total_amount
+    ?? formData?.total_amount
+    ?? formData?.general_form?.totalAmount
+    ?? formData?.totalAmount
+        ?? formData?.general_form?.total
+        ?? formData?.total
+        ?? initialData?.general_form?.total_amount
+        ?? initialData?.total_amount
+        ?? initialData?.general_form?.total
+        ?? initialData?.total
+    ?? 0
+  );
+  const requiresOpManagerApproval = totalAmount > 500000;
+  
+  // Check if user is Operation Manager (same logic as showApproveButton)
+  const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+  const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+  
+  // Check if user has OP approval entry assigned to them
+  const hasOpApprovalAssignment = approvals.some(approval => {
+    const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+    const adminId = approval?.admin_id || approval?.raw?.admin_id;
+    const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+    const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+    const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+    
+    const userTypeMatches = (userType === 'OP' || userType === 'A2');
+    const userIdMatches = currentUserId && allUserIds.some(id => 
+      String(id) === String(currentUserId) || Number(id) === Number(currentUserId)
+    );
+    
+    return userTypeMatches && userIdMatches;
+  });
+  
+  // Check role_id directly for Operation Manager (role_id 4 or 5)
+  const userRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+  const isOpManagerByRoleId = userRoleId === 4 || userRoleId === 5;
+  
+  // Final check: User is Operation Manager if:
+  // 1. role_id is 4 or 5, OR
+  // 2. role name is 'op_manager', OR
+  // 3. isOpManager is true, OR
+  // 4. isOpManagerByApproval is true, OR
+  // 5. user has OP approval entry assigned to them
+  const userTypeLowerCheck = (
+    (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type) ||
+    (initialData?.current_user?.user_type || initialData?.currentUser?.user_type || initialData?.user?.user_type || initialData?.userType) ||
+    (currentUser?.role_name || currentUser?.roleName || '')
+  ).toString().toLowerCase();
+  const isOpManagerByUserType = userTypeLowerCheck === 'a2' || userTypeLowerCheck === 'op';
+  const isOpManagerFinal = isOpManagerByRoleId || role === 'op_manager' || isOpManager || isOpManagerByApproval || hasOpApprovalAssignment || isOpManagerByUserType;
+  
+  // Resolve approve action
+  if (role === 'branch_lp' && normalizedStatus === 'Ongoing') {
+    return 'BMApprovedMem';
+  }
+
+  // Only use actions.approve if it's valid for the current user and status
+  if (actions?.approve) {
+    const actionRole = getUserRole();
+    const actionStatus = (formData.status || '').toString().trim();
+    const normalizedActionStatus = actionStatus.replace(/\s+/g, ' ');
+    
+    // Validate that the action from backend is appropriate for current user/status
+    // For account users, only allow Completed (shows as "Issue") after proper approval stage
+    if (isAccount || actionRole === 'account') {
+      if (requiresOpManagerApproval) {
+        // Amount > 500000 - must check if Operation Manager has acknowledged
+        // Check approvals array to see if Operation Manager has acknowledged
+        const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+        const opManagerApproval = approvals.find(approval => {
+          const userType = (approval?.user_type || approval?.raw?.user_type || '').toLowerCase();
+          return userType === 'op' || userType === 'a2';
+        });
+        
+        // Check if status indicates Ac_Acknowledged (Operation Manager has acknowledged)
+        const isAcknowledged = normalizedActionStatus === 'Ac_Acknowledged' || 
+                            normalizedActionStatus === 'Acknowledged' ||
+                            normalizedActionStatus === 'OPApproved' ||
+                            normalizedActionStatus === 'OP Approved';
+        
+        // If status is Ac_Acknowledged or Acknowledged, allow Issue button only if systemQtyUpdated is true
+        // The status itself indicates that Operation Manager has acknowledged
+        if (isAcknowledged) {
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            return null; // Don't show Issue button until system quantity is updated
+          }
+          // Status indicates acknowledgment and system quantity is updated - allow Issue button
+          return 'Completed'; // Return Completed to show Issue button
+        }
+        
+        // If status is not Ac_Acknowledged, check approval entry
+        // Check if Operation Manager approval exists and is still pending
+        const opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
+        const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
+                                   (!opManagerApproval?.actual_user_id && 
+                                    !opManagerApproval?.raw?.actual_user_id &&
+                                    !opManagerApproval?.actual_user_name &&
+                                    !opManagerApproval?.raw?.actual_user_name &&
+                                    !opManagerApproval?.acted);
+        
+        // Check if Operation Manager has actually acknowledged via approval entry
+        const opManagerHasAcknowledged = opManagerApproval && !isOpApprovalPending && (
+          opManagerApproval.actual_user_id || 
+          opManagerApproval.raw?.actual_user_id ||
+          opManagerApproval.actual_user_name ||
+          opManagerApproval.raw?.actual_user_name ||
+          opManagerApproval.acted ||
+          (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
+        );
+        
+        // If status is Ac_Acknowledged, return Completed only if systemQtyUpdated is true
+        // This ensures Issue button shows even if backend doesn't return the correct action
+        if (isAcknowledged) {
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            return null; // Don't show Issue button until system quantity is updated
+          }
+          return 'Completed'; // Return Completed to show Issue button
+        }
+        
+        // Only allow Completed (Issue) if Operation Manager has acknowledged via approval entry AND system quantity is updated
+        if (opManagerHasAcknowledged && 
+            (actions.approve === 'Completed' || actions.approve === 'completed')) {
+          // Check if system quantity has been updated
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            return null; // Don't show Issue button until system quantity is updated
+          }
+          return actions.approve;
+        }
+        // Don't use backend action if Operation Manager hasn't acknowledged or is still pending
+        return null;
+      } else {
+        // Amount <= 500000 - allow Completed (Issue) at BM Approved only if systemQtyUpdated is true
+        const isBMApproved = normalizedActionStatus.toLowerCase() === 'bm approved' || 
+                            normalizedActionStatus === 'BMApproved' ||
+                            normalizedActionStatus.toLowerCase() === 'bmapproved';
+        if (isBMApproved && 
+            (actions.approve === 'Completed' || actions.approve === 'completed')) {
+          // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+          const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+          if (!systemQtyUpdated) {
+            return null; // Don't show Issue button until system quantity is updated
+          }
+          return actions.approve;
+        }
+      }
+    }
+    
+    // For non-account users, validate the action from backend
+    if (!isAccount && actionRole !== 'account') {
+      // If backend returns Ac_Acknowledged or OPApproved for op_manager, validate it's appropriate
+      // Use isOpManagerFinal (calculated above) which includes hasOpApprovalAssignment check
+      if (isOpManagerFinal && 
+          (actions.approve === 'Ac_Acknowledged' || actions.approve === 'ac_acknowledged' ||
+           actions.approve === 'OPApproved' || actions.approve === 'opapproved' || actions.approve === 'Proceed')) {
+        // Validate that status and amount are correct for OP Manager acknowledgment
+        const normalizedActionStatus = (status || '').toString().trim().replace(/\s+/g, ' ');
+        const isBMApprovedOrChecked = normalizedActionStatus === 'BM Approved' || 
+                                      normalizedActionStatus === 'BMApproved' ||
+                                      normalizedActionStatus === 'Checked';
+        if (isBMApprovedOrChecked && requiresOpManagerApproval) {
+          // Operation Manager acknowledges - should return Ac_Acknowledged (not OPApproved)
+          // This matches Laravel blade behavior where acknowledge button sets status to Ac_Acknowledged
+          return 'Ac_Acknowledged';
+        }
+      }
+      // For other actions or users, use backend action directly
+      return actions.approve;
+    }
+  }
+
+  if ((role === 'bm' || role === 'abm' || role === 'bm_abm') && (normalizedStatus === 'Ongoing' || normalizedStatus === 'Checked')) {
+    return 'BMApproved';
+  }
+
+  // Check if user is op_manager (by role OR by approval user_type OR by approval assignment)
+  // Operation Manager should only acknowledge if amount > 500000
+  // Use isOpManagerFinal (calculated above) which includes hasOpApprovalAssignment check
+  const statusMatches = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved' || normalizedStatus === 'Checked';
+  
+  if (isOpManagerFinal && statusMatches) {
+    if (requiresOpManagerApproval) {
+      // Operation Manager acknowledges - should return Ac_Acknowledged (not OPApproved)
+      // This matches Laravel blade behavior where acknowledge button sets status to Ac_Acknowledged
+      return 'Ac_Acknowledged';
+    } else {
+    }
+  }
+
+  // Check if user is account (by role OR by approval user_type)
+  // Account can only acknowledge after proper approval stage:
+  // - If amount > 500000: Must wait for OPApproved (Operation Manager approval)
+  // - If amount <= 500000: Can acknowledge at BM Approved (no Operation Manager stage)
+  if (isAccount || role === 'account') {
+    // Normalize status
+    const normalizedStatus = (status || '').toString().trim().replace(/\s+/g, ' ');
+    const isBMApproved = normalizedStatus.toLowerCase() === 'bm approved' || 
+                        normalizedStatus === 'BMApproved' ||
+                        normalizedStatus.toLowerCase() === 'bmapproved';
+    const isOPApproved = normalizedStatus === 'OPApproved' || 
+                        normalizedStatus === 'OP Approved' ||
+                        normalizedStatus.toLowerCase() === 'opapproved' ||
+                        normalizedStatus.toLowerCase() === 'op approved';
+    
+    if (requiresOpManagerApproval) {
+      // Amount exceeds 500000 - must check if Operation Manager has actually approved
+      // Check approvals array to see if Operation Manager has approved
+      const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+      const opManagerApproval = approvals.find(approval => {
+        const userType = (approval?.user_type || approval?.raw?.user_type || '').toLowerCase();
+        return userType === 'op' || userType === 'a2';
+      });
+      
+      // Check if Operation Manager approval exists and is still pending
+      const opApprovalStatus = opManagerApproval?.status || opManagerApproval?.raw?.status || '';
+      const isOpApprovalPending = opApprovalStatus.toLowerCase() === 'pending' || 
+                                 (!opManagerApproval?.actual_user_id && 
+                                  !opManagerApproval?.raw?.actual_user_id &&
+                                  !opManagerApproval?.actual_user_name &&
+                                  !opManagerApproval?.raw?.actual_user_name &&
+                                  !opManagerApproval?.acted);
+      
+      // Check if Operation Manager has actually approved
+      const opManagerHasApproved = isOPApproved ||
+        (opManagerApproval && !isOpApprovalPending && (
+          opManagerApproval.actual_user_id || 
+          opManagerApproval.raw?.actual_user_id ||
+          opManagerApproval.actual_user_name ||
+          opManagerApproval.raw?.actual_user_name ||
+          opManagerApproval.acted ||
+          (opManagerApproval.status && opManagerApproval.status !== 'Pending' && opManagerApproval.status !== 'pending')
+        ));
+      
+      // Only return action if Operation Manager has acknowledged
+      // Do NOT return action if Operation Manager approval is still pending
+      // Check if status indicates Operation Manager has acknowledged
+      const isAcknowledged = normalizedStatus === 'Ac_Acknowledged' || 
+                            normalizedStatus === 'Acknowledged' ||
+                            normalizedStatus === 'OPApproved' ||
+                            normalizedStatus === 'OP Approved';
+      const opManagerHasAcknowledged = isAcknowledged || (opManagerHasApproved && !isOpApprovalPending);
+      
+      if (opManagerHasAcknowledged) {
+        // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+        const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+        if (!systemQtyUpdated) {
+          return null; // Don't show Issue button until system quantity is updated
+        }
+        return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
+      }
+      // Return null if Operation Manager hasn't acknowledged or is still pending
+      return null;
+    } else {
+      // Amount <= 500000 - can issue at BM Approved only if systemQtyUpdated is true
+      if (isBMApproved) {
+        // Check if system quantity has been updated - Issue button should not appear until Update System Qty is clicked
+        const systemQtyUpdated = Boolean(formData.systemQtyUpdated);
+        if (!systemQtyUpdated) {
+          return null; // Don't show Issue button until system quantity is updated
+        }
+        return 'Completed'; // Changed from Ac_Acknowledged to Completed (shows as "Issue")
+      }
+    }
+    // Return null for account if conditions don't match
+    return null;
+  }
+
+  // Supervisor step removed - Operation Manager now acknowledges and form goes directly to Completed
+  // Removed supervisor logic
+
+  if (status === 'Ongoing' || status === '') {
+    return 'BMApproved';
+  }
+
+  return null;
+};
+
+  // Rocket Loader component
+  const BoxesLoader = () => (
+    <div className="loading-overlay">
+      <div className="loader">
+        <span>
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+        <div className="base">
+          <span></span>
+          <div className="face"></div>
+        </div>
+      </div>
+      <div className="longfazers">
+        <span></span>
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div className="loading-text">Loading</div>
+    </div>
+  );
+
+  return (
+    <div className="p-6 sm:p-8 md:p-10 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
+      {isSubmitting && <BoxesLoader />}
+      
+      {error && (
+        <div className="alert alert-danger" role="alert">
+          {error}
+        </div>
+      )}
+      
+      {successMessage && (
+        <div className="alert alert-success" role="alert">
+          {successMessage}
+        </div>
+      )}
+      
+      {(() => {
+        // Resolve remark type label from iss_remark value and issue_remarks options
+        let remarkTypeLabel = '';
+        if (formData.iss_remark && formData.issue_remarks && formData.issue_remarks.length > 0) {
+          // Try to find the remark by value (ID)
+          const matchedRemark = formData.issue_remarks.find(
+            option => option.value === formData.iss_remark || 
+            String(option.value) === String(formData.iss_remark) ||
+            option.id === formData.iss_remark ||
+            String(option.id) === String(formData.iss_remark)
+          );
+          
+          if (matchedRemark) {
+            remarkTypeLabel = matchedRemark.label || matchedRemark.name || matchedRemark.remark_name || '';
+          } else {
+            // If not found by ID, check if iss_remark is already a name/label
+            const nameMatch = formData.issue_remarks.find(
+              option => option.label === formData.iss_remark ||
+              option.name === formData.iss_remark ||
+              option.remark_name === formData.iss_remark ||
+              String(option.label).toLowerCase() === String(formData.iss_remark).toLowerCase()
+            );
+            if (nameMatch) {
+              remarkTypeLabel = nameMatch.label || nameMatch.name || nameMatch.remark_name || '';
+            } else if (formData.iss_remark && formData.iss_remark !== 'ISS_DOCUMENT' && !formData.iss_remark.match(/^\d+$/)) {
+              // If it's not a number and not ISS_DOCUMENT, it might already be the label
+              remarkTypeLabel = formData.iss_remark;
+            }
+          }
+        }
+        
+        return (
+          <DamageFormHeader
+            formData={formData}
+            setFormData={setFormData}
+            onAddItem={handleAddItem}
+            onOpenInvestigationForm={handleOpenModal}
+            mode={mode}
+            hasInvestigation={hasInvestigation}
+            remarkTypeLabel={remarkTypeLabel}
+            isCompleted={formData.status === 'Completed'}
+            userRoleOverride={userRole}
+            statusOverride={formData.status}
+            onDownloadPdf={handleDownloadPdf}
+            issueRemarks={formData.issue_remarks || []}
+            btpRemark={formData.general_form?.remark || initialData?.general_form?.remark || ''}
+          />
+        );
+      })()}
+
+      <InvestigationFormModal 
+        isOpen={isModalOpen} 
+        onClose={handleCloseModal}
+        formData={formData}
+        userRole={userRole}
+        initialData={initialData}
+        onSave={(savedData) => {
+          // Update formData with saved investigation data
+          if (savedData && savedData.investigation) {
+            const investigationData = savedData.investigation;
+            setFormData(prev => ({
+              ...prev,
+              investigation: investigationData,
+              general_form: {
+                ...prev.general_form,
+                investigation: investigationData,
+              },
+            }));
+            setHasInvestigation(true);
+          }
+        }}
+      />
+
+      {mode === "add" && (
+        <DamageAddProduct 
+          branchName={formData.branch} 
+          onSearch={handleSearchProduct}
+          isSearching={isSearching}
+          caseType={formData.caseType}
+          onCaseTypeChange={(newCaseType) => {
+            setFormData(prev => ({
+              ...prev,
+              caseType: newCaseType
+            }));
+          }}
+        />
+      )}
+
+      {/* Add Product Modal for Ongoing stage */}
+      {isAddProductModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50 modal-backdrop" 
+            onClick={handleCloseAddProductModal}
+          />
+          <div className="relative bg-white rounded-lg shadow-xl w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto modal-expandable">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+              <h3 className="text-lg font-semibold text-gray-800">Add Product</h3>
+              <button
+                onClick={handleCloseAddProductModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-6">
+              <DamageAddProduct 
+                branchName={formData.branch} 
+                onSearch={(productCode, caseType) => {
+                  handleSearchProduct(productCode, caseType, () => {
+                    // Close modal after successful product addition
+                    handleCloseAddProductModal();
+                  });
+                }}
+                isSearching={isSearching}
+                caseType={formData.caseType}
+                onCaseTypeChange={(newCaseType) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    caseType: newCaseType
+                  }));
+                }}
+                isReadOnly={true}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dupModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDupModal({ open: false, code: '' })} />
+          <div className="relative bg-white rounded-lg shadow-xl w-11/12 max-w-sm p-5">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Duplicate Product</h3>
+            <p className="text-sm text-gray-600 mb-4">The product code <span className="font-mono font-semibold">{dupModal.code}</span> is already added.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDupModal({ open: false, code: '' })}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+              >
+                OK
+              </button> 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notFoundModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setNotFoundModal({ open: false, code: '' })} />
+          <div className="relative bg-white rounded-lg shadow-xl w-11/12 max-w-sm p-5">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Product Not Found</h3>
+            <p className="text-sm text-gray-600 mb-4">We couldn't find any data for product code <span className="font-mono font-semibold">{notFoundModal.code}</span>.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setNotFoundModal({ open: false, code: '' })}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <DamageItemTable
+        items={formData.items || []}
+        mode={mode}
+        status={(formData.status || formData.general_form?.status || initialData?.status || initialData?.general_form?.status || 'Ongoing').toString().trim()}
+        onItemsChange={handleItemsChange}
+        onItemChange={handleItemFieldChange}
+        generalFormId={initialData?.generalFormId}
+        onRemoveItem={handleRemoveItem}
+        total={totalAmount}
+        userRole={userRole}
+        isAccount={isAccount}
+        isSupervisor={userRole === 'supervisor'}
+        itemErrors={formData.itemErrors || {}}
+        isCompleted={formData.status === 'Completed' || formData.status === 'Issued' || formData.status === 'SupervisorIssued'}
+        accountCodes={formData.account_codes || []}
+        issueRemarks={formData.issue_remarks || []}
+        issRemark={formData.iss_remark ?? ''}
+        systemQtyUpdated={Boolean(formData.systemQtyUpdated)}
+        approvals={formData.approvals || []}
+        totalAmount={totalAmount}
+        gRemark={formData.g_remark || initialData?.g_remark || initialData?.general_form?.g_remark || 'big_damage'}
+        currentUser={currentUser}
+        onOpenAddProductModal={handleOpenAddProductModal}
+        onSuccessModal={(message, action = 'submit') => {
+          setSuccessModalMessage(message);
+          setSuccessModalAction(action);
+          setIsSuccessModalOpen(true);
+        }}
+        onSystemQtyStatusChange={async (updated) => {
+          if (!updated) return;
+          setFormData((prev) => ({
+            ...prev,
+            systemQtyUpdated: true,
+          }));
+          
+          // Show success modal
+          setSuccessModalMessage(t('messages.systemQtyUpdated', { defaultValue: 'System quantities updated successfully' }));
+          setSuccessModalAction('submit');
+          setIsSuccessModalOpen(true);
+          
+          // Refetch form data to get updated system_qty values after account updates
+          // This ensures supervisor sees the updated system_qty values at Ac_Acknowledged stage
+          if (initialData?.generalFormId) {
+            try {
+              const { apiRequest } = await import('../../utils/api');
+              // Use the correct endpoint that returns all items for the form
+              // Add cache-busting timestamp to ensure we get fresh data
+              const timestamp = new Date().getTime();
+              const response = await apiRequest(`/api/general-forms/${initialData.generalFormId}/big-damage-issues?per_page=100&_t=${timestamp}`);
+              
+              if (response.ok) {
+                const updatedData = await response.json();
+                
+                // The API returns paginated data with items in data array
+                let updatedItems = [];
+                
+                if (Array.isArray(updatedData?.data)) {
+                  updatedItems = updatedData.data;
+                } else if (Array.isArray(updatedData)) {
+                  updatedItems = updatedData;
+                } else if (updatedData?.big_damage_issue) {
+                  updatedItems = Array.isArray(updatedData.big_damage_issue) 
+                    ? updatedData.big_damage_issue 
+                    : [updatedData.big_damage_issue];
+                }
+                
+                if (updatedItems.length > 0) {
+                  // First, filter out soft-deleted items (where deleted_at is not null)
+                  const activeItems = updatedItems.filter(item => {
+                    const isDeleted = item.deleted_at !== null && item.deleted_at !== undefined;
+                    return !isDeleted;
+                  });
+                  
+                  // Remove duplicates by ID (not product_code, since same product can appear multiple times)
+                  // Keep only unique items by their ID - use more aggressive deduplication
+                  const itemsById = new Map();
+                  const seenIds = new Set();
+                  
+                  activeItems.forEach(item => {
+                    const itemId = item.id || item.specific_form_id;
+                    if (itemId) {
+                      const idStr = String(itemId);
+                      // If we've already seen this ID, skip it (prevent duplicates)
+                      if (seenIds.has(idStr)) {
+                        return; // Skip duplicate
+                      }
+                      seenIds.add(idStr);
+                      itemsById.set(idStr, item);
+                    }
+                  });
+                  
+                  // Sort by ID to ensure consistent order
+                  const uniqueItems = Array.from(itemsById.values()).sort((a, b) => {
+                    const idA = a.id || a.specific_form_id || 0;
+                    const idB = b.id || b.specific_form_id || 0;
+                    return idA - idB;
+                  });
+                  
+                  // Transform items to match expected format
+                  const transformedItems = uniqueItems.map(item => {
+                    const rawSystemQty = item.system_qty;
+                    const transformedSystemQty = Number(rawSystemQty ?? 0);
+                    
+                    // Get category from multiple possible sources
+                    const categoryName = item.categories?.name || 
+                                       item.product_category_name || 
+                                       item.category ||
+                                       item.Category_Name ||
+                                       '';
+                    
+                    // Get category_id from multiple possible sources
+                    const categoryId = item.product_category_id || 
+                                     item.category_id || 
+                                     item.maincatid || 
+                                     null;
+
+                    // Preserve account codes from multiple possible sources
+                    const accCode1 = item.acc_code1 ?? item.acc_code ?? null;
+                    const accCode = item.acc_code ?? item.acc_code1 ?? null;
+
+                    return {
+                      id: item.id,
+                      specific_form_id: item.id,
+                      category: categoryName,
+                      category_id: categoryId,
+                      product_category_id: categoryId, // Also include as product_category_id for consistency
+                      code: item.product_code || '',
+                      name: item.product_name || '',
+                      unit: item.unit || '',
+                      system_qty: transformedSystemQty, // This should now have the updated value
+                      request_qty: Number(item.request_qty ?? 0),
+                      final_qty: Number(item.final_qty ?? 0),
+                      // Use actual_qty (or fallback to request_qty/final_qty) — do NOT read from product_type
+                      actual_qty: Number(item.actual_qty ?? item.request_qty ?? item.final_qty ?? 0),
+                      price: Number(item.price ?? 0),
+                      amount: Number(item.total ?? item.amount ?? 0),
+                      total: Number(item.total ?? item.amount ?? 0),
+                      remark: item.remark || '',
+                      acc_code: accCode,
+                      acc_code1: accCode1,
+                      img: item.img || item.images || [],
+                      images: item.images || item.img || [],
+                    };
+                  });
+                  
+                  // Replace items completely (don't append) - only update via setFormData
+                  // Don't call handleItemsChange as it will cause duplicate updates
+                  // Also ensure we're not duplicating by checking existing items
+                  setFormData((prev) => {
+                    // Remove duplicates by ID before setting - use a more robust deduplication
+                    const itemsById = new Map();
+                    
+                    // First pass: collect all items by ID
+                    transformedItems.forEach(item => {
+                      const id = item.id || item.specific_form_id;
+                      if (id) {
+                        const idStr = String(id);
+                        // If we already have this ID, compare and keep the one with more recent data
+                        const existing = itemsById.get(idStr);
+                        if (!existing) {
+                          itemsById.set(idStr, item);
+                        } else {
+                          // Keep the one with higher ID or more complete data
+                          const existingId = existing.id || existing.specific_form_id || 0;
+                          const currentId = item.id || item.specific_form_id || 0;
+                          if (currentId > existingId) {
+                            itemsById.set(idStr, item);
+                          }
+                        }
+                      }
+                    });
+                    
+                    // Convert to array and sort by ID for consistency
+                    const uniqueItems = Array.from(itemsById.values()).sort((a, b) => {
+                      const idA = a.id || a.specific_form_id || 0;
+                      const idB = b.id || b.specific_form_id || 0;
+                      return idA - idB;
+                    });
+                    
+                    return {
+                      ...prev,
+                      items: uniqueItems,
+                    };
+                  });
+                }
+              }
+            } catch (error) {
+              // Silently handle error
+            }
+          }
+        }}
+        onAccountSettingsChange={(settings) => {
+          setFormData((prev) => ({
+            ...prev,
+            ...settings,
+          }));
+        }}
+        onItemAccountCodeChange={(itemId, accCode) => {
+          setFormData(prev => ({
+            ...prev,
+            items: prev.items.map(item => {
+              const matchId = item.id ?? item.specific_form_id;
+              if (matchId === itemId) {
+                return { ...item, acc_code1: accCode, acc_code: accCode };
+              }
+              return item;
+            })
+          }));
+        }}
+        supportingAttachments={formData.attachments || []}
+      />
+
+      {mode === 'add' && (
+        <div className="flex justify-end mt-2">
+        </div>
+      )}
+
+      {/* ISS Remark Type and ISS Number Display */}
+      {(() => {
+        // Resolve remark type label from iss_remark value and issue_remarks options
+        let remarkTypeLabel = '';
+        if (formData.iss_remark && formData.issue_remarks && formData.issue_remarks.length > 0) {
+          // Try to find the remark by value (ID)
+          const matchedRemark = formData.issue_remarks.find(
+            option => option.value === formData.iss_remark || 
+            String(option.value) === String(formData.iss_remark) ||
+            option.id === formData.iss_remark ||
+            String(option.id) === String(formData.iss_remark)
+          );
+          
+          if (matchedRemark) {
+            remarkTypeLabel = matchedRemark.label || matchedRemark.name || matchedRemark.remark_name || '';
+          } else {
+            // If not found by ID, check if iss_remark is already a name/label
+            const nameMatch = formData.issue_remarks.find(
+              option => option.label === formData.iss_remark ||
+              option.name === formData.iss_remark ||
+              option.remark_name === formData.iss_remark ||
+              String(option.label).toLowerCase() === String(formData.iss_remark).toLowerCase()
+            );
+            if (nameMatch) {
+              remarkTypeLabel = nameMatch.label || nameMatch.name || nameMatch.remark_name || '';
+            } else if (formData.iss_remark && formData.iss_remark !== 'ISS_DOCUMENT' && !formData.iss_remark.match(/^\d+$/)) {
+              // If it's not a number and not ISS_DOCUMENT, it might already be the label
+              remarkTypeLabel = formData.iss_remark;
+            }
+          }
+        }
+
+        // Extract ISS numbers from multiple possible sources
+        const rawIssEntries = formData.iss_numbers || formData.issNumbers || [];
+        
+        // Also check general_form_files for ISS_DOCUMENT files
+        const issFilesFromGeneralForm = Array.isArray(formData.general_form_files)
+          ? formData.general_form_files.filter(file => file.file === 'ISS_DOCUMENT' || file.file_type === 'ISS_DOCUMENT')
+          : [];
+        
+        const issFilesFromFiles = Array.isArray(formData.files)
+          ? formData.files.filter(file => file.file === 'ISS_DOCUMENT' || file.file_type === 'ISS_DOCUMENT')
+          : [];
+        
+        // Combine all sources
+        const allIssSources = [
+          ...rawIssEntries,
+          ...issFilesFromGeneralForm,
+          ...issFilesFromFiles
+        ];
+        
+        const issNumbers = allIssSources
+          .map((entry) => {
+            if (!entry) return null;
+            // If it's already a string (from backend resolveIssNumbers), use it directly
+            if (typeof entry === 'string') return entry.trim();
+            // If it's an object, extract the name field
+            if (typeof entry === 'object') {
+              const value = entry.name || entry.file || entry.document_no || entry.doc_no || '';
+              return typeof value === 'string' && value !== 'ISS_DOCUMENT' ? value.trim() : null;
+            }
+            return null;
+          })
+          .filter(Boolean)
+          // Remove duplicates
+          .filter((value, index, self) => self.indexOf(value) === index);
+
+        // Only show if we have at least one of them
+        if (remarkTypeLabel || issNumbers.length > 0) {
+          return (
+            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
+              <h4 className="text-sm sm:text-base font-semibold text-gray-800 flex items-center gap-2 mb-3">
+                <Hash size={18} className="text-gray-600" />
+                ISS Information
+              </h4>
+              <div className="flex flex-col gap-3">
+                {remarkTypeLabel && (
+                  <div className="inline-flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+                    <span className="font-semibold text-amber-800">ISS Remark Type:</span>
+                    <span>{remarkTypeLabel}</span>
+                  </div>
+                )}
+                {issNumbers.length > 0 && (
+                  <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
+                    <span className="font-semibold text-blue-800 whitespace-nowrap">ISS Number{issNumbers.length > 1 ? 's' : ''}:</span>
+                    <span className="flex flex-wrap gap-1.5">
+                      {issNumbers.map((issNum, idx) => (
+                        <span key={idx} className="font-mono text-blue-900 bg-blue-100 px-2 py-0.5 rounded">
+                          {issNum}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+        return null;
+      })()}
+
+      <SupportingInfo
+        status={resolvedStatus || formData.status}
+        reason={formData.reason}
+        onReasonChange={val => setFormData(prev => ({ ...prev, reason: val }))}
+        // Show remark for view/edit modes (including Ongoing) except hide only for BM when BM Approved
+        // Additionally hide remark and attachments for the checker who already checked the form
+        // and hide for document owner when they are viewing an Ongoing form in view mode ("viewed back")
+        showRemark={
+          mode !== 'add' &&
+          !((getUserRole() === 'bm' || getUserRole() === 'abm') && (resolvedStatus === 'BM Approved' || resolvedStatus === 'BMApproved')) &&
+          !(isCheckerWhoApproved && (resolvedStatusLower === 'checked')) &&
+          !isDocumentOwnerViewingOngoingBack &&
+        // Also hide for any checker role viewing a Checked form (cover missing approval matching)
+          !(isCheckerRole && (resolvedStatusLower === 'checked')) &&
+          // Also hide when current user is detected as checker viewing a Checked form
+          !(isCurrentUserChecker && (resolvedStatusLower === 'checked')) &&
+        // Hide remark for regular users viewing Ongoing or BM Approved forms
+        !(isRegularUser && (resolvedStatusLower === 'ongoing' || resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'bmapproved')) &&
+        !hideUiForCheckerInView
+        }
+        // Show attachments unless checker already checked or document owner is viewing ongoing back or any checker viewing Checked status
+        // Also hide for regular users viewing Ongoing or BM Approved forms
+        showAttachments={!isCheckerWhoApproved && !isDocumentOwnerViewingOngoingBack && !(isCheckerRole && (resolvedStatusLower === 'checked')) && !(isRegularUser && (resolvedStatusLower === 'ongoing' || resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'bmapproved')) && !(isCurrentUserChecker && (resolvedStatusLower === 'checked')) && !hideUiForCheckerInView}
+        isRequired={mode !== 'add'}
+        attachments={formData.attachments || []}
+        onAttachmentsChange={(newAttachments) => setFormData(prev => ({ ...prev, attachments: newAttachments }))}
+        // Make SupportingInfo read-only for checkers who already acted or document owner viewing ongoing back
+        // Also make read-only for regular users viewing Ongoing or BM Approved forms so they cannot delete attachments or edit remark
+        readOnly={(isCheckerWhoApproved && (resolvedStatusLower === 'checked')) || isDocumentOwnerViewingOngoingBack || (isRegularUser && (resolvedStatusLower === 'ongoing' || resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'bmapproved')) || (isCurrentUserChecker && (resolvedStatusLower === 'checked')) || hideUiForCheckerInView}
+        currentUserRole={userRole}
+        isCurrentUserChecker={isCurrentUserChecker}
+        isRegularUser={isRegularUser}
+        isCheckerWhoApproved={isCheckerWhoApproved}
+      />
+
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
+        {mode !== 'add' && (
+          <div className="hidden md:flex items-center order-2 md:order-1">
+            <AnimatedBackButton status={formData.status || statusText} />
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-start gap-2.5 w-full md:w-auto order-1 md:order-2">
+        {mode === 'add' ? (
+          <>
+            <button 
+              onClick={() => handleSubmitClick('Submit')}
+              disabled={isSubmitting}
+              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-6 py-3 sm:py-2.5 font-semibold text-white transition-all duration-200 rounded shadow-md bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ fontSize: '0.9375rem' }}
+            >
+              <span className="btn-text">Submit</span>
+              <Send className="btn-icon w-4 h-4 absolute" />
+            </button>
+            <button 
+              onClick={handleBack}
+              className="btn-with-icon inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-gray-900 bg-white hover:bg-gray-50 border-2 border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 shadow-sm hover:shadow-md"
+              style={{ fontSize: '0.9375rem' }}
+            >
+              <span className="btn-text">Cancel</span>
+              <XCircle className="btn-icon w-4 h-4 absolute" />
+            </button>
+          </>
+        ) : (
+            <>
+            {isDocumentOwner && formData.status !== 'Completed' && formData.status !== 'Cancelled' && (
+              <button 
+                onClick={() => handleSubmitClick('Edit')}
+                className="btn-with-icon btn-edit inline-flex flex-1 sm:flex-none items-center justify-center gap-2 px-5 py-3 sm:py-2.5 rounded-lg font-semibold text-white transition-all duration-200 shadow-sm hover:shadow-md" 
+                style={{ fontSize: '0.9375rem' }}
+              >
+                <span className="btn-text">Edit</span>
+                <Edit3 className="btn-icon w-4 h-4 absolute" />   
+              </button>
+            )}
+            
+            {/* Add Product Button - Show for Ongoing or Checked (approver only) status, hide for Account and regular users */}
+            {((formData.status === 'Ongoing' || formData.status?.toLowerCase() === 'ongoing') || 
+              (formData.status === 'Checked' && isApproverRole && !isCheckerWhoApproved)) && 
+             formData.status !== 'Completed' && 
+             formData.status !== 'Issued' && 
+             formData.status !== 'SupervisorIssued' &&
+             mode !== 'add' && 
+             formData.status !== 'BM Approved' && 
+             formData.status !== 'BMApproved' &&
+             formData.status !== 'Ac_Acknowledged' && 
+             formData.status !== 'Acknowledged' &&
+             !isAccount && 
+             !isUserRole && 
+             !isDocumentOwnerViewingOngoingBack && 
+             !(isCheckerRole && ((formData.status || '').toString().toLowerCase() === 'checked')) && 
+             // Also hide Add for any current user detected as checker viewing Checked
+             !(isCurrentUserChecker && ((formData.status || '').toString().toLowerCase() === 'checked')) &&
+             // Hide Add button for regular user when status is Ongoing
+             !(isRegularUser && ((formData.status || '').toString().toLowerCase() === 'ongoing')) && 
+             !hideUiForCheckerInView && (
+              <button 
+                onClick={handleOpenAddProductModal}
+                className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#198754] border-[#198754] hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1"
+                style={{ fontSize: '15px' }}
+              >
+                Add
+              </button>
+            )}
+            
+            {/* Approve Button - Visible based on role and status */}
+            {(() => {
+              const shouldShowApprove = !!showApproveButton();
+              // Compute totalAmount and requiresOpManagerApproval here for render-time fallbacks
+              const totalAmountForRender = formData.items && formData.items.length > 0
+                ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+                : Number(
+                    formData?.general_form?.total_amount ??
+                    formData?.total_amount ??
+                    formData?.general_form?.totalAmount ??
+                    formData?.totalAmount ??
+                    formData?.general_form?.total ??
+                    formData?.total ??
+                    initialData?.general_form?.total_amount ??
+                    initialData?.total_amount ??
+                    initialData?.general_form?.total ??
+                    initialData?.total ??
+                    0
+                  );
+              const requiresOpManagerApproval = Number(totalAmountForRender) > 500000;
+              const currentUserType = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+              // Only force acknowledge for OP when form requires OP Manager approval
+              // Be permissive when detecting BM Approved status variants (bmapproved, bmapproved, 'BM Approved')
+              const isResolvedBmApproved = resolvedStatusLower.includes('bm') && resolvedStatusLower.includes('approved');
+              const forcedOpAcknowledge = (currentUserType === 'A2' || currentUserType === 'OP') && isResolvedBmApproved && requiresOpManagerApproval;
+              const forcedOpByRole = (userRoleLower === 'op_manager' || userRoleLower === 'op') && isResolvedBmApproved && requiresOpManagerApproval;
+              // If a regular user and BM Approved + high amount, do not show approve button
+              try {
+                const normalizedStatusLocal = (formData.status || resolvedStatus || '').toString().trim().replace(/\s+/g, ' ');
+                const currentRoleIdLocal = Number(currentUser?.role_id || initialData?.current_user?.role_id || 0);
+                const isUserRoleLocal = userRoleLower === 'user' || currentRoleIdLocal === 1;
+                if ((isRegularUser || isUserRoleLocal || isCheckerRole || isBranchManager) && (normalizedStatusLocal === 'BM Approved' || normalizedStatusLocal === 'BMApproved') && requiresOpManagerApproval) {
+                  return null;
+                }
+              } catch (e) {}
+              if (!shouldShowApprove && !forcedOpAcknowledge && !forcedOpByRole) return null;
+              let action = resolveApproveAction();
+              if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
+                action = 'Ac_Acknowledged';
+              }
+              // Fallback: force-show Acknowledge button for Operation Manager user types on BM Approved high-value forms
+              try {
+                const isResolvedBmApprovedLocal = (resolvedStatusLower || '').includes('bm') && (resolvedStatusLower || '').includes('approved');
+                const currentUserTypeLocal = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+                const isOpUserLocal = currentUserTypeLocal === 'A2' || currentUserTypeLocal === 'OP' || userRoleLower === 'op_manager' || userRoleLower === 'op' || userRoleLower.includes('op manager');
+                const totalAmtLocal = totalAmountForRender;
+                const requiresOpLocal = Number(totalAmtLocal) > 500000;
+                // If OP manager and BM Approved + >500k, ensure button is rendered (may be disabled due to missing investigation)
+                if (isOpUserLocal && isResolvedBmApprovedLocal && requiresOpLocal) {
+                  const fallbackAction = 'Ac_Acknowledged';
+                  // Force-show when current user type is explicitly A2
+                  const forceShowForA2 = currentUserTypeLocal === 'A2';
+                  const disableDueToInvestigationFallback = !forceShowForA2 && ['Ac_Acknowledged','Acknowledged','OPApproved','opapproved'].includes(fallbackAction) && !isInvestigationFilled;
+                  return (
+                    <button 
+                      onClick={() => handleSubmitClick(fallbackAction)}
+                      disabled={isSubmitting || disableDueToInvestigationFallback}
+                      title={disableDueToInvestigationFallback ? t('messages.investigationRequired') : undefined}
+                      className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${getButtonColorClass(fallbackAction)} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${disableDueToInvestigationFallback ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
+                      style={{ fontSize: '15px' }}
+                    >
+                      <span>{prettyApprove(fallbackAction) || 'Acknowledge'}</span>
+                    </button>
+                  );
+                }
+              } catch (e) {
+                // ignore fallback errors
+              }
+              // Don't render button if action is null or undefined, or if submitting (to avoid white disabled button)
+              if (!action || isSubmitting) {
+                return null;
+              }
+              const buttonClass = getButtonColorClass(action);
+              const isCheckedButton = action === 'Checked' || action === 'BMApprovedMem';
+              // Disable acknowledge-type actions if investigation is not filled
+              const ackActions = ['Ac_Acknowledged', 'Acknowledged', 'OPApproved', 'opapproved'];
+              const disableDueToInvestigation = ackActions.includes(action) && !isInvestigationFilled;
+              return (
+                <button 
+                  onClick={() => handleSubmitClick(action)}
+                  disabled={isSubmitting || disableDueToInvestigation}
+                  title={disableDueToInvestigation ? t('messages.investigationRequired') : undefined}
+                  className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${buttonClass} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 ${disableDueToInvestigation ? 'opacity-50 cursor-not-allowed' : ''} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#198754] disabled:hover:border-[#198754] disabled:hover:shadow-none me-1`}
+                  style={{ fontSize: '15px' }}
+                >
+                  <span>{prettyApprove(action) || 'Proceed'}</span>
+                </button>
+              );
+            })()}
+            
+            {/* Supervisor step removed - Operation Manager now acknowledges and form goes directly to Completed */}
+            {/* Removed supervisor Issue button */}
+            
+            {/* Back to Previous Button - For certain roles to return the form to previous state */}
+            {/* EXTRA FALLBACK: Force-show Acknowledge for A2 users as a last resort (placement before Back/Cancel) */}
+            {(() => {
+              try {
+                const currentUserTypeNow = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
+                const isA2Now = currentUserTypeNow === 'A2' || currentUserTypeNow === 'OP';
+                const statusNow = (formData.status || resolvedStatus || '').toString().toLowerCase();
+                const isBmApprovedNow = statusNow.includes('bm') && statusNow.includes('approved');
+                const totalNow = formData.items && formData.items.length > 0
+                  ? formData.items.reduce((acc, i) => acc + (Number(i.amount) || Number(i.total) || 0), 0)
+                  : Number(
+                      formData?.general_form?.total_amount ??
+                      formData?.total_amount ??
+                      formData?.general_form?.totalAmount ??
+                      formData?.totalAmount ??
+                      formData?.general_form?.total ??
+                      formData?.total ??
+                      initialData?.general_form?.total_amount ??
+                      initialData?.total_amount ??
+                      initialData?.general_form?.total ??
+                      initialData?.total ??
+                      0
+                    );
+                if (isA2Now && isBmApprovedNow && Number(totalNow) > 500000) {
+                  // Render Acknowledge button (may be disabled if submitting)
+                  const fallbackActionNow = 'Ac_Acknowledged';
+                  return (
+                    <button
+                      onClick={() => handleSubmitClick(fallbackActionNow)}
+                      disabled={isSubmitting}
+                      className={`inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white ${getButtonColorClass(fallbackActionNow)} hover:bg-[#157347] hover:border-[#157347] hover:shadow-md transition-all duration-200 me-1`}
+                      style={{ fontSize: '15px' }}
+                    >
+                      <span>{prettyApprove(fallbackActionNow) || 'Acknowledge'}</span>
+                    </button>
+                  );
+                }
+              } catch (e) {
+                // ignore
+              }
+              return null;
+            })()}
+            {/* Hide if Branch Manager is viewing a form they already approved */}
+            {shouldShowBackToPreviousFinal && (
+              <button 
+                onClick={() => handleSubmitClick('BackToPrevious')}
+                className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white bg-[#ffc107] border-[#ffc107] hover:bg-[#e0a800] hover:border-[#e0a800] hover:shadow-md transition-all duration-200 me-1"
+                style={{ fontSize: '15px' }}
+              >
+                Back To previous
+              </button>
+            )}
+            
+            {/* Cancel Button - Show when actions.cancel exists and status is not Completed or Cancelled */}
+            {/* Hide if Branch Manager is viewing a form they already approved */}
+            {shouldShowCancelFinal && (
+              <button 
+                onClick={() => handleSubmitClick('Cancel')}
+                className="inline-flex flex-1 sm:flex-none items-center justify-center px-4 py-2.5 rounded font-bold text-white border-[#dc3545] bg-[#dc3545] me-1" 
+                style={{ fontSize: '15px' }}
+              >
+                Cancel
+              </button>
+            )}
+            </>
+        )}
+        </div>
+      </div>
+      {mode !== 'add' && <ApprovalSection approvals={formData.approvals} status={formData.status} formData={formData} totalAmount={totalAmount} />}
+
+      {/* Action Confirmation Modal */}
+      <ActionConfirmationModal
+        isOpen={confirmationModal.isOpen}
+        action={confirmationModal.action}
+        emptyFields={confirmationModal.emptyFields || []}
+        onConfirm={handleConfirmSubmit}
+        onCancel={handleCancelSubmit}
+      />
+
+      {/* Validation Error Modal */}
+      <ValidationErrorModal
+        isOpen={validationErrorModal.isOpen}
+        errors={validationErrorModal.errors}
+        onClose={() => setValidationErrorModal({ isOpen: false, errors: [] })}
+      />
+
+      {/* Success Modal */}
+      <SuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        message={successModalMessage}
+        action={successModalAction}
+      />
+
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={isErrorModalOpen}
+        onClose={() => setIsErrorModalOpen(false)}
+        message={errorModalMessage}
+        autoClose={false}
+      />
+    </div>
+  );
+}
