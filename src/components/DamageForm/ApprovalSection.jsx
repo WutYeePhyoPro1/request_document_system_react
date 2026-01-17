@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { User, CheckCircle, Clock } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { User, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 const DEFAULT_APPROVALS = [
   { label: "Prepared by", key: "prepared" },
@@ -31,13 +31,33 @@ const ROLE_MAP = {
   ACK: "Supervisor",
 };
 
-const pickFirstFilled = (...values) =>
-  values.find((value) => typeof value === "string" && value.trim()) || "";
+  const pickFirstFilled = (...values) =>
+    values.find((value) => typeof value === "string" && value.trim()) || "";
+
+  // Check if comment is long (more than 50 characters)
+  const isCommentLong = (comment) => {
+    return comment && comment.length > 50;
+  };
+
+  // Get truncated comment (first 50 characters)
+  const getTruncatedComment = (comment) => {
+    if (!comment || comment.length <= 50) return comment;
+    return comment.substring(0, 50) + "...";
+  };
 
 export default function ApprovalSection({ approvals = [], status, formData = {}, totalAmount = 0 }) {
   const nameCache = useRef({});
   const safeApprovals = Array.isArray(approvals) ? approvals : [];
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const [expandedComments, setExpandedComments] = useState({});
+
+  // Toggle comment expansion
+  const toggleCommentExpansion = (approvalIndex) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [approvalIndex]: !prev[approvalIndex]
+    }));
+  };
   
   // Get totalAmount from multiple sources if not passed as prop
   const resolvedTotalAmount = totalAmount || 
@@ -1045,7 +1065,52 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
               {approval.comment && (
                 <div>
-                  <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'} style={{ fontSize: '13px' }}>{approval.comment}</p>
+                  <div className={!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'} style={{ fontSize: '13px' }}>
+                    {isCommentLong(approval.comment) ? (
+                      <div className="w-full">
+                        <div className="mb-1" style={{ maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
+                          {expandedComments[index] ? (
+                            <div style={{
+                              whiteSpace: 'pre-wrap',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'break-word',
+                              maxWidth: '100%',
+                              width: '100%'
+                            }}>
+                              {approval.comment}
+                            </div>
+                          ) : (
+                            <span>{getTruncatedComment(approval.comment)}</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => toggleCommentExpansion(index)}
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium mt-1"
+                        >
+                          {expandedComments[index] ? (
+                            <>
+                              <ChevronUp className="w-3 h-3" />
+                              See Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3" />
+                              See More
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{
+                        whiteSpace: 'pre-wrap',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        maxWidth: '100%'
+                      }}>
+                        {approval.comment}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
