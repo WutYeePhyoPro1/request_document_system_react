@@ -44,7 +44,7 @@ const ErrorModal = ({ isOpen, onClose, message, autoClose = false, autoCloseDura
         </div>
 
         {/* Error Title */}
-        <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
+        <h3 className="text-xl text-yellow-600 font-bold  text-center mb-2">
           Warning!
         </h3>
 
