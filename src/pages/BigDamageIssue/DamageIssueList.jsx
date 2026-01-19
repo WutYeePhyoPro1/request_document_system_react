@@ -1226,9 +1226,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       : fromBranchInfo;
                     const branchName = resolveBranchName(gf, branchInfo);
                     // Determine sell status dynamically:
-                    // "Other Income Sell" = item has acc_code (account code is set when form is completed with "Other income sell")
-                    // "Not Sell" = item has no acc_code (default)
-                    // Note: acc_code is only set when form is completed, so forms in progress will show "Not Sell" until completed
+                    // "Other Income Sell" = form was created as "Other income sell" OR individual items have acc_code set
+                    // "Not Sell" = form was created as "Not sell" and no items have specific acc_code marking
+                    // Note: Row-level acc_code gets set for ALL completed forms, so we don't use it for sell status determination
                     const hasAccCode = Boolean(row.acc_code || row.acc_code1);
                     // Check asset_type from backend ("on" = Other income sell, "off" = Not sell)
                     const assetType = gf.asset_type || gf.case_type || gf.caseType;
@@ -1237,7 +1237,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
                     // Check if items array has any item with acc_code (if items are loaded)
                     const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-                    const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
+                    // Don't use hasAccCode (row-level acc_code) as it gets set for ALL completed forms
+                    // Only use hasCaseType (original form intent) or hasItemsWithAccCode (item-level marking)
+                    const isOtherIncomeSell = hasCaseType || hasItemsWithAccCode;
                     const sellStatus = isOtherIncomeSell 
                       ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
                       : t('list.notSell', { defaultValue: 'Not Sell' });
@@ -1454,16 +1456,18 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
             const branchName = resolveBranchName(gf, branchInfo);
             // Check multiple sources to determine if it's "Other Income Sell":
-            // 1. Check if this item has acc_code (item-level)
-            // 2. Check if general_form has caseType set to "Other income sell"
-            // 3. Check if general_form has case_type set to "Other income sell"
-            // 4. Check if any items in the form have acc_code (if items array is available)
+            // 1. Check if general_form has caseType set to "Other income sell"
+            // 2. Check if general_form has case_type set to "Other income sell"
+            // 3. Check if any items in the form have acc_code (item-level marking)
+            // Note: Row-level acc_code gets set for ALL completed forms, so we don't use it for sell status
             const hasAccCode = Boolean(row.acc_code || row.acc_code1);
             const assetType = gf.asset_type || gf.case_type || gf.caseType;
             const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
             const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
             const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-            const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
+            // Don't use hasAccCode (row-level acc_code) as it gets set for ALL completed forms
+            // Only use hasCaseType (original form intent) or hasItemsWithAccCode (item-level marking)
+            const isOtherIncomeSell = hasCaseType || hasItemsWithAccCode;
             const sellStatus = isOtherIncomeSell 
               ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
               : t('list.notSell', { defaultValue: 'Not Sell' });
