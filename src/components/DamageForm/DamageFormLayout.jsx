@@ -3005,11 +3005,15 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           }
         }
         
+        // Get the document number from form data for filename
+        const formDocNo = initialData?.form_doc_no || initialData?.general_form?.form_doc_no;
+        const filename = formDocNo ? `${formDocNo}.pdf` : `${generalFormId}.pdf`;
+
         // Create a blob URL and download
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = blobUrl;
-        link.download = `damage-form-${generalFormId}.pdf`;
+        link.download = filename;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
