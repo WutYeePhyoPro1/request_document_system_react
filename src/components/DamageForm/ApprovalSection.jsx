@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { User, CheckCircle, Clock } from "lucide-react";
+import React, { useEffect, useRef, useState } from "react";
+import { User, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 
 const DEFAULT_APPROVALS = [
   { label: "Prepared by", key: "prepared" },
@@ -17,7 +17,7 @@ const CURRENT_STEP_STATUS = {
 const USER_TYPE_MAP = {
   C: "Checked by",
   CS: "Checked by",
-  A1: "Approved by",
+  A1: "BM Approved by",
   AC: "Operation Manager Approved by",
   ACK: "Issued by",
 };
@@ -31,13 +31,34 @@ const ROLE_MAP = {
   ACK: "Supervisor",
 };
 
-const pickFirstFilled = (...values) =>
-  values.find((value) => typeof value === "string" && value.trim()) || "";
+  const pickFirstFilled = (...values) =>
+    values.find((value) => typeof value === "string" && value.trim()) || "";
+
+  // Check if comment is long (more than 50 characters)
+  const isCommentLong = (comment) => {
+    return comment && comment.length > 50;
+  };
+
+  // Get truncated comment (first 50 characters)
+  const getTruncatedComment = (comment) => {
+    if (!comment || comment.length <= 50) return comment;
+    return comment.substring(0, 50) + "...";
+  };
 
 export default function ApprovalSection({ approvals = [], status, formData = {}, totalAmount = 0 }) {
   const nameCache = useRef({});
   const safeApprovals = Array.isArray(approvals) ? approvals : [];
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const [expandedComments, setExpandedComments] = useState({});
+
+
+  // Toggle comment expansion
+  const toggleCommentExpansion = (approvalIndex) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [approvalIndex]: !prev[approvalIndex]
+    }));
+  };
   
   // Get totalAmount from multiple sources if not passed as prop
   const resolvedTotalAmount = totalAmount || 
@@ -270,11 +291,12 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     approvalsToShow.push({ label: "Checked by", key: "checked", approval: checkedApproval });
     
     // Always show BM Approved by
-    const bmApproval = safeApprovals.find(a => 
+    const bmApproval = safeApprovals.find(a =>
       (resolveLabel(a) || "").toLowerCase().includes("bm approved") ||
-      (resolveLabel(a) || "").toLowerCase().includes("approved by") && 
-      !(resolveLabel(a) || "").toLowerCase().includes("operation")
+      ((resolveLabel(a) || "").toLowerCase().includes("approved by") &&
+       !(resolveLabel(a) || "").toLowerCase().includes("operation"))
     );
+
     approvalsToShow.push({ label: "BM Approved by", key: "approved", approval: bmApproval });
     
     // Operation Manager approval section removed
@@ -471,10 +493,11 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
       }
 
-      // For "BM Approved by", only mark as acted if form status is "BM Approved" or higher
-      // This prevents "BM Approved by" from showing as filled when form status is "Checked" or lower
+      // For "BM Approved by", mark as acted if:
+      // 1. Form status is "BM Approved" or higher, OR
+      // 2. Form is cancelled but has an actual BM approval record (preserves approval history)
       if (label === 'BM Approved by') {
-        const isBmApprovedStatus = status === 'BM Approved' || 
+        const isBmApprovedStatus = status === 'BM Approved' ||
                                   status === 'BMApproved' ||
                                   status === 'OPApproved' ||
                                   status === 'OP Approved' ||
@@ -483,9 +506,13 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
                                   status === 'Completed' ||
                                   status === 'Issued' ||
                                   status === 'SupervisorIssued';
-        
-        if (isBmApprovedStatus) {
-          // Form has been BM Approved or higher - show as acted
+
+        const isCancelledWithBmApproval = status.toLowerCase().includes('cancel') &&
+                                        matchingApproval &&
+                                        (matchingApproval.acted || matchingApproval.status === 'BM Approved');
+
+        if (isBmApprovedStatus || isCancelledWithBmApproval) {
+          // Form has been BM Approved or higher, OR cancelled with BM approval - show as acted
           hasActed = true;
         } else {
           // Form is still "Checked" or lower - don't show as acted even if approval record exists
@@ -1045,7 +1072,52 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
               {approval.comment && (
                 <div>
-                  <p className={!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'} style={{ fontSize: '13px' }}>{approval.comment}</p>
+                  <div className={!approval.acted && !approval.isCurrentStep ? 'text-gray-500' : 'text-gray-700'} style={{ fontSize: '13px' }}>
+                    {isCommentLong(approval.comment) ? (
+                      <div className="w-full">
+                        <div className="mb-1" style={{ maxWidth: '100%', wordWrap: 'break-word', overflowWrap: 'break-word' }}>
+                          {expandedComments[index] ? (
+                            <div style={{
+                              whiteSpace: 'pre-wrap',
+                              wordWrap: 'break-word',
+                              overflowWrap: 'break-word',
+                              maxWidth: '100%',
+                              width: '100%'
+                            }}>
+                              {approval.comment}
+                            </div>
+                          ) : (
+                            <span>{getTruncatedComment(approval.comment)}</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => toggleCommentExpansion(index)}
+                          className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium mt-1"
+                        >
+                          {expandedComments[index] ? (
+                            <>
+                              <ChevronUp className="w-3 h-3" />
+                              See Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3" />
+                              See More
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{
+                        whiteSpace: 'pre-wrap',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        maxWidth: '100%'
+                      }}>
+                        {approval.comment}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
