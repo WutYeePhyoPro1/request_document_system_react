@@ -17,7 +17,7 @@ const CURRENT_STEP_STATUS = {
 const USER_TYPE_MAP = {
   C: "Checked by",
   CS: "Checked by",
-  A1: "BM Approved by",
+  A1: "Approved by",
   AC: "Operation Manager Approved by",
   ACK: "Issued by",
 };
@@ -50,6 +50,22 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const safeApprovals = Array.isArray(approvals) ? approvals : [];
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const [expandedComments, setExpandedComments] = useState({});
+
+  // Debug logging for cancelled forms
+  if ((status || '').toLowerCase().includes('cancel')) {
+    console.log('ApprovalSection - Cancelled form approvals:', {
+      status: status,
+      approvalsCount: safeApprovals.length,
+      approvals: safeApprovals.map(a => ({
+        user_type: a.user_type,
+        status: a.status,
+        acted: a.acted,
+        name: a.name,
+        actual_user_id: a.actual_user_id,
+        label: a.label
+      }))
+    });
+  }
 
   // Toggle comment expansion
   const toggleCommentExpansion = (approvalIndex) => {
@@ -290,11 +306,30 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     approvalsToShow.push({ label: "Checked by", key: "checked", approval: checkedApproval });
     
     // Always show BM Approved by
-    const bmApproval = safeApprovals.find(a =>
-      (resolveLabel(a) || "").toLowerCase().includes("bm approved") ||
-      ((resolveLabel(a) || "").toLowerCase().includes("approved by") &&
-       !(resolveLabel(a) || "").toLowerCase().includes("operation"))
-    );
+    const bmApproval = safeApprovals.find(a => {
+      const label = resolveLabel(a) || "";
+      const matches = label.toLowerCase().includes("bm approved") ||
+        (label.toLowerCase().includes("approved by") && !label.toLowerCase().includes("operation"));
+
+      // Debug logging for cancelled forms
+      if ((status || '').toLowerCase().includes('cancel')) {
+        console.log('BM Approval debug for cancelled form:', {
+          user_type: a?.user_type,
+          status: a?.status,
+          label: label,
+          matches: matches,
+          approval: a
+        });
+      }
+
+      return matches;
+    });
+
+    // Debug logging for cancelled forms
+    if ((status || '').toLowerCase().includes('cancel')) {
+      console.log('BM Approval result for cancelled form:', bmApproval);
+    }
+
     approvalsToShow.push({ label: "BM Approved by", key: "approved", approval: bmApproval });
     
     // Operation Manager approval section removed
