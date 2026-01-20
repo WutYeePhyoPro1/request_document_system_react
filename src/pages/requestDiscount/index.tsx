@@ -396,7 +396,7 @@ export default function Demo() {
 
             <input
               id="formDocNo"
-              type="text"
+              type="textz"
               placeholder="Enter product category or name or code"
               className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
               name="product_category"
