@@ -185,7 +185,7 @@ export default function IndexPriceChange() {
                             segments={[
                                 { path: "/dashboard", label: "Home" },
                                 { path: "/dashboard", label: "Dashboard" },
-                                { path: "/price_changes", label: "Price Change Form" }
+                                { path: "/price_changes", label: "Price Changes" }
                             ]}
                         />
 
