@@ -389,7 +389,6 @@ export default function DamageItemTable({
 
   // Define these early to avoid initialization errors in useEffect
   const normalizedRole = (userRole || '').toString().trim().toLowerCase();
-  console.log('User Role Debug:', { userRole, normalizedRole });
   
   // Check if user is operation manager - check multiple sources (must be defined before useState)
   const isOpManager = normalizedRole === 'op_manager' || 
@@ -2425,13 +2424,6 @@ const normalizeImageEntries = (list) => {
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
                             const nextValue = e.target.value;
-                            console.log('[REQUEST_QTY] onChange triggered:', {
-                              originalValue: e.target.value,
-                              nextValue,
-                              charCode: e.nativeEvent?.inputType,
-                              key: e.nativeEvent?.data,
-                              previousValue: item.request_qty
-                            });
                             
                             // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                             // Also allow comma (,) as decimal separator (common in some locales)
@@ -2441,12 +2433,6 @@ const normalizeImageEntries = (list) => {
                             // Check: only digits and at most one dot (after normalization)
                             const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
                             
-                            console.log('[REQUEST_QTY] Validation:', {
-                              normalizedValue,
-                              hasOnlyDigitsAndOneDot,
-                              testResult: /^[\d.]*$/.test(normalizedValue),
-                              dotCount: (normalizedValue.match(/\./g) || []).length
-                            });
                             
                             if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                               const valueToUse = normalizedValue;
@@ -2479,10 +2465,7 @@ const normalizeImageEntries = (list) => {
                               }
                               
                               // Only update request_qty - do NOT update actual_qty
-                              console.log('[REQUEST_QTY] Updating value:', valueToUse);
                               handleInputChange(item.id, 'request_qty', valueToUse);
-                            } else {
-                              console.log('[REQUEST_QTY] Validation failed - value rejected');
                             }
                           }}
                           onBlur={(e) => {
@@ -2568,13 +2551,6 @@ const normalizeImageEntries = (list) => {
                             max={item.system_qty > 0 ? item.system_qty : undefined}
                             onChange={(e) => {
                               const nextValue = e.target.value;
-                              console.log('[FINAL_QTY] onChange triggered:', {
-                                originalValue: e.target.value,
-                                nextValue,
-                                charCode: e.nativeEvent?.inputType,
-                                key: e.nativeEvent?.data,
-                                previousValue: item.final_qty
-                              });
                               
                               // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                               // Also allow comma (,) as decimal separator (common in some locales)
@@ -2584,12 +2560,6 @@ const normalizeImageEntries = (list) => {
                               // Check: only digits and at most one dot (after normalization)
                               const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
                               
-                              console.log('[FINAL_QTY] Validation:', {
-                                normalizedValue,
-                                hasOnlyDigitsAndOneDot,
-                                testResult: /^[\d.]*$/.test(normalizedValue),
-                                dotCount: (normalizedValue.match(/\./g) || []).length
-                              });
                               
                               if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                                 const valueToUse = normalizedValue;
@@ -2621,10 +2591,7 @@ const normalizeImageEntries = (list) => {
                                   return; // Don't update the value
                                 }
                                 
-                                console.log('[FINAL_QTY] Updating value:', valueToUse);
                                 handleQtyChange(item.id, valueToUse, 'final_qty');
-                              } else {
-                                console.log('[FINAL_QTY] Validation failed - value rejected');
                               }
                             }}
                             onBlur={(e) => {
@@ -2768,13 +2735,6 @@ const normalizeImageEntries = (list) => {
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
-                                  console.log('[ACTUAL_QTY] onChange triggered:', {
-                                    originalValue: e.target.value,
-                                    nextValue,
-                                    charCode: e.nativeEvent?.inputType,
-                                    key: e.nativeEvent?.data,
-                                    previousValue: item.actual_qty
-                                  });
                                   
                                   // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                                   // Also allow comma (,) as decimal separator (common in some locales)
@@ -2784,12 +2744,6 @@ const normalizeImageEntries = (list) => {
                                   // Check: only digits and at most one dot (after normalization)
                                   const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
                                   
-                                  console.log('[ACTUAL_QTY] Validation:', {
-                                    normalizedValue,
-                                    hasOnlyDigitsAndOneDot,
-                                    testResult: /^[\d.]*$/.test(normalizedValue),
-                                    dotCount: (normalizedValue.match(/\./g) || []).length
-                                  });
                                   
                                   if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                                     const valueToUse = normalizedValue;
@@ -2821,10 +2775,7 @@ const normalizeImageEntries = (list) => {
                                       return; // Don't update the value
                                     }
                                     
-                                    console.log('[ACTUAL_QTY] Updating value:', valueToUse);
                                     handleQtyChange(item.id, valueToUse, 'actual_qty');
-                                  } else {
-                                    console.log('[ACTUAL_QTY] Validation failed - value rejected');
                                   }
                                 }}
                                 onBlur={(e) => {
@@ -3140,7 +3091,7 @@ const normalizeImageEntries = (list) => {
                   className="px-2 py-6 text-center"
                   style={{ fontSize: '13px' }}
                 >
-                  No items added yet.
+                {t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}
                 </td>
               </tr>
             )}
@@ -3479,21 +3430,9 @@ const normalizeImageEntries = (list) => {
         const isOPApprovedStatus = status === 'OPApproved' || status === 'OP Approved';
         const shouldHideForOpManager = isOperationManager && isOPApprovedStatus;
 
-        console.log('Update System Qty Button Debug:', {
-          canShowUpdateSystemQtyButton,
-          isSupervisorUser,
-          mode,
-          normalizedRole,
-          status,
-          isOperationManager,
-          isOPApprovedStatus,
-          shouldHideForOpManager,
-          finalResult: canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && !shouldHideForOpManager
-        });
 
         // Hide button for operation manager viewing OP approved forms
         if (shouldHideForOpManager) {
-          console.log('HIDING Update System Qty Button for operation manager viewing OP approved form');
           return null;
         }
 
@@ -3652,59 +3591,102 @@ const normalizeImageEntries = (list) => {
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
           onClick={closePreview}
         >
+          <div className="relative max-w-[90vw] max-h-[90vh] image-preview-content bg-white rounded-lg shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header with close button */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {t('table.imageGallery', { defaultValue: 'Image Gallery' })} ({previewImages.length} {previewImages.length === 1 ? t('table.image', { defaultValue: 'image' }) : t('table.images', { defaultValue: 'images' })})
+              </h3>
+              <button
+                onClick={closePreview}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
+                aria-label={t('common.close', { defaultValue: 'Close' })}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Gallery Grid */}
+            <div className="p-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {previewImages.map((imageSrc, index) => (
+                  <div key={index} className="relative group">
+                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                      <img
+                        src={imageSrc}
+                        alt={`Gallery image ${index + 1}`}
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                        onError={(e) => {
+                          e.currentTarget.src = testImage;
+                          e.currentTarget.onError = null;
+                        }}
+                        onClick={() => {
+                          // Open single image view on click
+                          setPreviewImages([imageSrc]);
+                          setPreviewIndex(0);
+                        }}
+                      />
+                    </div>
+
+                    {/* Delete button - only show when editable */}
+                    {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted) || (status === 'Checked' && isApproverRole)) && previewItemId && (
+                      <button
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Set the current image to delete and call delete function
+                          setPreviewIndex(index);
+                          handleDeleteCurrentImage();
+                        }}
+                        aria-label={t('table.deleteImage', { defaultValue: 'Delete image' })}
+                        title={t('table.deleteImage', { defaultValue: 'Delete image' })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {/* Image number indicator */}
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                      {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer with actions */}
+            <div className="flex justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={closePreview}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
+              >
+                {t('common.close', { defaultValue: 'Close' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single Image Preview Modal (for when clicking on gallery image) */}
+      {previewOpen && previewImages.length === 1 && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
+          onClick={closePreview}
+        >
           <div className="relative max-w-[70vw] max-h-[75vh] image-preview-content" onClick={(e) => e.stopPropagation()}>
             <img
               src={previewImages[previewIndex]}
               alt="Preview"
               className="max-w-[60vw] max-h-[60vh] object-contain rounded shadow"
             />
-            
-            {/* Delete button - only show when editable, positioned at top-left */}
-            {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted)) && previewItemId && (
-              <button
-                className="absolute top-2 left-2 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 z-10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteCurrentImage();
-                }}
-                aria-label={t('table.deleteImage', { defaultValue: 'Delete image' })}
-                title={t('table.deleteImage', { defaultValue: 'Delete image' })}
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            )}
-            
-            {previewImages.length > 1 && (
-              <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 text-white px-4 py-2 rounded-full shadow">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    prevPreview();
-                  }}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label={t('table.previousImage', { defaultValue: 'Previous image' })}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <div className="text-xs whitespace-nowrap">{previewIndex + 1} / {previewImages.length}</div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    nextPreview();
-                  }}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label={t('table.nextImage', { defaultValue: 'Next image' })}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+
+            {/* Close button */}
             <button
-              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-700 shadow flex items-center justify-center text-sm hover:bg-gray-100 transition-colors"
+              className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
               onClick={closePreview}
-              aria-label="Close"
+              aria-label={t('common.close', { defaultValue: 'Close' })}
             >
-              ×
+              <X className="h-6 w-6" />
             </button>
           </div>
         </div>

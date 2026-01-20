@@ -231,17 +231,12 @@ export default function ActionConfirmationModal({
                   {t('confirmation.rejectDescription')}
                 </p>
               )}
-              {(action === 'Cancel' || action === 'Cancelled') && (
-                <p className="text-xs text-red-600 mt-2">
-                  {t('confirmation.cancelDescription')}
-                </p>
-              )}
               {action === 'BackToPrevious' && (
                 <p className="text-xs text-yellow-600 mt-2">
                   {t('confirmation.backToPreviousDescription')}
                 </p>
               )}
-              {action === 'Cancel' && (
+              {(action === 'Cancel' || action === 'Cancelled') && (
                 <p className="text-xs text-red-600 mt-2">
                   {t('confirmation.cancelDescription') || 'This action will cancel the form. You won\'t be able to revert this!'}
                 </p>

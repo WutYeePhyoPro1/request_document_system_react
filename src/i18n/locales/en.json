@@ -114,7 +114,7 @@
     "deleteFail": "Delete Fail",
     "submitFail": "Submit Fail",
     "pleaseFillRequired": "Please check the form and fill all required fields.",
-    "investigationRequired": "Please fill the investigation form (BM Reason and percentages must total 100%) before approving.",
+    "investigationRequired": "Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.",
     "missingFormIdentifier": "Missing form identifier. Please refresh and try again.",
     "pdfGenerated": "PDF downloaded successfully",
     "pdfGenerateFailed": "Failed to download PDF. Please try again.",

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n/config';
 import DamageFormHeader from "./DamageFormHeader";
 import DamageItemTable from "./DamageItemTable";
 import SupportingInfo from "./SupportingInfo";
@@ -2886,7 +2887,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
   // Actually download PDF after confirmation
   const confirmDownloadPdf = async () => {
     // Set loading state BEFORE closing modal so user sees it immediately
-    console.log('Setting PDF downloading to true');
     setIsPdfDownloading(true);
     setPdfDownloadConfirmation(false);
     
@@ -3037,7 +3037,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       setErrorModalMessage(errorMessage);
       setIsErrorModalOpen(true);
     } finally {
-      console.log('Setting PDF downloading to false');
       setIsPdfDownloading(false);
     }
   };
@@ -3147,13 +3146,16 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     if (isCheckedStatus && isApprovalAction && isBMOrABM) {
       // First check if investigation form exists
       if (!isInvestigationFilled) {
-      setValidationErrorModal({
-        isOpen: true,
-        errors: [t('messages.investigationRequired', {
+        const translatedMessage = t('messages.investigationRequired', {
           defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.'
-        })],
-        type: 'warning'
-      });
+        });
+
+
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [translatedMessage],
+          type: 'warning'
+        });
       return;
       }
       
@@ -3394,6 +3396,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
   //Handle form submission (actual submission logic)
   const handleSubmit = async (action) => {
+    // DEBUG: Log that handleSubmit was called
+    console.log('HANDLE_SUBMIT CALLED with action:', action);
+
     // Generate unique submission ID for tracking
     const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -3801,11 +3806,26 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
       // Convert caseType to asset_type format expected by backend
       // "Other income sell" -> "on", "Not sell" -> "off"
-      // IMPORTANT: Always use formData.caseType first (user's current selection)
-      // Only fall back to initialData if formData.caseType is not set
-      const currentCaseType = (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== '')
-        ? formData.caseType
-        : (initialData?.caseType || 'Not sell');
+      // CRITICAL: For existing forms, preserve the ORIGINAL caseType from initialData
+      // This prevents automatic changes during approval/status updates
+      // Only use formData.caseType for NEW forms or when explicitly changed by user
+      const currentCaseType = isExistingForm
+        ? (initialData?.caseType || (initialData?.asset_type === 'on' ? 'Other income sell' : 'Not sell'))
+        : (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== ''
+            ? formData.caseType
+            : (initialData?.caseType || 'Not sell'));
+
+      // DEBUG: Log asset type determination during checking (before assetType calculation)
+      if (action === 'Checked' || action === 'BMApproved' || action === 'BMApprovedMem') {
+        console.log('Asset type determination during approval:', {
+          action,
+          isExistingForm,
+          generalFormId,
+          initialDataAssetType: initialData?.asset_type,
+          initialDataCaseType: initialData?.caseType,
+          currentCaseType
+        });
+      }
 
       // Normalize the caseType value (handle variations)
       const normalizedCaseType = String(currentCaseType).trim();
@@ -3817,6 +3837,20 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       } else if (normalizedCaseType === 'Not sell' || normalizedCaseType.toLowerCase() === 'not sell') {
         assetType = 'off';
       }
+
+      // DEBUG: Log asset type determination during ALL approvals
+      console.log('Asset type determination - ALL ACTIONS:', {
+        action,
+        isExistingForm,
+        generalFormId,
+        initialDataAssetType: initialData?.asset_type,
+        initialDataCaseType: initialData?.caseType,
+        currentCaseType,
+        normalizedCaseType,
+        finalAssetType: assetType,
+        allInitialDataKeys: initialData ? Object.keys(initialData) : [],
+        formDataCaseType: formData?.caseType
+      });
 
       // Always include asset_type for both new and existing forms
       // This will override any asset_type that might have been set earlier
@@ -3903,16 +3937,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       // Also include legacy 'acc_code' key (backend may expect either)
       appendArrayField('acc_code', accountCodeLines);
       
-      // If any account codes are present, mark the form as "Other income sell" for backend/listing
-      const hasAccountCodes = accountCodeLines.some(code => code !== undefined && code !== null && String(code).trim() !== '');
-      if (hasAccountCodes) {
-        // Backend expects case_type or asset_type to indicate Other income sell
-        formDataToSend.append('case_type', 'Other income sell');
-        formDataToSend.append('asset_type', 'on');
-        // Also include camelCase variants in case backend expects them
-        formDataToSend.append('caseType', 'Other income sell');
-        formDataToSend.append('assetType', 'on');
-      }
+      // Note: Account codes can be present on both "Not sell" and "Other income sell" forms
+      // Do NOT automatically change caseType based on account codes
+      // The caseType should remain as selected by the user
 
       const commentValue = [formData.comment, formData.reason, formData.remark]
         .map((value) => (typeof value === 'string' ? value.trim() : ''))
@@ -6133,25 +6160,12 @@ const resolveApproveAction = () => {
 
       {/* ISS Remark Type and ISS Number Display */}
       {(() => {
-        // DEBUG: Check user role and form status for operation manager viewing OP approved forms
         const userRole = getUserRole();
-        console.log('getUserRole() returned:', userRole);
         const isOperationManager = userRole === 'op_manager';
         const isOPApprovedStatus = formData.status === 'OPApproved' || formData.status === 'OP Approved';
 
-        console.log('ISS Remark Type Display Debug:', {
-          userRole,
-          isOperationManager,
-          formStatus: formData.status,
-          isOPApprovedStatus,
-          shouldHide: isOperationManager && isOPApprovedStatus,
-          hasIssRemark: formData.iss_remark,
-          hasIssueRemarks: formData.issue_remarks?.length > 0
-        });
-
         // Hide ISS Remark Type and ISS Number for operation manager viewing OP approved forms
         if (isOperationManager && isOPApprovedStatus) {
-          console.log('Hiding ISS Remark Type for operation manager viewing OP approved form');
           return null;
         }
 

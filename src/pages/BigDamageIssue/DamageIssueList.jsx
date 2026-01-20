@@ -1225,20 +1225,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       ? toBranchInfo
                       : fromBranchInfo;
                     const branchName = resolveBranchName(gf, branchInfo);
-                    // Determine sell status dynamically:
-                    // "Other Income Sell" = form was originally created as "Other income sell"
-                    // "Not Sell" = form was originally created as "Not sell"
-                    // Note: acc_code fields get set for ALL forms during processing and don't indicate original intent
-                    const hasAccCode = Boolean(row.acc_code || row.acc_code1);
-                    // Check asset_type from backend ("on" = Other income sell, "off" = Not sell)
+                    // Determine sell status based on asset_type from backend:
+                    // "Other Income Sell" = asset_type is "on"
+                    // "Not Sell" = asset_type is "off" (default)
+                    // Account codes can be present on both types of forms, so don't use them as primary determinant
                     const assetType = gf.asset_type || gf.case_type || gf.caseType;
                     const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
-                    // Also check general_form.caseType if available (though it's not typically in API response)
-                    const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
-                    // Check if items array has any item with acc_code (if items are loaded)
-                    const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-                    // Only use hasCaseType (original form intent) - acc_code fields get set for ALL forms during processing
-                    const isOtherIncomeSell = hasCaseType;
+                    const isOtherIncomeSell = isAssetTypeOn;
                     const sellStatus = isOtherIncomeSell 
                       ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
                       : t('list.notSell', { defaultValue: 'Not Sell' });
@@ -1454,16 +1447,12 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
             const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
             const branchName = resolveBranchName(gf, branchInfo);
-            // Check if it's "Other Income Sell":
-            // Only check original form intent (caseType/case_type/asset_type)
-            // acc_code fields get set for ALL forms during processing and don't indicate original intent
-            const hasAccCode = Boolean(row.acc_code || row.acc_code1);
+            // Determine sell status based on asset_type from backend:
+            // "Other Income Sell" = asset_type is "on"
+            // "Not Sell" = asset_type is "off" (default)
             const assetType = gf.asset_type || gf.case_type || gf.caseType;
             const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
-            const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
-            const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-            // Only use hasCaseType (original form intent) - acc_code fields get set for ALL forms during processing
-            const isOtherIncomeSell = hasCaseType;
+            const isOtherIncomeSell = isAssetTypeOn;
             const sellStatus = isOtherIncomeSell 
               ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
               : t('list.notSell', { defaultValue: 'Not Sell' });
