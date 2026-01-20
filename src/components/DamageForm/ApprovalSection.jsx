@@ -51,18 +51,6 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const [expandedComments, setExpandedComments] = useState({});
 
-  console.log('ApprovalSection received:', {
-    approvalsCount: safeApprovals.length,
-    status: status,
-    approvals: safeApprovals.map(a => ({
-      user_type: a.user_type,
-      status: a.status,
-      acted: a.acted,
-      name: a.name,
-      actual_user_id: a.actual_user_id
-    }))
-  });
-
   // Toggle comment expansion
   const toggleCommentExpansion = (approvalIndex) => {
     setExpandedComments(prev => ({
@@ -302,24 +290,11 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     approvalsToShow.push({ label: "Checked by", key: "checked", approval: checkedApproval });
     
     // Always show BM Approved by
-    const bmApproval = safeApprovals.find(a => {
-      const label = resolveLabel(a) || "";
-      const labelLower = label.toLowerCase();
-      const matches = labelLower.includes("bm approved") ||
-        (labelLower.includes("approved by") && !labelLower.includes("operation"));
-
-      console.log('BM Approval check:', {
-        user_type: a?.user_type,
-        status: a?.status,
-        label: label,
-        matches: matches,
-        approval: a
-      });
-
-      return matches;
-    });
-
-    console.log('BM Approval found:', bmApproval);
+    const bmApproval = safeApprovals.find(a =>
+      (resolveLabel(a) || "").toLowerCase().includes("bm approved") ||
+      ((resolveLabel(a) || "").toLowerCase().includes("approved by") &&
+       !(resolveLabel(a) || "").toLowerCase().includes("operation"))
+    );
     approvalsToShow.push({ label: "BM Approved by", key: "approved", approval: bmApproval });
     
     // Operation Manager approval section removed
