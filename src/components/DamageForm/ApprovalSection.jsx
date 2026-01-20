@@ -17,7 +17,7 @@ const CURRENT_STEP_STATUS = {
 const USER_TYPE_MAP = {
   C: "Checked by",
   CS: "Checked by",
-  A1: "Approved by",
+  A1: "BM Approved by",
   AC: "Operation Manager Approved by",
   ACK: "Issued by",
 };
@@ -51,21 +51,6 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const [expandedComments, setExpandedComments] = useState({});
 
-  // Debug logging for cancelled forms
-  if ((status || '').toLowerCase().includes('cancel')) {
-    console.log('ApprovalSection - Cancelled form approvals:', {
-      status: status,
-      approvalsCount: safeApprovals.length,
-      approvals: safeApprovals.map(a => ({
-        user_type: a.user_type,
-        status: a.status,
-        acted: a.acted,
-        name: a.name,
-        actual_user_id: a.actual_user_id,
-        label: a.label
-      }))
-    });
-  }
 
   // Toggle comment expansion
   const toggleCommentExpansion = (approvalIndex) => {
@@ -306,29 +291,11 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     approvalsToShow.push({ label: "Checked by", key: "checked", approval: checkedApproval });
     
     // Always show BM Approved by
-    const bmApproval = safeApprovals.find(a => {
-      const label = resolveLabel(a) || "";
-      const matches = label.toLowerCase().includes("bm approved") ||
-        (label.toLowerCase().includes("approved by") && !label.toLowerCase().includes("operation"));
-
-      // Debug logging for cancelled forms
-      if ((status || '').toLowerCase().includes('cancel')) {
-        console.log('BM Approval debug for cancelled form:', {
-          user_type: a?.user_type,
-          status: a?.status,
-          label: label,
-          matches: matches,
-          approval: a
-        });
-      }
-
-      return matches;
-    });
-
-    // Debug logging for cancelled forms
-    if ((status || '').toLowerCase().includes('cancel')) {
-      console.log('BM Approval result for cancelled form:', bmApproval);
-    }
+    const bmApproval = safeApprovals.find(a =>
+      (resolveLabel(a) || "").toLowerCase().includes("bm approved") ||
+      ((resolveLabel(a) || "").toLowerCase().includes("approved by") &&
+       !(resolveLabel(a) || "").toLowerCase().includes("operation"))
+    );
 
     approvalsToShow.push({ label: "BM Approved by", key: "approved", approval: bmApproval });
     
@@ -526,10 +493,11 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
       }
 
-      // For "BM Approved by", only mark as acted if form status is "BM Approved" or higher
-      // This prevents "BM Approved by" from showing as filled when form status is "Checked" or lower
+      // For "BM Approved by", mark as acted if:
+      // 1. Form status is "BM Approved" or higher, OR
+      // 2. Form is cancelled but has an actual BM approval record (preserves approval history)
       if (label === 'BM Approved by') {
-        const isBmApprovedStatus = status === 'BM Approved' || 
+        const isBmApprovedStatus = status === 'BM Approved' ||
                                   status === 'BMApproved' ||
                                   status === 'OPApproved' ||
                                   status === 'OP Approved' ||
@@ -538,9 +506,13 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
                                   status === 'Completed' ||
                                   status === 'Issued' ||
                                   status === 'SupervisorIssued';
-        
-        if (isBmApprovedStatus) {
-          // Form has been BM Approved or higher - show as acted
+
+        const isCancelledWithBmApproval = status.toLowerCase().includes('cancel') &&
+                                        matchingApproval &&
+                                        (matchingApproval.acted || matchingApproval.status === 'BM Approved');
+
+        if (isBmApprovedStatus || isCancelledWithBmApproval) {
+          // Form has been BM Approved or higher, OR cancelled with BM approval - show as acted
           hasActed = true;
         } else {
           // Form is still "Checked" or lower - don't show as acted even if approval record exists
