@@ -12,35 +12,170 @@ import { FaFileImport } from "react-icons/fa";
 
 import $ from "jquery";
 import Select from 'react-select'
+import axios from "axios";
+import Swal from "sweetalert2";
+
+import {validateForm} from "../../components/Validator.jsx";
 
 export default function () {
 
 
     const navigate = useNavigate();
     const [branches, setBranches] = useState([]);
-    const [formData, setFormData] = useState({
-        start_time: "",
-        place: "",
-        end_time: "",
-        case_type: "",
-        record_type: "",
-        issue_date: "",
-        description: "",
-        cctv_record: false,
-        form_id: 15,
-        layout_id: 14,
+    const [categories, setCategories] = useState([]);
+    const [formState, setFormState] = useState({
+        change_price_date: "",
+        effective_date: "",
+        urgent_price_change: false,
+        category_id: "",
+        comment: "",
+        branch_price: "",
+        all_branches: false,
+        branches: [],
+
+        form_id: 21,
+        layout_id: 19,
         route: "price_changes"
     });
+    const [products,setProducts] = useState([]);
+
     const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleChange = (e) => {
+ 
+    const changeHandler = (e,actionMeta) => {
+         // react-select
+        // console.log(e,action);
+        if (!e?.target) {
+            const name = actionMeta?.name;
+            setFormState(prev => ({
+            ...prev,
+            [name]: e ? e.value : null,
+            }));
+            return;
+        }
+
         const { name, value, type, checked } = e.target;
-        setFormData((prevData) => ({
+
+
+        // checkbox group: branches[]
+        if (name === "branches") {
+            setFormState(prev => {
+                const updatedBranches = checked
+                ? [...prev.branches, Number(value)]
+                : prev.branches.filter(id => id !== Number(value));
+
+                const allSelected = updatedBranches.length === branches.length;
+
+                return {
+                ...prev,
+                branches: updatedBranches,
+                all_branches: allSelected,
+                };
+            });
+            return;
+        }
+        // All branches checkbox
+        if (name === "all_branches") {
+            setFormState(prev => ({
+                ...prev,
+                all_branches: checked,
+                branches: checked ? branches.map(b => b.id) : [],
+            }));
+            return;
+        }
+
+
+        setFormState((prevData) => ({
             ...prevData,
             [name]: type === "checkbox" ? checked : value,
         }));
+        console.log(formState)
     };
+
+
+    const schema = {
+        change_price_date: { required: true, type:"date" },
+        effective_date: { required: true, type:"date" },
+        category_id: {required: true},
+        comment: {maxLength: 250},
+        branch_price: {required: true},
+        branches: {required: true},
+    };
+    const [productCode,setProductCode] = useState("");
+    const searchHandler = async () => {
+            var branch_code = formState.branch_price;
+            // if (!productCode) {
+            //     Swal.fire({
+            //         icon: 'info',
+            //         title: 'Warning',
+            //         text: 'Please Add Product Code before Search',
+            //     });
+            // }else{
+                const datas = {
+                    branch_price: branch_code,
+                    product_code: productCode
+                };
+                const searchSchema = {
+                    branch_price: {required: true},
+                    product_code: {required: true}
+                }
+                const errors = validateForm(datas, searchSchema);
+                if (Object.keys(errors).length > 0) {
+                    console.error("Validaton Error: ", errors);
+                    // showErrors(errors);
+                    return;
+                }
+
+
+
+                    try {
+                    // setLoading(true);
+                    // setError(null);
+
+                        const { data } = await axios.get(
+                        `/api/price_changes/search_product/${productCode}/${branch_code}`,
+                        {
+                            headers: {
+                            Authorization: `Bearer ${token}`,
+                            },
+                        }
+                        );
+                        console.log(data);
+                        setProducts(data);
+                    } catch (err) {
+                        console.error(err);
+                        // setError("Failed to load product data");
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Product Code does not exist!!',
+                        });
+                    } finally {
+                        // setLoading(false);
+                    
+                    }
+            // }
+            
+    };
+
+
+    //  const schema = {
+    //     name: { required: true, minLength: 3, maxLength: 5 },
+    //     email: { required: true, type: "email" },
+    //     age: { required: true, type: "number" }
+    // };
+    // ----------------------------
+    // const validate = ()=>{
+    //     let isvalid = true;
+
+    //     let emailError = '',passwordError = '',ageError =' ',bioError = '';
+
+    //     if(email.trim().length ===0){
+    //         emailError = "Email Required";
+    //         isvalid = false;
+    //     }        
+    // };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -113,7 +248,7 @@ export default function () {
         }
     };
 
-
+    const excludeBranchIds = [1];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branches', {
@@ -127,13 +262,16 @@ export default function () {
             // if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             console.log(data);
-            const list = Array.isArray(data)
+            let list = Array.isArray(data)
                 ? data
                 : Array.isArray(data?.data)
                     ? data.data
                     : Array.isArray(data?.data?.data)
                         ? data.data.data
                         : [];
+            list = [...list]
+                            .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
+
             setBranches(list);
         } catch (error) {
             console.error('Fetch branches error:', error);
@@ -141,15 +279,61 @@ export default function () {
         }
     }
     const [selectedBranch, setSelectedBranch] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState(null);
     const options = branches.map(branch => ({
         value: branch.id,      
         label: branch.branch_name
     }));
+    // const options = [...branches]
+    //                 .sort((a, b) => a.id > b.id ? 1 : -1)
+    //                 .map(branch => ({
+    //                     value: branch.id,
+    //                     label: branch.branch_name
+    //                 }));
 
 
-      useEffect(() => {
-          fetchBranches();
-      }, []);
+    const excludeCategoryIds = [14];
+    const fetchProductCategories = async () => {
+        try {
+            const response = await fetch('/api/product-categories', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+            });
+ 
+            // if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            console.log(data);
+            let list = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.data)
+                    ? data.data
+                    : Array.isArray(data?.data?.data)
+                        ? data.data.data
+                        : [];
+
+            list = [...list]
+                    .filter((br)=>!excludeCategoryIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
+            // console.log(list);
+            setCategories(list);
+        } catch (error) {
+            console.error('Fetch branches error:', error);
+            setCategories([]);
+        }
+    }
+    const catOptions = categories.map(category => ({
+        value: category.id,      
+        label: category.name
+    }));
+
+
+    useEffect(() => {
+        fetchBranches();
+        fetchProductCategories();
+    }, []);
+
 
     return (
         <div className="p-4 md:p-6 lg:p-8">
@@ -224,7 +408,7 @@ export default function () {
 
 
            
-            <div className="h-auto md:h-[calc(100vh-14rem)] grid grid-cols-1 lg:grid-cols-12 gap-4 p-0">
+            <div className="h-auto md:h-[calc(100vh-14rem)] grid grid-cols-1 lg:grid-cols-12 gap-4s p-0">
 
                 <aside className="lg:col-span-2 h-full">
                     <div className="h-full bg-white rounded-2xl shadow flex flex-col">
@@ -239,21 +423,12 @@ export default function () {
 
                     <div className="flex-1 overflow-y-auto p-5 space-y-3">
                         <label className="flex items-center gap-3 text-sm font-medium">
-                        <input type="checkbox" className="rounded text-indigo-600" />
+                        <input type="checkbox" id="all_branches" name="all_branches" className="rounded text-indigo-600" onChange={changeHandler}  checked={formState.all_branches} />
                         All Branches
                         </label>
-
-                        {/* <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> Lanthit Road</label>
-                        <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> Hle Pan</label>
-                        <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> Satsan</label>
-                        <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> East Dagon</label>
-                        <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> Mawlamyine</label>
-                        <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> Hlaing Tharyar</label>
-                        <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> Bago</label> */}
-
                         {
                             branches.map((branch,idx)=>(
-                                <label className="flex items-center gap-3 text-sm"><input type="checkbox" /> {branch.branch_name}</label>
+                                <label key={idx} className="flex items-center gap-3 text-sm ms-4"><input id="branches" name="branches" type="checkbox"   value={branch.id} onChange={changeHandler}  checked={formState.branches.includes(branch.id)}/> {branch.branch_name}</label>
                             ))
                         }
                     </div>
@@ -281,26 +456,48 @@ export default function () {
 
                                 <div>
                                 <label className="text-xs font-medium text-slate-600">Change Price Date</label>
-                                <input type="date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }}/>
+                                    <input type="date" id="change_price_date" name="change_price_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date}/>
                                 </div>
 
                                 <div>
                                 <label className="text-xs font-medium text-slate-600">Effective Date</label>
-                                <input type="date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }}/>
+                                <input type="date" id="effective_date" name="effective_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date}/>
                                 </div>
 
 
                                 <div className="flex items-center gap-2 mt-6">
-                                    <input type="checkbox" className="rounded text-red-600"/>
+                                    <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="rounded text-red-600"  onChange={changeHandler} value={formState.urgent_price_change}/>
                                     <span className="text-sm font-medium text-red-600">Urgent Price Change</span>
                                 </div>
 
                              
                                 <div>
                                     <label className="text-xs font-medium text-slate-600">Department</label>
-                                    <select className="border focus:outline-none p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }}>
-                                        <option>Cement & Block</option>
-                                    </select>
+                                    <Select
+                                        id="category_id"
+                                        name="category_id"
+                                        options={catOptions}
+                                        placeholder="Select Category"
+                                        isSearchable={true}
+                                        isClearable
+                                        // value={selectedCategory}                
+                                        // onChange={(selected) => {
+                                        //     setSelectedCategory(selected);
+                                        // }}
+                                        onChange={changeHandler}  
+                                        value={
+                                            catOptions.find(opt => opt.value === formState.category_id) || null
+                                        }
+                                        styles={{
+                                        control: (provided) => ({
+                                            ...provided,
+                                            minHeight: "3rem",          
+                                            borderColor: "#2ea2d1",
+                                            borderRadius: "0.5rem",
+                                        }),
+                      
+                                        }}
+                                    />
                                 </div>
 
                          
@@ -313,20 +510,28 @@ export default function () {
                                 <div className="lg:col-span-2">
                                     <label className="text-xs font-medium text-slate-600">Remark</label>
                                     <textarea
+                                        id="comment"
+                                        name="comment"
                                         className="border focus:outline-none p-2 w-full rounded-md"
                                         rows="1"
                                         style={{ borderColor: '#2ea2d1' }}
+                                        onChange={changeHandler} value={formState.comment}
                                     ></textarea>
                                 </div>
 
                                 <div>
                                     <label className="text-xs font-medium text-slate-600">Branch Price</label>
                                      <Select
-                                        id="branch_id"
-                                        name="branch_id"
+                                        id="branch_price"
+                                        name="branch_price"
                                         options={options}
                                         placeholder="Select Status"
                                         isSearchable={true}  // allows typing to filter options
+                                        isClearable
+                                        onChange={changeHandler}
+                                        value={
+                                            options.find(opt => opt.value === formState.branch_price) || null
+                                        }
                                         styles={{
                                         control: (provided) => ({
                                             ...provided,
@@ -334,37 +539,21 @@ export default function () {
                                             borderColor: "#2ea2d1",
                                             borderRadius: "0.5rem",
                                         }),
-                                        menu: (provided) => ({
-                                            ...provided,
-                                            minHeight: "500px",         
-                                            maxHeight: "500px",        
-                                        }),
-                                        menuList: (provided) => ({
-                                            ...provided,
-                                            minHeight: "500px",         
-                                            maxHeight: "600px",         // taller menu
-                                        }),
-                                        option: (provided, state) => ({
-                                            ...provided,
-                                            padding: "12px 16px",      
-                                        }),
+                      
                                         }}
                                     />
                                 </div>
 
-                                <div>
+                                <div className="flex items-end">
+                                    <div className="w-full">
                                     <label className="text-xs font-medium text-slate-600">Product Code</label>
-                                    <input type="text" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }}/>
+                                    <input type="text" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)}/>
+                                    </div>
                                 </div>
-                                {/* <div className="flex items-end">
-                                    <button class="px-4 py-2 bg-cyan-600 text-white rounded hover:bg-cyan-700 active:bg-cyan-800 transition duration-200 focus:outline-none focus:ring-4 focus:ring-cyan-300">
-                                    Search
-                                    </button>
-
-                                </div> */}
                                 <div className="flex flex-wrap gap-2 items-end">
 
                                     <button
+                                        type="button"
                                         className="inline-flex items-center justify-center
                                                 px-4 py-2
                                                 text-sm font-medium
@@ -372,6 +561,7 @@ export default function () {
                                                 hover:bg-cyan-700 active:bg-cyan-800
                                                 transition
                                                 focus:outline-none focus:ring-4 focus:ring-cyan-300"
+                                        onClick={searchHandler}
                                     >
                                         Search
                                     </button>
