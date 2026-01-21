@@ -76,7 +76,13 @@
     "showAccountCodes": "Show Account Codes",
     "hideAccountCodes": "Hide Account Codes",
     "productInformation": "Product Information",
-    "productNumbered": "{{number}}-Product"
+    "productNumbered": "{{number}}-Product",
+    "addDamageItem": "Add Damage Item",
+    "branch": "Branch",
+    "enterProductCodePlaceholder": "Enter product code...",
+    "searching": "Searching...",
+    "search": "Search",
+    "case": "Case"
   },
   "approval": {
     "preparedBy": "Prepared by",

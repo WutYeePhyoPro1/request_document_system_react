@@ -2671,7 +2671,8 @@ const normalizeImageEntries = (list) => {
                                                          normalizedStatusForActualQty.toLowerCase() === 'opapproved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'op approved';
                         const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated) || (isAccount && isOPApprovedForActualQty);
-                        const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly;
+                        const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly ||
+                                                 (isAccount && (status === 'BM Approved' || status === 'BMApproved' || status === 'OPApproved' || status === 'OP Approved' || status === 'Ac_Acknowledged' || status === 'Acknowledged'));
                         
                         if (canEditProductType) {
                           return (

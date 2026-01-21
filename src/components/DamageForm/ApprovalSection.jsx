@@ -363,7 +363,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     const shouldShowAcknowledged = !isCancelledStatus && (
       requiresOpManagerApproval ||
       isOPApprovedStatus ||
-      hasOpApproval ||
+      (hasOpApproval && requiresOpManagerApproval) || // Only show if OP approval exists AND amount still > 500k
       (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet))
     );
 
