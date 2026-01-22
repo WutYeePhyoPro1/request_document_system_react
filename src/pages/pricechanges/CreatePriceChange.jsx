@@ -16,17 +16,26 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
+import {showValidationErrors} from "../../components/Validator.jsx";
+import {formatDate} from "../../components/Fomatter.jsx";
+import ServerTime from "../../components/ServerTime";
 
 export default function () {
 
 
     const navigate = useNavigate();
+    const today = () => new Date().toISOString().split("T")[0];
+    const minDate = today();
+    const maxDate = new Date();
+    // maxDate.setFullYear(today.getFullYear() + 5);
+    maxDate.setMonth(new Date().getMonth() + 1);
+
     const [branches, setBranches] = useState([]);
     const [categories, setCategories] = useState([]);
     const [formState, setFormState] = useState({
-        change_price_date: "",
-        effective_date: "",
-        urgent_price_change: false,
+        change_price_date: today(),
+        effective_date: today(),
+        urgent_price_change: true,
         category_id: "",
         comment: "",
         branch_price: "",
@@ -86,13 +95,37 @@ export default function () {
         }
 
 
-        setFormState((prevData) => ({
-            ...prevData,
-            [name]: type === "checkbox" ? checked : value,
-        }));
+        // setFormState((prevData) => ({
+        //     ...prevData,
+        //     [name]: type === "checkbox" ? checked : value,
+        // }));
+        setFormState(prev => {
+            let updated = {
+                ...prev,
+                [name]: type === "checkbox" ? checked : value,
+            };
+
+            if (name === "effective_date") {
+                updated.urgent_price_change = value === today();
+            }
+
+            return updated;
+        });
         console.log(formState)
     };
-
+    const pricesHandler = (e,product_code)=>{
+        const { name, value, type, checked } = e.target;
+        console.log(products);
+        // console.log("Price",products);
+        // console.log(name,value);
+        setProducts((prev)=> 
+            prev.map(item =>
+                item.product_code === product_code
+                    ? { ...item, [name]: value }
+                    : item
+            )
+        )
+    }
 
     const schema = {
         change_price_date: { required: true, type:"date" },
@@ -105,29 +138,40 @@ export default function () {
     const [productCode,setProductCode] = useState("");
     const searchHandler = async () => {
             var branch_code = formState.branch_price;
-            // if (!productCode) {
-            //     Swal.fire({
-            //         icon: 'info',
-            //         title: 'Warning',
-            //         text: 'Please Add Product Code before Search',
-            //     });
-            // }else{
                 const datas = {
-                    branch_price: branch_code,
+                    branch_price: String(branch_code),
                     product_code: productCode
                 };
                 const searchSchema = {
-                    branch_price: {required: true},
-                    product_code: {required: true}
+                    product_code: {required: true},
+                    branch_price: {required: true}
                 }
-                const errors = validateForm(datas, searchSchema);
-                if (Object.keys(errors).length > 0) {
-                    console.error("Validaton Error: ", errors);
-                    // showErrors(errors);
+                const searchMessages = {
+                    branch_price: {
+                        required: 'Please select branch price'
+                    },
+                    product_code: {
+                        required: 'Please Add Product Code before Search',
+                        // required: 'ကုန်ပစ္စည်းကုဒ် ဖြည့်ပါ',
+                    }
+                };
+                const errors = validateForm(datas, searchSchema, searchMessages);
+
+                
+                if (showValidationErrors(errors)) return;
+
+                // Duplicate Product Code
+                const exists = products.some(
+                    p => p.product_code === productCode
+                );
+                if(exists){
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Warning',
+                        text: 'Please Change product code (product code duplicate)!',
+                    });
                     return;
                 }
-
-
 
                     try {
                     // setLoading(true);
@@ -142,7 +186,26 @@ export default function () {
                         }
                         );
                         console.log(data);
-                        setProducts(data);
+                        const apiProduct = data.data;
+
+                        const result = {
+                            ...apiProduct,
+                            product_code: apiProduct.barcode,
+                            price1: apiProduct.price1 ?? '',
+                            price2: apiProduct.price2 ?? ''
+                        };
+                        if(!data.error){
+                            setProductCode("");
+                            setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
+                        }else{
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: 'Product Code does not exist!!',
+                            });
+                        }
+
+
                     } catch (err) {
                         console.error(err);
                         // setError("Failed to load product data");
@@ -155,27 +218,17 @@ export default function () {
                         // setLoading(false);
                     
                     }
-            // }
             
     };
 
+    const removeHandler = (e,product_code)=>{
+        e.preventDefault();
+        console.log(product_code);
 
-    //  const schema = {
-    //     name: { required: true, minLength: 3, maxLength: 5 },
-    //     email: { required: true, type: "email" },
-    //     age: { required: true, type: "number" }
-    // };
-    // ----------------------------
-    // const validate = ()=>{
-    //     let isvalid = true;
-
-    //     let emailError = '',passwordError = '',ageError =' ',bioError = '';
-
-    //     if(email.trim().length ===0){
-    //         emailError = "Email Required";
-    //         isvalid = false;
-    //     }        
-    // };
+        setProducts((prev)=>
+            prev.filter(item =>item.product_code != product_code)
+        )
+    }
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -442,10 +495,11 @@ export default function () {
                             <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
                                 <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
 
-                                <div className="text-sm text-right">
+                                {/* <div className="text-sm text-right">
                                 <p className="text-slate-500">Server Time</p>
                                 <p className="font-semibold text-slate-800">11:07:44</p>
-                                </div>
+                                </div> */}
+                                <ServerTime/>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4">
@@ -456,17 +510,17 @@ export default function () {
 
                                 <div>
                                 <label className="text-xs font-medium text-slate-600">Change Price Date</label>
-                                    <input type="date" id="change_price_date" name="change_price_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date}/>
+                                    <input type="date" id="change_price_date" name="change_price_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly/>
                                 </div>
 
                                 <div>
                                 <label className="text-xs font-medium text-slate-600">Effective Date</label>
-                                <input type="date" id="effective_date" name="effective_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date}/>
+                                <input type="date" id="effective_date" name="effective_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
                                 </div>
 
 
                                 <div className="flex items-center gap-2 mt-6">
-                                    <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="rounded text-red-600"  onChange={changeHandler} value={formState.urgent_price_change}/>
+                                    <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="rounded text-red-600"  onChange={changeHandler} value={formState.urgent_price_change} checked={formState.effective_date == today()} />
                                     <span className="text-sm font-medium text-red-600">Urgent Price Change</span>
                                 </div>
 
@@ -547,7 +601,7 @@ export default function () {
                                 <div className="flex items-end">
                                     <div className="w-full">
                                     <label className="text-xs font-medium text-slate-600">Product Code</label>
-                                    <input type="text" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)}/>
+                                    <input type="text" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode}/>
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 items-end">
@@ -613,7 +667,7 @@ export default function () {
                             {/* </div> */}
 
 
-                            <ProductTable/>
+                            <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler}/>
                         </div>
                     </section>
                 </main>
