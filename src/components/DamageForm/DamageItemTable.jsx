@@ -11,7 +11,8 @@ import {
   Image as ImageIcon,
   Package,
   Filter,
-  X
+  X,
+  Download
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { apiRequest } from "../../utils/api";
@@ -381,6 +382,7 @@ export default function DamageItemTable({
   const [previewImages, setPreviewImages] = useState([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewItemId, setPreviewItemId] = useState(null);
+  const [previewMode, setPreviewMode] = useState('gallery'); // 'gallery' or 'single'
   const [errorModal, setErrorModal] = useState({
     isOpen: false,
     message: ''
@@ -753,12 +755,9 @@ export default function DamageItemTable({
         }
       });
       
-      // Convert back to array and sort by ID for consistency
-      const uniqueItems = Array.from(itemsById.values()).sort((a, b) => {
-        const idA = a.id || a.specific_form_id || 0;
-        const idB = b.id || b.specific_form_id || 0;
-        return idA - idB;
-      });
+      // Convert back to array - maintain order from backend (ascending ID)
+      // Sorting was causing misalignment with backend processing order
+      const uniqueItems = Array.from(itemsById.values());
       
       return uniqueItems.map(item => {
         // Ensure all numeric fields are properly converted to numbers
@@ -812,34 +811,16 @@ export default function DamageItemTable({
           // Removed: processedItem.actual_qty = processedItem.request_qty;
         }
         
-        // CRITICAL: Calculate amount based on form status
-        // For Completed/Issued/SupervisorIssued forms, ALWAYS recalculate using actual_qty
-        // For other statuses, use final_qty or request_qty
-        const normalizedStatus = (status || '').toString().trim().toLowerCase();
-        const isCompletedOrIssued = ['completed', 'issued', 'supervisorissued'].includes(normalizedStatus);
-        
-        if (isCompletedOrIssued) {
-          // For completed/issued forms, ALWAYS recalculate amount using actual_qty
-          // This ensures amount matches the total calculation (price * actual_qty)
-          if (!isNaN(processedItem.price) && !isNaN(processedItem.actual_qty)) {
-            processedItem.amount = processedItem.price * processedItem.actual_qty;
-            processedItem.total = processedItem.amount;
-          } else if (!isNaN(processedItem.price) && !isNaN(processedItem.request_qty)) {
-            // Fallback to request_qty if actual_qty is not available
-            processedItem.amount = processedItem.price * processedItem.request_qty;
-            processedItem.total = processedItem.amount;
-          }
-        } else {
-          // For other statuses, calculate amount if not set or invalid
-          if ((!processedItem.amount || isNaN(processedItem.amount)) && 
-              !isNaN(processedItem.price)) {
-            // Try final_qty first, then request_qty
-            const qtyForAmount = !isNaN(processedItem.final_qty) && processedItem.final_qty > 0
-              ? processedItem.final_qty
-              : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
-            processedItem.amount = processedItem.price * qtyForAmount;
-            processedItem.total = processedItem.amount;
-          }
+        // CRITICAL: Calculate amount using actual_qty for ALL statuses
+        // Always use actual_qty to ensure consistent total calculations
+        if (!isNaN(processedItem.price)) {
+          // Use actual_qty if available and valid, otherwise use request_qty as fallback
+          const qtyForAmount = !isNaN(processedItem.actual_qty) && processedItem.actual_qty !== null && processedItem.actual_qty !== undefined && processedItem.actual_qty !== ''
+            ? processedItem.actual_qty
+            : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
+
+          processedItem.amount = processedItem.price * qtyForAmount;
+          processedItem.total = processedItem.amount;
         }
         
         // Ensure final_qty and actual_qty match request_qty if not set
@@ -1382,11 +1363,8 @@ const handleInputChange = (id, field, value) => {
             updatedItem.request_qty = existingRequestQty;
           }
           
-        // In add mode, if final_qty is not set, initialize it to actual_qty
-          // But don't overwrite if final_qty is already set
-          if (updatedItem.final_qty === undefined || updatedItem.final_qty === null || updatedItem.final_qty === 0) {
-            updatedItem.final_qty = fieldValue;
-          }
+        // In add mode, preserve final_qty independently - don't auto-set it to actual_qty
+        // final_qty and actual_qty should remain independent even in add mode
         }
       } else if (qtyType === 'final_qty') {
         // Updating final_qty (in both add and view mode) - preserve string value if it ends with dot
@@ -1837,25 +1815,26 @@ const normalizeImageEntries = (list) => {
   // - BM Approved: sum of (price * actual_qty)
   // - OPApproved: sum of (price * actual_qty) - use actual_qty not final_qty
   // - Ac_Acknowledged: sum of (price * actual_qty) - use actual_qty not final_qty
-  // - Completed: sum of (price * actual_qty) - use actual_qty not final_qty
-  // - Other statuses: sum of item.amount (which uses final_qty)
-  // Reuse the isBMApprovedStatus variable already declared above (line 682)
-  const isCheckedStatus = normalizedStatus === 'checked';
-  const isOPApprovedStatus = normalizedStatus === 'opapproved' || normalizedStatus === 'op approved';
-  const isAckStatusTotal = normalizedStatus === 'ac_acknowledged' || normalizedStatus === 'acknowledged';
-  const isCompletedStatusTotal = normalizedStatus === 'completed';
+  // Always calculate total using actual_qty for consistency
+  // Use actual_qty if available, otherwise use request_qty as fallback
   const total = items.reduce(
     (sum, item) => {
-      if (isCheckedStatus || isBMApprovedStatus || isOPApprovedStatus || isAckStatusTotal || isCompletedStatusTotal) {
-        const price = toSafeNumber(item.price);
-        const actualQty = toSafeNumber(item.actual_qty);
-        const systemQty = toSafeNumber(item.system_qty);
-        const qtyForAmount = systemQty > 0 && actualQty > systemQty
-          ? systemQty
-          : (systemQty === 0 ? 0 : actualQty);
-        return sum + (price * qtyForAmount);
+      const price = toSafeNumber(item.price);
+      const actualQty = toSafeNumber(item.actual_qty);
+      const requestQty = toSafeNumber(item.request_qty);
+      const systemQty = toSafeNumber(item.system_qty);
+
+      // Use actual_qty if available, otherwise request_qty
+      let qtyForTotal = actualQty || requestQty || 0;
+
+      // Apply system_qty constraint if applicable (for stock validation)
+      if (systemQty > 0 && qtyForTotal > systemQty) {
+        qtyForTotal = systemQty;
+      } else if (systemQty === 0) {
+        qtyForTotal = 0;
       }
-      return sum + Number(item.amount || 0);
+
+      return sum + (price * qtyForTotal);
     },
     0
   );
@@ -2041,6 +2020,7 @@ const normalizeImageEntries = (list) => {
     if (srcs.length === 0) return;
     setPreviewImages(srcs);
     setPreviewIndex(Math.max(0, Math.min(start, srcs.length - 1)));
+    setPreviewMode('gallery');
     setPreviewOpen(true);
   };
   const closePreview = () => {
@@ -2048,6 +2028,7 @@ const normalizeImageEntries = (list) => {
     setPreviewImages([]);
     setPreviewIndex(0);
     setPreviewItemId(null);
+    setPreviewMode('gallery');
   };
 
   const handleDeleteCurrentImage = () => {
@@ -2660,8 +2641,10 @@ const normalizeImageEntries = (list) => {
                         
                         // Account can edit product_type at OP Approved stage (matching Laravel blade)
                         // Supervisor cannot edit product_type (read-only)
-                        const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
-                        
+                        // Temporarily disabled to prioritize actual_qty editing
+                        // const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
+                        const canEditProductType = false; // Disabled to allow actual_qty editing
+
                         // In Checked stage, Actual Qty should be editable
                         // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
                         // Also make read-only for Branch Account users viewing OPApproved forms
@@ -2670,10 +2653,40 @@ const normalizeImageEntries = (list) => {
                                                          normalizedStatusForActualQty === 'OP Approved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'opapproved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'op approved';
-                        const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated) || (isAccount && isOPApprovedForActualQty);
+                        const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated);
+                        const normalizedStatusForEdit = (status || '').toString().trim();
+                        console.log('DEBUG status normalization:', { originalStatus: status, normalizedStatusForEdit });
+
+                        const isBMApprovedForEdit = normalizedStatusForEdit === 'BM Approved' ||
+                                                   normalizedStatusForEdit === 'BMApproved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'bm approved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'bmapproved';
+                        const isOPApprovedForEdit = normalizedStatusForEdit === 'OPApproved' ||
+                                                   normalizedStatusForEdit === 'OP Approved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'opapproved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'op approved';
+                        const isAcAcknowledgedForEdit = normalizedStatusForEdit === 'Ac_Acknowledged' ||
+                                                       normalizedStatusForEdit === 'Acknowledged' ||
+                                                       normalizedStatusForEdit.toLowerCase() === 'ac_acknowledged' ||
+                                                       normalizedStatusForEdit.toLowerCase() === 'acknowledged';
+
                         const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly ||
-                                                 (isAccount && (status === 'BM Approved' || status === 'BMApproved' || status === 'OPApproved' || status === 'OP Approved' || status === 'Ac_Acknowledged' || status === 'Acknowledged'));
-                        
+                                                 (isAccount && (isBMApprovedForEdit || isOPApprovedForEdit || isAcAcknowledgedForEdit));
+
+                        // DEBUG: Log actual_qty editing logic
+                        console.log('DEBUG canEditActualQty:', {
+                          status,
+                          isCompleted,
+                          isAccount,
+                          isBMApprovedForEdit,
+                          isOPApprovedForEdit,
+                          isAcAcknowledgedForEdit,
+                          shouldMakeActualQtyReadOnly,
+                          normalizedStatusForEdit,
+                          finalCanEdit: canEditActualQty
+                        });
+
+                        // Check for product_type editing first (disabled for now)
                         if (canEditProductType) {
                           return (
                             <input
@@ -2723,6 +2736,7 @@ const normalizeImageEntries = (list) => {
                         
                         // In Checked stage, show editable input for actual_qty
                         if (canEditActualQty) {
+                          console.log('DEBUG: Rendering editable actual_qty input for item:', item.id);
                           return (
                             <div>
                               <input
@@ -2826,7 +2840,8 @@ const normalizeImageEntries = (list) => {
                             </div>
                           );
                         }
-                        
+
+                        console.log('DEBUG: Falling through to read-only display for actual_qty, item:', item.id, 'canEditActualQty:', canEditActualQty);
                         return formatQuantity(displayQty);
                       })()}
                     </td>
@@ -3587,7 +3602,7 @@ const normalizeImageEntries = (list) => {
         handleImageUpload={handleImageUpload}
       />
 
-      {previewOpen && (
+      {previewOpen && previewMode === 'gallery' && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
           onClick={closePreview}
@@ -3622,12 +3637,57 @@ const normalizeImageEntries = (list) => {
                           e.currentTarget.onError = null;
                         }}
                         onClick={() => {
-                          // Open single image view on click
+                          // Switch to single image view on click
                           setPreviewImages([imageSrc]);
                           setPreviewIndex(0);
+                          setPreviewMode('single');
                         }}
                       />
                     </div>
+
+                    {/* Download button - always visible */}
+                    <button
+                      className="absolute top-2 left-2 w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          // Handle different types of image URLs
+                          let downloadUrl = imageSrc;
+                          let filename = `damage-image-${index + 1}.jpg`;
+
+                          // If it's a blob URL or data URL, use it directly
+                          if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+                            downloadUrl = imageSrc;
+                          } else {
+                            // For other URLs, try to fetch and download
+                            const response = await fetch(imageSrc);
+                            if (!response.ok) throw new Error('Failed to fetch image');
+                            const blob = await response.blob();
+                            downloadUrl = URL.createObjectURL(blob);
+                          }
+
+                          const link = document.createElement('a');
+                          link.href = downloadUrl;
+                          link.download = filename;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+
+                          // Clean up blob URL if we created one
+                          if (downloadUrl.startsWith('blob:')) {
+                            URL.revokeObjectURL(downloadUrl);
+                          }
+                        } catch (error) {
+                          console.error('Failed to download image:', error);
+                          // Fallback: try opening in new tab
+                          window.open(imageSrc, '_blank');
+                        }
+                      }}
+                      aria-label={t('table.downloadImage', { defaultValue: 'Download image' })}
+                      title={t('table.downloadImage', { defaultValue: 'Download image' })}
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
 
                     {/* Delete button - only show when editable */}
                     {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted) || (status === 'Checked' && isApproverRole)) && previewItemId && (
@@ -3669,7 +3729,7 @@ const normalizeImageEntries = (list) => {
       )}
 
       {/* Single Image Preview Modal (for when clicking on gallery image) */}
-      {previewOpen && previewImages.length === 1 && (
+      {previewOpen && previewMode === 'single' && (
         <div
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
           onClick={closePreview}
@@ -3680,6 +3740,50 @@ const normalizeImageEntries = (list) => {
               alt="Preview"
               className="max-w-[60vw] max-h-[60vh] object-contain rounded shadow"
             />
+
+            {/* Download button */}
+            <button
+              className="absolute top-2 left-2 w-10 h-10 rounded-full bg-blue-500/80 hover:bg-blue-600 text-white flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  const imageSrc = previewImages[previewIndex];
+                  let downloadUrl = imageSrc;
+                  let filename = `damage-image-${previewIndex + 1}.jpg`;
+
+                  // If it's a blob URL or data URL, use it directly
+                  if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+                    downloadUrl = imageSrc;
+                  } else {
+                    // For other URLs, try to fetch and download
+                    const response = await fetch(imageSrc);
+                    if (!response.ok) throw new Error('Failed to fetch image');
+                    const blob = await response.blob();
+                    downloadUrl = URL.createObjectURL(blob);
+                  }
+
+                  const link = document.createElement('a');
+                  link.href = downloadUrl;
+                  link.download = filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  // Clean up blob URL if we created one
+                  if (downloadUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(downloadUrl);
+                  }
+                } catch (error) {
+                  console.error('Failed to download image:', error);
+                  // Fallback: try opening in new tab
+                  window.open(previewImages[previewIndex], '_blank');
+                }
+              }}
+              aria-label={t('table.downloadImage', { defaultValue: 'Download image' })}
+              title={t('table.downloadImage', { defaultValue: 'Download image' })}
+            >
+              <Download className="h-5 w-5" />
+            </button>
 
             {/* Close button */}
             <button

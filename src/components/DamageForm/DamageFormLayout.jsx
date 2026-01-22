@@ -434,7 +434,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if (/branch\s*lp|loss\s*prevention|checker|branch_checker|lp/i.test(value)) return 'branch_lp';
     // Check for BM/ABM but exclude operation manager patterns
     if (/bm|branch manager|abm/.test(raw) && !/operation|assistant.*op|op.*manager/.test(raw)) return 'bm';
-    if (/account|ac_?acknowledged/.test(raw)) return 'account';
+    if (/account|ac_?acknowledged|branch.*account/i.test(raw)) return 'account';
     if (/supervisor|cs/.test(raw)) return 'supervisor';
     
     return raw;
@@ -1107,8 +1107,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return Boolean(accountApproval);
   }, [currentUser, formData.approvals, formData.status]);
 
-  // User is account if role name matches OR if they have AC approval entry
-  const isAccount = userRole === 'account' || isAccountByApproval;
+  // User is account if role name matches OR if they have AC approval entry OR user_type is AC
+  const isAccountUserType = ['AC', 'ac', 'account'].includes(
+    (currentUser?.user_type || currentUser?.userType || '').toString().toUpperCase().trim()
+  );
+  const isAccount = userRole === 'account' || isAccountByApproval || isAccountUserType;
+
+  // DEBUG: Log account detection
+  console.log('DEBUG isAccount:', {
+    userRole,
+    isAccountByApproval,
+    isAccountUserType,
+    currentUserType: currentUser?.user_type || currentUser?.userType,
+    finalIsAccount: isAccount
+  });
 
   const isDocumentOwner = currentUser?.id === initialData?.userId;
   // When the document owner is viewing an existing Ongoing form in view mode (not add/edit),
@@ -2662,8 +2674,8 @@ let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && 
                             true :
                             // Existing logic for other cases - hide if BM Approved
                             (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
-// Also allow OP to see Cancel when appropriate
-let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButtons);
+// Also allow OP to see Cancel when appropriate, but hide for Branch Account users
+let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForButtons)) && !isBranchAccount;
                           // Also allow Operation Manager to see Cancel on OP stages
                           const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
 
@@ -2786,18 +2798,19 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     // ignore
   }
 
-  // Ensure Branch Account users can see BackToPrevious and Cancel buttons at their stages
-  // Branch account should see these buttons at: BM Approved, OPApproved, Ac_Acknowledged, Acknowledged
+  // Ensure Branch Account users can see BackToPrevious button at their stages (but hide Cancel button)
+  // Branch account should see BackToPrevious at: BM Approved, OPApproved, Ac_Acknowledged, Acknowledged
+  // Cancel button should be hidden for Branch Account users
   try {
     if (isBranchAccount && isBranchAccountStage) {
-      // Ensure actions are enabled for branch account
+      // Ensure actions are enabled for branch account (only BackToPrevious)
       if (typeof actions !== 'undefined') {
         if (!actions.backToPrevious) actions.backToPrevious = true;
-        if (!actions.cancel) actions.cancel = true;
+        // Keep cancel action as is (don't force enable for branch account)
       }
-      // Ensure visibility flags are true for branch account
+      // Ensure visibility flags - allow BackToPrevious but hide Cancel for branch account
       shouldShowBackToPreviousFinal = true;
-      shouldShowCancelFinal = true;
+      // shouldShowCancelFinal remains false for branch account due to earlier !isBranchAccount condition
     }
   } catch (e) {
     // ignore
@@ -4972,8 +4985,46 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
         return response;
       } catch (apiError) {
+        // Check if this is an issuance operation that timed out
+        // Issuance operations send data to big-damage-issues endpoint and typically change status to Issued/Completed
+        const isIssuanceOperation = endpoint?.includes('big-damage-issues') &&
+                                   (action === 'Issue' || action === 'SupervisorIssued' ||
+                                    action === 'Completed' ||
+                                    formData.status === 'Ac_Acknowledged' ||
+                                    formData.status === 'OPApproved');
+
+        // Handle timeout errors specifically for issuance operations
+        if ((apiError.isTimeout || apiError.status === 408 || apiError.status === 504 ||
+             apiError.message?.includes('timeout') || apiError.message?.includes('Timeout') ||
+             apiError.code === 'ECONNABORTED') && isIssuanceOperation) {
+          // This is a timeout during issuance - show success message since backend continues
+          const successMessage = t('messages.formIssued', { defaultValue: 'Form issued successfully' }) +
+                                ' - ' + t('messages.issuanceInProgress', { defaultValue: 'Operation continues in background. Please check the form list.' });
+
+          setSuccessMessage(successMessage);
+          setSuccessModalMessage(successMessage);
+          setSuccessModalAction('issue');
+          setIsSuccessModalOpen(true);
+
+          // Navigate after showing success message
+          setTimeout(() => {
+            const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+            if (storedReturnUrl) {
+              sessionStorage.removeItem('bigDamageIssueReturnUrl');
+              const urlParts = storedReturnUrl.split('?');
+              const pathname = urlParts[0] || '/big_damage_issue';
+              const search = urlParts[1] ? `?${urlParts[1]}` : '';
+              navigate(pathname + search, { replace: true });
+            } else {
+              navigate('/big_damage_issue', { replace: true });
+            }
+          }, 3000); // Give more time to read the message
+
+          return; // Exit early - treat as success
+        }
+
         let errorMessage = t('messages.errors.formSubmitFailed');
-        
+
         if (apiError.status === 404) {
           errorMessage = t('messages.errors.notFound');
         } else if (apiError.status === 401) {
@@ -4990,6 +5041,10 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           errorMessage = t('messages.errors.serverError');
         } else if (apiError.status === 503) {
           errorMessage = t('messages.errors.serverUnavailable');
+        } else if (apiError.isTimeout || apiError.status === 408 || apiError.status === 504 ||
+                   apiError.message?.includes('timeout') || apiError.message?.includes('Timeout') ||
+                   apiError.code === 'ECONNABORTED') {
+          errorMessage = t('messages.errors.requestTimeout', { defaultValue: 'Request timed out. Please check if the operation completed successfully.' });
         } else if (apiError.name === 'TypeError' && apiError.message.includes('fetch')) {
           errorMessage = t('messages.errors.networkError');
         } else if (apiError.data && apiError.data.message) {
@@ -5940,6 +5995,15 @@ const resolveApproveAction = () => {
           </div>
         </div>
       )}
+
+      {/* DEBUG: Log props being passed to DamageItemTable */}
+      {console.log('DEBUG DamageItemTable props:', {
+        status: (formData.status || formData.general_form?.status || initialData?.status || initialData?.general_form?.status || 'Ongoing').toString().trim(),
+        isAccount,
+        userRole,
+        mode,
+        isCompleted: formData.status === 'Completed' || formData.status === 'Issued' || formData.status === 'SupervisorIssued'
+      })}
 
       <DamageItemTable
         items={formData.items || []}

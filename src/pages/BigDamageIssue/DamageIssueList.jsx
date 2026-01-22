@@ -355,7 +355,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   return (
     <div className="flex items-center space-x-1">
       <button
-        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-[#0dcaf0] hover:bg-[#0dcaf0]/10 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.max(1, current - 1))}
         disabled={current <= 1}
       >
@@ -364,7 +364,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
       {pageNumbers.map((page, index) => {
         if (page === 'ellipsis' || page === 'ellipsis-start' || page === 'ellipsis-end') {
           return (
-            <span key={`ellipsis-${index}`} className="px-2 py-2 text-blue-600">
+            <span key={`ellipsis-${index}`} className="px-2 py-2 text-[#0dcaf0]">
               ...
             </span>
           );
@@ -375,8 +375,8 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
             key={page}
             className={`px-4 py-2 text-sm font-semibold rounded ${
               page === current
-                ? 'bg-blue-600 text-white'
-                : 'text-blue-600 hover:bg-blue-50'
+                ? 'bg-[#0dcaf0] text-white'
+                : 'text-[#0dcaf0] hover:bg-[#0dcaf0]/10'
             }`}
             onClick={() => onPageChange?.(page)}
           >
@@ -385,7 +385,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
         );
       })}
       <button
-        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-[#0dcaf0] hover:bg-[#0dcaf0]/10 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.min(totalPages, current + 1))}
         disabled={current >= totalPages}
       >
