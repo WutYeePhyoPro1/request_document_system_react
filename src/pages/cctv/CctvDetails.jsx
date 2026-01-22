@@ -63,7 +63,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === actualUserId
             );
-            const isUserApprover = user?.role_id === 3;
+            const isUserApprover = user?.role_id =='Approver';
             return currentUser && isUserApprover;
         }
         return false;
@@ -446,37 +446,37 @@ export default function CctvDetails() {
                                         <tbody>
                                             {recordDetails?.detail_datas?.map((item, index) => (
                                             
-                                                <tr key={item.id}>
+                                                <tr key={item[0].id}>
                                                     <td className="border p-1 sm:p-2">
                                                         {index + 1}
-                                                        <input type="hidden" name="specific_form_id[]" value={item.id} />
+                                                        <input type="hidden" name="specific_form_id[]" value={item[0].id} />
                                                     </td>
                                                     <td className="border p-1 sm:p-2">
-                                                        {formatTime(item.start_time)}
+                                                        {formatTime(item[0].start_time)}
                                                        
                                                     </td>
                                                     <td className="border p-1 sm:p-2">
-                                                        {formatTime(item.end_time)}
+                                                        {formatTime(item[0].end_time)}
                                                     </td>
                                                     <td className="border p-1 sm:p-2">
-                                                        {item.issue_date}
+                                                        {item[0].issue_date}
                                                     </td>
                                                     <td className="border p-1 sm:p-2 hidden sm:table-cell">
-                                                        {renderCaseType(item.case_type)}
+                                                        {renderCaseType(item[0].case_type)}
                                                     </td>
-                                                    <td className="border p-1 sm:p-2">{item.place}</td>
+                                                    <td className="border p-1 sm:p-2">{item[0].place}</td>
                                                     <td className="border p-1 sm:p-2 hidden md:table-cell">
 
-                                                        {item?.branch_name || '-'}
+                                                        {item[0]?.branch_name || '-'}
                                                     </td>
                                                     <td className="border p-1 sm:p-2 hidden lg:table-cell">
-                                                        {item.record_type && item.record_type !== 'null' ? item.record_type : '-'}
+                                                        {item[0].record_type && item[0].record_type !== 'null' ? item[0].record_type : '-'}
                                                     </td>
                                                     <td className="border p-1 sm:p-2 hidden xl:table-cell">
-                                                        {item.description}
+                                                        {item[0].description}
                                                     </td>
                                                     <td className="border p-1 sm:p-2 hidden md:table-cell">
-                                                        {formatDate(item.created_at)}
+                                                        {formatDate(item[0].created_at)}
                                                     </td>
 
                                                     {recordDetails?.video_record && (
@@ -500,7 +500,7 @@ export default function CctvDetails() {
                                                     {(isApprover || isBranchITApprover || user?.employee_number === '000-000024' || user?.employee_number === '000-000548') && (
                                                         <td className="border p-1 sm:p-2 hidden lg:table-cell">
                                                             <Link
-                                                                to={`/cctv-edit/${item.id}`}
+                                                                to={`/cctv-edit/${item[0].id}`}
                                                                 className="text-white font-bold py-1 px-3 rounded cursor-pointer text-sm"
                                                                 style={{
                                                                     backgroundColor: '#2ea2d1',
