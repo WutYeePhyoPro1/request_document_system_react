@@ -305,6 +305,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
+    console.log('detail',recordDetails??'no detail');
 
     return (
         <>
@@ -444,6 +445,7 @@ export default function CctvDetails() {
                                         </thead>
                                         <tbody>
                                             {recordDetails?.detail_datas?.map((item, index) => (
+                                            
                                                 <tr key={item.id}>
                                                     <td className="border p-1 sm:p-2">
                                                         {index + 1}
@@ -451,6 +453,7 @@ export default function CctvDetails() {
                                                     </td>
                                                     <td className="border p-1 sm:p-2">
                                                         {formatTime(item.start_time)}
+                                                       
                                                     </td>
                                                     <td className="border p-1 sm:p-2">
                                                         {formatTime(item.end_time)}
