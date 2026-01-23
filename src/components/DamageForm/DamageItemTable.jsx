@@ -11,7 +11,8 @@ import {
   Image as ImageIcon,
   Package,
   Filter,
-  X
+  X,
+  Download
 } from "lucide-react";
 import { useTranslation } from 'react-i18next';
 import { apiRequest } from "../../utils/api";
@@ -381,6 +382,7 @@ export default function DamageItemTable({
   const [previewImages, setPreviewImages] = useState([]);
   const [previewIndex, setPreviewIndex] = useState(0);
   const [previewItemId, setPreviewItemId] = useState(null);
+  const [previewMode, setPreviewMode] = useState('gallery'); // 'gallery' or 'single'
   const [errorModal, setErrorModal] = useState({
     isOpen: false,
     message: ''
@@ -389,7 +391,6 @@ export default function DamageItemTable({
 
   // Define these early to avoid initialization errors in useEffect
   const normalizedRole = (userRole || '').toString().trim().toLowerCase();
-  console.log('User Role Debug:', { userRole, normalizedRole });
   
   // Check if user is operation manager - check multiple sources (must be defined before useState)
   const isOpManager = normalizedRole === 'op_manager' || 
@@ -754,12 +755,9 @@ export default function DamageItemTable({
         }
       });
       
-      // Convert back to array and sort by ID for consistency
-      const uniqueItems = Array.from(itemsById.values()).sort((a, b) => {
-        const idA = a.id || a.specific_form_id || 0;
-        const idB = b.id || b.specific_form_id || 0;
-        return idA - idB;
-      });
+      // Convert back to array - maintain order from backend (ascending ID)
+      // Sorting was causing misalignment with backend processing order
+      const uniqueItems = Array.from(itemsById.values());
       
       return uniqueItems.map(item => {
         // Ensure all numeric fields are properly converted to numbers
@@ -813,34 +811,16 @@ export default function DamageItemTable({
           // Removed: processedItem.actual_qty = processedItem.request_qty;
         }
         
-        // CRITICAL: Calculate amount based on form status
-        // For Completed/Issued/SupervisorIssued forms, ALWAYS recalculate using actual_qty
-        // For other statuses, use final_qty or request_qty
-        const normalizedStatus = (status || '').toString().trim().toLowerCase();
-        const isCompletedOrIssued = ['completed', 'issued', 'supervisorissued'].includes(normalizedStatus);
-        
-        if (isCompletedOrIssued) {
-          // For completed/issued forms, ALWAYS recalculate amount using actual_qty
-          // This ensures amount matches the total calculation (price * actual_qty)
-          if (!isNaN(processedItem.price) && !isNaN(processedItem.actual_qty)) {
-            processedItem.amount = processedItem.price * processedItem.actual_qty;
-            processedItem.total = processedItem.amount;
-          } else if (!isNaN(processedItem.price) && !isNaN(processedItem.request_qty)) {
-            // Fallback to request_qty if actual_qty is not available
-            processedItem.amount = processedItem.price * processedItem.request_qty;
-            processedItem.total = processedItem.amount;
-          }
-        } else {
-          // For other statuses, calculate amount if not set or invalid
-          if ((!processedItem.amount || isNaN(processedItem.amount)) && 
-              !isNaN(processedItem.price)) {
-            // Try final_qty first, then request_qty
-            const qtyForAmount = !isNaN(processedItem.final_qty) && processedItem.final_qty > 0
-              ? processedItem.final_qty
-              : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
-            processedItem.amount = processedItem.price * qtyForAmount;
-            processedItem.total = processedItem.amount;
-          }
+        // CRITICAL: Calculate amount using actual_qty for ALL statuses
+        // Always use actual_qty to ensure consistent total calculations
+        if (!isNaN(processedItem.price)) {
+          // Use actual_qty if available and valid, otherwise use request_qty as fallback
+          const qtyForAmount = !isNaN(processedItem.actual_qty) && processedItem.actual_qty !== null && processedItem.actual_qty !== undefined && processedItem.actual_qty !== ''
+            ? processedItem.actual_qty
+            : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
+
+          processedItem.amount = processedItem.price * qtyForAmount;
+          processedItem.total = processedItem.amount;
         }
         
         // Ensure final_qty and actual_qty match request_qty if not set
@@ -1383,11 +1363,8 @@ const handleInputChange = (id, field, value) => {
             updatedItem.request_qty = existingRequestQty;
           }
           
-        // In add mode, if final_qty is not set, initialize it to actual_qty
-          // But don't overwrite if final_qty is already set
-          if (updatedItem.final_qty === undefined || updatedItem.final_qty === null || updatedItem.final_qty === 0) {
-            updatedItem.final_qty = fieldValue;
-          }
+        // In add mode, preserve final_qty independently - don't auto-set it to actual_qty
+        // final_qty and actual_qty should remain independent even in add mode
         }
       } else if (qtyType === 'final_qty') {
         // Updating final_qty (in both add and view mode) - preserve string value if it ends with dot
@@ -1838,25 +1815,26 @@ const normalizeImageEntries = (list) => {
   // - BM Approved: sum of (price * actual_qty)
   // - OPApproved: sum of (price * actual_qty) - use actual_qty not final_qty
   // - Ac_Acknowledged: sum of (price * actual_qty) - use actual_qty not final_qty
-  // - Completed: sum of (price * actual_qty) - use actual_qty not final_qty
-  // - Other statuses: sum of item.amount (which uses final_qty)
-  // Reuse the isBMApprovedStatus variable already declared above (line 682)
-  const isCheckedStatus = normalizedStatus === 'checked';
-  const isOPApprovedStatus = normalizedStatus === 'opapproved' || normalizedStatus === 'op approved';
-  const isAckStatusTotal = normalizedStatus === 'ac_acknowledged' || normalizedStatus === 'acknowledged';
-  const isCompletedStatusTotal = normalizedStatus === 'completed';
+  // Always calculate total using actual_qty for consistency
+  // Use actual_qty if available, otherwise use request_qty as fallback
   const total = items.reduce(
     (sum, item) => {
-      if (isCheckedStatus || isBMApprovedStatus || isOPApprovedStatus || isAckStatusTotal || isCompletedStatusTotal) {
-        const price = toSafeNumber(item.price);
-        const actualQty = toSafeNumber(item.actual_qty);
-        const systemQty = toSafeNumber(item.system_qty);
-        const qtyForAmount = systemQty > 0 && actualQty > systemQty
-          ? systemQty
-          : (systemQty === 0 ? 0 : actualQty);
-        return sum + (price * qtyForAmount);
+      const price = toSafeNumber(item.price);
+      const actualQty = toSafeNumber(item.actual_qty);
+      const requestQty = toSafeNumber(item.request_qty);
+      const systemQty = toSafeNumber(item.system_qty);
+
+      // Use actual_qty if available, otherwise request_qty
+      let qtyForTotal = actualQty || requestQty || 0;
+
+      // Apply system_qty constraint if applicable (for stock validation)
+      if (systemQty > 0 && qtyForTotal > systemQty) {
+        qtyForTotal = systemQty;
+      } else if (systemQty === 0) {
+        qtyForTotal = 0;
       }
-      return sum + Number(item.amount || 0);
+
+      return sum + (price * qtyForTotal);
     },
     0
   );
@@ -2042,6 +2020,7 @@ const normalizeImageEntries = (list) => {
     if (srcs.length === 0) return;
     setPreviewImages(srcs);
     setPreviewIndex(Math.max(0, Math.min(start, srcs.length - 1)));
+    setPreviewMode('gallery');
     setPreviewOpen(true);
   };
   const closePreview = () => {
@@ -2049,6 +2028,7 @@ const normalizeImageEntries = (list) => {
     setPreviewImages([]);
     setPreviewIndex(0);
     setPreviewItemId(null);
+    setPreviewMode('gallery');
   };
 
   const handleDeleteCurrentImage = () => {
@@ -2425,13 +2405,6 @@ const normalizeImageEntries = (list) => {
                           max={item.system_qty > 0 ? item.system_qty : undefined}
                           onChange={(e) => {
                             const nextValue = e.target.value;
-                            console.log('[REQUEST_QTY] onChange triggered:', {
-                              originalValue: e.target.value,
-                              nextValue,
-                              charCode: e.nativeEvent?.inputType,
-                              key: e.nativeEvent?.data,
-                              previousValue: item.request_qty
-                            });
                             
                             // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                             // Also allow comma (,) as decimal separator (common in some locales)
@@ -2441,12 +2414,6 @@ const normalizeImageEntries = (list) => {
                             // Check: only digits and at most one dot (after normalization)
                             const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
                             
-                            console.log('[REQUEST_QTY] Validation:', {
-                              normalizedValue,
-                              hasOnlyDigitsAndOneDot,
-                              testResult: /^[\d.]*$/.test(normalizedValue),
-                              dotCount: (normalizedValue.match(/\./g) || []).length
-                            });
                             
                             if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                               const valueToUse = normalizedValue;
@@ -2479,10 +2446,7 @@ const normalizeImageEntries = (list) => {
                               }
                               
                               // Only update request_qty - do NOT update actual_qty
-                              console.log('[REQUEST_QTY] Updating value:', valueToUse);
                               handleInputChange(item.id, 'request_qty', valueToUse);
-                            } else {
-                              console.log('[REQUEST_QTY] Validation failed - value rejected');
                             }
                           }}
                           onBlur={(e) => {
@@ -2568,13 +2532,6 @@ const normalizeImageEntries = (list) => {
                             max={item.system_qty > 0 ? item.system_qty : undefined}
                             onChange={(e) => {
                               const nextValue = e.target.value;
-                              console.log('[FINAL_QTY] onChange triggered:', {
-                                originalValue: e.target.value,
-                                nextValue,
-                                charCode: e.nativeEvent?.inputType,
-                                key: e.nativeEvent?.data,
-                                previousValue: item.final_qty
-                              });
                               
                               // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                               // Also allow comma (,) as decimal separator (common in some locales)
@@ -2584,12 +2541,6 @@ const normalizeImageEntries = (list) => {
                               // Check: only digits and at most one dot (after normalization)
                               const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
                               
-                              console.log('[FINAL_QTY] Validation:', {
-                                normalizedValue,
-                                hasOnlyDigitsAndOneDot,
-                                testResult: /^[\d.]*$/.test(normalizedValue),
-                                dotCount: (normalizedValue.match(/\./g) || []).length
-                              });
                               
                               if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                                 const valueToUse = normalizedValue;
@@ -2621,10 +2572,7 @@ const normalizeImageEntries = (list) => {
                                   return; // Don't update the value
                                 }
                                 
-                                console.log('[FINAL_QTY] Updating value:', valueToUse);
                                 handleQtyChange(item.id, valueToUse, 'final_qty');
-                              } else {
-                                console.log('[FINAL_QTY] Validation failed - value rejected');
                               }
                             }}
                             onBlur={(e) => {
@@ -2693,8 +2641,10 @@ const normalizeImageEntries = (list) => {
                         
                         // Account can edit product_type at OP Approved stage (matching Laravel blade)
                         // Supervisor cannot edit product_type (read-only)
-                        const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
-                        
+                        // Temporarily disabled to prioritize actual_qty editing
+                        // const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
+                        const canEditProductType = false; // Disabled to allow actual_qty editing
+
                         // In Checked stage, Actual Qty should be editable
                         // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
                         // Also make read-only for Branch Account users viewing OPApproved forms
@@ -2703,9 +2653,40 @@ const normalizeImageEntries = (list) => {
                                                          normalizedStatusForActualQty === 'OP Approved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'opapproved' ||
                                                          normalizedStatusForActualQty.toLowerCase() === 'op approved';
-                        const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated) || (isAccount && isOPApprovedForActualQty);
-                        const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly;
-                        
+                        const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated);
+                        const normalizedStatusForEdit = (status || '').toString().trim();
+                        console.log('DEBUG status normalization:', { originalStatus: status, normalizedStatusForEdit });
+
+                        const isBMApprovedForEdit = normalizedStatusForEdit === 'BM Approved' ||
+                                                   normalizedStatusForEdit === 'BMApproved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'bm approved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'bmapproved';
+                        const isOPApprovedForEdit = normalizedStatusForEdit === 'OPApproved' ||
+                                                   normalizedStatusForEdit === 'OP Approved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'opapproved' ||
+                                                   normalizedStatusForEdit.toLowerCase() === 'op approved';
+                        const isAcAcknowledgedForEdit = normalizedStatusForEdit === 'Ac_Acknowledged' ||
+                                                       normalizedStatusForEdit === 'Acknowledged' ||
+                                                       normalizedStatusForEdit.toLowerCase() === 'ac_acknowledged' ||
+                                                       normalizedStatusForEdit.toLowerCase() === 'acknowledged';
+
+                        const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly ||
+                                                 (isAccount && (isBMApprovedForEdit || isOPApprovedForEdit || isAcAcknowledgedForEdit));
+
+                        // DEBUG: Log actual_qty editing logic
+                        console.log('DEBUG canEditActualQty:', {
+                          status,
+                          isCompleted,
+                          isAccount,
+                          isBMApprovedForEdit,
+                          isOPApprovedForEdit,
+                          isAcAcknowledgedForEdit,
+                          shouldMakeActualQtyReadOnly,
+                          normalizedStatusForEdit,
+                          finalCanEdit: canEditActualQty
+                        });
+
+                        // Check for product_type editing first (disabled for now)
                         if (canEditProductType) {
                           return (
                             <input
@@ -2755,6 +2736,7 @@ const normalizeImageEntries = (list) => {
                         
                         // In Checked stage, show editable input for actual_qty
                         if (canEditActualQty) {
+                          console.log('DEBUG: Rendering editable actual_qty input for item:', item.id);
                           return (
                             <div>
                               <input
@@ -2768,13 +2750,6 @@ const normalizeImageEntries = (list) => {
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
-                                  console.log('[ACTUAL_QTY] onChange triggered:', {
-                                    originalValue: e.target.value,
-                                    nextValue,
-                                    charCode: e.nativeEvent?.inputType,
-                                    key: e.nativeEvent?.data,
-                                    previousValue: item.actual_qty
-                                  });
                                   
                                   // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                                   // Also allow comma (,) as decimal separator (common in some locales)
@@ -2784,12 +2759,6 @@ const normalizeImageEntries = (list) => {
                                   // Check: only digits and at most one dot (after normalization)
                                   const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
                                   
-                                  console.log('[ACTUAL_QTY] Validation:', {
-                                    normalizedValue,
-                                    hasOnlyDigitsAndOneDot,
-                                    testResult: /^[\d.]*$/.test(normalizedValue),
-                                    dotCount: (normalizedValue.match(/\./g) || []).length
-                                  });
                                   
                                   if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                                     const valueToUse = normalizedValue;
@@ -2821,10 +2790,7 @@ const normalizeImageEntries = (list) => {
                                       return; // Don't update the value
                                     }
                                     
-                                    console.log('[ACTUAL_QTY] Updating value:', valueToUse);
                                     handleQtyChange(item.id, valueToUse, 'actual_qty');
-                                  } else {
-                                    console.log('[ACTUAL_QTY] Validation failed - value rejected');
                                   }
                                 }}
                                 onBlur={(e) => {
@@ -2874,7 +2840,8 @@ const normalizeImageEntries = (list) => {
                             </div>
                           );
                         }
-                        
+
+                        console.log('DEBUG: Falling through to read-only display for actual_qty, item:', item.id, 'canEditActualQty:', canEditActualQty);
                         return formatQuantity(displayQty);
                       })()}
                     </td>
@@ -3140,7 +3107,7 @@ const normalizeImageEntries = (list) => {
                   className="px-2 py-6 text-center"
                   style={{ fontSize: '13px' }}
                 >
-                  No items added yet.
+                {t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}
                 </td>
               </tr>
             )}
@@ -3479,21 +3446,9 @@ const normalizeImageEntries = (list) => {
         const isOPApprovedStatus = status === 'OPApproved' || status === 'OP Approved';
         const shouldHideForOpManager = isOperationManager && isOPApprovedStatus;
 
-        console.log('Update System Qty Button Debug:', {
-          canShowUpdateSystemQtyButton,
-          isSupervisorUser,
-          mode,
-          normalizedRole,
-          status,
-          isOperationManager,
-          isOPApprovedStatus,
-          shouldHideForOpManager,
-          finalResult: canShowUpdateSystemQtyButton && !isSupervisorUser && mode !== 'add' && !shouldHideForOpManager
-        });
 
         // Hide button for operation manager viewing OP approved forms
         if (shouldHideForOpManager) {
-          console.log('HIDING Update System Qty Button for operation manager viewing OP approved form');
           return null;
         }
 
@@ -3647,9 +3602,136 @@ const normalizeImageEntries = (list) => {
         handleImageUpload={handleImageUpload}
       />
 
-      {previewOpen && (
+      {previewOpen && previewMode === 'gallery' && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
+          onClick={closePreview}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh] image-preview-content bg-white rounded-lg shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header with close button */}
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {t('table.imageGallery', { defaultValue: 'Image Gallery' })} ({previewImages.length} {previewImages.length === 1 ? t('table.image', { defaultValue: 'image' }) : t('table.images', { defaultValue: 'images' })})
+              </h3>
+              <button
+                onClick={closePreview}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-800 flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
+                aria-label={t('common.close', { defaultValue: 'Close' })}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Gallery Grid */}
+            <div className="p-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {previewImages.map((imageSrc, index) => (
+                  <div key={index} className="relative group">
+                    <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                      <img
+                        src={imageSrc}
+                        alt={`Gallery image ${index + 1}`}
+                        className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
+                        onError={(e) => {
+                          e.currentTarget.src = testImage;
+                          e.currentTarget.onError = null;
+                        }}
+                        onClick={() => {
+                          // Switch to single image view on click
+                          setPreviewImages([imageSrc]);
+                          setPreviewIndex(0);
+                          setPreviewMode('single');
+                        }}
+                      />
+                    </div>
+
+                    {/* Download button - always visible */}
+                    <button
+                      className="absolute top-2 left-2 w-8 h-8 rounded-full bg-blue-500 hover:bg-blue-600 text-white shadow-lg flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:ring-offset-2"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          // Handle different types of image URLs
+                          let downloadUrl = imageSrc;
+                          let filename = `damage-image-${index + 1}.jpg`;
+
+                          // If it's a blob URL or data URL, use it directly
+                          if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+                            downloadUrl = imageSrc;
+                          } else {
+                            // For other URLs, try to fetch and download
+                            const response = await fetch(imageSrc);
+                            if (!response.ok) throw new Error('Failed to fetch image');
+                            const blob = await response.blob();
+                            downloadUrl = URL.createObjectURL(blob);
+                          }
+
+                          const link = document.createElement('a');
+                          link.href = downloadUrl;
+                          link.download = filename;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+
+                          // Clean up blob URL if we created one
+                          if (downloadUrl.startsWith('blob:')) {
+                            URL.revokeObjectURL(downloadUrl);
+                          }
+                        } catch (error) {
+                          console.error('Failed to download image:', error);
+                          // Fallback: try opening in new tab
+                          window.open(imageSrc, '_blank');
+                        }
+                      }}
+                      aria-label={t('table.downloadImage', { defaultValue: 'Download image' })}
+                      title={t('table.downloadImage', { defaultValue: 'Download image' })}
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+
+                    {/* Delete button - only show when editable */}
+                    {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted) || (status === 'Checked' && isApproverRole)) && previewItemId && (
+                      <button
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Set the current image to delete and call delete function
+                          setPreviewIndex(index);
+                          handleDeleteCurrentImage();
+                        }}
+                        aria-label={t('table.deleteImage', { defaultValue: 'Delete image' })}
+                        title={t('table.deleteImage', { defaultValue: 'Delete image' })}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {/* Image number indicator */}
+                    <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                      {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer with actions */}
+            <div className="flex justify-end gap-3 p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={closePreview}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300"
+              >
+                {t('common.close', { defaultValue: 'Close' })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Single Image Preview Modal (for when clicking on gallery image) */}
+      {previewOpen && previewMode === 'single' && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center image-preview-backdrop"
           onClick={closePreview}
         >
           <div className="relative max-w-[70vw] max-h-[75vh] image-preview-content" onClick={(e) => e.stopPropagation()}>
@@ -3658,53 +3740,58 @@ const normalizeImageEntries = (list) => {
               alt="Preview"
               className="max-w-[60vw] max-h-[60vh] object-contain rounded shadow"
             />
-            
-            {/* Delete button - only show when editable, positioned at top-left */}
-            {((mode === 'add' || mode === 'edit') || (status === 'Ongoing' && !isCompleted)) && previewItemId && (
-              <button
-                className="absolute top-2 left-2 w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 text-white shadow-lg flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 z-10"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteCurrentImage();
-                }}
-                aria-label={t('table.deleteImage', { defaultValue: 'Delete image' })}
-                title={t('table.deleteImage', { defaultValue: 'Delete image' })}
-              >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            )}
-            
-            {previewImages.length > 1 && (
-              <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-3 bg-black/60 text-white px-4 py-2 rounded-full shadow">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    prevPreview();
-                  }}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label={t('table.previousImage', { defaultValue: 'Previous image' })}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <div className="text-xs whitespace-nowrap">{previewIndex + 1} / {previewImages.length}</div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    nextPreview();
-                  }}
-                  className="flex items-center justify-center w-8 h-8 rounded-full bg-white/20 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-blue-300"
-                  aria-label={t('table.nextImage', { defaultValue: 'Next image' })}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            )}
+
+            {/* Download button */}
             <button
-              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white text-gray-700 shadow flex items-center justify-center text-sm hover:bg-gray-100 transition-colors"
-              onClick={closePreview}
-              aria-label="Close"
+              className="absolute top-2 left-2 w-10 h-10 rounded-full bg-blue-500/80 hover:bg-blue-600 text-white flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  const imageSrc = previewImages[previewIndex];
+                  let downloadUrl = imageSrc;
+                  let filename = `damage-image-${previewIndex + 1}.jpg`;
+
+                  // If it's a blob URL or data URL, use it directly
+                  if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+                    downloadUrl = imageSrc;
+                  } else {
+                    // For other URLs, try to fetch and download
+                    const response = await fetch(imageSrc);
+                    if (!response.ok) throw new Error('Failed to fetch image');
+                    const blob = await response.blob();
+                    downloadUrl = URL.createObjectURL(blob);
+                  }
+
+                  const link = document.createElement('a');
+                  link.href = downloadUrl;
+                  link.download = filename;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  // Clean up blob URL if we created one
+                  if (downloadUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(downloadUrl);
+                  }
+                } catch (error) {
+                  console.error('Failed to download image:', error);
+                  // Fallback: try opening in new tab
+                  window.open(previewImages[previewIndex], '_blank');
+                }
+              }}
+              aria-label={t('table.downloadImage', { defaultValue: 'Download image' })}
+              title={t('table.downloadImage', { defaultValue: 'Download image' })}
             >
-              ×
+              <Download className="h-5 w-5" />
+            </button>
+
+            {/* Close button */}
+            <button
+              className="absolute top-2 right-2 w-10 h-10 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-white/30"
+              onClick={closePreview}
+              aria-label={t('common.close', { defaultValue: 'Close' })}
+            >
+              <X className="h-6 w-6" />
             </button>
           </div>
         </div>

@@ -331,13 +331,15 @@ export default function SupportingInfo({
   // Hide remark box for:
   // - Branch manager viewing BM Approved form
   // - Operation manager viewing OP Approved or Ac_Acknowledged form
+  // - Checker viewing BM Approved form
   // - Regular user viewing Ongoing, BM Approved, OP Approved, or Ac_Acknowledged form
-  const shouldShowRemark = showRemark && 
-                          !isCompleted && 
-                          !(resolvedIsChecker && statusLower === 'checked') && 
+  const shouldShowRemark = showRemark &&
+                          !isCompleted &&
+                          !(resolvedIsChecker && statusLower === 'checked') &&
+                          !(resolvedIsChecker && isBMApprovedStatus) &&
                           !(resolvedIsRegularUser && (
-                            statusLower === 'ongoing' || 
-                            statusLower === 'bm approved' || 
+                            statusLower === 'ongoing' ||
+                            statusLower === 'bm approved' ||
                             statusLower === 'bmapproved' ||
                             isOPApprovedStatus ||
                             isAcknowledgedStatus
@@ -352,13 +354,14 @@ export default function SupportingInfo({
 
   // Effective readonly: if parent told us readOnly, or if viewer is a regular user viewing an Ongoing, BM Approved, OP Approved, or Ac_Acknowledged form,
   // or if branch manager is viewing BM Approved form, or if operation manager is viewing OP Approved or Ac_Acknowledged form,
-  // or if branch account is viewing OP Approved form,
+  // or if checker is viewing BM Approved form, or if branch account is viewing OP Approved form,
   // treat as readonly so delete buttons are disabled
   const effectiveReadOnly = Boolean(
-    readOnly || 
+    readOnly ||
+    (resolvedIsChecker && isBMApprovedStatus) ||
     (resolvedIsRegularUser && (
-      statusLower === 'ongoing' || 
-      statusLower === 'bm approved' || 
+      statusLower === 'ongoing' ||
+      statusLower === 'bm approved' ||
       statusLower === 'bmapproved' ||
       isOPApprovedStatus ||
       isAcknowledgedStatus

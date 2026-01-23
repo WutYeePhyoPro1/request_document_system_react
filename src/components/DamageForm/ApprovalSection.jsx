@@ -52,6 +52,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const [expandedComments, setExpandedComments] = useState({});
 
 
+
   // Toggle comment expansion
   const toggleCommentExpansion = (approvalIndex) => {
     setExpandedComments(prev => ({
@@ -362,47 +363,10 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
     const shouldShowAcknowledged = !isCancelledStatus && (
       requiresOpManagerApproval ||
       isOPApprovedStatus ||
-      hasOpApproval ||
+      (hasOpApproval && requiresOpManagerApproval) || // Only show if OP approval exists AND amount still > 500k
       (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet))
     );
 
-    // DEBUG: Log all approvals and OP approval finding
-    console.log('🔍 ApprovalSection - OP Approval Debug:', {
-      totalApprovals: safeApprovals.length,
-      resolvedTotalAmount,
-      requiresOpManagerApproval,
-      normalizedStatus,
-      isOPApprovedStatus,
-      hasOpApproval,
-      shouldShowAcknowledged,
-      allApprovals: safeApprovals.map(a => ({
-        user_type: a?.user_type || a?.raw?.user_type,
-        label: a?.label || resolveLabel(a),
-        name: a?.name,
-        actual_user_name: a?.actual_user_name,
-        actual_user_full_name: a?.actual_user_full_name,
-        role: a?.role,
-        status: a?.status || a?.raw?.status,
-        admin_id: a?.admin_id || a?.raw?.admin_id,
-        actual_user_id: a?.actual_user_id || a?.raw?.actual_user_id
-      })),
-      opApprovalFound: Boolean(opApproval),
-      opApprovalDetails: opApproval ? {
-        user_type: opApproval?.user_type || opApproval?.raw?.user_type,
-        label: opApproval?.label || resolveLabel(opApproval),
-        name: opApproval?.name,
-        actual_user_name: opApproval?.actual_user_name,
-        actual_user_full_name: opApproval?.actual_user_full_name,
-        role: opApproval?.role,
-        status: opApproval?.status || opApproval?.raw?.status,
-        admin_id: opApproval?.admin_id || opApproval?.raw?.admin_id,
-        actual_user_id: opApproval?.actual_user_id || opApproval?.raw?.actual_user_id,
-        user: opApproval?.user,
-        raw: opApproval?.raw
-      } : null,
-      acAcknowledgedApprovalFound: Boolean(acAcknowledgedApproval),
-      currentStatus: status
-    });
     
     
     // Show "Acknowledged by" if:
@@ -418,28 +382,6 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         ? opApproval  // For OPApproved status, ONLY use OP approval, don't fallback to AC or BM
         : (opApproval || acknowledgedApproval);  // For other statuses, prefer OP approval, fallback to AC if needed
       
-      // DEBUG: Log which approval is being used for display
-      console.log('🔍 ApprovalSection - Approval For Display:', {
-        normalizedStatus,
-        status,
-        opApprovalExists: Boolean(opApproval),
-        acknowledgedApprovalExists: Boolean(acknowledgedApproval),
-        approvalForDisplayExists: Boolean(approvalForDisplay),
-        approvalForDisplayDetails: approvalForDisplay ? {
-          user_type: approvalForDisplay?.user_type || approvalForDisplay?.raw?.user_type,
-          label: approvalForDisplay?.label || resolveLabel(approvalForDisplay),
-          name: approvalForDisplay?.name,
-          actual_user_name: approvalForDisplay?.actual_user_name,
-          actual_user_full_name: approvalForDisplay?.actual_user_full_name,
-          role: approvalForDisplay?.role,
-          status: approvalForDisplay?.status || approvalForDisplay?.raw?.status,
-          admin_id: approvalForDisplay?.admin_id || approvalForDisplay?.raw?.admin_id,
-          actual_user_id: approvalForDisplay?.actual_user_id || approvalForDisplay?.raw?.actual_user_id,
-          user: approvalForDisplay?.user,
-          raw: approvalForDisplay?.raw,
-          allKeys: Object.keys(approvalForDisplay || {})
-        } : null
-      });
       
       // Show the section when conditions are met (will show as pending if no approval exists)
       approvalsToShow.push({ label: "Operation Manager Approved by", key: "acknowledged", approval: approvalForDisplay });
@@ -493,9 +435,10 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
       }
 
-      // For "BM Approved by", mark as acted if:
-      // 1. Form status is "BM Approved" or higher, OR
-      // 2. Form is cancelled but has an actual BM approval record (preserves approval history)
+      // For "BM Approved by", mark as acted based on cancellation logic:
+      // 1. Form status is "BM Approved" or higher = show as acted
+      // 2. Form is cancelled by Operation Manager = show as acted (BM approval is still valid)
+      // 3. Form is cancelled by Branch Manager = show as pending (BM didn't actually approve)
       if (label === 'BM Approved by') {
         const isBmApprovedStatus = status === 'BM Approved' ||
                                   status === 'BMApproved' ||
@@ -507,15 +450,43 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
                                   status === 'Issued' ||
                                   status === 'SupervisorIssued';
 
-        const isCancelledWithBmApproval = status.toLowerCase().includes('cancel') &&
-                                        matchingApproval &&
-                                        (matchingApproval.acted || matchingApproval.status === 'BM Approved');
+        const isCancelled = (status || '').toLowerCase().includes('cancel');
 
-        if (isBmApprovedStatus || isCancelledWithBmApproval) {
-          // Form has been BM Approved or higher, OR cancelled with BM approval - show as acted
+        if (isBmApprovedStatus) {
+          // Form has been BM Approved or higher - always show as acted
           hasActed = true;
+        } else if (isCancelled && matchingApproval && (matchingApproval.acted || matchingApproval.status === 'BM Approved')) {
+          // Form is cancelled and has BM approval record - check who cancelled
+          // Look for cancel_user in the approvals array
+          const cancelUserApproval = safeApprovals.find(a => a?.user_type === 'cancel_user');
+          const cancelledByName = cancelUserApproval?.actual_user_name ||
+                                 cancelUserApproval?.name ||
+                                 formData?.cancelled_by_name ||
+                                 formData?.cancel_by_name ||
+                                 formData?.cancelled_by_user?.name ||
+                                 formData?.cancel_by_user?.name || '';
+
+          // Check if cancelled by operation manager (contains keywords)
+          // Expanded list to include common operation manager identifiers
+          const cancelledByOpManager = cancelledByName.toLowerCase().includes('operation') ||
+                                      cancelledByName.toLowerCase().includes('op') ||
+                                      cancelledByName.toLowerCase().includes('manager') ||
+                                      cancelledByName.toLowerCase().includes('account') ||
+                                      cancelledByName.toLowerCase().includes('accountant') ||
+                                      cancelledByName.toLowerCase().includes('p-too') || // Known operation manager
+                                      cancelledByName.toLowerCase().includes('too') ||
+                                      // Add more patterns as needed
+                                      false; // Placeholder for additional logic
+
+          if (cancelledByOpManager) {
+            // Operation Manager cancelled - BM approval is still valid
+            hasActed = true;
+          } else {
+            // Branch Manager or other cancelled - BM approval should not show as completed
+            hasActed = false;
+          }
         } else {
-          // Form is still "Checked" or lower - don't show as acted even if approval record exists
+          // Form is still "Checked" or lower, or cancelled without BM approval - don't show as acted
           hasActed = false;
         }
       }
@@ -756,21 +727,6 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
       const resolvedNameRaw = pickFirstFilled(...nameCandidates);
 
-      // DEBUG: Log name resolution for "Operation Manager Approved by"
-      if (label === 'Operation Manager Approved by') {
-        console.log('🔍 ApprovalSection - Name Resolution Debug:', {
-          label,
-          matchingApprovalExists: Boolean(matchingApproval),
-          matchingApprovalKeys: matchingApproval ? Object.keys(matchingApproval) : [],
-          nameCandidates: nameCandidates.filter(Boolean),
-          resolvedNameRaw,
-          hasActed,
-          status,
-          formDataKeys: formData ? Object.keys(formData).slice(0, 20) : [],
-          formDataAcknowledgedByName: formData?.acknowledged_by_name,
-          formDataGeneralFormAcknowledgedByName: formData?.general_form?.acknowledged_by_name
-        });
-      }
 
       const hasAssignedName = Boolean(resolvedNameRaw && resolvedNameRaw.trim());
       const showDetails = isPreparedBy || hasActed;

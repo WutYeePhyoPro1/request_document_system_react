@@ -355,7 +355,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   return (
     <div className="flex items-center space-x-1">
       <button
-        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-[#0dcaf0] hover:bg-[#0dcaf0]/10 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.max(1, current - 1))}
         disabled={current <= 1}
       >
@@ -364,7 +364,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
       {pageNumbers.map((page, index) => {
         if (page === 'ellipsis' || page === 'ellipsis-start' || page === 'ellipsis-end') {
           return (
-            <span key={`ellipsis-${index}`} className="px-2 py-2 text-blue-600">
+            <span key={`ellipsis-${index}`} className="px-2 py-2 text-[#0dcaf0]">
               ...
             </span>
           );
@@ -375,8 +375,8 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
             key={page}
             className={`px-4 py-2 text-sm font-semibold rounded ${
               page === current
-                ? 'bg-blue-600 text-white'
-                : 'text-blue-600 hover:bg-blue-50'
+                ? 'bg-[#0dcaf0] text-white'
+                : 'text-[#0dcaf0] hover:bg-[#0dcaf0]/10'
             }`}
             onClick={() => onPageChange?.(page)}
           >
@@ -385,7 +385,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
         );
       })}
       <button
-        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-[#0dcaf0] hover:bg-[#0dcaf0]/10 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.min(totalPages, current + 1))}
         disabled={current >= totalPages}
       >
@@ -1225,20 +1225,13 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       ? toBranchInfo
                       : fromBranchInfo;
                     const branchName = resolveBranchName(gf, branchInfo);
-                    // Determine sell status dynamically:
-                    // "Other Income Sell" = form was originally created as "Other income sell"
-                    // "Not Sell" = form was originally created as "Not sell"
-                    // Note: acc_code fields get set for ALL forms during processing and don't indicate original intent
-                    const hasAccCode = Boolean(row.acc_code || row.acc_code1);
-                    // Check asset_type from backend ("on" = Other income sell, "off" = Not sell)
+                    // Determine sell status based on asset_type from backend:
+                    // "Other Income Sell" = asset_type is "on"
+                    // "Not Sell" = asset_type is "off" (default)
+                    // Account codes can be present on both types of forms, so don't use them as primary determinant
                     const assetType = gf.asset_type || gf.case_type || gf.caseType;
                     const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
-                    // Also check general_form.caseType if available (though it's not typically in API response)
-                    const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
-                    // Check if items array has any item with acc_code (if items are loaded)
-                    const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-                    // Only use hasCaseType (original form intent) - acc_code fields get set for ALL forms during processing
-                    const isOtherIncomeSell = hasCaseType;
+                    const isOtherIncomeSell = isAssetTypeOn;
                     const sellStatus = isOtherIncomeSell 
                       ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
                       : t('list.notSell', { defaultValue: 'Not Sell' });
@@ -1454,16 +1447,12 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
             const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
             const branchName = resolveBranchName(gf, branchInfo);
-            // Check if it's "Other Income Sell":
-            // Only check original form intent (caseType/case_type/asset_type)
-            // acc_code fields get set for ALL forms during processing and don't indicate original intent
-            const hasAccCode = Boolean(row.acc_code || row.acc_code1);
+            // Determine sell status based on asset_type from backend:
+            // "Other Income Sell" = asset_type is "on"
+            // "Not Sell" = asset_type is "off" (default)
             const assetType = gf.asset_type || gf.case_type || gf.caseType;
             const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
-            const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
-            const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-            // Only use hasCaseType (original form intent) - acc_code fields get set for ALL forms during processing
-            const isOtherIncomeSell = hasCaseType;
+            const isOtherIncomeSell = isAssetTypeOn;
             const sellStatus = isOtherIncomeSell 
               ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
               : t('list.notSell', { defaultValue: 'Not Sell' });

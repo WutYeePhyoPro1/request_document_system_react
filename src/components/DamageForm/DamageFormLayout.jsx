@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n/config';
 import DamageFormHeader from "./DamageFormHeader";
 import DamageItemTable from "./DamageItemTable";
 import SupportingInfo from "./SupportingInfo";
@@ -433,7 +434,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if (/branch\s*lp|loss\s*prevention|checker|branch_checker|lp/i.test(value)) return 'branch_lp';
     // Check for BM/ABM but exclude operation manager patterns
     if (/bm|branch manager|abm/.test(raw) && !/operation|assistant.*op|op.*manager/.test(raw)) return 'bm';
-    if (/account|ac_?acknowledged/.test(raw)) return 'account';
+    if (/account|ac_?acknowledged|branch.*account/i.test(raw)) return 'account';
     if (/supervisor|cs/.test(raw)) return 'supervisor';
     
     return raw;
@@ -1106,8 +1107,20 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     return Boolean(accountApproval);
   }, [currentUser, formData.approvals, formData.status]);
 
-  // User is account if role name matches OR if they have AC approval entry
-  const isAccount = userRole === 'account' || isAccountByApproval;
+  // User is account if role name matches OR if they have AC approval entry OR user_type is AC
+  const isAccountUserType = ['AC', 'ac', 'account'].includes(
+    (currentUser?.user_type || currentUser?.userType || '').toString().toUpperCase().trim()
+  );
+  const isAccount = userRole === 'account' || isAccountByApproval || isAccountUserType;
+
+  // DEBUG: Log account detection
+  console.log('DEBUG isAccount:', {
+    userRole,
+    isAccountByApproval,
+    isAccountUserType,
+    currentUserType: currentUser?.user_type || currentUser?.userType,
+    finalIsAccount: isAccount
+  });
 
   const isDocumentOwner = currentUser?.id === initialData?.userId;
   // When the document owner is viewing an existing Ongoing form in view mode (not add/edit),
@@ -2661,8 +2674,8 @@ let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && 
                             true :
                             // Existing logic for other cases - hide if BM Approved
                             (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
-// Also allow OP to see Cancel when appropriate
-let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButtons);
+// Also allow OP to see Cancel when appropriate, but hide for Branch Account users
+let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForButtons)) && !isBranchAccount;
                           // Also allow Operation Manager to see Cancel on OP stages
                           const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
 
@@ -2785,18 +2798,19 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     // ignore
   }
 
-  // Ensure Branch Account users can see BackToPrevious and Cancel buttons at their stages
-  // Branch account should see these buttons at: BM Approved, OPApproved, Ac_Acknowledged, Acknowledged
+  // Ensure Branch Account users can see BackToPrevious button at their stages (but hide Cancel button)
+  // Branch account should see BackToPrevious at: BM Approved, OPApproved, Ac_Acknowledged, Acknowledged
+  // Cancel button should be hidden for Branch Account users
   try {
     if (isBranchAccount && isBranchAccountStage) {
-      // Ensure actions are enabled for branch account
+      // Ensure actions are enabled for branch account (only BackToPrevious)
       if (typeof actions !== 'undefined') {
         if (!actions.backToPrevious) actions.backToPrevious = true;
-        if (!actions.cancel) actions.cancel = true;
+        // Keep cancel action as is (don't force enable for branch account)
       }
-      // Ensure visibility flags are true for branch account
+      // Ensure visibility flags - allow BackToPrevious but hide Cancel for branch account
       shouldShowBackToPreviousFinal = true;
-      shouldShowCancelFinal = true;
+      // shouldShowCancelFinal remains false for branch account due to earlier !isBranchAccount condition
     }
   } catch (e) {
     // ignore
@@ -2886,7 +2900,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
   // Actually download PDF after confirmation
   const confirmDownloadPdf = async () => {
     // Set loading state BEFORE closing modal so user sees it immediately
-    console.log('Setting PDF downloading to true');
     setIsPdfDownloading(true);
     setPdfDownloadConfirmation(false);
     
@@ -3037,7 +3050,6 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       setErrorModalMessage(errorMessage);
       setIsErrorModalOpen(true);
     } finally {
-      console.log('Setting PDF downloading to false');
       setIsPdfDownloading(false);
     }
   };
@@ -3147,13 +3159,16 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
     if (isCheckedStatus && isApprovalAction && isBMOrABM) {
       // First check if investigation form exists
       if (!isInvestigationFilled) {
-      setValidationErrorModal({
-        isOpen: true,
-        errors: [t('messages.investigationRequired', {
+        const translatedMessage = t('messages.investigationRequired', {
           defaultValue: 'Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.'
-        })],
-        type: 'warning'
-      });
+        });
+
+
+        setValidationErrorModal({
+          isOpen: true,
+          errors: [translatedMessage],
+          type: 'warning'
+        });
       return;
       }
       
@@ -3394,6 +3409,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
   //Handle form submission (actual submission logic)
   const handleSubmit = async (action) => {
+    // DEBUG: Log that handleSubmit was called
+    console.log('HANDLE_SUBMIT CALLED with action:', action);
+
     // Generate unique submission ID for tracking
     const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -3801,11 +3819,26 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
       // Convert caseType to asset_type format expected by backend
       // "Other income sell" -> "on", "Not sell" -> "off"
-      // IMPORTANT: Always use formData.caseType first (user's current selection)
-      // Only fall back to initialData if formData.caseType is not set
-      const currentCaseType = (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== '')
-        ? formData.caseType
-        : (initialData?.caseType || 'Not sell');
+      // CRITICAL: For existing forms, preserve the ORIGINAL caseType from initialData
+      // This prevents automatic changes during approval/status updates
+      // Only use formData.caseType for NEW forms or when explicitly changed by user
+      const currentCaseType = isExistingForm
+        ? (initialData?.caseType || (initialData?.asset_type === 'on' ? 'Other income sell' : 'Not sell'))
+        : (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== ''
+            ? formData.caseType
+            : (initialData?.caseType || 'Not sell'));
+
+      // DEBUG: Log asset type determination during checking (before assetType calculation)
+      if (action === 'Checked' || action === 'BMApproved' || action === 'BMApprovedMem') {
+        console.log('Asset type determination during approval:', {
+          action,
+          isExistingForm,
+          generalFormId,
+          initialDataAssetType: initialData?.asset_type,
+          initialDataCaseType: initialData?.caseType,
+          currentCaseType
+        });
+      }
 
       // Normalize the caseType value (handle variations)
       const normalizedCaseType = String(currentCaseType).trim();
@@ -3817,6 +3850,20 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       } else if (normalizedCaseType === 'Not sell' || normalizedCaseType.toLowerCase() === 'not sell') {
         assetType = 'off';
       }
+
+      // DEBUG: Log asset type determination during ALL approvals
+      console.log('Asset type determination - ALL ACTIONS:', {
+        action,
+        isExistingForm,
+        generalFormId,
+        initialDataAssetType: initialData?.asset_type,
+        initialDataCaseType: initialData?.caseType,
+        currentCaseType,
+        normalizedCaseType,
+        finalAssetType: assetType,
+        allInitialDataKeys: initialData ? Object.keys(initialData) : [],
+        formDataCaseType: formData?.caseType
+      });
 
       // Always include asset_type for both new and existing forms
       // This will override any asset_type that might have been set earlier
@@ -3903,16 +3950,9 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
       // Also include legacy 'acc_code' key (backend may expect either)
       appendArrayField('acc_code', accountCodeLines);
       
-      // If any account codes are present, mark the form as "Other income sell" for backend/listing
-      const hasAccountCodes = accountCodeLines.some(code => code !== undefined && code !== null && String(code).trim() !== '');
-      if (hasAccountCodes) {
-        // Backend expects case_type or asset_type to indicate Other income sell
-        formDataToSend.append('case_type', 'Other income sell');
-        formDataToSend.append('asset_type', 'on');
-        // Also include camelCase variants in case backend expects them
-        formDataToSend.append('caseType', 'Other income sell');
-        formDataToSend.append('assetType', 'on');
-      }
+      // Note: Account codes can be present on both "Not sell" and "Other income sell" forms
+      // Do NOT automatically change caseType based on account codes
+      // The caseType should remain as selected by the user
 
       const commentValue = [formData.comment, formData.reason, formData.remark]
         .map((value) => (typeof value === 'string' ? value.trim() : ''))
@@ -4945,8 +4985,46 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
 
         return response;
       } catch (apiError) {
+        // Check if this is an issuance operation that timed out
+        // Issuance operations send data to big-damage-issues endpoint and typically change status to Issued/Completed
+        const isIssuanceOperation = endpoint?.includes('big-damage-issues') &&
+                                   (action === 'Issue' || action === 'SupervisorIssued' ||
+                                    action === 'Completed' ||
+                                    formData.status === 'Ac_Acknowledged' ||
+                                    formData.status === 'OPApproved');
+
+        // Handle timeout errors specifically for issuance operations
+        if ((apiError.isTimeout || apiError.status === 408 || apiError.status === 504 ||
+             apiError.message?.includes('timeout') || apiError.message?.includes('Timeout') ||
+             apiError.code === 'ECONNABORTED') && isIssuanceOperation) {
+          // This is a timeout during issuance - show success message since backend continues
+          const successMessage = t('messages.formIssued', { defaultValue: 'Form issued successfully' }) +
+                                ' - ' + t('messages.issuanceInProgress', { defaultValue: 'Operation continues in background. Please check the form list.' });
+
+          setSuccessMessage(successMessage);
+          setSuccessModalMessage(successMessage);
+          setSuccessModalAction('issue');
+          setIsSuccessModalOpen(true);
+
+          // Navigate after showing success message
+          setTimeout(() => {
+            const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
+            if (storedReturnUrl) {
+              sessionStorage.removeItem('bigDamageIssueReturnUrl');
+              const urlParts = storedReturnUrl.split('?');
+              const pathname = urlParts[0] || '/big_damage_issue';
+              const search = urlParts[1] ? `?${urlParts[1]}` : '';
+              navigate(pathname + search, { replace: true });
+            } else {
+              navigate('/big_damage_issue', { replace: true });
+            }
+          }, 3000); // Give more time to read the message
+
+          return; // Exit early - treat as success
+        }
+
         let errorMessage = t('messages.errors.formSubmitFailed');
-        
+
         if (apiError.status === 404) {
           errorMessage = t('messages.errors.notFound');
         } else if (apiError.status === 401) {
@@ -4963,6 +5041,10 @@ let shouldShowCancelFinal = shouldShowCancel || (isOpManager && isOpStageForButt
           errorMessage = t('messages.errors.serverError');
         } else if (apiError.status === 503) {
           errorMessage = t('messages.errors.serverUnavailable');
+        } else if (apiError.isTimeout || apiError.status === 408 || apiError.status === 504 ||
+                   apiError.message?.includes('timeout') || apiError.message?.includes('Timeout') ||
+                   apiError.code === 'ECONNABORTED') {
+          errorMessage = t('messages.errors.requestTimeout', { defaultValue: 'Request timed out. Please check if the operation completed successfully.' });
         } else if (apiError.name === 'TypeError' && apiError.message.includes('fetch')) {
           errorMessage = t('messages.errors.networkError');
         } else if (apiError.data && apiError.data.message) {
@@ -5914,6 +5996,15 @@ const resolveApproveAction = () => {
         </div>
       )}
 
+      {/* DEBUG: Log props being passed to DamageItemTable */}
+      {console.log('DEBUG DamageItemTable props:', {
+        status: (formData.status || formData.general_form?.status || initialData?.status || initialData?.general_form?.status || 'Ongoing').toString().trim(),
+        isAccount,
+        userRole,
+        mode,
+        isCompleted: formData.status === 'Completed' || formData.status === 'Issued' || formData.status === 'SupervisorIssued'
+      })}
+
       <DamageItemTable
         items={formData.items || []}
         mode={mode}
@@ -6133,25 +6224,12 @@ const resolveApproveAction = () => {
 
       {/* ISS Remark Type and ISS Number Display */}
       {(() => {
-        // DEBUG: Check user role and form status for operation manager viewing OP approved forms
         const userRole = getUserRole();
-        console.log('getUserRole() returned:', userRole);
         const isOperationManager = userRole === 'op_manager';
         const isOPApprovedStatus = formData.status === 'OPApproved' || formData.status === 'OP Approved';
 
-        console.log('ISS Remark Type Display Debug:', {
-          userRole,
-          isOperationManager,
-          formStatus: formData.status,
-          isOPApprovedStatus,
-          shouldHide: isOperationManager && isOPApprovedStatus,
-          hasIssRemark: formData.iss_remark,
-          hasIssueRemarks: formData.issue_remarks?.length > 0
-        });
-
         // Hide ISS Remark Type and ISS Number for operation manager viewing OP approved forms
         if (isOperationManager && isOPApprovedStatus) {
-          console.log('Hiding ISS Remark Type for operation manager viewing OP approved form');
           return null;
         }
 

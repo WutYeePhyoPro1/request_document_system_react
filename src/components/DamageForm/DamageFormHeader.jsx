@@ -124,14 +124,6 @@ export default function DamageFormHeader({
   }, [formData.branch, formData.branch_name, formData.general_form?.from_branch, formData.general_form?.from_branch_id, formData.general_form?.from_branches, setFormData]);
   // Removed branch change handlers as branch is now read-only
   
-  // Debug: Log when loading state changes
-  useEffect(() => {
-    if (isPdfDownloading) {
-      console.log('PDF Download: Loading state is TRUE');
-    } else {
-      console.log('PDF Download: Loading state is FALSE');
-    }
-  }, [isPdfDownloading]);
 
   const userRole = normalizeRole(userRoleOverride) || getRole();
   const statusRaw =
