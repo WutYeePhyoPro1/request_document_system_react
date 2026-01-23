@@ -3,11 +3,20 @@ export const validateForm = (datas, schema, messages = {}) => {
     const errors = {};
     for (const field in schema) {
         const rules = schema[field];
-        const value = datas[field] ? datas[field].trim() : "";
+        // const value = datas[field] ? datas[field].trim() : "";
+        const value =
+        typeof datas[field] === 'string'
+            ? datas[field].trim()
+            : datas[field] ?? '';
         const fieldMessages = messages[field] || {};
 
-
-        if (rules.required && !value) {
+        // console.log(field,value);
+        if (rules.required &&    (
+            value === null ||
+            value === undefined ||
+            value === '' ||
+            (Array.isArray(value) && value.length === 0)
+        )) {
             errors[field] = fieldMessages.required || `${field} is required`;
             continue;
         }
@@ -59,4 +68,39 @@ export const showValidationErrors = (errors,title = 'Validation Error') => {
     });
 
     return true;
+};
+
+
+
+export const validateArrayField = (
+    items,
+    field,
+    rules,
+    label = 'Item'
+) => {
+    const errors = {};
+
+    items.forEach((item, index) => {
+        const value = item[field];
+
+        rules.forEach(rule => {
+
+            if (rule === 'required') {
+                if (value === '' || value === null || value === undefined) {
+                    errors[`${label}_${index + 1}_${field}`] =
+                        `${field} is required`;
+                }
+            }
+
+            if (rule === 'numeric') {
+                if (value !== '' && value !== null && isNaN(Number(value))) {
+                    errors[`${label}_${index + 1}_${field}`] =
+                        `${field} must be a number`;
+                }
+            }
+
+        });
+    });
+
+    return errors;
 };

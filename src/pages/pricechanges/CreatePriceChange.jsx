@@ -16,7 +16,7 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
-import {showValidationErrors} from "../../components/Validator.jsx";
+import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
 import {formatDate} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
 
@@ -50,7 +50,7 @@ export default function () {
 
     const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
-
+    const [searching,setSearching] = useState(false);
  
     const changeHandler = (e,actionMeta) => {
          // react-select
@@ -125,25 +125,21 @@ export default function () {
                     : item
             )
         )
-    }
-
-    const schema = {
-        change_price_date: { required: true, type:"date" },
-        effective_date: { required: true, type:"date" },
-        category_id: {required: true},
-        comment: {maxLength: 250},
-        branch_price: {required: true},
-        branches: {required: true},
     };
+
+
     const [productCode,setProductCode] = useState("");
     const searchHandler = async () => {
-            var branch_code = formState.branch_price;
+            setSearching(true);
+
+            try{
+                var branch_code = formState.branch_price;
                 const datas = {
                     branch_price: String(branch_code),
                     product_code: productCode
                 };
                 const searchSchema = {
-                    product_code: {required: true},
+                    product_code: {required: true,minLength: 1},
                     branch_price: {required: true}
                 }
                 const searchMessages = {
@@ -218,12 +214,22 @@ export default function () {
                         // setLoading(false);
                     
                     }
+            }catch(e){
+                console.error(err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Product Code does not exist!!',
+                });
+            }finally {
+                setSearching(false);
+            }
             
     };
 
     const removeHandler = (e,product_code)=>{
         e.preventDefault();
-        console.log(product_code);
+        // console.log(product_code);
 
         setProducts((prev)=>
             prev.filter(item =>item.product_code != product_code)
@@ -300,6 +306,86 @@ export default function () {
             setIsSubmitting(false);
         }
     };
+
+
+    const submitHandler = async (e)=>{
+        e.preventDefault();
+        setIsSubmitting(true);
+            const formData = {
+            ...formState,
+            products
+        };
+        console.log(formData);
+
+        const schema = {
+            change_price_date: { required: true, type:"date" },
+            effective_date: { required: true, type:"date" },
+            category_id: {required: true},
+            comment: {maxLength: 250},
+            branch_price: {required: true},
+            branches: {required: true},
+            products: {required: true},
+        };
+
+        const messages = {
+            change_price_date: {
+                required: "Change Price Date is required."
+            },
+            effective_date: {
+                required: "Effective Date is required."
+            },
+            category_id: {
+                required: "Please Choose Category."
+            },
+            comment: {
+                maxLength: "Remark must not exceed a maximum of 250 characters."
+            },
+            branch_price: {
+                required: "Branch Price is required."
+            },
+            branches: {
+                required: "Please check the branches."
+            },
+            products: {
+                required: "Please add at least one product code."
+            },
+        }
+
+        const errors = validateForm(formData, schema, messages);
+        if (showValidationErrors(errors)) return;
+
+
+        // const productErrors = {
+        //     ...validateArrayField(formData.products, 'price1', ['required', 'numeric']),
+        //     ...validateArrayField(formData.products, 'price2', ['required', 'numeric']),
+        // };
+        // if (showValidationErrors(productErrors, 'Product Validation Error')) return;
+
+        // Start Validate Prices
+        const price1Errors = validateArrayField(formData.products, 'price1', ['required', 'numeric']);
+        const price2Errors = validateArrayField(formData.products, 'price2', ['required', 'numeric']);
+
+        const allMessages = [
+            ...Object.values(price1Errors),
+            ...Object.values(price2Errors),
+        ];
+
+        const uniqueMessages = Array.from(new Set(allMessages));
+
+        const productErrorsMerged = {};
+        uniqueMessages.forEach((msg, index) => {
+            productErrorsMerged[`error_${index}`] = msg;
+        });
+
+        if (showValidationErrors(productErrorsMerged, 'Product Validation Error')) return;
+        // End Validate Prices
+
+        // try{
+        //     const {data} = await axios.post("/api/price_changes",{form});
+        // }catch(err){
+
+        // }
+    }
 
     const excludeBranchIds = [1];
     const fetchBranches = async () => {
@@ -420,16 +506,21 @@ export default function () {
 
                     <div class="flex flex-wrap gap-2 sm:justify-end">
                         <button
+                            type="button"
                             class="px-4 py-2 text-sm rounded-lg
                                 border border-gray-300 text-gray-700
-                                hover:bg-gray-100 transition">
+                                hover:bg-gray-100 transition"
+                            >
                             Save as Draft
                         </button>
 
                         <button
+                            type="button"
                             class="px-4 py-2 text-sm rounded-lg
                                 bg-blue-600 text-white
-                                hover:bg-blue-700 transition">
+                                hover:bg-blue-700 transition"
+                            onClick={submitHandler}    
+                            >
                             Save
                         </button>
 
@@ -510,12 +601,12 @@ export default function () {
 
                                 <div>
                                 <label className="text-xs font-medium text-slate-600">Change Price Date</label>
-                                    <input type="date" id="change_price_date" name="change_price_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly/>
+                                    <input type="date" id="change_price_date" name="change_price_date" className="border focus:outline-none  p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly/>
                                 </div>
 
                                 <div>
                                 <label className="text-xs font-medium text-slate-600">Effective Date</label>
-                                <input type="date" id="effective_date" name="effective_date" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
+                                <input type="date" id="effective_date" name="effective_date" className="border focus:outline-none  p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
                                 </div>
 
 
@@ -566,7 +657,7 @@ export default function () {
                                     <textarea
                                         id="comment"
                                         name="comment"
-                                        className="border focus:outline-none p-2 w-full rounded-md"
+                                        className="border focus:outline-none p-2 w-full rounded-md bg-white"
                                         rows="1"
                                         style={{ borderColor: '#2ea2d1' }}
                                         onChange={changeHandler} value={formState.comment}
@@ -601,7 +692,7 @@ export default function () {
                                 <div className="flex items-end">
                                     <div className="w-full">
                                     <label className="text-xs font-medium text-slate-600">Product Code</label>
-                                    <input type="text" className="border focus:outline-none  p-2 w-full rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode}/>
+                                    <input type="text" className="border focus:outline-none  p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode}/>
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap gap-2 items-end">
@@ -616,8 +707,9 @@ export default function () {
                                                 transition
                                                 focus:outline-none focus:ring-4 focus:ring-cyan-300"
                                         onClick={searchHandler}
+                                        disabled={searching}
                                     >
-                                        Search
+                                        {  searching ? 'Loading....' : 'Search'}
                                     </button>
 
                                     <button
