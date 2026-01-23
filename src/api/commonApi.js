@@ -35,3 +35,14 @@ try {
     throw error; // Re-throw to allow caller to handle
 }
 }
+
+export const subFormCountNoti = async(token , form_id , sub_form_id) => {
+    try {
+        const response = await API.get(`/me_sub_form/count_notis/${form_id}/${sub_form_id}` , {
+            headers: {Authorization: `Bearer ${token}`},
+        });
+        return response.data.count ;
+    } catch (error) {
+       console.log("Error sub form noti" , error) ;
+    }
+}

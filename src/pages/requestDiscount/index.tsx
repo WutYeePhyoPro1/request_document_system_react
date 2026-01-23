@@ -47,7 +47,7 @@ export default function Demo() {
 
   const handleDateChange = (
     name: "from_date" | "to_date",
-    value: string | null
+    value: string | null,
   ) => {
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
   };
@@ -163,7 +163,7 @@ export default function Demo() {
           data: results.data,
           searchTerm,
           activePage: 1,
-        })
+        }),
       );
 
       setDiscountData((prev) => ({ ...prev, data: results.data }));
@@ -186,61 +186,6 @@ export default function Demo() {
       ? discountData.data.slice(start, start + pageSize)
       : [];
   }, [discountData, activePage]);
-  //Hello test git conflig
-  // const handleSearch = async () => {
-  //   const token = localStorage.getItem("token");
-  //   if (!token) return;
-  //   setLoading(true);
-  //   try {
-  //     const results = await searchDiscountProduct(token, searchTerm);
-  //     const cache = {
-  //       discountData: results,
-  //       searchTerm,
-  //       activePage: 1,
-  //     };
-  //     sessionStorage.setItem("discount_cache", JSON.stringify(cache));
-  //     setDiscountData(results);
-  //     setActivePage(1);
-  //   } catch (error) {
-  //     console.error("Search failed:", error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-  // const handleSearch = async () => {
-  //   const token = localStorage.getItem("token");
-  //   if (!token) return;
-
-  //   setLoading(true);
-  //   try {
-  //     const results = await searchDiscountProduct(token, searchTerm);
-
-  //     const cached = sessionStorage.getItem("discount_cache");
-  //     if (!cached) return;
-
-  //     const parsed = JSON.parse(cached);
-
-  //     const updatedCache = {
-  //       ...parsed,
-  //       data: results.data, // 🔥 only replace table data
-  //       searchTerm,
-  //       activePage: 1,
-  //     };
-
-  //     sessionStorage.setItem("discount_cache", JSON.stringify(updatedCache));
-
-  //     setDiscountData({
-  //       ...parsed.meta,
-  //       data: results.data,
-  //     });
-
-  //     setActivePage(1);
-  //   } catch (error) {
-  //     console.error("Search failed:", error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const handleRestart = async () => {
     sessionStorage.removeItem("discount_cache");
@@ -269,7 +214,7 @@ export default function Demo() {
         (item: any) =>
           element.id === item.specific_form_id &&
           element.form_id === item.form_id &&
-          element.form_doc_no === item.form_doc_no
+          element.form_doc_no === item.form_doc_no,
       );
 
       return (
@@ -303,7 +248,7 @@ export default function Demo() {
                     setCopied(element.id);
                     setTimeout(() => setCopied(null), 2000);
                   },
-                  (err) => console.log("Copy Failed:", err)
+                  (err) => console.log("Copy Failed:", err),
                 );
               }}
               className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
