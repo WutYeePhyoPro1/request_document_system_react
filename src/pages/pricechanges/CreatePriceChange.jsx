@@ -1,14 +1,9 @@
 import React, { useEffect, useState } from "react";
-import cctvPhoto from "../../assets/images/ban1.png";
-import CctvInput from "./inputs/CctvInput";
-import CctvSelect from "./inputs/CctvSelect";
-import CctvTextarea from "./inputs/CctvTextarea";
-import CctvCheckbox from "./inputs/CctvCheckbox";
 import { confirmAlert } from "react-confirm-alert";
 import { useNavigate } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
-import { FaFileImport } from "react-icons/fa";
+import { FaFileImport,FaSpinner } from "react-icons/fa";
 
 import $ from "jquery";
 import Select from 'react-select'
@@ -19,6 +14,7 @@ import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
 import {formatDate} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
+import * as XLSX from "xlsx";
 
 export default function () {
 
@@ -51,6 +47,7 @@ export default function () {
     const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
+    const [importing,setImporting] = useState(false);
  
     const changeHandler = (e,actionMeta) => {
          // react-select
@@ -129,6 +126,19 @@ export default function () {
 
 
     const [productCode,setProductCode] = useState("");
+    const searchSchema = {
+        product_code: {required: true,minLength: 1},
+        branch_price: {required: true}
+    }
+    const searchMessages = {
+        branch_price: {
+            required: 'Please select branch price'
+        },
+        product_code: {
+            required: 'Please Add Product Code before Search',
+            // required: 'ကုန်ပစ္စည်းကုဒ် ဖြည့်ပါ',
+        }
+    };
     const searchHandler = async () => {
             setSearching(true);
 
@@ -138,19 +148,7 @@ export default function () {
                     branch_price: String(branch_code),
                     product_code: productCode
                 };
-                const searchSchema = {
-                    product_code: {required: true,minLength: 1},
-                    branch_price: {required: true}
-                }
-                const searchMessages = {
-                    branch_price: {
-                        required: 'Please select branch price'
-                    },
-                    product_code: {
-                        required: 'Please Add Product Code before Search',
-                        // required: 'ကုန်ပစ္စည်းကုဒ် ဖြည့်ပါ',
-                    }
-                };
+                
                 const errors = validateForm(datas, searchSchema, searchMessages);
 
                 
@@ -214,7 +212,7 @@ export default function () {
                         // setLoading(false);
                     
                     }
-            }catch(e){
+            }catch(err){
                 console.error(err);
                 Swal.fire({
                     icon: 'error',
@@ -226,6 +224,53 @@ export default function () {
             }
             
     };
+    const  fetchProduct = async () => {
+        try {
+        // setLoading(true);
+        // setError(null);
+
+            const { data } = await axios.get(
+            `/api/price_changes/search_product/${productCode}/${branch_code}`,
+            {
+                headers: {
+                Authorization: `Bearer ${token}`,
+                },
+            }
+            );
+            console.log(data);
+            const apiProduct = data.data;
+
+            const result = {
+                ...apiProduct,
+                product_code: apiProduct.barcode,
+                price1: apiProduct.price1 ?? '',
+                price2: apiProduct.price2 ?? ''
+            };
+            if(!data.error){
+                setProductCode("");
+                setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
+            }else{
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Product Code does not exist!!',
+                });
+            }
+
+
+        } catch (err) {
+            console.error(err);
+            // setError("Failed to load product data");
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Product Code does not exist!!',
+            });
+        } finally {
+            // setLoading(false);
+        
+        }
+    }
 
     const removeHandler = (e,product_code)=>{
         e.preventDefault();
@@ -236,76 +281,76 @@ export default function () {
         )
     }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch("/api/cctv-records", {
-                method: "POST",
-                mode: "cors",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
-                credentials: "include",
-                body: JSON.stringify(formData),
-            });
+    // const handleSubmit = async (e) => {
+    //     e.preventDefault();
+    //     setIsSubmitting(true);
+    //     try {
+    //         const token = localStorage.getItem('token');
+    //         const response = await fetch("/api/cctv-records", {
+    //             method: "POST",
+    //             mode: "cors",
+    //             headers: {
+    //                 "Content-Type": "application/json",
+    //                 "Accept": "application/json",
+    //                 "Authorization": `Bearer ${token}`,
+    //             },
+    //             credentials: "include",
+    //             body: JSON.stringify(formData),
+    //         });
 
-            const data = await response.json();
+    //         const data = await response.json();
 
-            if (!response.ok) {
-                if (response.status === 422) {
-                    let errorMessages = "";
-                    Object.values(data.errors).forEach(errorArray => {
-                        errorArray.forEach(error => {
-                            errorMessages += `• ${error}\n`;
-                        });
-                    });
-                    confirmAlert({
-                        title: "Oops! Please fix these errors",
-                        message: errorMessages,
-                        buttons: [
-                            {
-                                label: "OK",
-                                onClick: () => { },
-                            },
-                        ],
-                    });
-                } else {
-                    throw new Error(data.message || "Something went wrong");
-                }
-            } else {
-                confirmAlert({
-                    title: "Success",
-                    message: "Form submitted successfully!",
-                    buttons: [
-                        {
-                            label: "OK",
-                            onClick: () => {
-                                navigate("/cctv_record");
-                            },
-                        },
-                    ],
-                });
-            }
-        } catch (error) {
-            console.error("Error submitting form:", error);
-            confirmAlert({
-                title: "Error",
-                message: "Something went wrong while submitting the form.",
-                buttons: [
-                    {
-                        label: "OK",
-                        onClick: () => { },
-                    },
-                ],
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
+    //         if (!response.ok) {
+    //             if (response.status === 422) {
+    //                 let errorMessages = "";
+    //                 Object.values(data.errors).forEach(errorArray => {
+    //                     errorArray.forEach(error => {
+    //                         errorMessages += `• ${error}\n`;
+    //                     });
+    //                 });
+    //                 confirmAlert({
+    //                     title: "Oops! Please fix these errors",
+    //                     message: errorMessages,
+    //                     buttons: [
+    //                         {
+    //                             label: "OK",
+    //                             onClick: () => { },
+    //                         },
+    //                     ],
+    //                 });
+    //             } else {
+    //                 throw new Error(data.message || "Something went wrong");
+    //             }
+    //         } else {
+    //             confirmAlert({
+    //                 title: "Success",
+    //                 message: "Form submitted successfully!",
+    //                 buttons: [
+    //                     {
+    //                         label: "OK",
+    //                         onClick: () => {
+    //                             navigate("/cctv_record");
+    //                         },
+    //                     },
+    //                 ],
+    //             });
+    //         }
+    //     } catch (error) {
+    //         console.error("Error submitting form:", error);
+    //         confirmAlert({
+    //             title: "Error",
+    //             message: "Something went wrong while submitting the form.",
+    //             buttons: [
+    //                 {
+    //                     label: "OK",
+    //                     onClick: () => { },
+    //                 },
+    //             ],
+    //         });
+    //     } finally {
+    //         setIsSubmitting(false);
+    //     }
+    // };
 
 
     const submitHandler = async (e)=>{
@@ -355,29 +400,29 @@ export default function () {
         if (showValidationErrors(errors)) return;
 
 
-        // const productErrors = {
-        //     ...validateArrayField(formData.products, 'price1', ['required', 'numeric']),
-        //     ...validateArrayField(formData.products, 'price2', ['required', 'numeric']),
-        // };
-        // if (showValidationErrors(productErrors, 'Product Validation Error')) return;
 
         // Start Validate Prices
-        const price1Errors = validateArrayField(formData.products, 'price1', ['required', 'numeric']);
-        const price2Errors = validateArrayField(formData.products, 'price2', ['required', 'numeric']);
+        const productSchema = {
+            price1: { required: true, numeric: true, min: 1},
+            price2: { required: true, numeric: true, min: 1}
+        };
+        const productMessages = {
+            price1: {
+                required: "Price 1 is required.",
+                numeric: "Price 1 must be numeric value."
+            },
+            price2: {
+                required: "Price 2 is required.",
+                numeric: "Price 2 must be numeric value."
+            }
+        }
 
-        const allMessages = [
-            ...Object.values(price1Errors),
-            ...Object.values(price2Errors),
-        ];
+        const productErrors = validateArrayField(formData.products, productSchema, 'Product',productMessages);
 
-        const uniqueMessages = Array.from(new Set(allMessages));
+        const messagesSet = Array.from(new Set(Object.values(productErrors))).map((msg, idx) => [`error_${idx}`, msg]);
+        const displayErrors = Object.fromEntries(messagesSet);
 
-        const productErrorsMerged = {};
-        uniqueMessages.forEach((msg, index) => {
-            productErrorsMerged[`error_${index}`] = msg;
-        });
-
-        if (showValidationErrors(productErrorsMerged, 'Product Validation Error')) return;
+        if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
         // try{
@@ -386,7 +431,66 @@ export default function () {
 
         // }
     }
+    const excelImportHandler = async (e) => {
+        setImporting(true);
 
+        try{
+            const errors = validateForm(formState, {branch_price: {required: true}}, searchMessages);
+            if (showValidationErrors(errors)) return;
+
+
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const data = await file.arrayBuffer();
+
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetName = workbook.SheetNames[0];
+            const sheet = workbook.Sheets[sheetName];
+
+            const jsonData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+            // console.log(jsonData);
+
+            const importSchema = {
+                'Product Code': {required:true},
+                'Price 1': {required:true,numeric: true, min: 1},
+                'Price 2': {required:true,numeric: true, min: 1}
+            }
+            const importMessage = {
+                'Product Code': {required: "Product Code is required."},
+                'Price 1': {required: "Product Code is required.", numeric: "Price 1 must be numeric value."},
+                'Price 2': {required: "Product Code is required.", numeric: "Price 1 must be numeric value."},
+            }
+
+            const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
+
+            const messagesSet = Array.from(new Set(Object.values(importErrors))).map((msg, idx) => [`error_${idx}`, msg]);
+            const displayErrors = Object.fromEntries(messagesSet);
+
+            if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
+
+            
+            for (const [index, row] of jsonData.entries()) {
+                console.log("Row", index + 1, row);
+
+                // Duplicate Product Code
+                const exists = products.some(
+                    p => p.product_code === productCode
+                );
+                if(exists){
+                    // continue next row 
+                }
+
+                fetchProduct();
+        
+            }
+        }catch(err){
+            console.log(err);
+        }finally {
+            setImporting(false);
+        }
+    };
     const excludeBranchIds = [1];
     const fetchBranches = async () => {
         try {
@@ -723,9 +827,13 @@ export default function () {
                                                 shadow-md
                                                 transition
                                                 focus:outline-none focus:ring-4 focus:ring-blue-300"
+                                        disabled={importing}
                                     >
-                                        <FaFileImport className="text-base" />
-                                        {/* <span className="ml-1 hidden sm:inline">Import</span> */}
+                                        {importing ? (
+                                            <FaSpinner className="text-base animate-spin" />
+                                        ) : (
+                                            <FaFileImport className="text-base" />
+                                        )}
                                     </button>
 
                                     <a
@@ -748,6 +856,7 @@ export default function () {
                                         id="excel_import"
                                         accept=".xlsx,.xls,.ods"
                                         className="hidden"
+                                        onChange={excelImportHandler}
                                     />
                                 </div>
                             </div>

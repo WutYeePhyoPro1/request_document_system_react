@@ -70,36 +70,36 @@ export const showValidationErrors = (errors,title = 'Validation Error') => {
     return true;
 };
 
-
-
-export const validateArrayField = (
-    items,
-    field,
-    rules,
-    label = 'Item'
-) => {
+export const validateArrayField = (items, schema, label = 'Item',messages={}) => {
     const errors = {};
 
     items.forEach((item, index) => {
-        const value = item[field];
+        for (const field in schema) {
+            const rules = schema[field];
+            const value = item[field];
+            const errorKey = `${label}_${index + 1}_${field}`;
+            const fieldMessages = messages[field] || {};
 
-        rules.forEach(rule => {
-
-            if (rule === 'required') {
-                if (value === '' || value === null || value === undefined) {
-                    errors[`${label}_${index + 1}_${field}`] =
-                        `${field} is required`;
-                }
+            if (rules.required && (value === '' || value === null || value === undefined)) {
+                errors[errorKey] = fieldMessages.required || `${field} is required`;
+                continue; // skip other rules if required fails
             }
 
-            if (rule === 'numeric') {
-                if (value !== '' && value !== null && isNaN(Number(value))) {
-                    errors[`${label}_${index + 1}_${field}`] =
-                        `${field} must be a number`;
-                }
+            if (rules.numeric && value !== '' && value !== null && isNaN(Number(value))) {
+                errors[errorKey] = fieldMessages.numeric || `${field} must be a number`;
+                continue;
             }
 
-        });
+            const numericValue = Number(value);
+
+            if (rules.min !== undefined && !isNaN(numericValue) && numericValue < rules.min) {
+                errors[errorKey] = fieldMessages.min || `${field} must be at least ${rules.min}`;
+            }
+
+            if (rules.max !== undefined && !isNaN(numericValue) && numericValue > rules.max) {
+                errors[errorKey] = fieldMessages.max || `${field} must be at most ${rules.max}`;
+            }
+        }
     });
 
     return errors;
