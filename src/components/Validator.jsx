@@ -91,13 +91,31 @@ export const validateArrayField = (items, schema, label = 'Item',messages={}) =>
             }
 
             const numericValue = Number(value);
+            if (rules.min !== undefined) {
+                const minValue =
+                    typeof rules.min === 'string'
+                        ? Number(item[rules.min])
+                        : Number(rules.min);
 
-            if (rules.min !== undefined && !isNaN(numericValue) && numericValue < rules.min) {
-                errors[errorKey] = fieldMessages.min || `${field} must be at least ${rules.min}`;
+                if (!isNaN(minValue) && numericValue < minValue) {
+                    errors[errorKey] =
+                        fieldMessages.min ||
+                        `${field} must be at least ${rules.min}`;
+                }
             }
 
-            if (rules.max !== undefined && !isNaN(numericValue) && numericValue > rules.max) {
-                errors[errorKey] = fieldMessages.max || `${field} must be at most ${rules.max}`;
+
+            if (rules.max !== undefined) {
+                const maxValue =
+                    typeof rules.max === 'string'
+                        ? Number(item[rules.max])
+                        : Number(rules.max);
+
+                if (!isNaN(maxValue) && numericValue > maxValue) {
+                    errors[errorKey] =
+                        fieldMessages.max ||
+                        `${field} must not be greater than ${rules.max}`;
+                }
             }
         }
     });

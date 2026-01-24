@@ -17,7 +17,7 @@ import ServerTime from "../../components/ServerTime";
 import * as XLSX from "xlsx";
 
 export default function () {
-
+    const productslimit = 50;
 
     const navigate = useNavigate();
     const today = () => new Date().toISOString().split("T")[0];
@@ -43,6 +43,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
+    let totalProductCount = products.length;
 
     const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,7 +124,7 @@ export default function () {
             )
         )
     };
-
+    const [pricesErrors,setPricesErrors] = useState({});
 
     const [productCode,setProductCode] = useState("");
     const searchSchema = {
@@ -167,51 +168,19 @@ export default function () {
                     return;
                 }
 
-                    try {
-                    // setLoading(true);
-                    // setError(null);
+                // Exceed Product Rows
+                if(productsExceedLimit(productslimit)){
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Product Rows Exceed Limit',
+                        text: `User can\'t add products more than  ${productslimit} rows.`,
+                    });
+                    return;
+                }
 
-                        const { data } = await axios.get(
-                        `/api/price_changes/search_product/${productCode}/${branch_code}`,
-                        {
-                            headers: {
-                            Authorization: `Bearer ${token}`,
-                            },
-                        }
-                        );
-                        console.log(data);
-                        const apiProduct = data.data;
-
-                        const result = {
-                            ...apiProduct,
-                            product_code: apiProduct.barcode,
-                            price1: apiProduct.price1 ?? '',
-                            price2: apiProduct.price2 ?? ''
-                        };
-                        if(!data.error){
-                            setProductCode("");
-                            setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
-                        }else{
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'Product Code does not exist!!',
-                            });
-                        }
+                await fetchProduct(productCode);
 
 
-                    } catch (err) {
-                        console.error(err);
-                        // setError("Failed to load product data");
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'Error',
-                            text: 'Product Code does not exist!!',
-                        });
-                    } finally {
-                        // setLoading(false);
-                    
-                    }
             }catch(err){
                 console.error(err);
                 Swal.fire({
@@ -224,13 +193,15 @@ export default function () {
             }
             
     };
-    const  fetchProduct = async () => {
+    const  fetchProduct = async (code,row={}) => {
+        var branch_code = formState.branch_price;
+
         try {
         // setLoading(true);
         // setError(null);
 
             const { data } = await axios.get(
-            `/api/price_changes/search_product/${productCode}/${branch_code}`,
+            `/api/price_changes/search_product/${code}/${branch_code}`,
             {
                 headers: {
                 Authorization: `Bearer ${token}`,
@@ -243,18 +214,19 @@ export default function () {
             const result = {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
-                price1: apiProduct.price1 ?? '',
-                price2: apiProduct.price2 ?? ''
+                price1: apiProduct.price1 || row["Price 1"] || '',
+                price2: apiProduct.price2 | row["Price 2"] || ''
             };
             if(!data.error){
                 setProductCode("");
                 setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
             }else{
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Error',
-                    text: 'Product Code does not exist!!',
-                });
+                // Swal.fire({
+                //     icon: 'error',
+                //     title: 'Error',
+                //     text: 'Product Code does not exist!!',
+                // });
+                throw new Error("Product fetch failed");
             }
 
 
@@ -266,6 +238,7 @@ export default function () {
                 title: 'Error',
                 text: 'Product Code does not exist!!',
             });
+            throw err;
         } finally {
             // setLoading(false);
         
@@ -404,7 +377,7 @@ export default function () {
         // Start Validate Prices
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
-            price2: { required: true, numeric: true, min: 1}
+            price2: { required: true, numeric: true, min: 1, max:"price1"}
         };
         const productMessages = {
             price1: {
@@ -418,7 +391,7 @@ export default function () {
         }
 
         const productErrors = validateArrayField(formData.products, productSchema, 'Product',productMessages);
-
+        setPricesErrors(productErrors);
         const messagesSet = Array.from(new Set(Object.values(productErrors))).map((msg, idx) => [`error_${idx}`, msg]);
         const displayErrors = Object.fromEntries(messagesSet);
 
@@ -459,36 +432,64 @@ export default function () {
             }
             const importMessage = {
                 'Product Code': {required: "Product Code is required."},
-                'Price 1': {required: "Product Code is required.", numeric: "Price 1 must be numeric value."},
-                'Price 2': {required: "Product Code is required.", numeric: "Price 1 must be numeric value."},
+                'Price 1': {required: "Price 1 is required.", numeric: "Price 1 must be numeric value."},
+                'Price 2': {required: "Price 2 is required.", numeric: "Price 2 must be numeric value."},
             }
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
-
+            console.log(importErrors);
             const messagesSet = Array.from(new Set(Object.values(importErrors))).map((msg, idx) => [`error_${idx}`, msg]);
             const displayErrors = Object.fromEntries(messagesSet);
 
             if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
-            
-            for (const [index, row] of jsonData.entries()) {
-                console.log("Row", index + 1, row);
 
+            const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
+            setPricesErrors(pricesAlerts);
+            for (const [index, row] of jsonData.entries()) {
+                const code = row['Product Code'];
+                console.log("Row", index + 1, row);
+                
                 // Duplicate Product Code
                 const exists = products.some(
-                    p => p.product_code === productCode
+                    p => p.product_code == code
                 );
                 if(exists){
                     // continue next row 
+                    continue;
                 }
 
-                fetchProduct();
+                // Exceed Product Rows
+                // console.log(productsExceedLimit(productslimit));
+                if (totalProductCount >= productslimit) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Product Rows Exceed Limit',
+                        text: `User can\'t add products more than  ${productslimit} rows.`,
+                    });
+                    break;
+                }
+
+                try {
+                    await fetchProduct(code,row);
+                    totalProductCount++;
+                } catch (err) {
+                    console.error(err);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Import stopped',
+                        text: `Import failed at row ${index + 1}`,
+                    });
+                    break;
+                }finally{
+                }
         
             }
         }catch(err){
             console.log(err);
         }finally {
             setImporting(false);
+            e.target.value = "";
         }
     };
     const excludeBranchIds = [1];
@@ -576,6 +577,10 @@ export default function () {
         fetchBranches();
         fetchProductCategories();
     }, []);
+
+    const productsExceedLimit = (limit)=>{
+        return products.length >= limit
+    }
 
 
     return (
@@ -689,11 +694,6 @@ export default function () {
                         <header className="bg-gray-50 p-6 border-b border-indigo-100">
                             <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
                                 <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
-
-                                {/* <div className="text-sm text-right">
-                                <p className="text-slate-500">Server Time</p>
-                                <p className="font-semibold text-slate-800">11:07:44</p>
-                                </div> */}
                                 <ServerTime/>
                             </div>
 
@@ -775,8 +775,10 @@ export default function () {
                                         name="branch_price"
                                         options={options}
                                         placeholder="Select Status"
-                                        isSearchable={true}  // allows typing to filter options
-                                        isClearable
+                                        isSearchable={!formState.branch_price}  // allows typing to filter options
+                                        // isDisabled={formState.branch_price}
+                                        menuIsOpen={formState.branch_price ? false : undefined}
+                                        isClearable={!formState.branch_price}
                                         onChange={changeHandler}
                                         value={
                                             options.find(opt => opt.value === formState.branch_price) || null
@@ -788,7 +790,7 @@ export default function () {
                                             borderColor: "#2ea2d1",
                                             borderRadius: "0.5rem",
                                         }),
-                      
+                                        
                                         }}
                                     />
                                 </div>
@@ -868,7 +870,7 @@ export default function () {
                             {/* </div> */}
 
 
-                            <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler}/>
+                            <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors}/>
                         </div>
                     </section>
                 </main>

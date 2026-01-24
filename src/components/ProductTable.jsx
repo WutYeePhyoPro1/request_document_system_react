@@ -2,12 +2,13 @@ import { FaMinusCircle } from "react-icons/fa";
 import {formatNumber} from "./Fomatter.jsx";
 
 
-export default function ProductTable({data,pricesHandler,removeHandler}){
+export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors}){
     const tablestyle = {
         thead: { backgroundColor: "#A9D8E9" },
         th: { backgroundColor: "inherit" },
     }
     // console.log(data);
+    // console.log(pricesErrors);
 
     return (
         <>
@@ -31,8 +32,8 @@ export default function ProductTable({data,pricesHandler,removeHandler}){
             <tbody>
 
                 {
-                    data.map((item,idx)=>(
-                        <tr key={idx}>
+                    data.map((item,index)=>(
+                        <tr key={index}>
                             <td>
                                 <span
                                     onClick={(e) => removeHandler(e,item.product_code)}
@@ -41,17 +42,29 @@ export default function ProductTable({data,pricesHandler,removeHandler}){
                                     aria-label="Remove product"
                                 ><FaMinusCircle className="text-red-500 text-lg" /></span>
                             </td>
-                            <td>{++idx}</td>
+                            <td>{++index}</td>
                             <td>{item.product_code}</td>
                             <td>{item.product_name}</td>
                             <td>{item.unit}</td>
                             <td>{formatNumber(item.price)}</td>
                             <td></td>
-                            <td>
-                                <input type="number" id="price1" name="price1" className="w-28 border focus:outline-none  p-1 w-fulls rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={(e)=>pricesHandler(e,item.product_code)} value={item.price1}/>
+                            <td >
+                                <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                    ${
+                                        pricesErrors?.[`Product_${index}_price1`] || pricesErrors?.[`Product_${index}_Price 1`]
+                                            ? 'border-red-600 focus:border-red-600'
+                                            : 'border-cyan-500 focus:border-cyan-500'
+                                    }
+                                `} onChange={(e)=>pricesHandler(e,item.product_code)} value={item.price1}/>
                             </td>
                             <td>
-                                <input type="number" id="price2" name="price2" className="w-28 border focus:outline-none  p-1 w-fulls rounded-md" style={{ borderColor: '#2ea2d1' }} onChange={(e)=>pricesHandler(e,item.product_code)} value={item.price2}/>
+                                <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                    ${
+                                        pricesErrors?.[`Product_${index}_price2`] || pricesErrors?.[`Product_${index}_Price 2`]
+                                            ? 'border-red-600 focus:border-red-600'
+                                            : 'border-cyan-500 focus:border-cyan-500'
+                                    }
+                                `} onChange={(e)=>pricesHandler(e,item.product_code)} value={item.price2}/>
                             </td>
                             <td></td>
                         </tr>
