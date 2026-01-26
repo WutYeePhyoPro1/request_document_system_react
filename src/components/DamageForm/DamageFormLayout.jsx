@@ -1013,14 +1013,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
-  console.log("🔍 IS OP MANAGER CHECK:", {
-    userRole,
-    isOpManagerByApproval,
-    isOpManager,
-    userType: currentUser?.user_type,
-    roleId: currentUser?.role_id
-  });
-  
   
 
   // Check if user is account role based on approvals (matching Laravel Ac_Manager logic)
@@ -2625,15 +2617,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       act.backToPrevious = false;
       act.cancel = false;
     }
-
-    console.log("🎯 FINAL ACT OBJECT:", {
-      approve: act.approve,
-      role: getUserRole(),
-      currentStatus: formData.status,
-      isOpManager,
-      requiresOpManagerApproval: typeof requiresOpManagerApproval !== 'undefined' ? requiresOpManagerApproval : 'undefined',
-      totalAmount: typeof totalAmount !== 'undefined' ? totalAmount : 'undefined'
-    });
 
     return act;
   };

@@ -3523,7 +3523,7 @@ const normalizeImageEntries = (list) => {
             }
             
             return (
-              <div className="mt-3 ml-6">
+              <div className="mt-3 ">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">ISS Remark Type</label>
                 {isCompleted ? (
                   <div className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded border border-gray-200">
