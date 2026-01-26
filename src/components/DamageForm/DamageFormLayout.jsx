@@ -670,9 +670,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // Check if ANY source has A2 or OP
     for (const userType of allUserTypes) {
       const upperType = userType.toString().toUpperCase().trim();
-      console.log("🔍 CHECKING userType:", upperType, "from sources:", allUserTypes);
       if (upperType === 'A2' || upperType === 'OP') {
-        console.log("✅ FOUND OP MANAGER by userType:", upperType);
         return 'op_manager';
       }
     }
@@ -2539,14 +2537,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const role = getUserRole();
       const currentStatus = formData.status || 'Ongoing';
 
-      console.log("🔍 APPROVE BUTTON LOGIC START:", {
-        hasExistingApprove: !!normalize(act.approve),
-        role,
-        currentStatus,
-        isOpManager,
-        userRole,
-        userType: currentUser?.user_type
-      });
       
       // Get total amount to check if Operation Manager approval is required
       const totalAmount = Number(
@@ -2561,32 +2551,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const requiresOpManagerApproval = totalAmount > 500000;
 
       if (role === 'branch_lp' && currentStatus === 'Ongoing') {
-        console.log("🎯 BRANCH LP LOGIC EXECUTED");
         act.approve = 'BMApprovedMem';
       } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm' || role === 'branch_lp') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
-        console.log("🎯 BM/ABM LOGIC EXECUTED");
         act.approve = 'BMApproved';
       } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
-        console.log("🎯 OP MANAGER LOGIC EXECUTED - checking conditions");
         // Operation Manager should only approve if amount > 500000
         // After Operation Manager acknowledges, form status should be OPApproved
         if (requiresOpManagerApproval) {
-          console.log("✅ SETTING OP APPROVE BUTTON for OP Manager:", {
-            isOpManager,
-            role,
-            currentStatus,
-            requiresOpManagerApproval,
-            totalAmount
-          });
           act.approve = 'OPApproved'; // Operation Manager approval should set OPApproved
         } else {
-          console.log("❌ NOT SETTING OP APPROVE - amount too low:", {
-            totalAmount,
-            requiresOpManagerApproval,
-            isOpManager,
-            role,
-            currentStatus
-          });
+          // Do not set approve button for OP Manager if amount is low
         }
       } else if (role === 'account') {
         // Account can only issue after proper approval stage:
