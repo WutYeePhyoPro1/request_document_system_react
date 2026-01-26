@@ -19,6 +19,7 @@ import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
 import ProductDetailModal from "./ProductDetailModal";
 import ErrorModal from "../common/ErrorModal";
+import WarningModal from "../common/WarningModal";
 import "../DamageForm/ButtonHoverEffects.css";
 import img1 from "../../assets/images/marble texture.jpeg";
 import img2 from "../../assets/images/marble texture.jpeg";
@@ -2138,7 +2139,7 @@ const normalizeImageEntries = (list) => {
         message={qtyErrorModal.message}
         onClose={() => setQtyErrorModal({ isOpen: false, message: '' })}
       />
-      <ErrorModal
+      <WarningModal
         isOpen={amountWarningModal.isOpen}
         message={amountWarningModal.message}
         onClose={() => setAmountWarningModal({ isOpen: false, message: '' })}
@@ -2808,19 +2809,7 @@ const normalizeImageEntries = (list) => {
                                       return acc + amount;
                                     }, 0);
 
-                                    console.log('🔍 WARNING MODAL DEBUG:', {
-                                      isAccount,
-                                      status,
-                                      isBmOrOpApproved,
-                                      currentTotal,
-                                      totalAmountProp: totalAmount,
-                                      itemId: item.id,
-                                      valueToUse,
-                                      shouldShowModal: isAccount && isBmOrOpApproved && currentTotal > 500000
-                                    });
-
                                     if (isAccount && isBmOrOpApproved && currentTotal > 500000) {
-                                      console.log('🚨 SHOWING WARNING MODAL');
                                       setAmountWarningModal({
                                         isOpen: true,
                                         message: t('messages.amountOver500kWarning', {
