@@ -3420,7 +3420,6 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
   //Handle form submission (actual submission logic)
   const handleSubmit = async (action) => {
     // DEBUG: Log that handleSubmit was called
-    console.log('HANDLE_SUBMIT CALLED with action:', action);
 
     // Generate unique submission ID for tracking
     const currentSubmissionId = `submit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -3828,17 +3827,6 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
             ? formData.caseType
             : (initialData?.caseType || 'Not sell'));
 
-      // DEBUG: Log asset type determination during checking (before assetType calculation)
-      if (action === 'Checked' || action === 'BMApproved' || action === 'BMApprovedMem') {
-        console.log('Asset type determination during approval:', {
-          action,
-          isExistingForm,
-          generalFormId,
-          initialDataAssetType: initialData?.asset_type,
-          initialDataCaseType: initialData?.caseType,
-          currentCaseType
-        });
-      }
 
       // Normalize the caseType value (handle variations)
       const normalizedCaseType = String(currentCaseType).trim();
@@ -3851,19 +3839,6 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
         assetType = 'off';
       }
 
-      // DEBUG: Log asset type determination during ALL approvals
-      console.log('Asset type determination - ALL ACTIONS:', {
-        action,
-        isExistingForm,
-        generalFormId,
-        initialDataAssetType: initialData?.asset_type,
-        initialDataCaseType: initialData?.caseType,
-        currentCaseType,
-        normalizedCaseType,
-        finalAssetType: assetType,
-        allInitialDataKeys: initialData ? Object.keys(initialData) : [],
-        formDataCaseType: formData?.caseType
-      });
 
       // Always include asset_type for both new and existing forms
       // This will override any asset_type that might have been set earlier
@@ -6539,8 +6514,6 @@ const resolveApproveAction = () => {
                 return null;
               }
 
-              console.log("🔥 APPROVE BUTTON: RENDERING BUTTON with action:", action);
-              
               const buttonClass = getButtonColorClass(action);
               const isCheckedButton = action === 'Checked' || action === 'BMApprovedMem';
               // Disable acknowledge-type actions if investigation is not filled

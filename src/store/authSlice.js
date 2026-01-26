@@ -17,28 +17,18 @@ export const login = createAsyncThunk(
         }
       );
 
-      console.log("🔥 REDUX LOGIN API RESPONSE:", response.data);
-      console.log("🔥 REDUX USER DATA RECEIVED:", response.data.user);
-
       // Use the user data directly from API (now includes user_type)
       const enriched = { ...response.data.user };
-
-      console.log("🔥 ENRICHED USER DATA:", enriched);
-      console.log("🔥 USER TYPE:", enriched.user_type);
-      console.log("🔥 ROLE ID:", enriched.role_id);
 
       const token = response.data.token;
 
       // Clear any old cached data first
-      console.log("🧹 CLEARING OLD CACHE");
       localStorage.removeItem('user');
       localStorage.removeItem('token');
 
       // Save in localStorage
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(enriched));
-
-      console.log("💾 STORED IN LOCALSTORAGE:", JSON.parse(localStorage.getItem('user')));
 
       // Return both user and token
       return { user: enriched, token };
@@ -91,25 +81,16 @@ export const loginWithToken = createAsyncThunk(
         { withCredentials: true }
       );
 
-      console.log("🔥 AUTO-LOGIN API RESPONSE:", response.data);
-      console.log("🔥 AUTO-LOGIN USER DATA:", response.data.user);
-
       const user = { ...response.data.user };
       const tokenValue = response.data.token;
-       const redirect = response.data.redirect; 
-
-      console.log("🔥 AUTO-LOGIN USER TYPE:", user.user_type);
-      console.log("🔥 AUTO-LOGIN ROLE ID:", user.role_id);
+       const redirect = response.data.redirect;
 
       // Clear any old cached data first
-      console.log("🧹 CLEARING OLD CACHE (AUTO-LOGIN)");
       localStorage.removeItem('user');
       localStorage.removeItem('token');
 
       localStorage.setItem("token", tokenValue);
       localStorage.setItem("user", JSON.stringify(user));
-
-      console.log("💾 AUTO-LOGIN STORED IN LOCALSTORAGE:", JSON.parse(localStorage.getItem('user')));
 
       return { user, token: tokenValue ,redirect };
     } catch (err) {

@@ -126,32 +126,21 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
 
     const loginWithToken = async (token) => {
         try {
-            console.log("🚀 STARTING AUTOCONTEXT LOGIN");
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setUser(null);
-            
+
             const response = await axios.post('/api/auto-login', { token }, {
-                withCredentials: true 
+                withCredentials: true
             });
 
-            console.log("🔥 AUTOCONTEXT LOGIN API RESPONSE:", response.data);
-            console.log("🔥 AUTOCONTEXT USER DATA:", response.data.user);
-            
             if (response.data && response.data.user) {
                 const userData = { ...response.data.user };
 
-                console.log("🔥 AUTOCONTEXT USER TYPE:", userData.user_type);
-                console.log("🔥 AUTOCONTEXT ROLE ID:", userData.role_id);
-                
                 // Store new user data (API now includes user_type)
                 localStorage.setItem('token', response.data.token);
                 localStorage.setItem('user', JSON.stringify(userData));
                 setUser(userData);
-
-                console.log("💾 AUTOCONTEXT STORED IN LOCALSTORAGE:", JSON.parse(localStorage.getItem('user')));
-                
-                console.log('[AUTO-LOGIN] User logged in:', enriched.name, enriched.emp_id);
                 return true;
             }
         } catch (error) {
