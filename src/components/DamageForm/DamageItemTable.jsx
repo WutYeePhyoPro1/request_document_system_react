@@ -817,10 +817,10 @@ export default function DamageItemTable({
           // Use actual_qty if available and valid, otherwise use request_qty as fallback
           const qtyForAmount = !isNaN(processedItem.actual_qty) && processedItem.actual_qty !== null && processedItem.actual_qty !== undefined && processedItem.actual_qty !== ''
             ? processedItem.actual_qty
-            : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
+              : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
 
-          processedItem.amount = processedItem.price * qtyForAmount;
-          processedItem.total = processedItem.amount;
+            processedItem.amount = processedItem.price * qtyForAmount;
+            processedItem.total = processedItem.amount;
         }
         
         // Ensure final_qty and actual_qty match request_qty if not set
@@ -1433,10 +1433,6 @@ const handleInputChange = (id, field, value) => {
           // If request_qty is already set to a non-zero value, don't update it
           
         onItemChange(index, 'actual_qty', qtyNumeric);
-          // Only initialize final_qty if it hasn't been set
-          if (item.final_qty === undefined || item.final_qty === null || item.final_qty === 0) {
-          onItemChange(index, 'final_qty', qtyNumeric);
-          }
         }
       } else if (qtyType === 'final_qty') {
         // CRITICAL: In Checked stage, don't update final_qty (it's read-only)
@@ -1819,10 +1815,10 @@ const normalizeImageEntries = (list) => {
   // Use actual_qty if available, otherwise use request_qty as fallback
   const total = items.reduce(
     (sum, item) => {
-      const price = toSafeNumber(item.price);
-      const actualQty = toSafeNumber(item.actual_qty);
+        const price = toSafeNumber(item.price);
+        const actualQty = toSafeNumber(item.actual_qty);
       const requestQty = toSafeNumber(item.request_qty);
-      const systemQty = toSafeNumber(item.system_qty);
+        const systemQty = toSafeNumber(item.system_qty);
 
       // Use actual_qty if available, otherwise request_qty
       let qtyForTotal = actualQty || requestQty || 0;
@@ -2189,6 +2185,15 @@ const normalizeImageEntries = (list) => {
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
             )}
           </button>
+
+          {/* Account Code Selection Hint - Only show for branch account viewing BM Approved or OP Approved forms */}
+          {isAccount && (status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved') && (
+            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200 ml-2">
+              {t('table.selectAllAccountCodesHint', {
+                defaultValue: 'You can select the account code all at once when you click select all button'
+              })}
+            </div>
+          )}
 
           {/* Bulk Account Code Selector - Only show when items are selected and account codes are visible */}
           {showAccountCodes && selectedIds.length > 0 && !isCompleted && (
@@ -2644,7 +2649,7 @@ const normalizeImageEntries = (list) => {
                         // Temporarily disabled to prioritize actual_qty editing
                         // const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
                         const canEditProductType = false; // Disabled to allow actual_qty editing
-
+                        
                         // In Checked stage, Actual Qty should be editable
                         // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
                         // Also make read-only for Branch Account users viewing OPApproved forms
@@ -2655,7 +2660,6 @@ const normalizeImageEntries = (list) => {
                                                          normalizedStatusForActualQty.toLowerCase() === 'op approved';
                         const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated);
                         const normalizedStatusForEdit = (status || '').toString().trim();
-                        console.log('DEBUG status normalization:', { originalStatus: status, normalizedStatusForEdit });
 
                         const isBMApprovedForEdit = normalizedStatusForEdit === 'BM Approved' ||
                                                    normalizedStatusForEdit === 'BMApproved' ||
@@ -2672,20 +2676,7 @@ const normalizeImageEntries = (list) => {
 
                         const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly ||
                                                  (isAccount && (isBMApprovedForEdit || isOPApprovedForEdit || isAcAcknowledgedForEdit));
-
-                        // DEBUG: Log actual_qty editing logic
-                        console.log('DEBUG canEditActualQty:', {
-                          status,
-                          isCompleted,
-                          isAccount,
-                          isBMApprovedForEdit,
-                          isOPApprovedForEdit,
-                          isAcAcknowledgedForEdit,
-                          shouldMakeActualQtyReadOnly,
-                          normalizedStatusForEdit,
-                          finalCanEdit: canEditActualQty
-                        });
-
+                        
                         // Check for product_type editing first (disabled for now)
                         if (canEditProductType) {
                           return (
@@ -2736,7 +2727,6 @@ const normalizeImageEntries = (list) => {
                         
                         // In Checked stage, show editable input for actual_qty
                         if (canEditActualQty) {
-                          console.log('DEBUG: Rendering editable actual_qty input for item:', item.id);
                           return (
                             <div>
                               <input
@@ -2840,8 +2830,7 @@ const normalizeImageEntries = (list) => {
                             </div>
                           );
                         }
-
-                        console.log('DEBUG: Falling through to read-only display for actual_qty, item:', item.id, 'canEditActualQty:', canEditActualQty);
+                        
                         return formatQuantity(displayQty);
                       })()}
                     </td>

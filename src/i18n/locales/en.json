@@ -226,7 +226,7 @@
     "actions": {
       "submitForm": "Submit Form",
       "checkForm": "Check Form",
-      "approveBM": "Approve (BM)",
+      "approveBM": "Approval (BM)",
       "acknowledge": "Acknowledge",
       "approveOperationManager": "Approve (Operation Manager)",
       "issue": "Issue",
@@ -370,7 +370,8 @@
     "previousImage": "Previous image",
     "nextImage": "Next image",
     "total": "Total",
-    "updateSystemQtyWarning": "Please update your system qty before clicking the Issued button."
+    "updateSystemQtyWarning": "Please update your system qty before clicking the Issued button.",
+    "selectAllAccountCodesHint": "You can select the account code all at once when you click 'Select all' button"
   }
 }
 

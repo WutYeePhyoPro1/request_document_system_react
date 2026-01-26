@@ -670,7 +670,9 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     // Check if ANY source has A2 or OP
     for (const userType of allUserTypes) {
       const upperType = userType.toString().toUpperCase().trim();
+      console.log("🔍 CHECKING userType:", upperType, "from sources:", allUserTypes);
       if (upperType === 'A2' || upperType === 'OP') {
+        console.log("✅ FOUND OP MANAGER by userType:", upperType);
         return 'op_manager';
       }
     }
@@ -1011,6 +1013,13 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
 
   // User is op_manager if role name matches OR if they have OP approval entry
   const isOpManager = userRole === 'op_manager' || isOpManagerByApproval;
+  console.log("🔍 IS OP MANAGER CHECK:", {
+    userRole,
+    isOpManagerByApproval,
+    isOpManager,
+    userType: currentUser?.user_type,
+    roleId: currentUser?.role_id
+  });
   
   
 
@@ -1112,15 +1121,6 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     (currentUser?.user_type || currentUser?.userType || '').toString().toUpperCase().trim()
   );
   const isAccount = userRole === 'account' || isAccountByApproval || isAccountUserType;
-
-  // DEBUG: Log account detection
-  console.log('DEBUG isAccount:', {
-    userRole,
-    isAccountByApproval,
-    isAccountUserType,
-    currentUserType: currentUser?.user_type || currentUser?.userType,
-    finalIsAccount: isAccount
-  });
 
   const isDocumentOwner = currentUser?.id === initialData?.userId;
   // When the document owner is viewing an existing Ongoing form in view mode (not add/edit),
@@ -2460,10 +2460,27 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     const currentStatus = formData.status || 'Ongoing';
     // Normalize status the same way as in useMemo
     const normalizedStatus = (currentStatus || '').toString().trim().replace(/\s+/g, ' ');
-    
+
+    // Calculate isOpManager locally in this function scope
+    const currentUserId = currentUser?.id || currentUser?.admin_id || currentUser?.userId;
+    const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+    const isOpManagerByApprovalLocal = currentUserId ? approvals.some(approval => {
+      const userType = (approval?.user_type || approval?.raw?.user_type || '').toString().toUpperCase();
+      const adminId = approval?.admin_id || approval?.raw?.admin_id;
+      const actualUserId = approval?.actual_user_id || approval?.raw?.actual_user_id;
+      const userId = approval?.user?.id || approval?.user_id || approval?.user?.admin_id;
+      const allUserIds = [adminId, actualUserId, userId].filter(id => id !== undefined && id !== null);
+
+      const userTypeMatches = userType === 'OP' || userType === 'A2';
+      const userIdMatches = allUserIds.some(id => String(id) === String(currentUserId) || Number(id) === Number(currentUserId));
+
+      return userTypeMatches && userIdMatches;
+    }) : false;
+    const isOpManager = userRole === 'op_manager' || isOpManagerByApprovalLocal;
+
     // FIRST: Check if Branch Manager is viewing a form they already approved - this takes priority
     // If true, explicitly disable both buttons regardless of other conditions
-    const shouldHideButtonsForBM = isBMViewingOwnApprovedForm && 
+    const shouldHideButtonsForBM = isBMViewingOwnApprovedForm &&
                                    (normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved');
     
     
@@ -2529,6 +2546,15 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
     if (!normalize(act.approve)) {
       const role = getUserRole();
       const currentStatus = formData.status || 'Ongoing';
+
+      console.log("🔍 APPROVE BUTTON LOGIC START:", {
+        hasExistingApprove: !!normalize(act.approve),
+        role,
+        currentStatus,
+        isOpManager,
+        userRole,
+        userType: currentUser?.user_type
+      });
       
       // Get total amount to check if Operation Manager approval is required
       const totalAmount = Number(
@@ -2543,14 +2569,32 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       const requiresOpManagerApproval = totalAmount > 500000;
 
       if (role === 'branch_lp' && currentStatus === 'Ongoing') {
+        console.log("🎯 BRANCH LP LOGIC EXECUTED");
         act.approve = 'BMApprovedMem';
       } else if ((role === 'bm' || role === 'abm' || role === 'bm_abm' || role === 'branch_lp') && (currentStatus === 'Ongoing' || currentStatus === 'Checked')) {
+        console.log("🎯 BM/ABM LOGIC EXECUTED");
         act.approve = 'BMApproved';
       } else if ((isOpManager || role === 'op_manager') && (currentStatus === 'BM Approved' || currentStatus === 'BMApproved' || currentStatus === 'Checked')) {
+        console.log("🎯 OP MANAGER LOGIC EXECUTED - checking conditions");
         // Operation Manager should only approve if amount > 500000
         // After Operation Manager acknowledges, form status should be OPApproved
         if (requiresOpManagerApproval) {
+          console.log("✅ SETTING OP APPROVE BUTTON for OP Manager:", {
+            isOpManager,
+            role,
+            currentStatus,
+            requiresOpManagerApproval,
+            totalAmount
+          });
           act.approve = 'OPApproved'; // Operation Manager approval should set OPApproved
+        } else {
+          console.log("❌ NOT SETTING OP APPROVE - amount too low:", {
+            totalAmount,
+            requiresOpManagerApproval,
+            isOpManager,
+            role,
+            currentStatus
+          });
         }
       } else if (role === 'account') {
         // Account can only issue after proper approval stage:
@@ -2581,7 +2625,16 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
       act.backToPrevious = false;
       act.cancel = false;
     }
-    
+
+    console.log("🎯 FINAL ACT OBJECT:", {
+      approve: act.approve,
+      role: getUserRole(),
+      currentStatus: formData.status,
+      isOpManager,
+      requiresOpManagerApproval: typeof requiresOpManagerApproval !== 'undefined' ? requiresOpManagerApproval : 'undefined',
+      totalAmount: typeof totalAmount !== 'undefined' ? totalAmount : 'undefined'
+    });
+
     return act;
   };
 
@@ -2616,7 +2669,7 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   // Hide buttons for Branch Manager when status is Ongoing (BM should only act after Checker has checked)
   // Use case-insensitive comparison to be safe
   const userRoleLower = (userRole || '').toLowerCase();
-  const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm' || Number(currentUser?.role_id) === 3 || (currentUser?.role?.name || '').toLowerCase().includes('approver') || userRoleLower.includes('approver');
+  const isBranchManager = userRoleLower === 'bm' || userRoleLower === 'abm' || (currentUser?.role?.name || '').toLowerCase().includes('approver') || userRoleLower.includes('approver');
   const isOngoingStatus = (formData.status === 'Ongoing' || formData.status === 'ongoing');
   const shouldHideButtonsForBMInOngoing = isBranchManager && isOngoingStatus;
   
@@ -3594,29 +3647,19 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
                                   formData.assetType === 'on');
 
         // final_qty can be different from request_qty/actual_qty (user may change it in Ongoing stage)
-        // For "Other income sell" forms, use actual_qty instead of final_qty
+        // final_qty and actual_qty should remain independent for all form types
         // Treat empty strings, null, undefined, and 0 as unset - fallback to request_qty
         const isFinalQtySet = item?.final_qty !== undefined &&
                               item?.final_qty !== null &&
                               item?.final_qty !== '' &&
                               item?.final_qty !== 0 &&
                               !(typeof item?.final_qty === 'string' && item.final_qty.trim() === '');
-        let resolvedFinal;
-        if (isOtherIncomeSell) {
-          // For "Other income sell" forms, use actual_qty
-          resolvedFinal = (item?.actual_qty !== undefined && item?.actual_qty !== null && item?.actual_qty !== '' && item?.actual_qty !== 0)
-            ? safeNumber(item.actual_qty)
-            : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
-                ? safeNumber(item.product_type)
-                : finalRequestQty);
-        } else {
-          // For regular forms, use final_qty
-          resolvedFinal = isFinalQtySet
+        // final_qty is independent of actual_qty for all form types
+        const resolvedFinal = isFinalQtySet
             ? safeNumber(item.final_qty)
             : ((item?.product_type !== undefined && item?.product_type !== null && item?.product_type !== '' && item?.product_type !== 0)
                 ? safeNumber(item.product_type)
                 : finalRequestQty);
-        }
         
         // CRITICAL: Amount/total calculation depends on the form status:
         // - Checked: price * actual_qty (user edits actual_qty in Checked stage)
@@ -4663,9 +4706,38 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
                                    })();
 
           // Use response items if available (they may have updated account codes), otherwise keep current items
-          const responseItems = Array.isArray(response?.items) ? response.items : 
+          const responseItemsRaw = Array.isArray(response?.items) ? response.items :
                                Array.isArray(response?.general_form?.items) ? response.general_form.items :
                                null;
+
+          // Merge response items with current items to preserve user-submitted quantities
+          // but update account codes from backend response
+          let responseItems = null;
+          if (responseItemsRaw && Array.isArray(formData.items)) {
+            responseItems = formData.items.map(currentItem => {
+              // Find matching item in response by ID or code
+              const responseItem = responseItemsRaw.find(ri =>
+                ri.id === currentItem.id ||
+                ri.specific_form_id === currentItem.specific_form_id ||
+                ri.product_code === currentItem.product_code ||
+                ri.code === currentItem.code
+              );
+
+              if (responseItem) {
+                // Preserve user-submitted quantities, but update account codes from backend
+                return {
+                  ...currentItem, // Keep all current item data including quantities
+                  acc_code: responseItem.acc_code || currentItem.acc_code,
+                  acc_code1: responseItem.acc_code1 || currentItem.acc_code1,
+                  // Also preserve any other backend-updated fields that don't affect quantities
+                  amount: responseItem.amount || currentItem.amount,
+                  total: responseItem.total || currentItem.total,
+                };
+              }
+
+              return currentItem; // No matching response item, keep current
+            });
+          }
           
           // Resolve attachments from response - these are the files that were uploaded and saved by the backend
           const responseAttachments = resolveInitialAttachments(response, []);
@@ -5024,7 +5096,7 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
         }
 
         let errorMessage = t('messages.errors.formSubmitFailed');
-
+        
         if (apiError.status === 404) {
           errorMessage = t('messages.errors.notFound');
         } else if (apiError.status === 401) {
@@ -5996,15 +6068,6 @@ const resolveApproveAction = () => {
         </div>
       )}
 
-      {/* DEBUG: Log props being passed to DamageItemTable */}
-      {console.log('DEBUG DamageItemTable props:', {
-        status: (formData.status || formData.general_form?.status || initialData?.status || initialData?.general_form?.status || 'Ongoing').toString().trim(),
-        isAccount,
-        userRole,
-        mode,
-        isCompleted: formData.status === 'Completed' || formData.status === 'Issued' || formData.status === 'SupervisorIssued'
-      })}
-
       <DamageItemTable
         items={formData.items || []}
         mode={mode}
@@ -6298,7 +6361,25 @@ const resolveApproveAction = () => {
           // Remove duplicates
           .filter((value, index, self) => self.indexOf(value) === index);
 
-        // Only show if we have at least one of them
+        // Show processing message if status is Completed but ISS data is not yet available
+        const isCompletedStatus = formData.status === 'Completed' || formData.status === 'completed';
+        const hasIssData = remarkTypeLabel || issNumbers.length > 0;
+
+        if (isCompletedStatus && !hasIssData) {
+          return (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
+              <h4 className="text-sm sm:text-base font-semibold text-orange-800 flex items-center gap-2 mb-3">
+                <Hash size={18} className="text-orange-600" />
+                Processing Status
+              </h4>
+              <div className="text-sm text-orange-700">
+                <p className="font-medium">{t('messages.formStillProcessing', { defaultValue: 'Form is still processing, wait until iss number and iss remark type appear, and don\'t forget to refresh.' })}</p>
+              </div>
+            </div>
+          );
+        }
+
+        // Only show ISS information if we have at least one of them
         if (remarkTypeLabel || issNumbers.length > 0) {
           return (
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
@@ -6366,6 +6447,7 @@ const resolveApproveAction = () => {
         isRegularUser={isRegularUser}
         isCheckerWhoApproved={isCheckerWhoApproved}
         systemQtyUpdated={Boolean(formData.systemQtyUpdated)}
+        totalAmount={totalAmount}
       />
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
@@ -6460,9 +6542,11 @@ const resolveApproveAction = () => {
               const currentUserType = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
               // Only force acknowledge for OP when form requires OP Manager approval
               // Be permissive when detecting BM Approved status variants (bmapproved, bmapproved, 'BM Approved')
-              const isResolvedBmApproved = resolvedStatusLower.includes('bm') && resolvedStatusLower.includes('approved');
+              const safeResolvedStatusLower = (resolvedStatusLower || '').toString().toLowerCase();
+              const isResolvedBmApproved = safeResolvedStatusLower.includes('bm') && safeResolvedStatusLower.includes('approved');
               const forcedOpAcknowledge = (currentUserType === 'A2' || currentUserType === 'OP') && isResolvedBmApproved && requiresOpManagerApproval;
               const forcedOpByRole = (userRoleLower === 'op_manager' || userRoleLower === 'op') && isResolvedBmApproved && requiresOpManagerApproval;
+
               // If a regular user and BM Approved + high amount, do not show approve button
               try {
                 const normalizedStatusLocal = (formData.status || resolvedStatus || '').toString().trim().replace(/\s+/g, ' ');
@@ -6479,7 +6563,7 @@ const resolveApproveAction = () => {
               if (!action && (forcedOpAcknowledge || forcedOpByRole)) {
                 action = 'OPApproved';
               }
-              
+
               // Check if this is an OP manager acknowledge scenario to avoid duplicate buttons
                 const isResolvedBmApprovedLocal = (resolvedStatusLower || '').includes('bm') && (resolvedStatusLower || '').includes('approved');
                 const currentUserTypeLocal = (currentUser?.user_type || currentUser?.userType || currentUser?.role?.user_type || initialData?.current_user?.user_type || '').toString().toUpperCase();
@@ -6487,7 +6571,7 @@ const resolveApproveAction = () => {
                 const totalAmtLocal = totalAmountForRender;
                 const requiresOpLocal = Number(totalAmtLocal) > 500000;
               const isOpAcknowledgeScenario = isOpUserLocal && isResolvedBmApprovedLocal && requiresOpLocal;
-              
+
               // If OP manager acknowledge scenario, ensure action is set and use single button rendering
               if (isOpAcknowledgeScenario && !action) {
                 action = 'OPApproved';
@@ -6497,6 +6581,8 @@ const resolveApproveAction = () => {
               if (!action || isSubmitting) {
                 return null;
               }
+
+              console.log("🔥 APPROVE BUTTON: RENDERING BUTTON with action:", action);
               
               const buttonClass = getButtonColorClass(action);
               const isCheckedButton = action === 'Checked' || action === 'BMApprovedMem';
@@ -6507,7 +6593,8 @@ const resolveApproveAction = () => {
               // For OP acknowledge scenario, use special handling for A2 users (force show even without investigation)
               const forceShowForA2 = isOpAcknowledgeScenario && currentUserTypeLocal === 'A2';
               const shouldDisable = disableDueToInvestigation && !forceShowForA2;
-              
+
+
               return (
                 <button 
                   onClick={() => handleSubmitClick(action)}

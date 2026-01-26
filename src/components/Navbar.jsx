@@ -206,7 +206,7 @@ export default function Navbar({ toggleSidebar }) {
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Role</p>
                                             <p className="text-sm font-semibold text-gray-900 truncate">
-                                                { user?.role?.name || user?.role_name || user?.roleName || user?.role?.user_type || (user?.role_id ) || (user?.role_id ? `Role ID: ${user.role_id}` : 'N/A')} {user?.from_branch?.branch_name}
+                                                { user?.role_name || user?.role?.name || user?.roleName || user?.role?.user_type || (user?.role_id ? `Role ID: ${user.role_id}` : 'N/A')} {user?.branch_name || user?.from_branch?.branch_name}
                                             </p>
                                         </div>
                                         {/* <div className="flex-1 min-w-0">
@@ -250,7 +250,7 @@ export default function Navbar({ toggleSidebar }) {
                                             <div className="flex-1 min-w-0">
                                                 <p className="text-[10px] sm:text-xs font-semibold text-gray-500 uppercase tracking-wider mb-0.5">Department</p>
                                                 <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
-                                                    { user?.department?.name || user?.departments?.name || user?.department_name || (user?.department_id ) || (user?.department_id ? `Dept ID: ${user.department_id}` : 'N/A')}
+                                                    { user?.department_name || user?.department?.name || user?.departments?.name || (user?.department_id ? `Dept ID: ${user.department_id}` : 'N/A')}
                                                 </p>
                                             </div>
                                         </div>

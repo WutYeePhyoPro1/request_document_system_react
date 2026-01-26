@@ -7,7 +7,7 @@ import { PlusCircleIcon, FunnelIcon, PlusIcon, XMarkIcon } from '@heroicons/reac
 import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
 import BigDamageIsuueLogo from "../../assets/images/big-dmg-issue-logo.png";
-import { filterFormsByRole, getDefaultStatusFilter } from "../../utils/roleBasedFilter";
+import { filterFormsByRole } from "../../utils/roleBasedFilter";
 import { canViewAllBranches } from "../../utils/userAccess";
 import { useContext } from 'react';
 import { NotificationContext } from '../../context/NotificationContext';
@@ -33,53 +33,8 @@ const Dashboard = () => {
     const statusParam = searchParams.get('status');
     const branchParam = searchParams.get('branch');
     
-    // Parse status - now may be comma-separated string; if missing, set role-based defaults
+    // Parse status - no role-based defaults applied
     let status = statusParam || "";
-    if (!status) {
-      try {
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-        const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-
-        // Prefer authoritative user_type when available
-        // If user has global/all-branch access, skip frontend role defaults (backend will handle visibility)
-        const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
-        const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
-
-        const isCheckerUser = (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c')) || role.includes('checker');
-
-        if (!hasAllBranchAccess || isCheckerUser) {
-          if (userType) {
-            if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
-              status = ['Ongoing', 'Checked'].join(',');
-            } else if (userType === 'a1') {
-              // Branch Manager (A1) - do NOT set frontend default here; backend will apply BM defaults.
-              status = '';
-            } else if (userType === 'a2') {
-              status = ['BM Approved', 'Ac_Acknowledged'].join(',');
-            } else if (userType === 'ac') {
-              // For account users, include Operation Manager Approved (OPApproved) in default filter
-              status = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-            }
-          } else {
-            // Fallback to role string detection
-          // Fallback to role string detection
-          if (role.includes('checker')) {
-            status = ['Ongoing', 'Checked'].join(',');
-          } else if (role.includes('approver') || role.includes('branch manager')) {
-            status = ['Checked', 'BM Approved'].join(',');
-          } else if (role.includes('operation manager') || role.includes('op manager')) {
-            status = ['BM Approved', 'Ac_Acknowledged'].join(',');
-          } else if (role.includes('account') || role.includes('branch account')) {
-            // For account roles, include OPApproved (Operation Manager Approved) in default filter
-            status = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-          }
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
     
     // Parse branch - will be set after branchOptions are loaded
     let branch = null;
@@ -98,35 +53,6 @@ const Dashboard = () => {
   }, [searchParams]);
 
   const [filters, setFilters] = useState(initializeFiltersFromUrl);
-  // Prompt-based opt-in for Branch Account default filters
-  useEffect(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-      const isBranchAccount = userType === 'ac' || role.includes('branch account') || role.includes('account');
-
-      if (!isBranchAccount) return;
-
-      const pref = localStorage.getItem('bd_apply_role_defaults');
-      if (pref === null) {
-        // Show a simple confirm prompt once
-        const accept = window.confirm('Apply default filter for Branch Account to hide Ongoing and Checked forms? Select OK to apply defaults.');
-        localStorage.setItem('bd_apply_role_defaults', accept ? 'true' : 'false');
-        // If user accepted, set filters.status so UI immediately reflects choice
-        if (accept) {
-          setFilters(prev => ({ ...prev, status: ['BM Approved','OPApproved','Ac_Acknowledged'].join(',') }));
-        }
-      } else if (pref === 'true') {
-        // If already opted-in, ensure status is set when no explicit status param present
-        if (!searchParams.get('status')) {
-          setFilters(prev => ({ ...prev, status: ['BM Approved','OPApproved','Ac_Acknowledged'].join(',') }));
-        }
-      }
-    } catch (e) {
-      // ignore parse errors
-    }
-  }, []);
   const [perPage, setPerPage] = useState(999999); // show all by default
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -890,25 +816,6 @@ const Dashboard = () => {
   // Trigger when URL search changes or branch options update
   }, [location.search, branchOptions, initializeFiltersFromUrl]);
 
-  useEffect(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user'));
-      // Only set default branch if:
-      // 1. User has a branch ID
-      // 2. No branch filter is currently set
-      // 3. No branch is in URL params (to preserve filters when navigating back)
-      // 4. Filters have been initialized from URL
-      const branchFromUrl = searchParams.get('branch');
-    if (!canViewAllBranchesAccess && storedUser?.from_branch_id && !filters.branch && !branchFromUrl && filtersInitializedRef.current) {
-        const defaultBranch = branchOptions.find(o => o.value === storedUser.from_branch_id);
-        if (defaultBranch) {
-          setFilters(prev => ({ ...prev, branch: defaultBranch }));
-        }
-      }
-    } catch (_) {
-      // ignore parsing issues
-    }
-  }, [branchOptions, filters.branch, searchParams, canViewAllBranchesAccess]);
 
   const hasActiveFilters = useMemo(() => {
     return Boolean(
@@ -1018,58 +925,12 @@ const Dashboard = () => {
       clearTimeout(filterTimeoutRef.current);
     }
 
-    // Calculate default status based on user role (same logic as initializeFiltersFromUrl)
-    let defaultStatus = "";
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-
-      // Prefer authoritative user_type when available
-      // If user has global/all-branch access, skip frontend role defaults (backend will handle visibility)
-      const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
-      const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
-
-      const isCheckerUser = (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c')) || role.includes('checker');
-
-      if (!hasAllBranchAccess || isCheckerUser) {
-        if (userType) {
-          if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
-            defaultStatus = ['Ongoing', 'Checked'].join(',');
-          } else if (userType === 'a1') {
-            // Branch Manager (A1) - do NOT set frontend default here; backend will apply BM defaults.
-            defaultStatus = '';
-          } else if (userType === 'a2') {
-            defaultStatus = ['BM Approved', 'Ac_Acknowledged'].join(',');
-          } else if (userType === 'ac') {
-            // For account users, include Operation Manager Approved (OPApproved) in default filter
-            defaultStatus = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-          }
-        } else {
-          // Fallback to role string detection
-          if (role.includes('checker')) {
-            defaultStatus = ['Ongoing', 'Checked'].join(',');
-          } else if (role.includes('approver') || role.includes('branch manager')) {
-            defaultStatus = ['Checked', 'BM Approved'].join(',');
-          } else if (role.includes('operation manager') || role.includes('op manager')) {
-            defaultStatus = ['BM Approved', 'Ac_Acknowledged'].join(',');
-          } else if (role.includes('account') || role.includes('branch account')) {
-            // For account roles, include OPApproved (Operation Manager Approved) in default filter
-            defaultStatus = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-          }
-        }
-      }
-    } catch (e) {
-      // ignore parse errors, use empty string as default
-      defaultStatus = "";
-    }
-
     const clearedFilters = {
       productName: "",
       formDocNo: "",
       fromDate: "",
       toDate: "",
-      status: defaultStatus, // Reset to default status based on user role, not empty string
+      status: [], // Clear to empty array, no default filters
       branch: null,
     };
 
