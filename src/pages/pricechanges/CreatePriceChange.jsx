@@ -398,11 +398,44 @@ export default function () {
         if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
-        // try{
-        //     const {data} = await axios.post("/api/price_changes",{form});
-        // }catch(err){
+         try{
+            const res = await axios.post(`/api/price_changes`,formData,{
+                headers: {
+                Authorization: `Bearer ${token}`,
+                },
+            });
+            console.log(res.data);
 
-        // }
+            const data = res.data;
+
+            if(data.success == false){
+                if(data.errors){
+                    let errorMessages = "";
+                    Object.values(data.errors).forEach(errorArray => {
+                        errorArray.forEach(error => {
+                            errorMessages += `• ${error} \n`;
+                        });
+                    });
+
+                    Swal.fire({
+                        icon: "error",
+                        title: " Invalid Form!!",
+                        // text: "Some fields contain errors. Please review the form and try again.",
+                        text: errorMessages,
+                    });
+                }
+            }
+
+        }catch(err){
+            console.log('There is an error in saving price change document:',err);
+            // setLoader(false);
+
+            Swal.fire({
+                icon: "error",
+                title: "Form Submit Error!!",
+                text: "Something went wrong while submitting the form.",
+            });
+        }
     }
     const excelImportHandler = async (e) => {
         setImporting(true);
