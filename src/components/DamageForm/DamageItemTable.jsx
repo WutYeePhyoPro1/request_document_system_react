@@ -2789,8 +2789,9 @@ const normalizeImageEntries = (list) => {
 
                                     handleQtyChange(item.id, valueToUse, 'actual_qty');
 
-                                    // Check if branch account is editing actual_qty in BM Approved/OP Approved status with amount > 500k
-                                    const isBmOrOpApproved = status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved';
+                                    // Check if branch account is editing actual_qty in BM Approved status with amount > 500k
+                                    // OP Approved forms don't need warning as they're already approved by Operation Manager
+                                    const isBmApprovedOnly = status === 'BM Approved' || status === 'BMApproved';
 
                                     // Calculate current total from items to check against 500k threshold
                                     // Use the updated value for current item, existing values for others
@@ -2809,7 +2810,7 @@ const normalizeImageEntries = (list) => {
                                       return acc + amount;
                                     }, 0);
 
-                                    if (isAccount && isBmOrOpApproved && currentTotal > 500000) {
+                                    if (isAccount && isBmApprovedOnly && currentTotal > 500000) {
                                       setAmountWarningModal({
                                         isOpen: true,
                                         message: t('messages.amountOver500kWarning', {
