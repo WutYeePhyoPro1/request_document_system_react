@@ -305,7 +305,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.[0].cctv_record==='on');
+    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.id,'id');
 
     return (
         <>
