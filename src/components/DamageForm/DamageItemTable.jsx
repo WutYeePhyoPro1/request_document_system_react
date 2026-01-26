@@ -2746,22 +2746,22 @@ const normalizeImageEntries = (list) => {
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
-                                  
+
                                   // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                                   // Also allow comma (,) as decimal separator (common in some locales)
                                   // Convert comma to dot for consistency
                                   let normalizedValue = nextValue.replace(',', '.');
-                                  
+
                                   // Check: only digits and at most one dot (after normalization)
                                   const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
-                                  
-                                  
+
+
                                   if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                                     const valueToUse = normalizedValue;
                                     // Validate against system_qty (only if we have a valid number)
                                     const systemQty = parseFloat(item.system_qty) || 0;
                                     const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
-                                    
+
                                     if (systemQty === 0 && numericValue > 0) {
                                       // Show error modal
                                       setQtyErrorModal({
@@ -2770,13 +2770,13 @@ const normalizeImageEntries = (list) => {
                                       });
                                       return; // Don't update the value
                                     }
-                                    
+
                                     if (systemQty > 0 && numericValue > systemQty) {
                                       // Show error modal
                                       const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
                                       setQtyErrorModal({
                                         isOpen: true,
-                                        message: t('messages.errors.actualQtyExceedsSystem', { 
+                                        message: t('messages.errors.actualQtyExceedsSystem', {
                                           productName,
                                           qty: numericValue,
                                           systemQty,
@@ -2785,20 +2785,42 @@ const normalizeImageEntries = (list) => {
                                       });
                                       return; // Don't update the value
                                     }
-                                    
+
                                     handleQtyChange(item.id, valueToUse, 'actual_qty');
 
                                     // Check if branch account is editing actual_qty in BM Approved/OP Approved status with amount > 500k
                                     const isBmOrOpApproved = status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved';
 
                                     // Calculate current total from items to check against 500k threshold
-                                    // This ensures we use the updated amount after quantity changes
-                                    const currentTotal = items.reduce((acc, item) => {
-                                      const amount = Number(item.amount || item.total || 0);
-                                      return acc + (Number.isFinite(amount) ? amount : 0);
+                                    // Use the updated value for current item, existing values for others
+                                    const currentItemId = item.id;
+                                    const currentTotal = items.reduce((acc, currItem) => {
+                                      let qty;
+                                      if (String(currItem.id) === String(currentItemId)) {
+                                        // This is the current item being edited - use the new value
+                                        qty = parseFloat(valueToUse) || 0;
+                                      } else {
+                                        // Other items - use their current actual_qty
+                                        qty = parseFloat(currItem.actual_qty) || 0;
+                                      }
+                                      const price = parseFloat(currItem.price) || 0;
+                                      const amount = qty * price;
+                                      return acc + amount;
                                     }, 0);
 
+                                    console.log('🔍 WARNING MODAL DEBUG:', {
+                                      isAccount,
+                                      status,
+                                      isBmOrOpApproved,
+                                      currentTotal,
+                                      totalAmountProp: totalAmount,
+                                      itemId: item.id,
+                                      valueToUse,
+                                      shouldShowModal: isAccount && isBmOrOpApproved && currentTotal > 500000
+                                    });
+
                                     if (isAccount && isBmOrOpApproved && currentTotal > 500000) {
+                                      console.log('🚨 SHOWING WARNING MODAL');
                                       setAmountWarningModal({
                                         isOpen: true,
                                         message: t('messages.amountOver500kWarning', {
