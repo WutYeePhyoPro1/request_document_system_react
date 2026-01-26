@@ -338,7 +338,8 @@ export default function DamageItemTable({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [qtyErrorModal, setQtyErrorModal] = useState({ isOpen: false, message: '' });
-  
+  const [amountWarningModal, setAmountWarningModal] = useState({ isOpen: false, message: '' });
+
   // Filter state
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -2132,10 +2133,15 @@ const normalizeImageEntries = (list) => {
         message={errorModal.message}
         onClose={() => setErrorModal({ isOpen: false, message: '' })}
       />
-      <ErrorModal 
+      <ErrorModal
         isOpen={qtyErrorModal.isOpen}
         message={qtyErrorModal.message}
         onClose={() => setQtyErrorModal({ isOpen: false, message: '' })}
+      />
+      <ErrorModal
+        isOpen={amountWarningModal.isOpen}
+        message={amountWarningModal.message}
+        onClose={() => setAmountWarningModal({ isOpen: false, message: '' })}
       />
       {/* Action buttons and Add Product button with search bar */}
       <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
@@ -2781,6 +2787,17 @@ const normalizeImageEntries = (list) => {
                                     }
                                     
                                     handleQtyChange(item.id, valueToUse, 'actual_qty');
+
+                                    // Check if branch account is editing actual_qty in BM Approved/OP Approved status with amount > 500k
+                                    const isBmOrOpApproved = status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved';
+                                    if (isAccount && isBmOrOpApproved && totalAmount > 500000) {
+                                      setAmountWarningModal({
+                                        isOpen: true,
+                                        message: t('messages.amountOver500kWarning', {
+                                          defaultValue: 'The total amount exceeds 500,000. Please click "Back to Previous" to return this form for Operation Manager approval before making changes.'
+                                        })
+                                      });
+                                    }
                                   }
                                 }}
                                 onBlur={(e) => {

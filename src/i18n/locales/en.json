@@ -142,6 +142,7 @@
     "issRemarkRequired": "Please select ISS remark type before issuing the form.",
     "accountCodesRequired": "Please assign account codes to all products before issuing the form.",
     "issRemarkAndAccountCodesRequired": "Please select ISS remark type and assign account codes to all products before issuing.",
+    "amountOver500kWarning": "The total amount exceeds 500,000. Please click 'Back to Previous' to return this form for Operation Manager approval before making changes.",
     "errors": {
       "authTokenNotFound": "Authentication token not found. Please log in again.",
       "sessionExpired": "Your session has expired. Please log in again.",
