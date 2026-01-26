@@ -2790,7 +2790,15 @@ const normalizeImageEntries = (list) => {
 
                                     // Check if branch account is editing actual_qty in BM Approved/OP Approved status with amount > 500k
                                     const isBmOrOpApproved = status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved';
-                                    if (isAccount && isBmOrOpApproved && totalAmount > 500000) {
+
+                                    // Calculate current total from items to check against 500k threshold
+                                    // This ensures we use the updated amount after quantity changes
+                                    const currentTotal = items.reduce((acc, item) => {
+                                      const amount = Number(item.amount || item.total || 0);
+                                      return acc + (Number.isFinite(amount) ? amount : 0);
+                                    }, 0);
+
+                                    if (isAccount && isBmOrOpApproved && currentTotal > 500000) {
                                       setAmountWarningModal({
                                         isOpen: true,
                                         message: t('messages.amountOver500kWarning', {
