@@ -92,6 +92,12 @@
     "issuedBy": "Issued by",
     "acknowledgedBy": "Acknowledged by"
   },
+  "iss": {
+    "title": "ISS Information",
+    "remarkType": "ISS Remark Type",
+    "number": "ISS Number",
+    "numbers": "ISS Numbers"
+  },
   "status": {
     "ongoing": "Ongoing",
     "checked": "Checked",

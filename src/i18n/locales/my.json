@@ -102,6 +102,12 @@
     "issuedBy": "ထုတ်ပေးသူ",
     "acknowledgedBy": "အသိအမှတ်ပြုသူ"
   },
+  "iss": {
+    "title": "ISS အချက်အလက်များ",
+    "remarkType": "ISS မှတ်ချက် အမျိုးအစား",
+    "number": "ISS နံပါတ်",
+    "numbers": "ISS နံပါတ်များ"
+  },
   "status": {
     "ongoing": "ဆောင်ရွက်ဆဲ",
     "checked": "စစ်ဆေးပြီး",

@@ -6317,18 +6317,18 @@ const resolveApproveAction = () => {
             <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
               <h4 className="text-sm sm:text-base font-semibold text-gray-800 flex items-center gap-2 mb-3">
                 <Hash size={18} className="text-gray-600" />
-                ISS Information
+                {t('iss.title', { defaultValue: 'ISS Information' })}
               </h4>
               <div className="flex flex-col gap-3">
                 {remarkTypeLabel && (
                   <div className="inline-flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
-                    <span className="font-semibold text-amber-800">ISS Remark Type:</span>
+                    <span className="font-semibold text-amber-800">{t('iss.remarkType', { defaultValue: 'ISS Remark Type' })}:</span>
                     <span>{remarkTypeLabel}</span>
                   </div>
                 )}
                 {issNumbers.length > 0 && (
                   <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2.5">
-                    <span className="font-semibold text-blue-800 whitespace-nowrap">ISS Number{issNumbers.length > 1 ? 's' : ''}:</span>
+                    <span className="font-semibold text-blue-800 whitespace-nowrap">{issNumbers.length > 1 ? t('iss.numbers', { defaultValue: 'ISS Numbers' }) : t('iss.number', { defaultValue: 'ISS Number' })}:</span>
                     <span className="flex flex-wrap gap-1.5">
                       {issNumbers.map((issNum, idx) => (
                         <span key={idx} className="font-mono text-blue-900 bg-blue-100 px-2 py-0.5 rounded">
