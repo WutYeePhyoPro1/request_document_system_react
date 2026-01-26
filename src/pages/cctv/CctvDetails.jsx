@@ -305,7 +305,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail',recordDetails??'no detail');
+    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.[0].cctv_record==='on');
 
     return (
         <>
@@ -704,10 +704,11 @@ export default function CctvDetails() {
                     ➡ "Upload" button တစ်ခုပြတယ်
                     ➡ ဖိုင်တင်ဖို့ Modal ဖွင့်ခေါ်မယ်
                     ➡ အနီရောင်သတိပေးစာပါပြတယ်။ */}
+                    
 
                                 {isBranchITApprover &&
                                     recordDetails.form.status === 'BM Approved' &&
-                                    recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                    recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                         <CctvUploadVideo
                                             recordId={recordDetails?.detail_datas?.[0]?.id}
                                             generalId={id}
@@ -718,7 +719,7 @@ export default function CctvDetails() {
                                 <div>
                                     {isBranchITApprover &&
                                         recordDetails.status === 'BM Approved' &&
-                                        recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                        recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                             <>
                                                 <span className="text-red-500 text-sm"></span>
                                                 {/* {errors.video} */}

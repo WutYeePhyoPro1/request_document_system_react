@@ -292,17 +292,18 @@ const RequestDiscountDataDetailTable: React.FC = () => {
       ) : (
         item.bm_discount ?? item.request_discount
       ),
-      isSupervisor && status === "BM Approved" && item.check == null && checkDiscountProduct === true ? (
-        <Input
-          className="border border-blue-300 rounded w-20"
-          type="number"
-          value={formData.category_discount?.[index] ?? item.category_discount ?? item.bm_discount}
-          onChange={(e) => handleCateCheck(index, e, Number(item.bm_discount), checked ? "checked" : "null")}
-          name="category_discount"
-        />
-      ) : (
-        item.category_discount ?? item.request_discount
-      ),
+       item.category_discount ?? item.request_discount,
+      // isSupervisor && status === "BM Approved" && item.check == null && checkDiscountProduct === true ? (
+      //   <Input
+      //     className="border border-blue-300 rounded w-20"
+      //     type="number"
+      //     value={formData.category_discount?.[index] ?? item.category_discount ?? item.bm_discount}
+      //     onChange={(e) => handleCateCheck(index, e, Number(item.bm_discount), checked ? "checked" : "null")}
+      //     name="category_discount"
+      //   />
+      // ) : (
+      //   item.category_discount ?? item.request_discount
+      // ),
       item.remark,
       <input key={`product-${index}`} type="hidden" value={productId} name="product_id" />,
     ];
