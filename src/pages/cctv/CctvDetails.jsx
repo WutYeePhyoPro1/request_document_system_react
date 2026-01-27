@@ -710,7 +710,7 @@ export default function CctvDetails() {
                                     recordDetails.form.status === 'BM Approved' &&
                                     recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                         <CctvUploadVideo
-                                            recordId={recordDetails?.detail_datas?.[0]?.id}
+                                            recordId={recordDetails?.detail_datas?.[0]?.[0]?.id}
                                             generalId={id}
                                             docNo={formDocno}
                                         />
