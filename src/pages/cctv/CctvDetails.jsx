@@ -80,6 +80,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
+        console.log('is branch it user=>','role id =>',user?.role_id,user?.id);
         const isBranchITUser = user?.role_id === 'Branch IT';
         console.log('is branch it user=>',isBranchITUser,'role id =>',user.role_id);
         return current_user && isBranchITUser;
