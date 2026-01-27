@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => {
       host: true,
       proxy: {
         '/api': {
-          target: env.VITE_API_URL,
+          target: env.VITE_API_URL||'http://rds.test',
           changeOrigin: true,
           secure: false,
           // No rewrite needed - forward /api/* to backend /api/*
