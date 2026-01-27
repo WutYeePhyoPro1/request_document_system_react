@@ -119,6 +119,7 @@ useEffect(() => {
             counts[form.id] = count;
           })
         );
+        // console.log(counts);
 
         setFormCounts(counts);
       } catch (error) {

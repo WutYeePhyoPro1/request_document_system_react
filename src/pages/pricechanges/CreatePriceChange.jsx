@@ -215,7 +215,10 @@ export default function () {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || '',
-                price2: apiProduct.price2 | row["Price 2"] || ''
+                price2: apiProduct.price2 | row["Price 2"] || '',
+                net_cost_price: 0,
+                profit: 0,
+                remark: 0
             };
             if(!data.error){
                 setProductCode("");
@@ -326,12 +329,13 @@ export default function () {
     // };
 
 
-    const submitHandler = async (e)=>{
+    const submitHandler = async (e,btntype)=>{
         e.preventDefault();
         setIsSubmitting(true);
             const formData = {
             ...formState,
-            products
+            products,
+            btnValue: btntype
         };
         console.log(formData);
 
@@ -425,6 +429,13 @@ export default function () {
                     });
                 }
             }
+
+            Swal.fire({
+                icon: "success",
+                title: "Form submitted successfully!",
+                text: data.message,
+            });
+            navigate("/price_changes");
 
         }catch(err){
             console.log('There is an error in saving price change document:',err);
@@ -652,6 +663,7 @@ export default function () {
                             class="px-4 py-2 text-sm rounded-lg
                                 border border-gray-300 text-gray-700
                                 hover:bg-gray-100 transition"
+                            onClick={(e)=>submitHandler(e,1)}    
                             >
                             Save as Draft
                         </button>
@@ -661,7 +673,7 @@ export default function () {
                             class="px-4 py-2 text-sm rounded-lg
                                 bg-blue-600 text-white
                                 hover:bg-blue-700 transition"
-                            onClick={submitHandler}    
+                            onClick={(e)=>submitHandler(e,2)}    
                             >
                             Save
                         </button>
