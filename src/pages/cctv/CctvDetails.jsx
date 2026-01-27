@@ -307,7 +307,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail', recordDetails ?? 'no detail');
+    console.log('detail', recordDetails ?? 'no detail',recordDetails?.detail_datas?.[0]?.[0]?.cctv_record);
 
     return (
         <>
@@ -617,9 +617,9 @@ export default function CctvDetails() {
 
                                 {isBranchITApprover &&
                                     recordDetails.form.status === 'BM Approved' &&
-                                    recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                    recordDetails?.detail_datas?.[0]?.[0]?.cctv_record === 'on' && (
                                         <CctvUploadVideo
-                                            recordId={recordDetails?.detail_datas?.[0]?.id}
+                                            recordId={recordDetails?.detail_datas?.[0]?.[0]?.id}
                                             generalId={id}
                                             docNo={formDocno}
                                         />
@@ -628,7 +628,7 @@ export default function CctvDetails() {
                                 <div>
                                     {isBranchITApprover &&
                                         recordDetails.status === 'BM Approved' &&
-                                        recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                        recordDetails?.detail_datas?.[0]?.[0]?.cctv_record === 'on' && (
                                             <>
                                                 <span className="text-red-500 text-sm"></span>
                                                 {/* {errors.video} */}
