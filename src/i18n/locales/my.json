@@ -230,7 +230,7 @@
     "backToPrevious": "ယခင်အဆင့်သို့ ပြန်ရန်",
     "add": "Productထည့်ရန်",
     "proceed": "ဆက်လုပ်ရန်",
-    "investigationForm": "စုံစမ်းစစ်ဆေးရေးဖောင်",
+    "investigationForm": "ဖြစ်စဉ်စုံစမ်းစစ်ဆေးမှုဖောင်",
     "investigation": "စုံစမ်းစစ်ဆေးရေး"
   },
   "confirmation": {
@@ -279,10 +279,13 @@
   },
   "filter": {
     "productNameCode": "ကုန်ပစ္စည်း အမည်/ကုဒ်",
+    "productNameCodePlaceholder": "ကုန်ပစ္စည်း အမည်/ကုဒ် ထည့်သွင်းရန်",
     "formDocNo": "ဖောင်စာရွက် နံပါတ်",
+    "formDocNoPlaceholder": "စာရွက်စာတမ်း နံပါတ် ထည့်သွင်းရန်",
     "fromDate": "စတင်ရက်",
     "toDate": "ပြီးဆုံးရက်",
     "status": "အခြေအနေ",
+    "statusPlaceholder": "အခြေအနေ ရွေးချယ်ရန်",
     "branch": "ဆိုင်ခွဲ",
     "allBranch": "ဆိုင်ခွဲအားလုံး",
     "search": "ရှာဖွေရန်",

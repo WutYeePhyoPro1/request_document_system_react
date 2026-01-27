@@ -2730,6 +2730,10 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
         if (!actions.cancel) actions.cancel = true;
         if (!actions.approve) actions.approve = 'OPApproved';
       }
+    } else if ((isOpUserType || isOpRoleDetected) && isBMApprovedHigh && !isHighAmount) {
+      // Hide Back to Previous and Cancel buttons for Operation Managers viewing BM Approved forms under 500000
+      shouldShowBackToPreviousFinal = false;
+      shouldShowCancelFinal = false;
     }
   } catch (e) {
     // ignore
@@ -5817,7 +5821,7 @@ const resolveApproveAction = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 bg-gray-50 min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
+    <div className="p-2 sm:p-6 md:p-8 bg-white shadow-lg min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
       {isSubmitting && <Pro1LoadingAnimation message={getLoadingMessage()} />}
       
       {error && (
@@ -6314,12 +6318,12 @@ const resolveApproveAction = () => {
         // Only show ISS information if we have at least one of them
         if (remarkTypeLabel || issNumbers.length > 0) {
           return (
-            <div className="bg-white border border-gray-200 rounded-xl p-4 sm:p-5 space-y-3 shadow-lg">
-              <h4 className="text-sm sm:text-base font-semibold text-gray-800 flex items-center gap-2 mb-3">
+            <div className="bg-white rounded-xl  space-y-3">
+              <h4 className="text-xs sm:text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
                 <Hash size={18} className="text-gray-600" />
                 {t('iss.title', { defaultValue: 'ISS Information' })}
               </h4>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-row flex-wrap gap-3">
                 {remarkTypeLabel && (
                   <div className="inline-flex items-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
                     <span className="font-semibold text-amber-800">{t('iss.remarkType', { defaultValue: 'ISS Remark Type' })}:</span>

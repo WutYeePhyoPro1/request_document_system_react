@@ -476,7 +476,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="productName"
                 value={localFilters.productName || ""}
                 onChange={handleChange}
-                placeholder=""
+                placeholder={t('filter.productNameCodePlaceholder', { defaultValue: 'Enter product name/code' })}
                 className={`${CONTROL_CLASSES} ${localFilters.productName ? 'pr-8' : ''}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
               />
@@ -503,7 +503,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="formDocNo"
                 value={localFilters.formDocNo || ""}
                 onChange={handleChange}
-                placeholder=""
+                placeholder={t('filter.formDocNoPlaceholder', { defaultValue: 'Enter document number' })}
                 className={`${CONTROL_CLASSES} ${localFilters.formDocNo ? 'pr-8' : ''}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
               />
@@ -596,7 +596,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? [localFilters.status] : [])}
               onChange={(selected) => handleSelectChange(selected, { name: 'status' })}
               options={statusOptions}
-              placeholder=""
+              placeholder={t('filter.statusPlaceholder', { defaultValue: 'Select status' })}
               isClearable
               isMulti
               closeMenuOnSelect={false}

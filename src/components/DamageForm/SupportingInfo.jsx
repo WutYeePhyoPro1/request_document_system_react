@@ -110,7 +110,7 @@ export default function SupportingInfo({
   onClosePreview,
   readOnly = false,
   status = '',
-  maxRemarkLength = 500, // Character limit for remark field
+  maxRemarkLength = 150, // Character limit for remark field
   currentUserRole = null,
   isCurrentUserChecker = null,
   isRegularUser = null,
@@ -376,7 +376,7 @@ export default function SupportingInfo({
   );
   
   return (
-    <div className="bg-transparent p-4 space-y-3">
+    <div className="bg-transparent space-y-3">
       <div className="mb-4">
         <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2">
           <FileText size={16} />
