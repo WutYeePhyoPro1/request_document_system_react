@@ -18,6 +18,7 @@ import * as XLSX from "xlsx";
 
 export default function () {
     const productslimit = 50;
+    const token = localStorage.getItem('token');
 
     const navigate = useNavigate();
     const today = () => new Date().toISOString().split("T")[0];
@@ -45,7 +46,6 @@ export default function () {
     const [products,setProducts] = useState([]);
     let totalProductCount = products.length;
 
-    const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
@@ -1011,7 +1011,7 @@ return (
                     <section className="p-6 border-b border-gray-100 bg-white">
                         <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
                             <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
-                            <ServerTime />
+                            {/* <ServerTime /> */}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">

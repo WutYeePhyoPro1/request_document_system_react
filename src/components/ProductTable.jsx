@@ -5,16 +5,16 @@ import {formatNumber} from "./Fomatter.jsx";
 export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors}){
     const tablestyle = {
         thead: { backgroundColor: "#A9D8E9" },
-        th: { backgroundColor: "inherit" },
+        th: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10},
     }
     // console.log(data);
     // console.log(pricesErrors);
 
     return (
         <>
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[500px]">
         <table id="productTable" className="table table-striped">
-            <thead style={tablestyle['thead']}>
+            <thead className="sticky top-0 z-30" style={tablestyle['thead']}>
                 <tr>
                     <th style={tablestyle['th']}>Actions</th>
                     <th style={tablestyle['th']}>No</th>
