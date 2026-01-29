@@ -80,6 +80,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
+        console.log('is branch it user=>','role id =>',user?.role_id,user?.id);
         const isBranchITUser = user?.role_id === 'Branch IT';
         console.log('is branch it user=>',isBranchITUser,'role id =>',user.role_id);
         return current_user && isBranchITUser;
@@ -305,7 +306,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail',recordDetails??'no detail');
+    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.id,'id');
 
     return (
         <>
@@ -704,12 +705,13 @@ export default function CctvDetails() {
                     ➡ "Upload" button တစ်ခုပြတယ်
                     ➡ ဖိုင်တင်ဖို့ Modal ဖွင့်ခေါ်မယ်
                     ➡ အနီရောင်သတိပေးစာပါပြတယ်။ */}
+                    
 
                                 {isBranchITApprover &&
                                     recordDetails.form.status === 'BM Approved' &&
-                                    recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                    recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                         <CctvUploadVideo
-                                            recordId={recordDetails?.detail_datas?.[0]?.id}
+                                            recordId={recordDetails?.detail_datas?.[0]?.[0]?.id}
                                             generalId={id}
                                             docNo={formDocno}
                                         />
@@ -718,7 +720,7 @@ export default function CctvDetails() {
                                 <div>
                                     {isBranchITApprover &&
                                         recordDetails.status === 'BM Approved' &&
-                                        recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                        recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                             <>
                                                 <span className="text-red-500 text-sm"></span>
                                                 {/* {errors.video} */}
