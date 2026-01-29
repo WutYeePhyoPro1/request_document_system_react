@@ -102,6 +102,12 @@
     "issuedBy": "ထုတ်ပေးသူ",
     "acknowledgedBy": "အသိအမှတ်ပြုသူ"
   },
+  "iss": {
+    "title": "ISS အချက်အလက်များ",
+    "remarkType": "ISS မှတ်ချက် အမျိုးအစား",
+    "number": "ISS နံပါတ်",
+    "numbers": "ISS နံပါတ်များ"
+  },
   "status": {
     "ongoing": "ဆောင်ရွက်ဆဲ",
     "checked": "စစ်ဆေးပြီး",
@@ -152,6 +158,8 @@
     "issRemarkRequired": "ကျေးဇူးပြု၍ ဖောင်ကို ထုတ်ပေးမီ ISS မှတ်ချက် အမျိုးအစားကို ရွေးချယ်ပေးပါ။",
     "accountCodesRequired": "ကျေးဇူးပြု၍ ဖောင်ကို ထုတ်ပေးမီ ထုတ်ကုန်အားလုံးအတွက် အကောင့်ကုဒ်များကို သတ်မှတ်ပေးပါ။",
     "issRemarkAndAccountCodesRequired": "ကျေးဇူးပြု၍ ISS မှတ်ချက် အမျိုးအစားကို ရွေးချယ်ပြီး ထုတ်ကုန်အားလုံးအတွက် အကောင့်ကုဒ်များကို သတ်မှတ်ပေးပါ။",
+    "amountOver500kWarning": "စုစုပေါင်း ပမာဏသည် ၅၀၀,၀၀၀ ကျပ်ထက် ကျော်လွန်နေပါသည်။ ပြင်ဆင်မှုများ ပြုလုပ်မီ ဤဖောင်ကို Operation Manager အတည်ပြုချက်အတွက် 'နောက်သို့ ပြန်ရန်' ကို နှိပ်ပေးပါ။",
+    "formStillProcessing": "ဖောင်သည် လုပ်ဆောင်ဆဲဖြစ်ပါသည်။ ၃မိနစ်ခန့်ကြာသည့်အခါ refresh ပြန်နှိပ်ပြီး ထပ်စမ်းကြည့်ပါ။ မရပါက Head Office System Developmentဌာနထံ ဆက်သွယ်ပါ။",
     "errors": {
       "authTokenNotFound": "အတည်ပြုချက် token မတွေ့ရှိပါ။ ကျေးဇူးပြု၍ ထပ်မံဝင်ရောက်ပါ။",
       "sessionExpired": "သင့်ဆက်ရှင်ကုန်ဆုံးသွားပါပြီ။ ကျေးဇူးပြု၍ ထပ်မံဝင်ရောက်ပါ။",
@@ -215,14 +223,14 @@
     "approveBM": "အတည်ပြုပြီး (BM)",
     "acknowledge": "အတည်ပြုပြီး (OP)",
     "approveOP": "အတည်ပြုရန် (OP)",
-    "issue": "Issueထုတ်ပြီး",
+    "issue": "Issueထုတ်ရန်",
     "edit": "ပြင်ဆင်ရန်",
     "cancel": "ဖောင်ပယ်ဖျက်ရန်",
     "back": "နောက်သို့",
     "backToPrevious": "ယခင်အဆင့်သို့ ပြန်ရန်",
     "add": "Productထည့်ရန်",
     "proceed": "ဆက်လုပ်ရန်",
-    "investigationForm": "စုံစမ်းစစ်ဆေးရေးဖောင်",
+    "investigationForm": "ဖြစ်စဉ်စုံစမ်းစစ်ဆေးမှုဖောင်",
     "investigation": "စုံစမ်းစစ်ဆေးရေး"
   },
   "confirmation": {
@@ -236,7 +244,7 @@
     "actions": {
       "submitForm": "ဖောင်တင်သွင်းရန်",
       "checkForm": "ဖောင်စစ်ဆေးရန်",
-      "approveBM": "အတည်ပြုရန် (BM)",
+      "approveBM": " (BM)",
       "acknowledge": "အသိအမှတ်ပြုရန်",
       "approveOperationManager": "အတည်ပြုရန် ",
       "issue": "issued ထုတ်ပေးရန်",
@@ -271,10 +279,13 @@
   },
   "filter": {
     "productNameCode": "ကုန်ပစ္စည်း အမည်/ကုဒ်",
+    "productNameCodePlaceholder": "ကုန်ပစ္စည်း အမည်/ကုဒ် ထည့်သွင်းရန်",
     "formDocNo": "ဖောင်စာရွက် နံပါတ်",
+    "formDocNoPlaceholder": "စာရွက်စာတမ်း နံပါတ် ထည့်သွင်းရန်",
     "fromDate": "စတင်ရက်",
     "toDate": "ပြီးဆုံးရက်",
     "status": "အခြေအနေ",
+    "statusPlaceholder": "အခြေအနေ ရွေးချယ်ရန်",
     "branch": "ဆိုင်ခွဲ",
     "allBranch": "ဆိုင်ခွဲအားလုံး",
     "search": "ရှာဖွေရန်",
@@ -380,7 +391,8 @@
     "previousImage": "ယခင်ပုံ",
     "nextImage": "နောက်ပုံ",
     "total": "စုစုပေါင်း",
-    "updateSystemQtyWarning": "Issueထုတ်ရန် ခလုတ်ကို မနှိပ်မီ စနစ်အရေအတွက်ကို ပြင်ဆင်ရန်ခလုတ်ကို နှိပ်ပါ။"
+    "updateSystemQtyWarning": "Issueထုတ်ရန် ခလုတ်ကို မနှိပ်မီ စနစ်အရေအတွက်ကို ပြင်ဆင်ရန်ခလုတ်ကို နှိပ်ပါ။",
+    "selectAllAccountCodesHint": "Select All ခလုတ်ကို နှိပ်လိုက်ရင် အကောင့်ကုဒ်အားလုံးကို တစ်ပြိုင်နက် ရွေးချယ်နိုင်ပါသည်။"
   }
 }
 

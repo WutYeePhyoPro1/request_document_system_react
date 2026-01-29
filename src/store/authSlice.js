@@ -17,20 +17,14 @@ export const login = createAsyncThunk(
         }
       );
 
-      // Enrich user with user_type if missing
+      // Use the user data directly from API (now includes user_type)
       const enriched = { ...response.data.user };
-      if (!enriched.user_type) {
-        if (
-          enriched.employee_number === "666-666666" ||
-          enriched.emp_id === "666-666666"
-        ) {
-          enriched.user_type = "A2";
-        } else if (Number(enriched.role_id) === 3) {
-          enriched.user_type = "A1";
-        }
-      }
 
       const token = response.data.token;
+
+      // Clear any old cached data first
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
 
       // Save in localStorage
       localStorage.setItem("token", token);
@@ -80,14 +74,20 @@ export const loginWithToken = createAsyncThunk(
   "auth/loginWithToken",
   async ({ token }, { rejectWithValue }) => {
     try {
+      console.log("🚀 STARTING AUTO-LOGIN");
       const response = await axios.post(
         "/api/auto-login",
         { token },
         { withCredentials: true }
       );
+
       const user = { ...response.data.user };
       const tokenValue = response.data.token;
-       const redirect = response.data.redirect; 
+       const redirect = response.data.redirect;
+
+      // Clear any old cached data first
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
 
       localStorage.setItem("token", tokenValue);
       localStorage.setItem("user", JSON.stringify(user));

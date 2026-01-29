@@ -92,6 +92,12 @@
     "issuedBy": "Issued by",
     "acknowledgedBy": "Acknowledged by"
   },
+  "iss": {
+    "title": "ISS Information",
+    "remarkType": "ISS Remark Type",
+    "number": "ISS Number",
+    "numbers": "ISS Numbers"
+  },
   "status": {
     "ongoing": "Ongoing",
     "checked": "Checked",
@@ -142,6 +148,7 @@
     "issRemarkRequired": "Please select ISS remark type before issuing the form.",
     "accountCodesRequired": "Please assign account codes to all products before issuing the form.",
     "issRemarkAndAccountCodesRequired": "Please select ISS remark type and assign account codes to all products before issuing.",
+    "amountOver500kWarning": "The total amount exceeds 500,000. Please click 'Back to Previous' to return this form for Operation Manager approval before making changes.",
     "errors": {
       "authTokenNotFound": "Authentication token not found. Please log in again.",
       "sessionExpired": "Your session has expired. Please log in again.",
@@ -226,7 +233,7 @@
     "actions": {
       "submitForm": "Submit Form",
       "checkForm": "Check Form",
-      "approveBM": "Approve (BM)",
+      "approveBM": "Approval (BM)",
       "acknowledge": "Acknowledge",
       "approveOperationManager": "Approve (Operation Manager)",
       "issue": "Issue",
@@ -370,7 +377,8 @@
     "previousImage": "Previous image",
     "nextImage": "Next image",
     "total": "Total",
-    "updateSystemQtyWarning": "Please update your system qty before clicking the Issued button."
+    "updateSystemQtyWarning": "Please update your system qty before clicking the Issued button.",
+    "selectAllAccountCodesHint": "You can select the account code all at once when you click 'Select all' button"
   }
 }
 

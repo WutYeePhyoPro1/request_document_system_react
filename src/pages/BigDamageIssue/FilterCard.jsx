@@ -60,7 +60,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   const [branchOptions, setBranchOptions] = useState([
     { value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) },
   ]);
-  const [roleDefaultApplied, setRoleDefaultApplied] = useState(false);
 
   // Function to filter branches based on user's branch
   // Use selectedBranch parameter or localFilters.branch as source of truth
@@ -293,10 +292,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     // For multi-select (status), selected is an array or null
     // For single select (branch), selected is an object or null
     setLocalFilters({ ...localFilters, [name]: selected });
-    // If user manually changes status, clear the "role default" marker
-    if (name === 'status') {
-      setRoleDefaultApplied(false);
-    }
   };
 
   const handleSearch = () => {
@@ -459,69 +454,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     }),
   };
 
-  // Determine default status selections based on user role when component first mounts
-  useEffect(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      // Prefer explicit user_type when available; fall back to role string only if user_type absent
-      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-      // If filters already provided a status, don't override
-      if (filters && (filters.status || (localFilters && Array.isArray(localFilters.status) && localFilters.status.length > 0))) {
-        return;
-      }
-
-      let defaultStatuses = [];
-      // If user has all-branch access, skip frontend defaults for most users because backend will handle visibility.
-      // Exception: Operation Manager (A2) and Checker users should still get frontend defaults.
-      const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
-      const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
-      const roleText = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-      const isCheckerUser = (Array.isArray(userType) ? false : (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c'))) || roleText.includes('checker');
-
-      // If user has all-branch access, do not apply frontend defaults — backend handles visibility
-      if (hasAllBranchAccess) {
-        return;
-      }
-
-      if (userType) {
-        // Use user_type as authoritative source
-        if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
-          defaultStatuses = ['Ongoing', 'Checked'];
-        } else if (userType === 'a1') {
-          // user_type 'A1' maps to Branch Manager/Approver — do NOT apply frontend defaults here.
-          // Backend will apply Checked/BM Approved for branch managers.
-          // Intentionally left blank.
-        } else if (userType === 'a2') {
-          defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
-        } else if (userType === 'ac') {
-          // For account users include Operation Manager Approved (OPApproved) in defaults
-          defaultStatuses = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'];
-        }
-      } else {
-        // Fallback to role name detection if user_type is not present
-        if (role.includes('checker')) {
-          defaultStatuses = ['Ongoing', 'Checked'];
-        } else if (role.includes('approver')) {
-          // Approver (BM) should get defaults, but explicit branch-manager roles are handled by backend.
-          defaultStatuses = ['Checked', 'BM Approved'];
-        } else if (role.includes('operation manager') || role.includes('op manager')) {
-          defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
-          } else if (role.includes('account') || role.includes('branch account')) {
-            // For account role names include OPApproved in defaults
-            defaultStatuses = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'];
-          }
-      }
-
-      if (defaultStatuses.length > 0) {
-        const selected = defaultStatuses.map(s => statusOptions.find(o => o.value.toLowerCase() === s.toLowerCase()) || { value: s, label: s });
-        setLocalFilters(prev => ({ ...prev, status: selected }));
-        setRoleDefaultApplied(true);
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, []); // run once on mount
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -544,7 +476,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="productName"
                 value={localFilters.productName || ""}
                 onChange={handleChange}
-                placeholder=""
+                placeholder={t('filter.productNameCodePlaceholder', { defaultValue: 'Enter product name/code' })}
                 className={`${CONTROL_CLASSES} ${localFilters.productName ? 'pr-8' : ''}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
               />
@@ -571,7 +503,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="formDocNo"
                 value={localFilters.formDocNo || ""}
                 onChange={handleChange}
-                placeholder=""
+                placeholder={t('filter.formDocNoPlaceholder', { defaultValue: 'Enter document number' })}
                 className={`${CONTROL_CLASSES} ${localFilters.formDocNo ? 'pr-8' : ''}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
               />
@@ -655,13 +587,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
           {/* Status Select */}
           <div className="w-full sm:w-auto min-w-[120px]">
-            <label className="block text-[11px] font-medium text-gray-700 mb-1 flex items-center gap-2">
-              <span>{t('filter.status', { defaultValue: 'Status' })}</span>
-              {roleDefaultApplied && (
-                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-semibold">
-                  {t('filter.roleDefault', { defaultValue: 'Role default' })}
-                </span>
-              )}
+            <label className="block text-[11px] font-medium text-gray-700 mb-1">
+              {t('filter.status', { defaultValue: 'Status' })}
             </label>
             <Select
               name="status"
@@ -669,7 +596,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? [localFilters.status] : [])}
               onChange={(selected) => handleSelectChange(selected, { name: 'status' })}
               options={statusOptions}
-              placeholder=""
+              placeholder={t('filter.statusPlaceholder', { defaultValue: 'Select status' })}
               isClearable
               isMulti
               closeMenuOnSelect={false}

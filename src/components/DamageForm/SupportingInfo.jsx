@@ -110,12 +110,13 @@ export default function SupportingInfo({
   onClosePreview,
   readOnly = false,
   status = '',
-  maxRemarkLength = 500, // Character limit for remark field
+  maxRemarkLength = 150, // Character limit for remark field
   currentUserRole = null,
   isCurrentUserChecker = null,
   isRegularUser = null,
   isCheckerWhoApproved = null,
   systemQtyUpdated = false,
+  totalAmount = 0, // Total amount for high-value form approval logic
 }) {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
@@ -333,19 +334,22 @@ export default function SupportingInfo({
   // - Operation manager viewing OP Approved or Ac_Acknowledged form
   // - Checker viewing BM Approved form
   // - Regular user viewing Ongoing, BM Approved, OP Approved, or Ac_Acknowledged form
-  const shouldShowRemark = showRemark &&
-                          !isCompleted &&
-                          !(resolvedIsChecker && statusLower === 'checked') &&
+  // EXCEPT: Show remark box for operation manager viewing BM Approved form with amount > 500,000
+  const shouldShowRemark = (showRemark &&
+                          !isCompleted && 
+                          !(resolvedIsChecker && statusLower === 'checked') && 
                           !(resolvedIsChecker && isBMApprovedStatus) &&
                           !(resolvedIsRegularUser && (
-                            statusLower === 'ongoing' ||
-                            statusLower === 'bm approved' ||
+                            statusLower === 'ongoing' || 
+                            statusLower === 'bm approved' || 
                             statusLower === 'bmapproved' ||
                             isOPApprovedStatus ||
                             isAcknowledgedStatus
                           )) &&
                           !(isBranchManager && isBMApprovedStatus) &&
-                          !(isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus));
+                           !(isOperationManager && (isOPApprovedStatus || isAcknowledgedStatus))) ||
+                           // SPECIAL CASE: Show remark box for operation manager viewing high-value BM Approved forms
+                           (isOperationManager && isBMApprovedStatus && totalAmount > 500000);
   // Hide attachments if completed, or if status is one of the restricted statuses, or per role rules above
   // Also hide for regular users viewing Ongoing, BM Approved, or OPApproved forms
   // Also hide for Operation Managers viewing OPApproved or Ac_Acknowledged forms
@@ -357,11 +361,11 @@ export default function SupportingInfo({
   // or if checker is viewing BM Approved form, or if branch account is viewing OP Approved form,
   // treat as readonly so delete buttons are disabled
   const effectiveReadOnly = Boolean(
-    readOnly ||
+    readOnly || 
     (resolvedIsChecker && isBMApprovedStatus) ||
     (resolvedIsRegularUser && (
-      statusLower === 'ongoing' ||
-      statusLower === 'bm approved' ||
+      statusLower === 'ongoing' || 
+      statusLower === 'bm approved' || 
       statusLower === 'bmapproved' ||
       isOPApprovedStatus ||
       isAcknowledgedStatus
@@ -372,7 +376,7 @@ export default function SupportingInfo({
   );
   
   return (
-    <div className="bg-transparent p-4 space-y-3">
+    <div className="bg-transparent space-y-3">
       <div className="mb-4">
         <h4 className="text-sm font-semibold text-amber-600 flex items-center gap-2">
           <FileText size={16} />

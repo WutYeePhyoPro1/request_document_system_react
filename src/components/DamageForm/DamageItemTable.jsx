@@ -19,6 +19,7 @@ import { apiRequest } from "../../utils/api";
 import ConfirmationModal from "./ConfirmationModal";
 import ProductDetailModal from "./ProductDetailModal";
 import ErrorModal from "../common/ErrorModal";
+import WarningModal from "../common/WarningModal";
 import "../DamageForm/ButtonHoverEffects.css";
 import img1 from "../../assets/images/marble texture.jpeg";
 import img2 from "../../assets/images/marble texture.jpeg";
@@ -338,7 +339,8 @@ export default function DamageItemTable({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [qtyErrorModal, setQtyErrorModal] = useState({ isOpen: false, message: '' });
-  
+  const [amountWarningModal, setAmountWarningModal] = useState({ isOpen: false, message: '' });
+
   // Filter state
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -817,10 +819,10 @@ export default function DamageItemTable({
           // Use actual_qty if available and valid, otherwise use request_qty as fallback
           const qtyForAmount = !isNaN(processedItem.actual_qty) && processedItem.actual_qty !== null && processedItem.actual_qty !== undefined && processedItem.actual_qty !== ''
             ? processedItem.actual_qty
-            : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
+              : (!isNaN(processedItem.request_qty) ? processedItem.request_qty : 0);
 
-          processedItem.amount = processedItem.price * qtyForAmount;
-          processedItem.total = processedItem.amount;
+            processedItem.amount = processedItem.price * qtyForAmount;
+            processedItem.total = processedItem.amount;
         }
         
         // Ensure final_qty and actual_qty match request_qty if not set
@@ -1433,10 +1435,6 @@ const handleInputChange = (id, field, value) => {
           // If request_qty is already set to a non-zero value, don't update it
           
         onItemChange(index, 'actual_qty', qtyNumeric);
-          // Only initialize final_qty if it hasn't been set
-          if (item.final_qty === undefined || item.final_qty === null || item.final_qty === 0) {
-          onItemChange(index, 'final_qty', qtyNumeric);
-          }
         }
       } else if (qtyType === 'final_qty') {
         // CRITICAL: In Checked stage, don't update final_qty (it's read-only)
@@ -1819,10 +1817,10 @@ const normalizeImageEntries = (list) => {
   // Use actual_qty if available, otherwise use request_qty as fallback
   const total = items.reduce(
     (sum, item) => {
-      const price = toSafeNumber(item.price);
-      const actualQty = toSafeNumber(item.actual_qty);
+        const price = toSafeNumber(item.price);
+        const actualQty = toSafeNumber(item.actual_qty);
       const requestQty = toSafeNumber(item.request_qty);
-      const systemQty = toSafeNumber(item.system_qty);
+        const systemQty = toSafeNumber(item.system_qty);
 
       // Use actual_qty if available, otherwise request_qty
       let qtyForTotal = actualQty || requestQty || 0;
@@ -2136,10 +2134,15 @@ const normalizeImageEntries = (list) => {
         message={errorModal.message}
         onClose={() => setErrorModal({ isOpen: false, message: '' })}
       />
-      <ErrorModal 
+      <ErrorModal
         isOpen={qtyErrorModal.isOpen}
         message={qtyErrorModal.message}
         onClose={() => setQtyErrorModal({ isOpen: false, message: '' })}
+      />
+      <WarningModal
+        isOpen={amountWarningModal.isOpen}
+        message={amountWarningModal.message}
+        onClose={() => setAmountWarningModal({ isOpen: false, message: '' })}
       />
       {/* Action buttons and Add Product button with search bar */}
       <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
@@ -2189,6 +2192,15 @@ const normalizeImageEntries = (list) => {
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
             )}
           </button>
+
+          {/* Account Code Selection Hint - Only show for branch account viewing BM Approved or OP Approved forms */}
+          {isAccount && (status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved') && (
+            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200 ml-2">
+              {t('table.selectAllAccountCodesHint', {
+                defaultValue: 'You can select the account code all at once when you click select all button'
+              })}
+            </div>
+          )}
 
           {/* Bulk Account Code Selector - Only show when items are selected and account codes are visible */}
           {showAccountCodes && selectedIds.length > 0 && !isCompleted && (
@@ -2644,7 +2656,7 @@ const normalizeImageEntries = (list) => {
                         // Temporarily disabled to prioritize actual_qty editing
                         // const canEditProductType = isAccount && (status === 'OPApproved' || status === 'OP Approved') && !isCompleted;
                         const canEditProductType = false; // Disabled to allow actual_qty editing
-
+                        
                         // In Checked stage, Actual Qty should be editable
                         // Make actual_qty read-only when status is OPApproved and systemQtyUpdated is true
                         // Also make read-only for Branch Account users viewing OPApproved forms
@@ -2655,7 +2667,6 @@ const normalizeImageEntries = (list) => {
                                                          normalizedStatusForActualQty.toLowerCase() === 'op approved';
                         const shouldMakeActualQtyReadOnly = (isOPApprovedForActualQty && systemQtyUpdated);
                         const normalizedStatusForEdit = (status || '').toString().trim();
-                        console.log('DEBUG status normalization:', { originalStatus: status, normalizedStatusForEdit });
 
                         const isBMApprovedForEdit = normalizedStatusForEdit === 'BM Approved' ||
                                                    normalizedStatusForEdit === 'BMApproved' ||
@@ -2672,20 +2683,7 @@ const normalizeImageEntries = (list) => {
 
                         const canEditActualQty = ((status === 'Checked' || status === 'checked') && !isCompleted) && !shouldMakeActualQtyReadOnly ||
                                                  (isAccount && (isBMApprovedForEdit || isOPApprovedForEdit || isAcAcknowledgedForEdit));
-
-                        // DEBUG: Log actual_qty editing logic
-                        console.log('DEBUG canEditActualQty:', {
-                          status,
-                          isCompleted,
-                          isAccount,
-                          isBMApprovedForEdit,
-                          isOPApprovedForEdit,
-                          isAcAcknowledgedForEdit,
-                          shouldMakeActualQtyReadOnly,
-                          normalizedStatusForEdit,
-                          finalCanEdit: canEditActualQty
-                        });
-
+                        
                         // Check for product_type editing first (disabled for now)
                         if (canEditProductType) {
                           return (
@@ -2736,7 +2734,6 @@ const normalizeImageEntries = (list) => {
                         
                         // In Checked stage, show editable input for actual_qty
                         if (canEditActualQty) {
-                          console.log('DEBUG: Rendering editable actual_qty input for item:', item.id);
                           return (
                             <div>
                               <input
@@ -2750,22 +2747,22 @@ const normalizeImageEntries = (list) => {
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
-                                  
+
                                   // Allow empty, numbers, decimals, and intermediate states like "." or "5."
                                   // Also allow comma (,) as decimal separator (common in some locales)
                                   // Convert comma to dot for consistency
                                   let normalizedValue = nextValue.replace(',', '.');
-                                  
+
                                   // Check: only digits and at most one dot (after normalization)
                                   const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
-                                  
-                                  
+
+
                                   if (nextValue === '' || hasOnlyDigitsAndOneDot) {
                                     const valueToUse = normalizedValue;
                                     // Validate against system_qty (only if we have a valid number)
                                     const systemQty = parseFloat(item.system_qty) || 0;
                                     const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
-                                    
+
                                     if (systemQty === 0 && numericValue > 0) {
                                       // Show error modal
                                       setQtyErrorModal({
@@ -2774,13 +2771,13 @@ const normalizeImageEntries = (list) => {
                                       });
                                       return; // Don't update the value
                                     }
-                                    
+
                                     if (systemQty > 0 && numericValue > systemQty) {
                                       // Show error modal
                                       const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
                                       setQtyErrorModal({
                                         isOpen: true,
-                                        message: t('messages.errors.actualQtyExceedsSystem', { 
+                                        message: t('messages.errors.actualQtyExceedsSystem', {
                                           productName,
                                           qty: numericValue,
                                           systemQty,
@@ -2789,8 +2786,38 @@ const normalizeImageEntries = (list) => {
                                       });
                                       return; // Don't update the value
                                     }
-                                    
+
                                     handleQtyChange(item.id, valueToUse, 'actual_qty');
+
+                                    // Check if branch account is editing actual_qty in BM Approved status with amount > 500k
+                                    // OP Approved forms don't need warning as they're already approved by Operation Manager
+                                    const isBmApprovedOnly = status === 'BM Approved' || status === 'BMApproved';
+
+                                    // Calculate current total from items to check against 500k threshold
+                                    // Use the updated value for current item, existing values for others
+                                    const currentItemId = item.id;
+                                    const currentTotal = items.reduce((acc, currItem) => {
+                                      let qty;
+                                      if (String(currItem.id) === String(currentItemId)) {
+                                        // This is the current item being edited - use the new value
+                                        qty = parseFloat(valueToUse) || 0;
+                                      } else {
+                                        // Other items - use their current actual_qty
+                                        qty = parseFloat(currItem.actual_qty) || 0;
+                                      }
+                                      const price = parseFloat(currItem.price) || 0;
+                                      const amount = qty * price;
+                                      return acc + amount;
+                                    }, 0);
+
+                                    if (isAccount && isBmApprovedOnly && currentTotal > 500000) {
+                                      setAmountWarningModal({
+                                        isOpen: true,
+                                        message: t('messages.amountOver500kWarning', {
+                                          defaultValue: 'The total amount exceeds 500,000. Please click "Back to Previous" to return this form for Operation Manager approval before making changes.'
+                                        })
+                                      });
+                                    }
                                   }
                                 }}
                                 onBlur={(e) => {
@@ -2840,8 +2867,7 @@ const normalizeImageEntries = (list) => {
                             </div>
                           );
                         }
-
-                        console.log('DEBUG: Falling through to read-only display for actual_qty, item:', item.id, 'canEditActualQty:', canEditActualQty);
+                        
                         return formatQuantity(displayQty);
                       })()}
                     </td>
@@ -3498,7 +3524,7 @@ const normalizeImageEntries = (list) => {
             }
             
             return (
-              <div className="mt-3 ml-6">
+              <div className="mt-3 ">
                 <label className="block text-xs font-semibold text-gray-600 mb-1">ISS Remark Type</label>
                 {isCompleted ? (
                   <div className="text-sm text-gray-800 bg-gray-50 px-3 py-2 rounded border border-gray-200">
