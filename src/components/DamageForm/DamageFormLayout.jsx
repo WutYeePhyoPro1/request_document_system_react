@@ -4797,16 +4797,8 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
                 // Not all backends expose this endpoint; ignore failures
               }
 
-              // 3) Explicitly trigger other-income processing for API clients to ensure parity with Blade flow
-              try {
-                if (responseGeneralFormId) {
-                  await apiRequest(`/api/big-damage-issues/${responseGeneralFormId}/process-other-income`, {
-                    method: 'POST',
-                    body: JSON.stringify({ actual_user_id: formData.user_id || formData.actual_user_id || null })
-                  });
-                }
-              } catch (e) {
-              }
+              // 3) REMOVED: Other-income processing should only happen when Branch Account issues the form
+              // This was causing forms to appear in history immediately after creation instead of after issuance
               
               // 4) Ensure general_forms.total_amount is persisted in backend.
               // Some backends do not automatically recalculate/persist the general_form total when items change,
