@@ -44,8 +44,8 @@ export const meDataDetail = async(token:string , id:string) : Promise<meGenerato
     const response = await API.get(`/meForm/detail/${id}` , {
       headers : {Authorization: `Bearer ${token}`} ,
     });
-    console.log("ResponseData>>" , response.data);
-    return response.data.detailData;
+    // console.log("ResponseData>>" , response.data);
+    return response.data;
   } catch (error) {
     console.error("meDataDetail error:", error);
     return null;

@@ -60,7 +60,8 @@ const MAndE: React.FC = () => {
         {subForms.map((form) => (
           <Link
             key={form.id}
-            to={`/${form.name.toLowerCase().replace(/\s+/g, "-")}`}
+            state={{ formId: form.id }}
+            to={`/${form.name.toLowerCase().replace(/\s+/g, "-")}/${form.id}`}
             className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition 
                 bg-white border-blue-300 hover:shadow-lg cursor-pointer
               `}

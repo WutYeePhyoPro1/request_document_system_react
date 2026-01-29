@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MultiSelect, Pagination, Select, Table } from "@mantine/core";
 import type { IndexData } from "../../../utils/requestDiscountUtil";
 import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
@@ -17,6 +17,9 @@ import Swal from "sweetalert2";
 import { searchMeData } from "../../../api/ME/meData";
 
 const Index: React.FC = () => {
+  const location = useLocation();
+  const { formId } = location.state || {};
+  console.log("FormID>>", formId);
   const [generalData, setGeneralData] = useState<IndexData[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -238,10 +241,7 @@ const Index: React.FC = () => {
               <AiFillMessage className="text-red-400 w-4 h-4" />
             )}
           </Table.Td>
-          <Link
-            to={`/request_discount_detail/${element.id}`}
-            className="contents"
-          >
+          <Link to={`/generator_detail/${element.id}`} className="contents">
             <Table.Td>{element.from_branches?.branch_name}</Table.Td>
             <Table.Td>{element.originators?.name}</Table.Td>
 
@@ -275,13 +275,14 @@ const Index: React.FC = () => {
           segments={[
             { path: "/dashboard", label: "Home" },
             { path: "/dashboard", label: "Dashboard" },
-            { path: "/generator", label: "Generator" },
+            { path: `/generator/${formId}`, label: "Generator" },
           ]}
         />
         <div className="flex justify-between mr-4">
           <h2 className="text-xl font-semibold">Generator Form</h2>
           <Link
             to="/generator_create"
+            state={{ formId: formId }}
             className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
             style={{ background: "#2ea2d1" }}
             onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
