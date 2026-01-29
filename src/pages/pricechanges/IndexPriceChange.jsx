@@ -31,7 +31,7 @@ export default function IndexPriceChange() {
     
 
     useEffect(()=>{
-        dispatch(fetchPriceChanges({limit:60}));
+        dispatch(fetchPriceChanges());
     },[dispatch]);
 
 

@@ -2,17 +2,18 @@ import {createSlice,createAsyncThunk} from "@reduxjs/toolkit";
 import axios from "axios";
 
 const API_URL =  `https://dummyjson.com/products?limit=`;
-const token = localStorage.getItem('token');
 
 export const fetchPriceChanges = createAsyncThunk( "property/fetchPriceChange", async({page=1}={})=>{
-    const {data} = await axios.get(`/api/price_changes`, {
-        headers: {
-        Authorization: `Bearer ${token}`,
-        },
-    });
-    console.log(data);
+     const token = localStorage.getItem('token');
 
-    return data;
+     const {data} = await axios.get(`/api/price_changes`, {
+          headers: {
+          Authorization: `Bearer ${token}`,
+          },
+     });
+     console.log(data);
+
+     return data;
 });
 
 const picechangeSlice = createSlice({

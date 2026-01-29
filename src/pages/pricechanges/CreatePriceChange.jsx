@@ -14,6 +14,7 @@ import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
 import {formatDate} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
+import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
 
 export default function () {
@@ -49,6 +50,8 @@ export default function () {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
+    const [forceLoading, setForceLoading] = useState(false);
+    
  
     const changeHandler = (e,actionMeta) => {
          // react-select
@@ -331,8 +334,8 @@ export default function () {
 
     const submitHandler = async (e,btntype)=>{
         e.preventDefault();
-        setIsSubmitting(true);
-            const formData = {
+    
+        const formData = {
             ...formState,
             products,
             btnValue: btntype
@@ -402,6 +405,8 @@ export default function () {
         if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
+        setForceLoading(true);
+        setIsSubmitting(true);
          try{
             const res = await axios.post(`/api/price_changes`,formData,{
                 headers: {
@@ -446,6 +451,9 @@ export default function () {
                 title: "Form Submit Error!!",
                 text: "Something went wrong while submitting the form.",
             });
+        }finally{
+            setForceLoading(true);
+            isSubmitting(false);
         }
     }
     const excelImportHandler = async (e) => {
@@ -924,246 +932,249 @@ export default function () {
     // );
 
 return (
-    <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
-        <NavPath
-            segments={[
-                { path: "/dashboard", label: "Home" },
-                { path: "/dashboard", label: "Dashboard" },
-                { path: "/price_changes", label: "Price Changes" },
-                { path: "/price_changes/create", label: "Price Change Form" },
-            ]}
-        />
+    <>
+        {forceLoading && <FullPageLoader />}
+        <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
+            <NavPath
+                segments={[
+                    { path: "/dashboard", label: "Home" },
+                    { path: "/dashboard", label: "Dashboard" },
+                    { path: "/price_changes", label: "Price Changes" },
+                    { path: "/price_changes/create", label: "Price Change Form" },
+                ]}
+            />
 
-        {/* Main Unitary Card */}
-        <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
-            
-            {/* Action Bar as Card Header */}
-            <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                        Price Change Form
-                    </h3>
-
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <button
-                            type="button"
-                            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
-                            onClick={(e) => submitHandler(e, 1)}
-                        >
-                            Save as Draft
-                        </button>
-
-                        <button
-                            type="button"
-                            className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
-                            onClick={(e) => submitHandler(e, 2)}
-                        >
-                            Save
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* Card Body Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            {/* Main Unitary Card */}
+            <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
                 
-                {/* Branch Sidebar (Left Column) */}
-                <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
-                    <div className="p-5 border-b border-gray-100 bg-white/50">
-                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">Branches</h2>
-                    </div>
+                {/* Action Bar as Card Header */}
+                <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                            Price Change Form
+                        </h3>
 
-                    <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                        <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                id="all_branches" 
-                                name="all_branches" 
-                                className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
-                                onChange={changeHandler} 
-                                checked={formState.all_branches} 
-                            />
-                            All Branches
-                        </label>
-                        <div className="space-y-2 pt-1">
-                            {branches.map((branch, idx) => (
-                                <label key={idx} className="flex items-center gap-3 text-sm text-slate-600 hover:text-blue-700 cursor-pointer transition ml-1">
-                                    <input 
-                                        id="branches" 
-                                        name="branches" 
-                                        type="checkbox" 
-                                        className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
-                                        value={branch.id} 
-                                        onChange={changeHandler} 
-                                        checked={formState.branches.includes(branch.id)} 
-                                    /> 
-                                    {branch.branch_name}
-                                </label>
-                            ))}
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                            <button
+                                type="button"
+                                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
+                                onClick={(e) => submitHandler(e, 1)}
+                            >
+                                Save as Draft
+                            </button>
+
+                            <button
+                                type="button"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
+                                onClick={(e) => submitHandler(e, 2)}
+                            >
+                                Save
+                            </button>
                         </div>
                     </div>
-                </aside>
+                </header>
 
-                {/* Main Content Area (Right Column) */}
-                <main className="lg:col-span-10 flex flex-col h-full overflow-hidden">
+                {/* Card Body Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
                     
-                    {/* Document Information Stacked on top */}
-                    <section className="p-6 border-b border-gray-100 bg-white">
-                        <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
-                            <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
-                            <ServerTime />
+                    {/* Branch Sidebar (Left Column) */}
+                    <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
+                        <div className="p-5 border-b border-gray-100 bg-white/50">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">Branches</h2>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date</label>
-                                <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                            <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="all_branches" 
+                                    name="all_branches" 
+                                    className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                                    onChange={changeHandler} 
+                                    checked={formState.all_branches} 
+                                />
+                                All Branches
+                            </label>
+                            <div className="space-y-2 pt-1">
+                                {branches.map((branch, idx) => (
+                                    <label key={idx} className="flex items-center gap-3 text-sm text-slate-600 hover:text-blue-700 cursor-pointer transition ml-1">
+                                        <input 
+                                            id="branches" 
+                                            name="branches" 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
+                                            value={branch.id} 
+                                            onChange={changeHandler} 
+                                            checked={formState.branches.includes(branch.id)} 
+                                        /> 
+                                        {branch.branch_name}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Main Content Area (Right Column) */}
+                    <main className="lg:col-span-10 flex flex-col h-full overflow-hidden">
+                        
+                        {/* Document Information Stacked on top */}
+                        <section className="p-6 border-b border-gray-100 bg-white">
+                            <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
+                                <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
+                                <ServerTime />
                             </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
-                                <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date</label>
+                                    <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                                </div>
 
-                            <div className="flex items-center gap-2 pt-6">
-                                <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.effective_date == today()} />
-                                <span className="text-sm font-bold text-red-600">Urgent Price Change</span>
-                            </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
+                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
+                                </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
-                                <div className="mt-1">
-                                    <Select
-                                        id="category_id"
-                                        name="category_id"
-                                        options={catOptions}
-                                        placeholder="Select Category"
-                                        isSearchable={true}
-                                        isClearable
+                                <div className="flex items-center gap-2 pt-6">
+                                    <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.effective_date == today()} />
+                                    <span className="text-sm font-bold text-red-600">Urgent Price Change</span>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
+                                    <div className="mt-1">
+                                        <Select
+                                            id="category_id"
+                                            name="category_id"
+                                            options={catOptions}
+                                            placeholder="Select Category"
+                                            isSearchable={true}
+                                            isClearable
+                                            onChange={changeHandler}
+                                            value={catOptions.find(opt => opt.value === formState.category_id) || null}
+                                            styles={{
+                                                control: (provided) => ({
+                                                    ...provided,
+                                                    minHeight: "2.5rem",
+                                                    borderColor: "#2ea2d1",
+                                                    borderRadius: "0.5rem",
+                                                    zIndex: 5,
+                                                }),
+                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                menu: (provided) => ({
+                                                    ...provided,
+                                                    zIndex: 9999,
+                                                }),
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="xl:col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Remark</label>
+                                    <textarea
+                                        id="comment"
+                                        name="comment"
+                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        rows="1"
+                                        style={{ borderColor: '#2ea2d1' }}
                                         onChange={changeHandler}
-                                        value={catOptions.find(opt => opt.value === formState.category_id) || null}
-                                        styles={{
-                                            control: (provided) => ({
-                                                ...provided,
-                                                minHeight: "2.5rem",
-                                                borderColor: "#2ea2d1",
-                                                borderRadius: "0.5rem",
-                                                zIndex: 5,
-                                            }),
-                                            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                            menu: (provided) => ({
-                                                ...provided,
-                                                zIndex: 9999,
-                                            }),
-                                        }}
-                                    />
+                                        value={formState.comment}
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Branch Price</label>
+                                    <div className="mt-1">
+                                        <Select
+                                            id="branch_price"
+                                            name="branch_price"
+                                            options={options}
+                                            placeholder="Select Status"
+                                            isSearchable={!formState.branch_price}
+                                            menuIsOpen={formState.branch_price ? false : undefined}
+                                            isClearable={!formState.branch_price}
+                                            onChange={changeHandler}
+                                            value={options.find(opt => opt.value === formState.branch_price) || null}
+                                            styles={{
+                                                control: (provided) => ({
+                                                    ...provided,
+                                                    minHeight: "2.5rem",
+                                                    borderColor: "#2ea2d1",
+                                                    borderRadius: "0.5rem",
+                                                    zIndex: 5,
+                                                }),
+                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                menu: (provided) => ({
+                                                    ...provided,
+                                                    zIndex: 9999,
+                                                }),
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-end gap-3 md:col-span-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
+                                        <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
+                                            onClick={searchHandler}
+                                            disabled={searching}
+                                        >
+                                            {searching ? 'Loading...' : 'Search'}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => document.getElementById("excel_import").click()}
+                                            title="Excel Import"
+                                            className="inline-flex items-center justify-center h-10 w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
+                                            disabled={importing}
+                                        >
+                                            {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
+                                        </button>
+
+                                        <a
+                                            href="/assets/documents/tp_products_sample_excel.xlsx"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
+                                        >
+                                            Sample
+                                        </a>
+
+                                        <input
+                                            type="file"
+                                            id="excel_import"
+                                            accept=".xlsx,.xls,.ods"
+                                            className="hidden"
+                                            onChange={excelImportHandler}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="xl:col-span-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Remark</label>
-                                <textarea
-                                    id="comment"
-                                    name="comment"
-                                    className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                    rows="1"
-                                    style={{ borderColor: '#2ea2d1' }}
-                                    onChange={changeHandler}
-                                    value={formState.comment}
-                                ></textarea>
+                        </section>
+                        
+                        {/* Product Prices Stacked on Bottom */}
+                        <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
+                            <div className="mb-4">
+                                <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
                             </div>
-
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Branch Price</label>
-                                <div className="mt-1">
-                                    <Select
-                                        id="branch_price"
-                                        name="branch_price"
-                                        options={options}
-                                        placeholder="Select Status"
-                                        isSearchable={!formState.branch_price}
-                                        menuIsOpen={formState.branch_price ? false : undefined}
-                                        isClearable={!formState.branch_price}
-                                        onChange={changeHandler}
-                                        value={options.find(opt => opt.value === formState.branch_price) || null}
-                                        styles={{
-                                            control: (provided) => ({
-                                                ...provided,
-                                                minHeight: "2.5rem",
-                                                borderColor: "#2ea2d1",
-                                                borderRadius: "0.5rem",
-                                                zIndex: 5,
-                                            }),
-                                            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                            menu: (provided) => ({
-                                                ...provided,
-                                                zIndex: 9999,
-                                            }),
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex items-end gap-3 md:col-span-2">
-                                <div className="flex-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
-                                    <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
-                                </div>
-                                
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
-                                        onClick={searchHandler}
-                                        disabled={searching}
-                                    >
-                                        {searching ? 'Loading...' : 'Search'}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => document.getElementById("excel_import").click()}
-                                        title="Excel Import"
-                                        className="inline-flex items-center justify-center h-10 w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
-                                        disabled={importing}
-                                    >
-                                        {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
-                                    </button>
-
-                                    <a
-                                        href="/assets/documents/tp_products_sample_excel.xlsx"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
-                                    >
-                                        Sample
-                                    </a>
-
-                                    <input
-                                        type="file"
-                                        id="excel_import"
-                                        accept=".xlsx,.xls,.ods"
-                                        className="hidden"
-                                        onChange={excelImportHandler}
-                                    />
-                                </div>
-                            </div>
+                            {/* <div className="overflow-auto max-h-[500px]"> */}
+                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
+                            {/* </div> */}
                         </div>
-                    </section>
-                    
-                    {/* Product Prices Stacked on Bottom */}
-                    <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
-                        <div className="mb-4">
-                            <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
-                        </div>
-                        {/* <div className="overflow-auto max-h-[500px]"> */}
-                            <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
-                        {/* </div> */}
-                    </div>
-                </main>
+                    </main>
+                </div>
             </div>
         </div>
-    </div>
+    </>
 );
 
 }

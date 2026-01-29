@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { confirmAlert } from "react-confirm-alert";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useParams } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
 import { FaFileImport,FaSpinner } from "react-icons/fa";
@@ -14,13 +14,18 @@ import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
 import {formatDate} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
+import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
+import { m } from "framer-motion";
 
 export default function () {
     const productslimit = 50;
     const token = localStorage.getItem('token');
 
     const navigate = useNavigate();
+    const { id } = useParams();
+    
+
     const today = () => new Date().toISOString().split("T")[0];
     const minDate = today();
     const maxDate = new Date();
@@ -28,6 +33,7 @@ export default function () {
     maxDate.setMonth(new Date().getMonth() + 1);
 
     const [branches, setBranches] = useState([]);
+    let branch_length = 0;
     const [categories, setCategories] = useState([]);
     const [formState, setFormState] = useState({
         change_price_date: today(),
@@ -49,6 +55,7 @@ export default function () {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
+    const [forceLoading, setForceLoading] = useState(false);
  
     const changeHandler = (e,actionMeta) => {
          // react-select
@@ -64,6 +71,9 @@ export default function () {
 
         const { name, value, type, checked } = e.target;
 
+        if(name == 'urgent_price_change'){
+            return
+        }
 
         // checkbox group: branches[]
         if (name === "branches") {
@@ -257,82 +267,10 @@ export default function () {
         )
     }
 
-    // const handleSubmit = async (e) => {
-    //     e.preventDefault();
-    //     setIsSubmitting(true);
-    //     try {
-    //         const token = localStorage.getItem('token');
-    //         const response = await fetch("/api/cctv-records", {
-    //             method: "POST",
-    //             mode: "cors",
-    //             headers: {
-    //                 "Content-Type": "application/json",
-    //                 "Accept": "application/json",
-    //                 "Authorization": `Bearer ${token}`,
-    //             },
-    //             credentials: "include",
-    //             body: JSON.stringify(formData),
-    //         });
-
-    //         const data = await response.json();
-
-    //         if (!response.ok) {
-    //             if (response.status === 422) {
-    //                 let errorMessages = "";
-    //                 Object.values(data.errors).forEach(errorArray => {
-    //                     errorArray.forEach(error => {
-    //                         errorMessages += `• ${error}\n`;
-    //                     });
-    //                 });
-    //                 confirmAlert({
-    //                     title: "Oops! Please fix these errors",
-    //                     message: errorMessages,
-    //                     buttons: [
-    //                         {
-    //                             label: "OK",
-    //                             onClick: () => { },
-    //                         },
-    //                     ],
-    //                 });
-    //             } else {
-    //                 throw new Error(data.message || "Something went wrong");
-    //             }
-    //         } else {
-    //             confirmAlert({
-    //                 title: "Success",
-    //                 message: "Form submitted successfully!",
-    //                 buttons: [
-    //                     {
-    //                         label: "OK",
-    //                         onClick: () => {
-    //                             navigate("/cctv_record");
-    //                         },
-    //                     },
-    //                 ],
-    //             });
-    //         }
-    //     } catch (error) {
-    //         console.error("Error submitting form:", error);
-    //         confirmAlert({
-    //             title: "Error",
-    //             message: "Something went wrong while submitting the form.",
-    //             buttons: [
-    //                 {
-    //                     label: "OK",
-    //                     onClick: () => { },
-    //                 },
-    //             ],
-    //         });
-    //     } finally {
-    //         setIsSubmitting(false);
-    //     }
-    // };
-
-
     const submitHandler = async (e,btntype)=>{
         e.preventDefault();
-        setIsSubmitting(true);
-            const formData = {
+    
+        const formData = {
             ...formState,
             products,
             btnValue: btntype
@@ -402,8 +340,10 @@ export default function () {
         if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
-         try{
-            const res = await axios.post(`/api/price_changes`,formData,{
+        setForceLoading(true);
+        setIsSubmitting(true);
+        try{
+            const res = await axios.patch(`/api/price_changes/${id}/update`,formData,{
                 headers: {
                 Authorization: `Bearer ${token}`,
                 },
@@ -430,12 +370,14 @@ export default function () {
                 }
             }
 
-            Swal.fire({
+            await Swal.fire({
                 icon: "success",
                 title: "Form submitted successfully!",
                 text: data.message,
             });
-            navigate("/price_changes");
+            // fetchPriceChange(); 
+            navigate(0);
+            // navigate("/price_changes");
 
         }catch(err){
             console.log('There is an error in saving price change document:',err);
@@ -446,6 +388,9 @@ export default function () {
                 title: "Form Submit Error!!",
                 text: "Something went wrong while submitting the form.",
             });
+        }finally{
+            setForceLoading(false);
+            setIsSubmitting(false);
         }
     }
     const excelImportHandler = async (e) => {
@@ -561,6 +506,7 @@ export default function () {
                             .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
 
             setBranches(list);
+            branch_length = list.length;
         } catch (error) {
             console.error('Fetch branches error:', error);
             setBranches([]);
@@ -616,554 +562,298 @@ export default function () {
         label: category.name
     }));
 
+    const fetchPriceChange = async ()=> {
+        try{
 
-    useEffect(() => {
-        fetchBranches();
-        fetchProductCategories();
-    }, []);
+            const {data} = await axios.get(`/api/price_changes_detail/${id}`, {
+                headers: {
+                Authorization: `Bearer ${token}`,
+                },
+            });
+            console.log(data);
+
+            const transformedProducts = data.price_changes.map(item => ({
+                ...item,
+                price: item.reference_price
+            }));
+            setProducts(transformedProducts);
+
+            const general_form = data.general_form;
+            const price_change_branches = data.price_change_branches;
+            const normalizedForm = {
+                ...general_form,
+                change_price_date: general_form.created_at ? formatDate(new Date(general_form.created_at)): '',
+                effective_date: general_form.date_formatted ? formatDate(new Date(general_form.date_formatted)): '',
+                branches:  price_change_branches.map(brch=>brch.branch_id),
+                urgent_price_change: general_form.asset_type == 'on',
+                category_id: general_form.to_department,
+                comment: general_form.remark,
+                branch_price: general_form.to_branch,
+                all_branches: price_change_branches.length == branch_length,
+
+                form_id: 21,
+                layout_id: 19,
+                route: "price_changes"
+            }
+            console.log(price_change_branches.length, branch_length);
+
+            setFormState(normalizedForm);
+            
+        } catch(error){
+            console.error('Fetch branches error:', error);
+        }
+
+    }
+
 
     const productsExceedLimit = (limit)=>{
         return products.length >= limit
     }
 
 
-    // return (
-    //     <div className="p-4 md:p-6 lg:p-8">
+    useEffect(() => {
+        fetchBranches();
+        fetchProductCategories();
+        fetchPriceChange();
+    }, []);
 
-    //         <NavPath
-    //             segments={[
-    //                 { path: "/dashboard", label: "Home" },
-    //                 { path: "/dashboard", label: "Dashboard" },
-    //                 { path: "/price_changes", label: "Price Changes" },
-    //                 { path: "/price_changes/create", label: "Price Change Form" },
-    //             ]}
-    //         />
+    return (
+        <>
+        {forceLoading && <FullPageLoader />}
+        <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
+            <NavPath
+                segments={[
+                    { path: "/dashboard", label: "Home" },
+                    { path: "/dashboard", label: "Dashboard" },
+                    { path: "/price_changes", label: "Price Changes" },
+                    { path: "/price_changes/create", label: "Price Change Form" },
+                ]}
+            />
 
-    //     <div class="stickys top-6 z-30">
-    //         <div
-    //             class="bg-white border border-gray-200 rounded-xl
-    //                 px-4 sm:px-6 py-4
-    //                 shadow-sm"
-    //         >
-    //             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-
-    //                 <h3 class="text-xl font-semibold text-blue-900 flex flex-wrap items-center gap-2">
-    //                     Price Change Form
-    //                     {/* <span
-    //                         class="text-xl font-bold 
-    //                             whitespace-nowrap select-all"
-    //                     >
-    //                         (PCSPT120260114-0012)
-    //                     </span> */}
-    //                 </h3>
-
-    //                 <div class="flex flex-wrap gap-2 sm:justify-end">
-    //                     <button
-    //                         type="button"
-    //                         class="px-4 py-2 text-sm rounded-lg
-    //                             border border-gray-300 text-gray-700
-    //                             hover:bg-gray-100 transition"
-    //                         onClick={(e)=>submitHandler(e,1)}    
-    //                         >
-    //                         Save as Draft
-    //                     </button>
-
-    //                     <button
-    //                         type="button"
-    //                         class="px-4 py-2 text-sm rounded-lg
-    //                             bg-blue-600 text-white
-    //                             hover:bg-blue-700 transition"
-    //                         onClick={(e)=>submitHandler(e,2)}    
-    //                         >
-    //                         Save
-    //                     </button>
-
-    //                     {/* <button
-    //                         class="px-4 py-2 text-sm rounded-lg
-    //                             bg-amber-500 text-white
-    //                             hover:bg-amber-600 transition">
-    //                         Audit
-    //                     </button>
-
-    //                     <button
-    //                         class="px-4 py-2 text-sm rounded-lg
-    //                             bg-green-600 text-white
-    //                             hover:bg-green-700 transition">
-    //                         Approve
-    //                     </button>
-
-    //                     <button
-    //                         class="px-4 py-2 text-sm rounded-lg
-    //                             bg-red-600 text-white
-    //                             hover:bg-red-700 transition">
-    //                         Reject
-    //                     </button> */}
-    //                 </div>
-
-    //             </div>
-    //         </div>
-    //     </div>
-
-
-           
-    //         <div className="h-auto md:h-[calc(100vh-14rem)] grid grid-cols-1 lg:grid-cols-12 gap-4s p-0">
-
-    //             <aside className="lg:col-span-2 h-full">
-    //                 <div className="h-full bg-white rounded-2xl shadow flex flex-col">
-
-    //                 <div className="p-5 border-b">
-    //                     <h2 className="text-base font-semibold text-slate-800">Branches</h2>
-    //                     {/* <input
-    //                     className="mt-3 w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-indigo-500"
-    //                     placeholder="Search branch..."
-    //                     /> */}
-    //                 </div>
-
-    //                 <div className="flex-1 overflow-y-auto p-5 space-y-3">
-    //                     <label className="flex items-center gap-3 text-sm font-medium">
-    //                     <input type="checkbox" id="all_branches" name="all_branches" className="rounded text-indigo-600" onChange={changeHandler}  checked={formState.all_branches} />
-    //                     All Branches
-    //                     </label>
-    //                     {
-    //                         branches.map((branch,idx)=>(
-    //                             <label key={idx} className="flex items-center gap-3 text-sm ms-4"><input id="branches" name="branches" type="checkbox"   value={branch.id} onChange={changeHandler}  checked={formState.branches.includes(branch.id)}/> {branch.branch_name}</label>
-    //                         ))
-    //                     }
-    //                 </div>
-
-    //                 </div>
-    //             </aside>
-
-    //             <main className="lg:col-span-10 h-full flex flex-col gap-4 overflow-hidden h-full" >
-    //                 <section className="rounded-2xl shadow overflow-hidden h-full">
-    //                     <header className="bg-gray-50 p-6 border-b border-indigo-100">
-    //                         <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
-    //                             <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
-    //                             <ServerTime/>
-    //                         </div>
-
-    //                         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4">
-    //                             {/* <div>
-    //                             <label className="text-xs font-medium text-slate-600">Change Price No</label>
-    //                             <input className="mt-1 w-full px-3 py-2 border rounded-lg bg-slate-50" value="CPMM107-260119-002"/>
-    //                             </div> */}
-
-    //                             <div>
-    //                             <label className="text-xs font-medium text-slate-600">Change Price Date</label>
-    //                                 <input type="date" id="change_price_date" name="change_price_date" className="border focus:outline-none  p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly/>
-    //                             </div>
-
-    //                             <div>
-    //                             <label className="text-xs font-medium text-slate-600">Effective Date</label>
-    //                             <input type="date" id="effective_date" name="effective_date" className="border focus:outline-none  p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
-    //                             </div>
-
-
-    //                             <div className="flex items-center gap-2 mt-6">
-    //                                 <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="rounded text-red-600"  onChange={changeHandler} value={formState.urgent_price_change} checked={formState.effective_date == today()} />
-    //                                 <span className="text-sm font-medium text-red-600">Urgent Price Change</span>
-    //                             </div>
-
-                             
-    //                             <div>
-    //                                 <label className="text-xs font-medium text-slate-600">Department</label>
-    //                                 <Select
-    //                                     id="category_id"
-    //                                     name="category_id"
-    //                                     options={catOptions}
-    //                                     placeholder="Select Category"
-    //                                     isSearchable={true}
-    //                                     isClearable
-    //                                     // value={selectedCategory}                
-    //                                     // onChange={(selected) => {
-    //                                     //     setSelectedCategory(selected);
-    //                                     // }}
-    //                                     onChange={changeHandler}  
-    //                                     value={
-    //                                         catOptions.find(opt => opt.value === formState.category_id) || null
-    //                                     }
-    //                                     styles={{
-    //                                     control: (provided) => ({
-    //                                         ...provided,
-    //                                         minHeight: "3rem",          
-    //                                         borderColor: "#2ea2d1",
-    //                                         borderRadius: "0.5rem",
-    //                                     }),
-                      
-    //                                     }}
-    //                                 />
-    //                             </div>
-
-                         
-
-    //                             {/* <div>
-    //                             <label className="text-xs font-medium text-slate-600">Competitor</label>
-    //                             <input className="mt-1 w-full px-3 py-2 border rounded-lg bg-slate-50" value="No Competitor"/>
-    //                             </div> */}
-
-    //                             <div className="lg:col-span-2">
-    //                                 <label className="text-xs font-medium text-slate-600">Remark</label>
-    //                                 <textarea
-    //                                     id="comment"
-    //                                     name="comment"
-    //                                     className="border focus:outline-none p-2 w-full rounded-md bg-white"
-    //                                     rows="1"
-    //                                     style={{ borderColor: '#2ea2d1' }}
-    //                                     onChange={changeHandler} value={formState.comment}
-    //                                 ></textarea>
-    //                             </div>
-
-    //                             <div>
-    //                                 <label className="text-xs font-medium text-slate-600">Branch Price</label>
-    //                                  <Select
-    //                                     id="branch_price"
-    //                                     name="branch_price"
-    //                                     options={options}
-    //                                     placeholder="Select Status"
-    //                                     isSearchable={!formState.branch_price}  // allows typing to filter options
-    //                                     // isDisabled={formState.branch_price}
-    //                                     menuIsOpen={formState.branch_price ? false : undefined}
-    //                                     isClearable={!formState.branch_price}
-    //                                     onChange={changeHandler}
-    //                                     value={
-    //                                         options.find(opt => opt.value === formState.branch_price) || null
-    //                                     }
-    //                                     styles={{
-    //                                     control: (provided) => ({
-    //                                         ...provided,
-    //                                         minHeight: "3rem",          
-    //                                         borderColor: "#2ea2d1",
-    //                                         borderRadius: "0.5rem",
-    //                                     }),
-                                        
-    //                                     }}
-    //                                 />
-    //                             </div>
-
-    //                             <div className="flex items-end">
-    //                                 <div className="w-full">
-    //                                 <label className="text-xs font-medium text-slate-600">Product Code</label>
-    //                                 <input type="text" className="border focus:outline-none  p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode}/>
-    //                                 </div>
-    //                             </div>
-    //                             <div className="flex flex-wrap gap-2 items-end">
-
-    //                                 <button
-    //                                     type="button"
-    //                                     className="inline-flex items-center justify-center
-    //                                             px-4 py-2
-    //                                             text-sm font-medium
-    //                                             bg-cyan-600 text-white rounded-lg
-    //                                             hover:bg-cyan-700 active:bg-cyan-800
-    //                                             transition
-    //                                             focus:outline-none focus:ring-4 focus:ring-cyan-300"
-    //                                     onClick={searchHandler}
-    //                                     disabled={searching}
-    //                                 >
-    //                                     {  searching ? 'Loading....' : 'Search'}
-    //                                 </button>
-
-    //                                 <button
-    //                                     type="button"
-    //                                     onClick={() => document.getElementById("excel_import").click()}
-    //                                     title="Excel Import"
-    //                                     className="inline-flex items-center justify-center
-    //                                             min-h-[38px] px-4 py-2 text-sm font-medium
-    //                                             bg-blue-600 text-white rounded-lg
-    //                                             hover:bg-blue-700 active:bg-blue-800
-    //                                             shadow-md
-    //                                             transition
-    //                                             focus:outline-none focus:ring-4 focus:ring-blue-300"
-    //                                     disabled={importing}
-    //                                 >
-    //                                     {importing ? (
-    //                                         <FaSpinner className="text-base animate-spin" />
-    //                                     ) : (
-    //                                         <FaFileImport className="text-base" />
-    //                                     )}
-    //                                 </button>
-
-    //                                 <a
-    //                                     href="/assets/documents/tp_products_sample_excel.xlsx"
-    //                                     target="_blank"
-    //                                     rel="noopener noreferrer"
-    //                                     title="Excel Sample"
-    //                                     className="inline-flex items-center justify-center
-    //                                             min-h-[38px] px-4 py-2 text-sm font-medium
-    //                                             bg-sky-600 text-white rounded-lg
-    //                                             hover:bg-sky-700 active:bg-sky-800
-    //                                             transition
-    //                                             focus:outline-none focus:ring-4 focus:ring-sky-300"
-    //                                 >
-    //                                     Sample
-    //                                 </a>
-
-    //                                 <input
-    //                                     type="file"
-    //                                     id="excel_import"
-    //                                     accept=".xlsx,.xls,.ods"
-    //                                     className="hidden"
-    //                                     onChange={excelImportHandler}
-    //                                 />
-    //                             </div>
-    //                         </div>
-    //                     </header>
-                        
-    //                     <div className="p-2">
-    //                         {/* <div class="px-6 py-4 border-b"> */}
-    //                             <h2 class="text-base font-semibold text-slate-800">Product Prices</h2>
-    //                         {/* </div> */}
-
-
-    //                         <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors}/>
-    //                     </div>
-    //                 </section>
-    //             </main>
-    //         </div>
-    //     </div>
-    // );
-
-return (
-    <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
-        <NavPath
-            segments={[
-                { path: "/dashboard", label: "Home" },
-                { path: "/dashboard", label: "Dashboard" },
-                { path: "/price_changes", label: "Price Changes" },
-                { path: "/price_changes/create", label: "Price Change Form" },
-            ]}
-        />
-
-        {/* Main Unitary Card */}
-        <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
-            
-            {/* Action Bar as Card Header */}
-            <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                        Price Change Form
-                    </h3>
-
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <button
-                            type="button"
-                            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
-                            onClick={(e) => submitHandler(e, 1)}
-                        >
-                            Save as Draft
-                        </button>
-
-                        <button
-                            type="button"
-                            className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
-                            onClick={(e) => submitHandler(e, 2)}
-                        >
-                            Save
-                        </button>
-                    </div>
-                </div>
-            </header>
-
-            {/* Card Body Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+            {/* Main Unitary Card */}
+            <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
                 
-                {/* Branch Sidebar (Left Column) */}
-                <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
-                    <div className="p-5 border-b border-gray-100 bg-white/50">
-                        <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">Branches</h2>
-                    </div>
+                {/* Action Bar as Card Header */}
+                <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                            Price Change Form
+                        </h3>
 
-                    <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                        <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                            <input 
-                                type="checkbox" 
-                                id="all_branches" 
-                                name="all_branches" 
-                                className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
-                                onChange={changeHandler} 
-                                checked={formState.all_branches} 
-                            />
-                            All Branches
-                        </label>
-                        <div className="space-y-2 pt-1">
-                            {branches.map((branch, idx) => (
-                                <label key={idx} className="flex items-center gap-3 text-sm text-slate-600 hover:text-blue-700 cursor-pointer transition ml-1">
-                                    <input 
-                                        id="branches" 
-                                        name="branches" 
-                                        type="checkbox" 
-                                        className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
-                                        value={branch.id} 
-                                        onChange={changeHandler} 
-                                        checked={formState.branches.includes(branch.id)} 
-                                    /> 
-                                    {branch.branch_name}
-                                </label>
-                            ))}
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                       
+                            <button
+                                type="button"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
+                                onClick={(e) => submitHandler(e) }
+                            >
+                                Update
+                            </button>
                         </div>
                     </div>
-                </aside>
+                </header>
 
-                {/* Main Content Area (Right Column) */}
-                <main className="lg:col-span-10 flex flex-col h-full overflow-hidden">
+                {/* Card Body Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
                     
-                    {/* Document Information Stacked on top */}
-                    <section className="p-6 border-b border-gray-100 bg-white">
-                        <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
-                            <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
-                            {/* <ServerTime /> */}
+                    {/* Branch Sidebar (Left Column) */}
+                    <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
+                        <div className="p-5 border-b border-gray-100 bg-white/50">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">Branches</h2>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date</label>
-                                <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                            <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="all_branches" 
+                                    name="all_branches" 
+                                    className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                                    onChange={changeHandler} 
+                                    checked={formState.all_branches} 
+                                />
+                                All Branches
+                            </label>
+                            <div className="space-y-2 pt-1">
+                                {branches.map((branch, idx) => (
+                                    <label key={idx} className="flex items-center gap-3 text-sm text-slate-600 hover:text-blue-700 cursor-pointer transition ml-1">
+                                        <input 
+                                            id="branches" 
+                                            name="branches" 
+                                            type="checkbox" 
+                                            className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
+                                            value={branch.id} 
+                                            onChange={changeHandler} 
+                                            checked={formState.branches.includes(branch.id)} 
+                                        /> 
+                                        {branch.branch_name}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
+
+                    {/* Main Content Area (Right Column) */}
+                    <main className="lg:col-span-10 flex flex-col h-full overflow-hidden">
+                        
+                        {/* Document Information Stacked on top */}
+                        <section className="p-6 border-b border-gray-100 bg-white">
+                            <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
+                                <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
+                                {/* <ServerTime /> */}
                             </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
-                                <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
-                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date</label>
+                                    <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                                </div>
 
-                            <div className="flex items-center gap-2 pt-6">
-                                <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.effective_date == today()} />
-                                <span className="text-sm font-bold text-red-600">Urgent Price Change</span>
-                            </div>
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
+                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
+                                </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
-                                <div className="mt-1">
-                                    <Select
-                                        id="category_id"
-                                        name="category_id"
-                                        options={catOptions}
-                                        placeholder="Select Category"
-                                        isSearchable={true}
-                                        isClearable
+                                <div className="flex items-center gap-2 pt-6">
+                                    <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.urgent_price_change} />
+                                    <span className="text-sm font-bold text-red-600">Urgent Price Change</span>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
+                                    <div className="mt-1">
+                                        <Select
+                                            id="category_id"
+                                            name="category_id"
+                                            options={catOptions}
+                                            placeholder="Select Category"
+                                            isSearchable={true}
+                                            isClearable
+                                            onChange={changeHandler}
+                                            value={catOptions.find(opt => opt.value === formState.category_id) || null}
+                                            styles={{
+                                                control: (provided) => ({
+                                                    ...provided,
+                                                    minHeight: "2.5rem",
+                                                    borderColor: "#2ea2d1",
+                                                    borderRadius: "0.5rem",
+                                                    zIndex: 5,
+                                                }),
+                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                menu: (provided) => ({
+                                                    ...provided,
+                                                    zIndex: 9999,
+                                                }),
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="xl:col-span-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Remark</label>
+                                    <textarea
+                                        id="comment"
+                                        name="comment"
+                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        rows="1"
+                                        style={{ borderColor: '#2ea2d1' }}
                                         onChange={changeHandler}
-                                        value={catOptions.find(opt => opt.value === formState.category_id) || null}
-                                        styles={{
-                                            control: (provided) => ({
-                                                ...provided,
-                                                minHeight: "2.5rem",
-                                                borderColor: "#2ea2d1",
-                                                borderRadius: "0.5rem",
-                                                zIndex: 5,
-                                            }),
-                                            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                            menu: (provided) => ({
-                                                ...provided,
-                                                zIndex: 9999,
-                                            }),
-                                        }}
-                                    />
+                                        value={formState.comment}
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Branch Price</label>
+                                    <div className="mt-1">
+                                        <Select
+                                            id="branch_price"
+                                            name="branch_price"
+                                            options={options}
+                                            placeholder="Select Status"
+                                            isSearchable={!formState.branch_price}
+                                            menuIsOpen={formState.branch_price ? false : undefined}
+                                            isClearable={!formState.branch_price}
+                                            onChange={changeHandler}
+                                            value={options.find(opt => opt.value === formState.branch_price) || null}
+                                            styles={{
+                                                control: (provided) => ({
+                                                    ...provided,
+                                                    minHeight: "2.5rem",
+                                                    borderColor: "#2ea2d1",
+                                                    borderRadius: "0.5rem",
+                                                    zIndex: 5,
+                                                }),
+                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                menu: (provided) => ({
+                                                    ...provided,
+                                                    zIndex: 9999,
+                                                }),
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex items-end gap-3 md:col-span-2">
+                                    <div className="flex-1">
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
+                                        <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
+                                    </div>
+                                    
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
+                                            onClick={searchHandler}
+                                            disabled={searching}
+                                        >
+                                            {searching ? 'Loading...' : 'Search'}
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => document.getElementById("excel_import").click()}
+                                            title="Excel Import"
+                                            className="inline-flex items-center justify-center h-10 w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
+                                            disabled={importing}
+                                        >
+                                            {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
+                                        </button>
+
+                                        <a
+                                            href="/assets/documents/tp_products_sample_excel.xlsx"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
+                                        >
+                                            Sample
+                                        </a>
+
+                                        <input
+                                            type="file"
+                                            id="excel_import"
+                                            accept=".xlsx,.xls,.ods"
+                                            className="hidden"
+                                            onChange={excelImportHandler}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-
-                            <div className="xl:col-span-2">
-                                <label className="text-xs font-bold text-slate-500 uppercase">Remark</label>
-                                <textarea
-                                    id="comment"
-                                    name="comment"
-                                    className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                    rows="1"
-                                    style={{ borderColor: '#2ea2d1' }}
-                                    onChange={changeHandler}
-                                    value={formState.comment}
-                                ></textarea>
+                        </section>
+                        
+                        {/* Product Prices Stacked on Bottom */}
+                        <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
+                            <div className="mb-4">
+                                <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
                             </div>
-
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 uppercase">Branch Price</label>
-                                <div className="mt-1">
-                                    <Select
-                                        id="branch_price"
-                                        name="branch_price"
-                                        options={options}
-                                        placeholder="Select Status"
-                                        isSearchable={!formState.branch_price}
-                                        menuIsOpen={formState.branch_price ? false : undefined}
-                                        isClearable={!formState.branch_price}
-                                        onChange={changeHandler}
-                                        value={options.find(opt => opt.value === formState.branch_price) || null}
-                                        styles={{
-                                            control: (provided) => ({
-                                                ...provided,
-                                                minHeight: "2.5rem",
-                                                borderColor: "#2ea2d1",
-                                                borderRadius: "0.5rem",
-                                                zIndex: 5,
-                                            }),
-                                            menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                            menu: (provided) => ({
-                                                ...provided,
-                                                zIndex: 9999,
-                                            }),
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex items-end gap-3 md:col-span-2">
-                                <div className="flex-1">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
-                                    <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
-                                </div>
-                                
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
-                                        onClick={searchHandler}
-                                        disabled={searching}
-                                    >
-                                        {searching ? 'Loading...' : 'Search'}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => document.getElementById("excel_import").click()}
-                                        title="Excel Import"
-                                        className="inline-flex items-center justify-center h-10 w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
-                                        disabled={importing}
-                                    >
-                                        {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
-                                    </button>
-
-                                    <a
-                                        href="/assets/documents/tp_products_sample_excel.xlsx"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
-                                    >
-                                        Sample
-                                    </a>
-
-                                    <input
-                                        type="file"
-                                        id="excel_import"
-                                        accept=".xlsx,.xls,.ods"
-                                        className="hidden"
-                                        onChange={excelImportHandler}
-                                    />
-                                </div>
-                            </div>
+                            {/* <div className="overflow-auto max-h-[500px]"> */}
+                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
+                            {/* </div> */}
                         </div>
-                    </section>
-                    
-                    {/* Product Prices Stacked on Bottom */}
-                    <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
-                        <div className="mb-4">
-                            <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
-                        </div>
-                        {/* <div className="overflow-auto max-h-[500px]"> */}
-                            <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
-                        {/* </div> */}
-                    </div>
-                </main>
+                    </main>
+                </div>
             </div>
         </div>
-    </div>
-);
+        </>
+    );
 
 }

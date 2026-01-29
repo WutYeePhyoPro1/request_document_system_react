@@ -9,3 +9,4 @@ export const formatNumber = (num) =>
   new Intl.NumberFormat("en-US").format(num || 0);
 
 export const formatDate = (d) => d.toISOString().split("T")[0];
+
