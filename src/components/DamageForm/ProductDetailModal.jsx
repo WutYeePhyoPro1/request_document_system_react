@@ -174,19 +174,19 @@ export default function ProductDetailModal({
   );
 
   const productFields = [
-    { icon: Tag, label: "Product Category", value: product.category },
-    { icon: Barcode, label: "Product Code", value: product.code },
-    { icon: Type, label: "Product Name", value: product.name },
+    { icon: Tag, label: t('damageForm.productCategory'), value: product.category },
+    { icon: Barcode, label: t('damageForm.productCode'), value: product.code },
+    { icon: Type, label: t('damageForm.productName'), value: product.name },
     {
       icon: DollarSign,
-      label: "Amount",
+      label: t('damageForm.amount'),
       value: product.amount?.toLocaleString(),
       valueColor: "text-green-600 font-semibold",
     },
-    { icon: Package, label: "Unit", value: product.unit },
+    { icon: Package, label: t('damageForm.unit'), value: product.unit },
     {
       icon: DollarSign,
-      label: "Price",
+      label: t('damageForm.price'),
       value: product.price?.toLocaleString() || "-",
     },
   ];
@@ -237,7 +237,7 @@ export default function ProductDetailModal({
               {/* Account Code */}
               {accountCode && (
                 <div className="mt-4 w-full bg-gray-50 border border-gray-200 p-3 rounded-lg">
-                  <Field icon={CreditCard} label="Account Code" value={accountCodeLabel} />
+                  <Field icon={CreditCard} label={t('damageForm.accountCode')} value={accountCodeLabel} />
                 </div>
               )}
 
@@ -247,23 +247,23 @@ export default function ProductDetailModal({
                   <div className="flex gap-2">
                     <Type size={18} className="text-gray-500 shrink-0 mt-1" />
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-400 text-xs uppercase mb-1">Remark</p>
+                      <p className="font-semibold text-gray-400 text-xs uppercase mb-1">{t('damageForm.remark')}</p>
                       <textarea
                         value={product.remark || ''}
                         onChange={(e) => onRemarkChange(product.id, e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm"
-                        placeholder="Add remark..."
+                        placeholder={t('damageForm.addRemark')}
                         rows={3}
                       />
                     </div>
                   </div>
                 ) : product.remark ? (
-                  <Field icon={Type} label="Remark" value={product.remark} />
+                  <Field icon={Type} label={t('damageForm.remark')} value={product.remark} />
                 ) : (
                   <div className="flex gap-2">
                     <Type size={18} className="text-gray-500 shrink-0" />
                     <div>
-                      <p className="font-semibold text-gray-400 text-xs uppercase">Remark</p>
+                      <p className="font-semibold text-gray-400 text-xs uppercase">{t('damageForm.remark')}</p>
                       <p className="text-gray-500 text-sm">-</p>
                     </div>
                   </div>
@@ -276,7 +276,7 @@ export default function ProductDetailModal({
                   <div className="flex gap-2 items-center">
                     <Layers size={16} className="text-gray-500" />
                     <p className="text-xs font-semibold text-gray-500">
-                      System Qty
+                      {t('damageForm.systemQty')}
                     </p>
                   </div>
                   <p className="text-gray-800">{product.system_qty}</p>
@@ -286,7 +286,7 @@ export default function ProductDetailModal({
                   <div className="flex gap-2 items-center">
                     <Layers size={16} className="text-gray-500" />
                     <p className="text-xs font-semibold text-gray-500">
-                      Request Qty
+                      {t('damageForm.requestQty')}
                     </p>
                   </div>
                   <p className="text-gray-800">{product.request_qty}</p>
@@ -296,7 +296,7 @@ export default function ProductDetailModal({
                   <div className="flex gap-2 items-center">
                     <Layers size={16} className="text-gray-500" />
                     <p className="text-xs font-semibold text-gray-500">
-                      Final Qty
+                      {t('damageForm.finalQty')}
                     </p>
                   </div>
                   <p className="text-gray-800">{product.final_qty}</p>
@@ -308,7 +308,7 @@ export default function ProductDetailModal({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <FileText size={16} className="text-gray-500" />
-                    <p className="text-xs font-semibold text-gray-500 uppercase">Images</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase">{t('damageForm.images')}</p>
                   </div>
                   {canEdit && handleImageUpload && (
                     <label
@@ -316,7 +316,7 @@ export default function ProductDetailModal({
                       htmlFor={`file-input-modal-${product.id}`}
                     >
                       <Upload size={14} />
-                      Add Image
+                      {t('damageForm.addImage')}
                       <input
                         type="file"
                         id={`file-input-modal-${product.id}`}
@@ -364,7 +364,7 @@ export default function ProductDetailModal({
                 ) : (
                   <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
                     <ImageIcon size={32} className="mx-auto text-gray-300 mb-2" />
-                    <p className="text-sm text-gray-400">No images uploaded</p>
+                    <p className="text-sm text-gray-400">{t('damageForm.noImagesUploaded')}</p>
                   </div>
                 )}
               </div>

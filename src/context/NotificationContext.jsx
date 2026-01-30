@@ -8,7 +8,6 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Get token from Redux
   const token = useSelector((state) => state.auth.token);
 
   const refreshNotifications = useCallback(async () => {
@@ -25,6 +24,7 @@ export const NotificationProvider = ({ children }) => {
       setNotifications(response?.data || response);
     } catch (e) {
       console.error("Error fetching notifications:", e);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
@@ -32,6 +32,22 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     refreshNotifications();
+  }, [refreshNotifications]);
+
+
+  useEffect(() => {
+    const handleNotificationsUpdated = (event) => {
+      console.log('Notifications updated event received, refreshing notifications...');
+      refreshNotifications();
+    };
+
+    // Add event listener for notificationsUpdated event
+    window.addEventListener('notificationsUpdated', handleNotificationsUpdated);
+
+    // Cleanup event listener on unmount
+    return () => {
+      window.removeEventListener('notificationsUpdated', handleNotificationsUpdated);
+    };
   }, [refreshNotifications]);
 
   return (

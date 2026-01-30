@@ -76,7 +76,13 @@
     "showAccountCodes": "Show Account Codes",
     "hideAccountCodes": "Hide Account Codes",
     "productInformation": "Product Information",
-    "productNumbered": "{{number}}-Product"
+    "productNumbered": "{{number}}-Product",
+    "addDamageItem": "Add Damage Item",
+    "branch": "Branch",
+    "enterProductCodePlaceholder": "Enter product code...",
+    "searching": "Searching...",
+    "search": "Search",
+    "case": "Case"
   },
   "approval": {
     "preparedBy": "Prepared by",
@@ -85,6 +91,12 @@
     "operationMgrApprovedBy": "Operation Mgr Approved by",
     "issuedBy": "Issued by",
     "acknowledgedBy": "Acknowledged by"
+  },
+  "iss": {
+    "title": "ISS Information",
+    "remarkType": "ISS Remark Type",
+    "number": "ISS Number",
+    "numbers": "ISS Numbers"
   },
   "status": {
     "ongoing": "Ongoing",
@@ -114,7 +126,7 @@
     "deleteFail": "Delete Fail",
     "submitFail": "Submit Fail",
     "pleaseFillRequired": "Please check the form and fill all required fields.",
-    "investigationRequired": "Please fill the investigation form (BM Reason and percentages must total 100%) before approving.",
+    "investigationRequired": "Please fill the investigation form before approving. The investigation form is required for Branch Manager approval.",
     "missingFormIdentifier": "Missing form identifier. Please refresh and try again.",
     "pdfGenerated": "PDF downloaded successfully",
     "pdfGenerateFailed": "Failed to download PDF. Please try again.",
@@ -136,6 +148,7 @@
     "issRemarkRequired": "Please select ISS remark type before issuing the form.",
     "accountCodesRequired": "Please assign account codes to all products before issuing the form.",
     "issRemarkAndAccountCodesRequired": "Please select ISS remark type and assign account codes to all products before issuing.",
+    "amountOver500kWarning": "The total amount exceeds 500,000. Please click 'Back to Previous' to return this form for Operation Manager approval before making changes.",
     "errors": {
       "authTokenNotFound": "Authentication token not found. Please log in again.",
       "sessionExpired": "Your session has expired. Please log in again.",
@@ -193,6 +206,22 @@
       "actualQtyExceedsSystem": "{{productName}}: Actual Quantity ({{qty}}) cannot be greater than System Quantity ({{systemQty}})."
     }
   },
+  "buttons": {
+    "submit": "Submit",
+    "check": "Check",
+    "approveBM": "Approve (BM)",
+    "acknowledge": "Acknowledge",
+    "approveOP": "Approve (OP)",
+    "issue": "Issue",
+    "edit": "Edit",
+    "cancel": "Cancel",
+    "back": "Back",
+    "backToPrevious": "Back To previous",
+    "add": "Add",
+    "proceed": "Proceed",
+    "investigationForm": "Investigation Form",
+    "investigation": "Investigation"
+  },
   "confirmation": {
     "title": "Confirm",
     "areYouSure": "Are you sure?",
@@ -204,7 +233,7 @@
     "actions": {
       "submitForm": "Submit Form",
       "checkForm": "Check Form",
-      "approveBM": "Approve (BM)",
+      "approveBM": "Approval (BM)",
       "acknowledge": "Acknowledge",
       "approveOperationManager": "Approve (Operation Manager)",
       "issue": "Issue",
@@ -212,12 +241,71 @@
       "editForm": "Edit Form",
       "backToPrevious": "Back to Previous",
       "cancelForm": "Cancel Form",
+      "downloadPDF": "Download PDF",
       "performAction": "Perform Action"
     }
   },
   "list": {
     "noDataAvailable": "No Data Available",
-    "noDataDescription": "There are no damage issue records to display at the moment."
+    "noDataDescription": "There are no damage issue records to display at the moment.",
+    "totalRows": "Total",
+    "rows": "Rows",
+    "otherIncomeSell": "Other Income Sell",
+    "notSell": "Not Sell",
+    "columns": {
+      "no": "No",
+      "status": "Status",
+      "documentNo": "Document No",
+      "sellNotSell": "Sell / Not Sell",
+      "branch": "Branch",
+      "requestedBy": "Requested By",
+      "amount": "Amount",
+      "createdDate": "Created Date",
+      "created": "Created",
+      "modified": "Modified",
+      "sellStatus": "Sell Status"
+    }
+  },
+  "filter": {
+    "productNameCode": "Product Name/Code",
+    "formDocNo": "Form Doc No",
+    "fromDate": "From Date",
+    "toDate": "To Date",
+    "status": "Status",
+    "branch": "Branch",
+    "allBranch": "All Branch",
+    "search": "Search",
+    "reset": "Reset",
+    "roleDefault": "Role default",
+    "datePlaceholder": "mm/dd/yyyy"
+  },
+  "branches": {
+    "headOffice": "Head Office",
+    "lanthit": "Lanthit",
+    "theikPan": "Theik Pan",
+    "satsan": "Satsan",
+    "eastDagon": "East Dagon",
+    "mawlamyine": "Mawlamyine",
+    "tampawady": "Tampawady",
+    "hlaingtharyar": "Hlaingtharyar",
+    "ayetharyar": "Ayetharyar",
+    "bago": "Bago",
+    "pro1PlusTerminalM": "PRO1 PLUS (Terminal M)",
+    "southDagon": "South Dagon",
+    "daNyinGone": "Da Nyin Gone",
+    "shwePyiThar": "Shwe Pyi Thar",
+    "projectSales": "Project Sales",
+    "onlineSales": "Online Sales",
+    "wholeSales": "Whole Sales",
+    "outletSales": "Outlet Sales",
+    "clearanceSale": "Clearance Sale",
+    "whMyoHoung": "WH-Myo Houng",
+    "whMingalardon": "WH-Mingalardon",
+    "dcMyawaddy": "DC-Myawaddy",
+    "dcMingalardon2": "DC-Mingalardon2",
+    "dcMingalardon3": "DC-Mingalardon3",
+    "mingalardon": "Mingalardon",
+    "nayPyiTaw": "Nay Pyi Taw"
   },
   "navbar": {
     "requestDocumentSystem": "REQUEST DOCUMENT SYSTEM",
@@ -254,6 +342,43 @@
     "characterLimitWarning": "You can only type {{max}} characters.",
     "characterLimitReached": "Character limit reached. You can only type {{max}} characters.",
     "charactersRemaining": "You can only type {{remaining}} more characters ({{max}} total)."
+  },
+  "table": {
+    "category": "Category",
+    "code": "Code",
+    "name": "Name",
+    "unit": "Unit",
+    "systemQty": "System Qty",
+    "price": "Price",
+    "requestQty": "Request Qty",
+    "finalQty": "Final Qty",
+    "actualQty": "Actual Qty",
+    "amount": "Amount",
+    "remark": "Remark",
+    "img": "Img",
+    "accountCode": "Account Code",
+    "searchPlaceholder": "Search by product code...",
+    "clearSearch": "Clear search",
+    "filterProducts": "Filter products",
+    "delete": "Delete",
+    "showAccountCodes": "Show Account Codes",
+    "hideAccountCodes": "Hide Account Codes",
+    "updateSystemQty": "Update System Qty",
+    "updateSystemQtyAgain": "Update System Qty Again",
+    "updating": "Updating...",
+    "noItemsAdded": "No items added yet.",
+    "prev": "Prev",
+    "next": "Next",
+    "page": "Page",
+    "of": "of",
+    "enterRemark": "Enter remark...",
+    "deleteImage": "Delete image",
+    "addMoreImages": "Add more images",
+    "previousImage": "Previous image",
+    "nextImage": "Next image",
+    "total": "Total",
+    "updateSystemQtyWarning": "Please update your system qty before clicking the Issued button.",
+    "selectAllAccountCodesHint": "You can select the account code all at once when you click 'Select all' button"
   }
 }
 

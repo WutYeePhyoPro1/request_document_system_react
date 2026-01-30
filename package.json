@@ -12,10 +12,10 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@lottiefiles/dotlottie-react": "^0.17.8",
-    "@mantine/core": "^8.2.8",
-    "@mantine/dates": "^8.2.8",
+    "@mantine/core": "^8.3.10",
+    "@mantine/dates": "^8.3.10",
     "@mantine/form": "^8.3.0",
-    "@mantine/hooks": "^8.2.8",
+    "@mantine/hooks": "^8.3.10",
     "@reduxjs/toolkit": "^2.9.0",
     "@tabler/icons-react": "^3.34.1",
     "@tailwindcss/vite": "^4.0.14",

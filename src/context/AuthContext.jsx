@@ -29,9 +29,13 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
             });
             
             const data = await response.json();
-            console.log("ApiData>>" , response.data) ;
 
             if (response.ok) {
+                // Clear any old cached data first
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+
+                // Store new data
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
                
@@ -125,27 +129,18 @@ const getTokenFromStorage = () => localStorage.getItem("token") || null;
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             setUser(null);
-            
+
             const response = await axios.post('/api/auto-login', { token }, {
-                withCredentials: true 
+                withCredentials: true
             });
-            
+
             if (response.data && response.data.user) {
-                const enriched = { ...response.data.user };
-                if (!enriched.user_type) {
-                  if (enriched.employee_number === '666-666666' || enriched.emp_id === '666-666666') {
-                    enriched.user_type = 'A2';
-                  } else if (Number(enriched.role_id) === 3) {
-                    enriched.user_type = 'A1';
-                  }
-                }
-                
-                // Store new user data
+                const userData = { ...response.data.user };
+
+                // Store new user data (API now includes user_type)
                 localStorage.setItem('token', response.data.token);
-                localStorage.setItem('user', JSON.stringify(enriched));
-                setUser(enriched);
-                
-                console.log('[AUTO-LOGIN] User logged in:', enriched.name, enriched.emp_id);
+                localStorage.setItem('user', JSON.stringify(userData));
+                setUser(userData);
                 return true;
             }
         } catch (error) {

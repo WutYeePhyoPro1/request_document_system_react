@@ -7,7 +7,7 @@ import { PlusCircleIcon, FunnelIcon, PlusIcon, XMarkIcon } from '@heroicons/reac
 import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
 import BigDamageIsuueLogo from "../../assets/images/big-dmg-issue-logo.png";
-import { filterFormsByRole, getDefaultStatusFilter } from "../../utils/roleBasedFilter";
+import { filterFormsByRole } from "../../utils/roleBasedFilter";
 import { canViewAllBranches } from "../../utils/userAccess";
 import { useContext } from 'react';
 import { NotificationContext } from '../../context/NotificationContext';
@@ -33,53 +33,8 @@ const Dashboard = () => {
     const statusParam = searchParams.get('status');
     const branchParam = searchParams.get('branch');
     
-    // Parse status - now may be comma-separated string; if missing, set role-based defaults
+    // Parse status - no role-based defaults applied
     let status = statusParam || "";
-    if (!status) {
-      try {
-        const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-        const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-        const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-
-        // Prefer authoritative user_type when available
-        // If user has global/all-branch access, skip frontend role defaults (backend will handle visibility)
-        const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
-        const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
-
-        const isCheckerUser = (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c')) || role.includes('checker');
-
-        if (!hasAllBranchAccess || isCheckerUser) {
-          if (userType) {
-            if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
-              status = ['Ongoing', 'Checked'].join(',');
-            } else if (userType === 'a1') {
-              // Branch Manager (A1) - do NOT set frontend default here; backend will apply BM defaults.
-              status = '';
-            } else if (userType === 'a2') {
-              status = ['BM Approved', 'Ac_Acknowledged'].join(',');
-            } else if (userType === 'ac') {
-              // For account users, include Operation Manager Approved (OPApproved) in default filter
-              status = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-            }
-          } else {
-            // Fallback to role string detection
-          // Fallback to role string detection
-          if (role.includes('checker')) {
-            status = ['Ongoing', 'Checked'].join(',');
-          } else if (role.includes('approver') || role.includes('branch manager')) {
-            status = ['Checked', 'BM Approved'].join(',');
-          } else if (role.includes('operation manager') || role.includes('op manager')) {
-            status = ['BM Approved', 'Ac_Acknowledged'].join(',');
-          } else if (role.includes('account') || role.includes('branch account')) {
-            // For account roles, include OPApproved (Operation Manager Approved) in default filter
-            status = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-          }
-          }
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
     
     // Parse branch - will be set after branchOptions are loaded
     let branch = null;
@@ -98,35 +53,6 @@ const Dashboard = () => {
   }, [searchParams]);
 
   const [filters, setFilters] = useState(initializeFiltersFromUrl);
-  // Prompt-based opt-in for Branch Account default filters
-  useEffect(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-      const isBranchAccount = userType === 'ac' || role.includes('branch account') || role.includes('account');
-
-      if (!isBranchAccount) return;
-
-      const pref = localStorage.getItem('bd_apply_role_defaults');
-      if (pref === null) {
-        // Show a simple confirm prompt once
-        const accept = window.confirm('Apply default filter for Branch Account to hide Ongoing and Checked forms? Select OK to apply defaults.');
-        localStorage.setItem('bd_apply_role_defaults', accept ? 'true' : 'false');
-        // If user accepted, set filters.status so UI immediately reflects choice
-        if (accept) {
-          setFilters(prev => ({ ...prev, status: ['BM Approved','OPApproved','Ac_Acknowledged'].join(',') }));
-        }
-      } else if (pref === 'true') {
-        // If already opted-in, ensure status is set when no explicit status param present
-        if (!searchParams.get('status')) {
-          setFilters(prev => ({ ...prev, status: ['BM Approved','OPApproved','Ac_Acknowledged'].join(',') }));
-        }
-      }
-    } catch (e) {
-      // ignore parse errors
-    }
-  }, []);
   const [perPage, setPerPage] = useState(999999); // show all by default
   const [branchOptions, setBranchOptions] = useState([{ value: '', label: 'All Branch' }]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -167,14 +93,24 @@ const Dashboard = () => {
       params.set("document_no", filters.formDocNo); // additional fallback
     }
     // Handle status: allow filters.status to be an array (from multi-select) or string
+    // When "Operation Manager Approved" (Ac_Acknowledged) is selected, also include OPApproved
     if (filters.status) {
+      let statusValues = [];
       if (Array.isArray(filters.status) && filters.status.length > 0) {
-        const joined = filters.status.map(s => (typeof s === 'string' ? s : s.value || '')).filter(Boolean).join(',');
-        if (joined) params.set('status', joined);
+        statusValues = filters.status.map(s => (typeof s === 'string' ? s : s.value || '')).filter(Boolean);
       } else if (typeof filters.status === 'string' && filters.status.trim()) {
-        params.set('status', filters.status.trim());
+        statusValues = filters.status.split(',').map(s => s.trim()).filter(Boolean);
       } else if (typeof filters.status === 'object' && filters.status.value) {
-        params.set('status', filters.status.value);
+        statusValues = [filters.status.value];
+      }
+      
+      // If Ac_Acknowledged is selected, also include OPApproved
+      if (statusValues.includes('Ac_Acknowledged') && !statusValues.includes('OPApproved')) {
+        statusValues.push('OPApproved');
+      }
+      
+      if (statusValues.length > 0) {
+        params.set('status', statusValues.join(','));
       }
     }
     if (filters.branch?.value) params.set("branch", filters.branch.value);
@@ -282,6 +218,7 @@ const Dashboard = () => {
   }, [mutate]);
 
   // Branches load once and cache
+  
   const { data: branchesPayload } = useSWRImmutable(
     token ? ['/api/branches'] : null,
     ([url]) => fetcher(url)
@@ -357,6 +294,10 @@ const Dashboard = () => {
   const bigDamageNotificationIds = useMemo(() => {
     if (!currentUser) return [];
     
+    // Ensure notifications is an array
+    if (!Array.isArray(notifications)) {
+      return [];
+    }
     
     // First, get all unique form IDs from notifications that match Big Damage Issue Form
     const notificationFormIds = new Set();
@@ -376,7 +317,7 @@ const Dashboard = () => {
     
     
     return ids;
-  }, [notifications, currentUser]);
+  }, [notifications, currentUser, canViewAllBranchesAccess]);
 
   // Create a map of notification counts per form (by general_form_id)
   // Helper function to check if notification should be shown based on user role and form status
@@ -483,149 +424,88 @@ const Dashboard = () => {
   // Use a ref to store the previous count to prevent flickering during filter changes
   const notificationCountsByFormRef = useRef(new Map());
   
-  // Count forms directly from the form list based on status and user role
-  // This is the source of truth - no dependency on notifications API
+  // Count unread notifications per form from NotificationContext (similar to request discount)
+  // This uses the actual unread notifications from the API, not form status/role
   const notificationCountsByForm = useMemo(() => {
     // Don't update notification counts while filtering to prevent glitches
     if (isFilteringRef.current) {
       return notificationCountsByFormRef.current;
     }
     
-    if (!listPayload) {
-      return new Map();
+    // Check if we have noti_data from API response (like request discount)
+    // IMPORTANT: For Big Damage Issue, we ONLY use noti_data from the API (which is already filtered for form_id 8)
+    // We do NOT fall back to NotificationContext because it contains notifications from ALL forms
+    let notiData = [];
+    if (listPayload?.noti_data && Array.isArray(listPayload.noti_data)) {
+      notiData = listPayload.noti_data;
     }
     
-    // If currentUser is not loaded yet, try to get it from localStorage directly
-    let user = currentUser;
-    if (!user) {
-        try {
-          const userStr = localStorage.getItem('user');
-          if (userStr) {
-            user = JSON.parse(userStr);
-          }
-      } catch (e) {
-      }
-    }
+    // For Big Damage Issue, ONLY use noti_data from API (already filtered for form_id 8)
+    // Do NOT use NotificationContext as it contains notifications from all forms
+    const allNotifications = notiData;
     
-    if (!user) {
+    if (!Array.isArray(allNotifications) || allNotifications.length === 0) {
       return new Map();
     }
     
     const counts = new Map();
     
-    // Try multiple possible structures for listPayload
-    let formListData = null;
-    if (listPayload?.data && Array.isArray(listPayload.data)) {
-      formListData = listPayload.data;
-    } else if (Array.isArray(listPayload)) {
-      formListData = listPayload;
-    } else if (listPayload?.data?.data && Array.isArray(listPayload.data.data)) {
-      formListData = listPayload.data.data;
-    }
+    // Get formData to check form_name if available
+    const formData = (notifications && typeof notifications === 'object' && notifications.formData) 
+      ? notifications.formData 
+      : [];
     
-    if (!formListData || !Array.isArray(formListData) || formListData.length === 0) {
-      return new Map();
-    }
-    
-    // Count forms based on status and user role
-    // Logic:
-    // - Checker: Count "Ongoing" forms
-    // - Branch Manager: Count "Checked" forms
-    // - Branch Account: Count "BM Approved" and "Acknowledged" forms
-    let matchedCount = 0;
-    let checkedForms = [];
-    let ongoingForms = [];
-    
-      formListData.forEach(row => {
-      const gf = row?.general_form || row;
-      const status = gf?.status || row?.status;
+    // Iterate over unread notifications and count by form ID
+    // IMPORTANT: noti_data from API is already filtered for form_id 8 (Big Damage Issue)
+    // The structure from API is: [{ form_id: 8, specific_form_id: ..., form_doc_no: ... }, ...]
+    // The backend uses pluck('data'), so each item is already the data object
+    allNotifications.forEach((noti) => {
+      // noti_data from API is already the notification data (not wrapped in 'data' property)
+      // So we use noti directly, but also check noti.data as fallback for compatibility
+      const notiData = noti?.data || noti;
+      const notiFormId = Number(notiData?.form_id) || notiData?.form_id;
       
-      if (!status) return;
-      
-      // Track statuses for debugging
-      const normalizedStatus = (status || '').toString().toLowerCase().trim();
-      if (normalizedStatus === 'checked') {
-        checkedForms.push({
-          formId: row?.general_form_id || gf?.general_form_id || gf?.id || row?.id,
-          formDocNo: gf?.form_doc_no || row?.form_doc_no
-        });
-      }
-      if (normalizedStatus === 'ongoing') {
-        ongoingForms.push({
-          formId: row?.general_form_id || gf?.general_form_id || gf?.id || row?.id,
-          formDocNo: gf?.form_doc_no || row?.form_doc_no
-        });
+      // CRITICAL: Only count notifications with form_id === 8 (Big Damage Issue)
+      // The API should already filter this, but we add an extra safety check
+      if (notiFormId !== 8) {
+        return;
       }
       
-      // Check if this form should be counted for the current user's role
-      if (shouldShowNotificationForRole(user, status, row)) {
-        // Suppress notification counts for Operation Managers on BM Approved forms
-        // when the form total does NOT exceed the OP threshold (<= 500,000).
-        try {
-          const normalizeStatus = (s = '') => (s || '').toString().toLowerCase().replace(/[\s_]+/g, '');
-          const compactStatus = normalizeStatus(status);
-          const isBMApprovedForCounting = compactStatus.includes('bm') && compactStatus.includes('approved');
-          const userTypeForCounting = (user?.user_type || '').toString().toLowerCase();
-          const totalAmountForCounting = parseFloat(gf?.total_amount || row?.total_amount || 0) || 0;
-          if (userTypeForCounting === 'a2' && isBMApprovedForCounting && Number(totalAmountForCounting) <= 500000) {
-            // Skip counting this form for OP users when amount <= 500k
+      // Filter by branch if user doesn't have all-branch access
+      if (!canViewAllBranchesAccess && currentUser?.from_branch_id) {
+        const notiBranchId = noti?.from_branch_id || notiData?.from_branch_id;
+        if (notiBranchId && String(notiBranchId) !== String(currentUser.from_branch_id)) {
             return;
           }
-        } catch (e) {
-          // ignore and continue to counting if any unexpected shape
-        }
-        // Get form ID - try multiple possible fields
-        // IMPORTANT: Store with ALL possible ID variations to ensure matching works
-        const generalFormId = row?.general_form_id || gf?.general_form_id || gf?.id;
-        const gfId = gf?.id;
-        const rowId = row?.id;
-        
-        // Primary ID is general_form_id (this is what DamageIssueList uses for matching)
-        const primaryId = generalFormId || gfId || rowId;
-        
-        if (primaryId) {
-          // Store count with the primary ID (this is what DamageIssueList will look for)
-          counts.set(String(primaryId), 1);
-          matchedCount++;
+      }
+      
+      // Get the form ID from the notification data
+      // The notification data contains: specific_form_id (this is the general_form_id)
+      const formId = notiData?.specific_form_id || notiData?.general_form_id || noti?.specific_form_id || noti?.general_form_id;
+      
+      if (formId) {
+        // Increment count for this form ID
+        // Store with both string and number keys for reliable matching
+        const keyStr = String(formId);
+        const currentCount = counts.get(keyStr) || 0;
+        counts.set(keyStr, currentCount + 1);
           
-          // Also store with other possible ID variations for extra matching
-          if (gfId && String(gfId) !== String(primaryId)) {
-            counts.set(String(gfId), 1);
+        // Also store with numeric key if applicable
+        const numKey = Number(formId);
+        if (!isNaN(numKey) && numKey !== keyStr) {
+          counts.set(numKey, currentCount + 1);
           }
-          if (rowId && String(rowId) !== String(primaryId) && String(rowId) !== String(gfId)) {
-            counts.set(String(rowId), 1);
-          }
-        }
+        
+      } else {
+        // Notification missing formId - skip
       }
     });
     
     // Update the ref with the new counts
     notificationCountsByFormRef.current = counts;
     
-    // Debug logging - always log to help diagnose
-    // Show status distribution to understand what statuses exist
-    const statusDistribution = {};
-    formListData.forEach(row => {
-      const gf = row?.general_form || row;
-      const status = gf?.status || row?.status;
-      if (status) {
-        statusDistribution[status] = (statusDistribution[status] || 0) + 1;
-      }
-    });
-    
-    // Check user role detection
-    const normalizeText = (text) => (text || '').toString().toLowerCase().trim();
-    const userType = normalizeText(user?.user_type || '');
-    const userRole = normalizeText(user?.role || '');
-    const isBM = userType === 'a1' || 
-                 userRole === 'bm' || 
-                 userRole === 'abm' || 
-                 userRole === 'approver' ||
-                 userRole.includes('approver') ||
-                 userRole.includes('branch manager');
-    
     return counts;
-  }, [currentUser, listPayload]);
+  }, [notifications, currentUser, canViewAllBranchesAccess, listPayload]);
 
   // Calculate total notification count from form list (not from notifications API)
   // This is the count that should appear in the notification bell
@@ -937,25 +817,6 @@ const Dashboard = () => {
   // Trigger when URL search changes or branch options update
   }, [location.search, branchOptions, initializeFiltersFromUrl]);
 
-  useEffect(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user'));
-      // Only set default branch if:
-      // 1. User has a branch ID
-      // 2. No branch filter is currently set
-      // 3. No branch is in URL params (to preserve filters when navigating back)
-      // 4. Filters have been initialized from URL
-      const branchFromUrl = searchParams.get('branch');
-    if (!canViewAllBranchesAccess && storedUser?.from_branch_id && !filters.branch && !branchFromUrl && filtersInitializedRef.current) {
-        const defaultBranch = branchOptions.find(o => o.value === storedUser.from_branch_id);
-        if (defaultBranch) {
-          setFilters(prev => ({ ...prev, branch: defaultBranch }));
-        }
-      }
-    } catch (_) {
-      // ignore parsing issues
-    }
-  }, [branchOptions, filters.branch, searchParams, canViewAllBranchesAccess]);
 
   const hasActiveFilters = useMemo(() => {
     return Boolean(
@@ -1019,16 +880,23 @@ const Dashboard = () => {
     }
 
     // Set status filter (convert from array/object to comma-separated string)
-    let statusParam = '';
+    // When "Operation Manager Approved" (Ac_Acknowledged) is selected, also include OPApproved
+    let statusValues = [];
     if (Array.isArray(v.status)) {
-      statusParam = v.status.map(s => (s && (s.value || s.value === 0) ? (s.value + '') : (s + ''))).filter(Boolean).join(',');
+      statusValues = v.status.map(s => (s && (s.value || s.value === 0) ? (s.value + '') : (s + ''))).filter(Boolean);
     } else if (v.status && typeof v.status === 'object' && (v.status.value || v.status.value === 0)) {
-      statusParam = String(v.status.value);
+      statusValues = [String(v.status.value)];
     } else if (typeof v.status === 'string') {
-      statusParam = v.status;
+      statusValues = v.status.split(',').map(s => s.trim()).filter(Boolean);
     }
-    if (statusParam && statusParam.trim()) {
-      newSearchParams.set('status', statusParam.trim());
+    
+    // If Ac_Acknowledged is selected, also include OPApproved
+    if (statusValues.includes('Ac_Acknowledged') && !statusValues.includes('OPApproved')) {
+      statusValues.push('OPApproved');
+    }
+    
+    if (statusValues.length > 0) {
+      newSearchParams.set('status', statusValues.join(','));
     } else {
       newSearchParams.delete('status');
     }
@@ -1058,58 +926,12 @@ const Dashboard = () => {
       clearTimeout(filterTimeoutRef.current);
     }
 
-    // Calculate default status based on user role (same logic as initializeFiltersFromUrl)
-    let defaultStatus = "";
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-
-      // Prefer authoritative user_type when available
-      // If user has global/all-branch access, skip frontend role defaults (backend will handle visibility)
-      const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
-      const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
-
-      const isCheckerUser = (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c')) || role.includes('checker');
-
-      if (!hasAllBranchAccess || isCheckerUser) {
-        if (userType) {
-          if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
-            defaultStatus = ['Ongoing', 'Checked'].join(',');
-          } else if (userType === 'a1') {
-            // Branch Manager (A1) - do NOT set frontend default here; backend will apply BM defaults.
-            defaultStatus = '';
-          } else if (userType === 'a2') {
-            defaultStatus = ['BM Approved', 'Ac_Acknowledged'].join(',');
-          } else if (userType === 'ac') {
-            // For account users, include Operation Manager Approved (OPApproved) in default filter
-            defaultStatus = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-          }
-        } else {
-          // Fallback to role string detection
-          if (role.includes('checker')) {
-            defaultStatus = ['Ongoing', 'Checked'].join(',');
-          } else if (role.includes('approver') || role.includes('branch manager')) {
-            defaultStatus = ['Checked', 'BM Approved'].join(',');
-          } else if (role.includes('operation manager') || role.includes('op manager')) {
-            defaultStatus = ['BM Approved', 'Ac_Acknowledged'].join(',');
-          } else if (role.includes('account') || role.includes('branch account')) {
-            // For account roles, include OPApproved (Operation Manager Approved) in default filter
-            defaultStatus = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'].join(',');
-          }
-        }
-      }
-    } catch (e) {
-      // ignore parse errors, use empty string as default
-      defaultStatus = "";
-    }
-
     const clearedFilters = {
       productName: "",
       formDocNo: "",
       fromDate: "",
       toDate: "",
-      status: defaultStatus, // Reset to default status based on user role, not empty string
+      status: [], // Clear to empty array, no default filters
       branch: null,
     };
 
@@ -1279,9 +1101,7 @@ const Dashboard = () => {
           <h1 className="text-lg font-semibold text-[#012970]">Request Document System</h1>
         </div>
         <nav className="text-sm text-gray-600">
-          <span>Home</span>
-          <span className="mx-2">/</span>
-          <span>Notifications</span>
+          <span>Dashboard</span>
           <span className="mx-2">/</span>
           <span className="text-[#012970] font-semibold">Big Damage Issue Form</span>
         </nav>
@@ -1290,10 +1110,10 @@ const Dashboard = () => {
       {/* Main Title with Add Button */}
       <div className="px-6 mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-[#012970]">Big Damage Issue Form</h2>
-        {/* Green Add Button */}
+        {/* Green Add Button - Hidden on mobile, visible on md and above */}
         <Link
           to="/big-damage-issue-add"
-          className="inline-flex items-center justify-center w-10 h-10 bg-[#198754] text-white rounded relative"
+          className="hidden md:inline-flex items-center justify-center w-10 h-10 bg-[#198754] text-white rounded relative"
           title="Add new"
         >
           {/* White square outline with plus inside */}
@@ -1462,7 +1282,6 @@ const Dashboard = () => {
             <DamageIssueList
               data={listData.rows}
               loading={listLoading}
-              // Use URL-derived currentPage so client-side pagination follows user's page selection
               currentPage={currentPage}
               perPage={perPage}
               totalRows={totalFormCount}

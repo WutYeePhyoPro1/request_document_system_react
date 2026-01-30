@@ -115,11 +115,18 @@ useEffect(() => {
         const counts = {};
         await Promise.all(
           formsData.map(async (form) => {
+            try {
             const count = await countFormNoti(token, form.id);
             counts[form.id] = count;
+              // console.log(`[MAIN_DASHBOARD_DEBUG] Form ${form.id} (${form.name}): count = ${count}`);
+            } catch (error) {
+              console.error(`[MAIN_DASHBOARD_DEBUG] Error getting count for form ${form.id}:`, error);
+              counts[form.id] = 0;
+            }
           })
         );
 
+        // console.log('[MAIN_DASHBOARD_DEBUG] Final formCounts:', counts);
         setFormCounts(counts);
       } catch (error) {
         console.error("Error fetching forms or counts:", error);
@@ -180,26 +187,15 @@ useEffect(() => {
           // Only get count if it exists in formCounts (don't default to 0)
           const count = formCounts[form.id] !== undefined ? formCounts[form.id] : null;
           const icon = formIcons[form.name] || "";
-          const isActive =
-            form.name === "CCTV Request Form" ||
-
-            form.name === "Big Damage Issue Form" ||
-            form.name === "Request Discount Form";
-
-
-            form.name === "Big Damage Issue Form" ||
-
-            form.name === "Request Discount Form";
-
+          
           return (
             <Link
               key={index}
               to={`/${form.route?.toLowerCase().replace(/\s+/g, "-")}`}
-              className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition ${
-                isActive
-                  ? "bg-white border-blue-300 hover:shadow-lg cursor-pointer"
-                  : "bg-gray-300 border-gray-300 opacity-70 cursor-not-allowed"
-              }`}
+              className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition 
+                bg-white border-blue-300 hover:shadow-lg cursor-pointer
+              `
+            }
             >
               <span className="text-xl">{icon}</span>
               <span className="font-semibold">{form.name}</span>

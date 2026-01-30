@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Swal from 'sweetalert2';
 import Select from 'react-select';
 import { MagnifyingGlassIcon, CalendarIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
 export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions, allowAllBranchSelection = false }) {
+  const { t } = useTranslation();
   // Styles matching Laravel blade design
   // custom-fs = font-size: 13px
   // custom-rounded = border-radius: 8px, border-color: #2ea2d1
@@ -20,7 +22,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     { value: 'Checked', label: 'Checked' },
     { value: 'BM Approved', label: 'BM Approved' },
     // { value: 'OPApproved', label: 'Operation Manager Approved' },
-    { value: 'Ac_Acknowledged', label: 'Operation Manager Approved' },
+    { value: 'Ac_Acknowledged', label: 'OP Approved' },
     { value: 'Approved', label: 'Approved' },
     { value: 'Completed', label: 'Completed' },
     { value: 'Cancel', label: 'Cancel' },
@@ -56,20 +58,20 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   const [localFilters, setLocalFilters] = useState(getInitialFilters);
 
   const [branchOptions, setBranchOptions] = useState([
-    { value: '', label: 'All Branch' },
+    { value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) },
   ]);
-  const [roleDefaultApplied, setRoleDefaultApplied] = useState(false);
 
   // Function to filter branches based on user's branch
   // Use selectedBranch parameter or localFilters.branch as source of truth
   const filterBranchesByUser = (allBranchOptions, selectedBranch = null) => {
     const ensureAllBranchOption = (options) => {
       if (!Array.isArray(options)) {
-        return [{ value: '', label: 'All Branch' }];
+        return [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }];
       }
       const normalized = [...options];
+      const allBranchLabel = t('filter.allBranch', { defaultValue: 'All Branch' });
       if (!normalized.find(opt => opt.value === '' || opt.value === null || opt.value === undefined)) {
-        normalized.unshift({ value: '', label: 'All Branch' });
+        normalized.unshift({ value: '', label: allBranchLabel });
       }
       return normalized;
     };
@@ -96,11 +98,11 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
         if (currentBranch && currentBranch.value) {
           const branchExists = allBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
           if (branchExists) {
-            setBranchOptions([{ value: '', label: 'All Branch' }, branchExists]);
+            setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }, branchExists]);
             return;
           }
         }
-        setBranchOptions([{ value: '', label: 'All Branch' }]);
+        setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
         return;
       }
 
@@ -121,18 +123,18 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
         }
       }
 
-      setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [{ value: '', label: 'All Branch' }]);
+      setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
     } catch (e) {
       // On error, preserve selected branch if possible
       const currentBranch = selectedBranch || localFilters.branch || filters.branch;
       if (currentBranch && currentBranch.value) {
         const branchExists = allBranchOptions?.find(opt => String(opt.value) === String(currentBranch.value));
         if (branchExists) {
-          setBranchOptions([{ value: '', label: 'All Branch' }, branchExists]);
+          setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }, branchExists]);
           return;
         }
       }
-      setBranchOptions([{ value: '', label: 'All Branch' }]);
+      setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
     }
   };
 
@@ -262,12 +264,12 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               ? data.data.data
               : [];
         const mapped = list.map(b => ({ value: b.id, label: b.branch_name }));
-        const allOptions = [{ value: '', label: 'All Branch' }, ...mapped];
+        const allOptions = [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }, ...mapped];
         // Filter branches based on user's branch, passing current branch from localFilters
         filterBranchesByUser(allOptions, localFilters.branch || filters.branch);
       } catch (e) {
         // keep default All Branch only on failure
-        setBranchOptions([{ value: '', label: 'All Branch' }]);
+        setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
       }
     };
     fetchBranches();
@@ -290,10 +292,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     // For multi-select (status), selected is an array or null
     // For single select (branch), selected is an object or null
     setLocalFilters({ ...localFilters, [name]: selected });
-    // If user manually changes status, clear the "role default" marker
-    if (name === 'status') {
-      setRoleDefaultApplied(false);
-    }
   };
 
   const handleSearch = () => {
@@ -456,69 +454,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     }),
   };
 
-  // Determine default status selections based on user role when component first mounts
-  useEffect(() => {
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      // Prefer explicit user_type when available; fall back to role string only if user_type absent
-      const userType = (storedUser?.user_type || storedUser?.userType || '').toString().toLowerCase();
-      const role = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-      // If filters already provided a status, don't override
-      if (filters && (filters.status || (localFilters && Array.isArray(localFilters.status) && localFilters.status.length > 0))) {
-        return;
-      }
-
-      let defaultStatuses = [];
-      // If user has all-branch access, skip frontend defaults for most users because backend will handle visibility.
-      // Exception: Operation Manager (A2) and Checker users should still get frontend defaults.
-      const allBranchFlag = (storedUser?.all_branch ?? storedUser?.allBranch ?? '').toString().toLowerCase();
-      const hasAllBranchAccess = allBranchFlag === 'on' || allBranchFlag === 'true' || allBranchFlag === '1';
-      const roleText = (storedUser?.role || storedUser?.role_name || storedUser?.roleName || '').toString().toLowerCase();
-      const isCheckerUser = (Array.isArray(userType) ? false : (['c', 'cs'].includes(userType) || (userType || '').toString().startsWith('c'))) || roleText.includes('checker');
-
-      // If user has all-branch access, do not apply frontend defaults — backend handles visibility
-      if (hasAllBranchAccess) {
-        return;
-      }
-
-      if (userType) {
-        // Use user_type as authoritative source
-        if (['c', 'cs'].includes(userType) || userType.startsWith('c')) {
-          defaultStatuses = ['Ongoing', 'Checked'];
-        } else if (userType === 'a1') {
-          // user_type 'A1' maps to Branch Manager/Approver — do NOT apply frontend defaults here.
-          // Backend will apply Checked/BM Approved for branch managers.
-          // Intentionally left blank.
-        } else if (userType === 'a2') {
-          defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
-        } else if (userType === 'ac') {
-          // For account users include Operation Manager Approved (OPApproved) in defaults
-          defaultStatuses = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'];
-        }
-      } else {
-        // Fallback to role name detection if user_type is not present
-        if (role.includes('checker')) {
-          defaultStatuses = ['Ongoing', 'Checked'];
-        } else if (role.includes('approver')) {
-          // Approver (BM) should get defaults, but explicit branch-manager roles are handled by backend.
-          defaultStatuses = ['Checked', 'BM Approved'];
-        } else if (role.includes('operation manager') || role.includes('op manager')) {
-          defaultStatuses = ['BM Approved', 'Ac_Acknowledged'];
-          } else if (role.includes('account') || role.includes('branch account')) {
-            // For account role names include OPApproved in defaults
-            defaultStatuses = ['BM Approved', 'OPApproved', 'Ac_Acknowledged'];
-          }
-      }
-
-      if (defaultStatuses.length > 0) {
-        const selected = defaultStatuses.map(s => statusOptions.find(o => o.value.toLowerCase() === s.toLowerCase()) || { value: s, label: s });
-        setLocalFilters(prev => ({ ...prev, status: selected }));
-        setRoleDefaultApplied(true);
-      }
-    } catch (e) {
-      // ignore
-    }
-  }, []); // run once on mount
 
   const handleFormSubmit = (e) => {
     e.preventDefault();
@@ -533,7 +468,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           {/* Product Name / Code */}
           <div className="w-full sm:w-auto sm:flex-1 min-w-[140px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
-              Product Name/Code
+              {t('filter.productNameCode', { defaultValue: 'Product Name/Code' })}
             </label>
             <div className="relative">
               <input
@@ -541,7 +476,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="productName"
                 value={localFilters.productName || ""}
                 onChange={handleChange}
-                placeholder=""
+                placeholder={t('filter.productNameCodePlaceholder', { defaultValue: 'Enter product name/code' })}
                 className={`${CONTROL_CLASSES} ${localFilters.productName ? 'pr-8' : ''}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
               />
@@ -560,7 +495,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           {/* Form Doc No */}
           <div className="w-full sm:w-auto sm:flex-1 min-w-[120px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
-              Form Doc No
+              {t('filter.formDocNo', { defaultValue: 'Form Doc No' })}
             </label>
             <div className="relative">
               <input
@@ -568,7 +503,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="formDocNo"
                 value={localFilters.formDocNo || ""}
                 onChange={handleChange}
-                placeholder=""
+                placeholder={t('filter.formDocNoPlaceholder', { defaultValue: 'Enter document number' })}
                 className={`${CONTROL_CLASSES} ${localFilters.formDocNo ? 'pr-8' : ''}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
               />
@@ -587,7 +522,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           {/* From Date */}
           <div className="w-full sm:w-auto min-w-[130px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
-              From Date
+              {t('filter.fromDate', { defaultValue: 'From Date' })}
             </label>
             <div className="relative">
               <input
@@ -595,7 +530,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="fromDate"
                 value={localFilters.fromDate || ""}
                 onChange={handleChange}
-                placeholder="mm/dd/yyyy"
+                placeholder={t('filter.datePlaceholder', { defaultValue: 'mm/dd/yyyy' })}
                 className={`${CONTROL_CLASSES} ${localFilters.fromDate ? 'pr-14' : 'pr-8'}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
                 onFocus={(e) => {
@@ -620,7 +555,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           {/* To Date */}
           <div className="w-full sm:w-auto min-w-[130px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
-              To Date
+              {t('filter.toDate', { defaultValue: 'To Date' })}
             </label>
             <div className="relative">
               <input
@@ -628,7 +563,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                 name="toDate"
                 value={localFilters.toDate || ""}
                 onChange={handleChange}
-                placeholder="mm/dd/yyyy"
+                placeholder={t('filter.datePlaceholder', { defaultValue: 'mm/dd/yyyy' })}
                 className={`${CONTROL_CLASSES} ${localFilters.toDate ? 'pr-14' : 'pr-8'}`}
                 style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
                 onFocus={(e) => {
@@ -652,13 +587,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
 
           {/* Status Select */}
           <div className="w-full sm:w-auto min-w-[120px]">
-            <label className="block text-[11px] font-medium text-gray-700 mb-1 flex items-center gap-2">
-              <span>Status</span>
-              {roleDefaultApplied && (
-                <span className="text-xs px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-semibold">
-                  Role default
-                </span>
-              )}
+            <label className="block text-[11px] font-medium text-gray-700 mb-1">
+              {t('filter.status', { defaultValue: 'Status' })}
             </label>
             <Select
               name="status"
@@ -666,7 +596,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? [localFilters.status] : [])}
               onChange={(selected) => handleSelectChange(selected, { name: 'status' })}
               options={statusOptions}
-              placeholder=""
+              placeholder={t('filter.statusPlaceholder', { defaultValue: 'Select status' })}
               isClearable
               isMulti
               closeMenuOnSelect={false}
@@ -689,14 +619,14 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
           {/* Branch Select */}
           <div className="w-full sm:w-auto min-w-[130px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1">
-              Branch
+              {t('filter.branch', { defaultValue: 'Branch' })}
             </label>
             <Select
               name="branch"
               value={localFilters.branch || null}
               onChange={handleSelectChange}
               options={branchOptions}
-              placeholder="All Branch"
+              placeholder={t('filter.allBranch', { defaultValue: 'All Branch' })}
               isClearable
               styles={{
                 ...customSelectStyles,
@@ -721,7 +651,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               className="px-4 bg-[#0dcaf0] text-black rounded-[8px] text-[11px] font-bold hover:bg-[#0bb8d9] transition-colors"
               style={{ height: '30px' }}
             >
-              Search
+              {t('filter.search', { defaultValue: 'Search' })}
             </button>
             <button
               type="button"
@@ -731,7 +661,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               style={{ height: '30px' }}
             >
               <ArrowPathIcon className="h-3 w-3" />
-              Reset
+              {t('filter.reset', { defaultValue: 'Reset' })}
             </button>
           </div>
         </div>

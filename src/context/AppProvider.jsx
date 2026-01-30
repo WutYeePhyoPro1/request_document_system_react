@@ -5,7 +5,8 @@ import { NotificationProvider } from "./NotificationContext";
 import { AuthProvider } from "./AuthContext";
 import store from "../store/store";
 // import { AuthProvider } from "./AuthContext";
-
+import "@mantine/core/styles.css";
+import "@mantine/dates/styles.css";
 export default function AppProvider({ children }) {
   return (
     

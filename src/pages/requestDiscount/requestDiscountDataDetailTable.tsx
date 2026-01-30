@@ -19,10 +19,12 @@ import { numberFormat } from "../../utils/requestDiscountUtil/helper";
 const RequestDiscountDataDetailTable: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const detailData = useSelector(
-    (state: RootState) => state.discount.detailData
+    (state: RootState) => state.discount.detailData,
   );
   const { formData } = useSelector((state: RootState) => state.approve);
-  const [discountCheckResults, setDiscountCheckResult] = useState<Record<string, boolean>>({});
+  const [discountCheckResults, setDiscountCheckResult] = useState<
+    Record<string, boolean>
+  >({});
   const [isCheckLoading, setIsCheckLoading] = useState(true);
 
   const initialValues =
@@ -69,7 +71,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
         return checkDiscountProduct
           ? { ...v, checked: isChecked }
           : { ...v, checked: v.checked };
-      })
+      }),
     );
 
     if (detailData?.discountProduct) {
@@ -90,12 +92,11 @@ const RequestDiscountDataDetailTable: React.FC = () => {
             index,
             value,
             checkStatus: isChecked ? "checked" : null,
-          })
+          }),
         );
       });
     }
   };
-
 
   // useEffect(() => {
   //   if (detailData?.discountProduct) {
@@ -115,7 +116,6 @@ const RequestDiscountDataDetailTable: React.FC = () => {
       handlers.setState(newValues);
     }
   }, [detailData?.discountProduct]);
-
 
   //   useEffect(() => {
   //   const fetchCheckResults = async () => {
@@ -144,7 +144,8 @@ const RequestDiscountDataDetailTable: React.FC = () => {
   useEffect(() => {
     const fetchCheckResults = async () => {
       const token = localStorage.getItem("token");
-      if (!token || !detailData?.discountProduct || !detailData?.form?.id) return;
+      if (!token || !detailData?.discountProduct || !detailData?.form?.id)
+        return;
 
       try {
         setIsCheckLoading(true);
@@ -159,7 +160,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
             .catch(() => ({
               code: item.product_code,
               value: false,
-            }))
+            })),
         );
 
         const resultsArray = await Promise.all(requests);
@@ -179,11 +180,10 @@ const RequestDiscountDataDetailTable: React.FC = () => {
     fetchCheckResults();
   }, [detailData?.discountProduct, detailData?.form?.id]);
 
-
   const handleBmDiscountChange = (
     index: number,
     e: React.ChangeEvent<HTMLInputElement>,
-    maxDiscount: number
+    maxDiscount: number,
   ) => {
     let value = parseFloat(e.target.value);
 
@@ -192,7 +192,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
         icon: "warning",
         title: "Invalid BM Discount",
         text: `BM Discount must be smaller than the Request Discount (${Number(
-          maxDiscount
+          maxDiscount,
         )}) value.`,
       });
       value = Number(maxDiscount);
@@ -205,7 +205,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
     index: number,
     e: React.ChangeEvent<HTMLInputElement>,
     maxDiscount: number,
-    checkStatus: string
+    checkStatus: string,
   ) => {
     let value = parseFloat(e.target.value);
 
@@ -214,7 +214,7 @@ const RequestDiscountDataDetailTable: React.FC = () => {
         icon: "warning",
         title: "Invalid Category Discount",
         text: `Category Discount must be smaller than Request Discount (${Number(
-          maxDiscount
+          maxDiscount,
         )}).`,
       });
       value = Number(maxDiscount);
@@ -227,102 +227,145 @@ const RequestDiscountDataDetailTable: React.FC = () => {
   const UnChecked = "UnChecked";
   // console.log("HElloCheck" , Checked) ;
   const RightCell = ({ children }: { children: React.ReactNode }) => (
-    <div className="text-right pr-3 tabular-nums">
-      {children}
-    </div>
+    <div className="text-right pr-3 tabular-nums">{children}</div>
   );
 
-  const element = detailData?.discountProduct?.map((item: any, index: number) => {
-    const productId = item.product_id || item.id;
-    const checked = values[index]?.checked ?? false;
-    const checkDiscountProduct = discountCheckResults[item.product_code];
-    const isSupervisor = detailData?.supervisor === true;
-    const status = detailData?.form?.status;
+  const element = detailData?.discountProduct?.map(
+    (item: any, index: number) => {
+      const productId = item.product_id || item.id;
+      const checked = values[index]?.checked ?? false;
+      const checkDiscountProduct = discountCheckResults[item.product_code];
+      const isSupervisor = detailData?.supervisor === true;
+      const status = detailData?.form?.status;
 
-    let checkCell: React.ReactNode;
+      let checkCell: React.ReactNode;
 
-    if (isSupervisor && status === "BM Approved") {
-      if (isCheckLoading) {
-        checkCell = <span className="text-gray-400">Loading...</span>;
-      } else if (item.check === "checked") {
-        checkCell = <StatusBadge status="Checked" />;
-      } else if (checkDiscountProduct === false) {
-        checkCell = <StatusBadge status="UnChecked" />;
+      if (isSupervisor && status === "BM Approved") {
+        if (isCheckLoading) {
+          checkCell = <span className="text-gray-400">Loading...</span>;
+        } else if (item.check === "checked") {
+          checkCell = <StatusBadge status="Checked" />;
+        } else if (checkDiscountProduct === false) {
+          checkCell = <StatusBadge status="UnChecked" />;
+        } else {
+          checkCell = (
+            <Checkbox
+              key={`check-${index}`}
+              checked={checked}
+              onChange={(e) => {
+                const isChecked = e.currentTarget.checked;
+                const value =
+                  formData.category_discount?.[index] ??
+                  item.category_discount ??
+                  0;
+                handlers.setItemProp(index, "checked", isChecked);
+                dispatch(
+                  setCateCheck({
+                    index,
+                    value,
+                    checkStatus: isChecked ? "checked" : null,
+                  }),
+                );
+              }}
+            />
+          );
+        }
+      } else if (
+        [
+          "Ongoing",
+          "BM Approved",
+          "Approved",
+          "Acknowledged",
+          "Completed",
+        ].includes(status)
+      ) {
+        checkCell =
+          item.check === "checked" || checkDiscountProduct === true ? (
+            <StatusBadge status="Checked" />
+          ) : (
+            <StatusBadge status="UnChecked" />
+          );
       } else {
-        checkCell = (
-          <Checkbox
-            key={`check-${index}`}
-            checked={checked}
-            onChange={(e) => {
-              const isChecked = e.currentTarget.checked;
-              const value = formData.category_discount?.[index] ?? item.category_discount ?? 0;
-              handlers.setItemProp(index, "checked", isChecked);
-              dispatch(setCateCheck({ index, value, checkStatus: isChecked ? "checked" : null }));
-            }}
-          />
-        );
+        checkCell = null;
       }
-    } else if (["Ongoing", "BM Approved", "Approved", "Acknowledged", "Completed"].includes(status)) {
-      checkCell = item.check === "checked" || checkDiscountProduct === true
-        ? <StatusBadge status="Checked" />
-        : <StatusBadge status="UnChecked" />;
-    } else {
-      checkCell = null;
-    }
 
-    return [
-      index + 1,
-      checkCell,
-      item.product_category,
-      item.product_code,
-      item.product_name,
-      <RightCell>{numberFormat(item.selprice)}</RightCell>,
-      item.saleqty,
-      <RightCell>{numberFormat(item.discountamnt)}</RightCell>,
-      <RightCell>{numberFormat(item.netamount)}</RightCell>,
-      item.request_discount,
-      detailData?.approver ? (
-        <Input
-          className="border border-blue-300 rounded w-20"
-          type="number"
-          value={formData.bm_discount?.[index] ?? item.bm_discount ?? item.request_discount}
-          onChange={(e) => handleBmDiscountChange(index, e, Number(item.request_discount))}
-          name="bm_discount"
-        />
-      ) : (
-        item.bm_discount ?? item.request_discount
-      ),
-       item.category_discount ?? item.request_discount,
-      // isSupervisor && status === "BM Approved" && item.check == null && checkDiscountProduct === true ? (
-      //   <Input
-      //     className="border border-blue-300 rounded w-20"
-      //     type="number"
-      //     value={formData.category_discount?.[index] ?? item.category_discount ?? item.bm_discount}
-      //     onChange={(e) => handleCateCheck(index, e, Number(item.bm_discount), checked ? "checked" : "null")}
-      //     name="category_discount"
-      //   />
-      // ) : (
-      //   item.category_discount ?? item.request_discount
-      // ),
-      item.remark,
-      <input key={`product-${index}`} type="hidden" value={productId} name="product_id" />,
-    ];
-  });
-
+      return [
+        index + 1,
+        checkCell,
+        item.product_category,
+        item.product_code,
+        item.product_name,
+        <RightCell>{numberFormat(item.selprice)}</RightCell>,
+        item.saleqty,
+        <RightCell>{numberFormat(item.discountamnt)}</RightCell>,
+        <RightCell>{numberFormat(item.netamount)}</RightCell>,
+        item.request_discount,
+        detailData?.approver ? (
+          <Input
+            className="border border-blue-300 rounded w-20"
+            type="number"
+            value={
+              formData.bm_discount?.[index] ??
+              item.bm_discount ??
+              item.request_discount
+            }
+            onChange={(e) =>
+              handleBmDiscountChange(index, e, Number(item.request_discount))
+            }
+            name="bm_discount"
+          />
+        ) : (
+          (item.bm_discount ?? item.request_discount)
+        ),
+        // isSupervisor &&
+        // status === "BM Approved" &&
+        // item.check == null &&
+        // checkDiscountProduct === true ? (
+        //   <Input
+        //     className="border border-blue-300 rounded w-20"
+        //     type="number"
+        //     value={
+        //       formData.category_discount?.[index] ??
+        //       item.category_discount ??
+        //       item.bm_discount
+        //     }
+        //     onChange={(e) =>
+        //       handleCateCheck(
+        //         index,
+        //         e,
+        //         Number(item.bm_discount),
+        //         checked ? "checked" : "null",
+        //       )
+        //     }
+        //     name="category_discount"
+        //   />
+        // ) : (
+        //   (item.category_discount ?? item.request_discount)
+        // ),
+        item.category_discount ?? item.request_discount,
+        item.remark,
+        <input
+          key={`product-${index}`}
+          type="hidden"
+          value={productId}
+          name="product_id"
+        />,
+      ];
+    },
+  );
 
   // console.log(detailData?.supervisor === true && detailData?.form?.status === "BM Approved" && detailData?.checkNullCategroy == true)
   const tableData: TableData = {
     head: [
       "No",
       detailData?.supervisor === true &&
-        detailData?.form?.status === "BM Approved" &&
-        detailData?.checkNullCategroy == true ? (
+      detailData?.form?.status === "BM Approved" &&
+      detailData?.checkNullCategroy == true ? (
         <div className="flex items-center gap-2" key="check-all">
           <Checkbox
             checked={allChecked}
             indeterminate={indeterminate}
             onChange={handleCheckAll}
-
           />
           <span>Check All</span>
         </div>
@@ -351,7 +394,6 @@ const RequestDiscountDataDetailTable: React.FC = () => {
   //     </div>
   //   );
   // }
-
 
   return (
     <div className="mt-6 overflow-x-auto">

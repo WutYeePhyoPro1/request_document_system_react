@@ -1,41 +1,81 @@
 import React, { useEffect, useState } from "react";
 import { getCheckItems } from "../../api/ME/meData";
 import { Link } from "react-router-dom";
+import { subFormCountNoti } from "../../api/commonApi";
+import dashboardPhoto from "../../assets/images/reqBa.png";
+import NavPath from "../../components/NavPath";
 
 const MAndE: React.FC = () => {
-    const [checkItems , setCheckItems] = useState<{id:number , name:string} []>([]);
-    const [loading , setLoading] = useState<boolean> (false) ;
-    useEffect(() => {
-        const fetchCheckItems = async() => {
-            const token = localStorage.getItem("token") ;
-            if(!token) return ;
-            setLoading(true) ;
-            try {
-                const items = await getCheckItems(token) ;
-                setCheckItems(items) ;
-                setLoading(false) ;
-            } catch (error) {
-                console.log("Error fetching check items:" , error);
-            }finally{
-                setLoading(false) ;
-            }
+  const [subForms, setSubForms] = useState<{ id: number; name: string }[]>([]);
+  const [subFormCounts, setSubFormCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const [loading, setLoading] = useState<boolean>(false);
 
-        }
-        fetchCheckItems();
+  useEffect(() => {
+    const fetchSubForms = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
 
-    } , []) ;
-    console.log("Check Items>>" , checkItems) ;
+      setLoading(true);
+
+      try {
+        const items = await getCheckItems(token);
+        setSubForms(items); // ✅ array stays array
+
+        const counts: Record<string, number> = {};
+
+        await Promise.all(
+          items.map(async (form) => {
+            const count = await subFormCountNoti(token, 20, form.id);
+            counts[`20_${form.id}`] = count;
+          }),
+        );
+
+        setSubFormCounts(counts); // ✅ store counts separately
+      } catch (error) {
+        console.error("Error fetching check items:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSubForms();
+  }, []);
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 ">
-    {
-        checkItems.map((items , index) => {
-            return(
-                <Link key={index} to={`/${items?.name?.toLowerCase().replace(/\s+/g, "-")}`}  className="relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition bg-white border-blue-300 hover:shadow-lg cursor-pointer" >
-                <span className="font-semibold">{items.name}</span>
-                </Link>
-            )
-        })
-    }
+    <div className="p-6">
+      <div
+        className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
+        style={{ backgroundImage: `url(${dashboardPhoto})` }}
+      ></div>
+      <NavPath
+        segments={[
+          { path: "/dashboard", label: "Home" },
+          { path: "/dashboard", label: "Dashboard" },
+        ]}
+      />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {subForms.map((form) => (
+          <Link
+            key={form.id}
+            state={{ formId: form.id }}
+            to={`/${form.name.toLowerCase().replace(/\s+/g, "-")}/${form.id}`}
+            className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition 
+                bg-white border-blue-300 hover:shadow-lg cursor-pointer
+              `}
+          >
+            <span className="font-semibold">{form.name}</span>
+
+            {subFormCounts[`20_${form.id}`] > 0 && (
+              <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                {subFormCounts[`20_${form.id}`]}+
+              </span>
+            )}
+          </Link>
+        ))}
+      </div>
     </div>
   );
 };

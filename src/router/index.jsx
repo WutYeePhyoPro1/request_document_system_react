@@ -29,6 +29,8 @@ import Detail from "../pages/requestDiscount/detail.js";
 import MAndE from "../pages/MAndE/MAndE.jsx";
 import Index from "../pages/MAndE/Generator/index.js";
 import GeneratorCreate from "../pages/MAndE/Generator/generatorCreate.js";
+import GeneratorDetail from "../pages/MAndE/Generator/GeneratorDetail.js";
+import GeneratorEdit from "../pages/MAndE/Generator/generatorEdit.js";
 const LoginRoute = () => {
     const token = localStorage.getItem('token');
     return token ? <Navigate to="/dashboard" /> : <Login />;
@@ -139,13 +141,21 @@ const router = createBrowserRouter([
                 element: <MAndE/>
             } ,
             {
-                path:"generator" ,
+                path:"generator/:id" ,
                 element: <Index/>
             },
             {
                 path: "generator_create" ,
                 element: <GeneratorCreate/>
-            }
+            } ,
+            {
+                path: "generator_detail/:id" ,
+                element:<GeneratorDetail/>
+            },
+            {
+                path: "generator_edit/:id" ,
+                element:<GeneratorEdit/>
+            },
         ]
     }
 ]);

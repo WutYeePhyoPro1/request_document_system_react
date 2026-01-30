@@ -57,13 +57,13 @@ export default function CctvDetails() {
             (checker && recordDetails.form.status === 'Ongoing' )
         );
         if (statusConditions) {
-           
+            console.log('currentUser')
             const currentUser = approvalProcessUsers.find(u =>
                 u.user_type === 'A1' &&
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === actualUserId
             );
-            const isUserApprover = user?.role_id == 'Approver';
+            const isUserApprover = user?.role_id =='Approver';
             return currentUser && isUserApprover;
         }
         return false;
@@ -87,7 +87,7 @@ export default function CctvDetails() {
     };
 
     const checkManager = () => {
-        if (!recordDetails || recordDetails.form.status !== 'Approved') return false;
+        if (!recordDetails || recordDetails.form.status !== 'Checked') return false;
 
         const approvalProcessUsers = recordDetails.approval_process_users;
         if (!approvalProcessUsers) return false;
@@ -97,7 +97,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
-        const isManager = user?.role_id === 3;
+        const isManager = user?.role_id === 'Approver';
         return current_user && isManager || user?.employee_number === '000-000548';
     }
 
@@ -278,7 +278,6 @@ export default function CctvDetails() {
     };
 
     function formatTime(time) {
-        console.log(time,'time')
         if (!time) return '-';
         const [hour, minute] = time.split(':');
         const date = new Date();
@@ -447,9 +446,8 @@ export default function CctvDetails() {
                                         </thead>
                                         <tbody>
                                             {recordDetails?.detail_datas?.map((item, index) => (
-                                               <>
-                                               
-                                               <tr key={item[0].id}>
+                                            
+                                                <tr key={item[0].id}>
                                                     <td className="border p-1 sm:p-2">
                                                         {index + 1}
                                                         <input type="hidden" name="specific_form_id[]" value={item[0].id} />
@@ -517,9 +515,6 @@ export default function CctvDetails() {
                                                     )}
 
                                                 </tr>
-                                               </>
-                                            
-                                                
                                             ))}
                                         </tbody>
                                     </table>
@@ -710,10 +705,11 @@ export default function CctvDetails() {
                     ➡ "Upload" button တစ်ခုပြတယ်
                     ➡ ဖိုင်တင်ဖို့ Modal ဖွင့်ခေါ်မယ်
                     ➡ အနီရောင်သတိပေးစာပါပြတယ်။ */}
+                    
 
                                 {isBranchITApprover &&
                                     recordDetails.form.status === 'BM Approved' &&
-                                    recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                    recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                         <CctvUploadVideo
                                             recordId={recordDetails?.detail_datas?.[0]?.[0]?.id}
                                             generalId={id}
@@ -724,7 +720,7 @@ export default function CctvDetails() {
                                 <div>
                                     {isBranchITApprover &&
                                         recordDetails.status === 'BM Approved' &&
-                                        recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
+                                        recordDetails?.detail_datas?.[0]?.[0]?.cctv_record==='on' && (
                                             <>
                                                 <span className="text-red-500 text-sm"></span>
                                                 {/* {errors.video} */}
@@ -926,7 +922,7 @@ export default function CctvDetails() {
                                     {recordDetails?.approver &&
                                         (
                                             recordDetails?.form?.status === 'BM Approved' ||
-                                            recordDetails?.form?.status === 'Approved' ||
+                                            recordDetails?.form?.status === 'Checked' ||
                                             recordDetails?.form?.status === 'Received' ||
                                             recordDetails?.form?.status === 'Acknowledged' ||
                                             recordDetails?.form?.status === 'Completed' ||
@@ -958,7 +954,7 @@ export default function CctvDetails() {
                                     <p className="text-gray-500">
                                         {recordDetails?.acknowledger &&
                                             (
-                                                recordDetails?.form?.status === 'Approved' ||
+                                                recordDetails?.form?.status === 'Checked' ||
                                                 recordDetails?.form?.status === 'Completed' ||
                                                 (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                             )
@@ -968,7 +964,7 @@ export default function CctvDetails() {
 
                                     {recordDetails?.acknowledger &&
                                         (
-                                            recordDetails?.form?.status === 'Approved' ||
+                                            recordDetails?.form?.status === 'Checked' ||
                                             recordDetails?.form?.status === 'Completed' ||
                                             (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                         ) ? (
@@ -1043,35 +1039,7 @@ export default function CctvDetails() {
                                 className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
                             >
                                 <span className="mr-1 sm:mr-2">←</span> Back
-                            </Link>
-
-
-                            {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
-                    <a
-                        href={`/users/${recordDetails.id}/print`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
-                        style={{ backgroundColor: "#D75E28" }}
-                    >
-                        Download Pdf aa
-                    </a>
-                )} */}
-
-                            {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
-                                <button
-                                    // onClick={handleDownloadPdf}
-                                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
-                                    style={{ backgroundColor: "#D75E28" }}
-                                >
-                                    <i className="bi bi-download mr-2"></i>
-                                    Download PDF
-                                </button>
-                            )} */}
-
-
-
-
+                            </Link>                          
 
                         </div>
                     </div >

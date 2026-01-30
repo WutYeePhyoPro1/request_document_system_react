@@ -24,7 +24,7 @@ const deriveApiBaseUrl = () => {
 export const API_BASE_URL = deriveApiBaseUrl() + "/api";
 export const SANCTUM_URL = deriveApiBaseUrl();
 
-// API fetch helper
+// API fetch helper with timeout support
 export const apiFetch = async (endpoint, options = {}) => {
   const token = localStorage.getItem("token");
   
@@ -47,11 +47,29 @@ export const apiFetch = async (endpoint, options = {}) => {
   // Handle endpoint - if it already starts with http, use as-is, otherwise prepend API_BASE_URL
   const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
 
+  // Set timeout based on operation type
+  // Issuance operations take longer, so use extended timeout
+  const isIssuanceOperation = endpoint.includes('big-damage-issues') &&
+                              (options.body instanceof FormData) &&
+                              (options.body.get('status') === 'Issued' || options.body.get('status') === 'Completed');
+
+  const timeoutMs = isIssuanceOperation ? 300000 : 60000; // 5 minutes for issuance, 1 minute for others
+
+  // Create AbortController for timeout handling
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
   const response = await fetch(url, {
     ...options,
     headers,
     credentials: 'include', // ✅ CRITICAL: Include cookies for Laravel session
+      signal: controller.signal,
   });
+
+    clearTimeout(timeoutId);
 
   if (!response.ok) {
     // Try to parse error response for better error messages
@@ -82,5 +100,32 @@ export const apiFetch = async (endpoint, options = {}) => {
   }
 
   return response.json();
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    // Handle timeout errors specifically - check for various timeout indicators
+    const isTimeoutError = error.name === 'AbortError' ||
+                          error.message?.includes('timeout') ||
+                          error.message?.includes('Timeout') ||
+                          error.code === 'ECONNABORTED' ||
+                          error.status === 408 ||
+                          (error.response && error.response.status === 408) ||
+                          (error.response && error.response.status === 504);
+
+    if (isTimeoutError) {
+      const timeoutError = new Error(
+        isIssuanceOperation
+          ? 'The issuance operation is taking longer than expected. Please wait - the operation continues in the background and will complete soon. Check the form list to see if it completed successfully.'
+          : 'Request timed out. Please try again.'
+      );
+      timeoutError.status = 408; // Request Timeout
+      timeoutError.isTimeout = true;
+      timeoutError.isIssuanceOperation = isIssuanceOperation;
+      throw timeoutError;
+    }
+
+    // Re-throw other errors
+    throw error;
+  }
 };
 

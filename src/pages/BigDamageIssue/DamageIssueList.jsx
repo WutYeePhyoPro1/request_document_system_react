@@ -1,10 +1,32 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from 'react-i18next';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import { DocumentIcon, ClipboardDocumentIcon, CheckIcon, ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
 import { FaEnvelope } from 'react-icons/fa';
 import '../../components/DamageForm/ButtonHoverEffects.css';
+
+// Date formatting functions
+const formatDateDDMMYY = (dateString) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2); // Get last 2 digits of year
+  return `${day}/${month}/${year}`;
+};
+
+const formatDateTimeDDMMYY = (dateString) => {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = String(date.getFullYear()).slice(-2); // Get last 2 digits of year
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
+};
 
 // Red Speech Bubble Icon Component
 const RedSpeechBubbleIcon = ({ className = "h-4 w-4" }) => {
@@ -109,6 +131,16 @@ const StatusBadge = ({ status }) => {
       );
     case 'OPApproved':
     case 'OP Approved':
+      // custom-badge-bg-approved: bg #e9f9cf, text #a3e635
+      colorClasses = 'rounded-full';
+      return (
+        <span
+          className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
+          style={{ backgroundColor: '#e9f9cf', color: '#a3e635' }}
+        >
+          {'OPApproved'}
+        </span>
+      );
     case 'Approved':
       // custom-badge-bg-approved: bg #e9f9cf, text #a3e635
       colorClasses = 'rounded-full';
@@ -130,7 +162,7 @@ const StatusBadge = ({ status }) => {
           className={`inline-flex items-center px-3 py-1 text-xs font-semibold ${colorClasses}`}
           style={{ backgroundColor: '#e9f9cf', color: '#a3e635' }}
         >
-          {'Operation Manager Approved'}
+          {'OPApproved'}
         </span>
       );
     case 'Completed':
@@ -323,7 +355,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
   return (
     <div className="flex items-center space-x-1">
       <button
-        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-[#0dcaf0] hover:bg-[#0dcaf0]/10 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.max(1, current - 1))}
         disabled={current <= 1}
       >
@@ -332,7 +364,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
       {pageNumbers.map((page, index) => {
         if (page === 'ellipsis' || page === 'ellipsis-start' || page === 'ellipsis-end') {
           return (
-            <span key={`ellipsis-${index}`} className="px-2 py-2 text-blue-600">
+            <span key={`ellipsis-${index}`} className="px-2 py-2 text-[#0dcaf0]">
               ...
             </span>
           );
@@ -343,8 +375,8 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
             key={page}
             className={`px-4 py-2 text-sm font-semibold rounded ${
               page === current
-                ? 'bg-blue-600 text-white'
-                : 'text-blue-600 hover:bg-blue-50'
+                ? 'bg-[#0dcaf0] text-white'
+                : 'text-[#0dcaf0] hover:bg-[#0dcaf0]/10'
             }`}
             onClick={() => onPageChange?.(page)}
           >
@@ -353,7 +385,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
         );
       })}
       <button
-        className="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+        className="px-3 py-2 text-[#0dcaf0] hover:bg-[#0dcaf0]/10 rounded disabled:opacity-50 disabled:cursor-not-allowed"
         onClick={() => onPageChange?.(Math.min(totalPages, current + 1))}
         disabled={current >= totalPages}
       >
@@ -364,6 +396,7 @@ const Pagination = ({ totalRows, rowsPerPage, currentPage, onPageChange }) => {
 };
 
 function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage = 15, totalRows = 0, onPageChange, branchMap = {}, productFilter = '', notificationCounts = new Map(), suppressUnreadForFormIds = [] }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams(); // Use React Router's searchParams to react to URL changes
   
@@ -474,12 +507,16 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       // Try exact key as string first, then numeric form (some producers use number keys)
       const keyStr = String(id);
       let count = undefined;
+      
       if (notificationCounts && typeof notificationCounts.get === 'function') {
         count = notificationCounts.get(keyStr);
+        
         if ((count === undefined || count === null) && !isNaN(Number(id))) {
-          count = notificationCounts.get(Number(id));
+          const numKey = Number(id);
+          count = notificationCounts.get(numKey);
         }
       }
+      
       if (count !== undefined && count > 0) {
         return { count, matchedFormId: id };
       }
@@ -515,9 +552,21 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     const normalizeText = (text) => (text || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
     const formStatus = normalizeText(gf.status || '');
     
+    // Check if user has role_id "User" - forms are not relevant to regular users
+    const roleIdStr = (user?.role_id || '').toString().toLowerCase();
+    if (roleIdStr === 'user' || userRole === 'user') {
+      return false; // User role should not see notification badges for any forms
+    }
+    
     // Checker (C/CS) - only relevant for "Ongoing" forms
-    if (['c', 'cs'].includes(userType)) {
-      return formStatus === 'ongoing';
+    // Also check role_id directly (can be numeric 2 or string "Checker")
+    const isCheckerByRoleId = user?.role_id === 2 || String(user?.role_id || '').toLowerCase() === 'checker';
+    const isCheckerByUserType = ['c', 'cs'].includes(userType);
+    const isCheckerByRoleName = userRole === 'checker' || (userRole || '').includes('checker');
+    
+    if (isCheckerByUserType || isCheckerByRoleId || isCheckerByRoleName) {
+      const isRelevant = formStatus === 'ongoing';
+      return isRelevant;
     }
     
   // Operation Manager (A2) - only relevant for "BM Approved" forms
@@ -955,24 +1004,80 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   };
 
   const resolveBranchName = (gf, branchInfo) => {
-    if (branchInfo.name) return branchInfo.name;
-    if (gf?.to_branch_name) return gf.to_branch_name;
-    if (gf?.from_branch_name) return gf.from_branch_name;
-    if (branchInfo.id != null && branchMap[branchInfo.id]) return branchMap[branchInfo.id];
-    if (branchInfo.id != null) return String(branchInfo.id);
+    let branchName = null;
+    if (branchInfo.name) {
+      branchName = branchInfo.name;
+    } else if (gf?.to_branch_name) {
+      branchName = gf.to_branch_name;
+    } else if (gf?.from_branch_name) {
+      branchName = gf.from_branch_name;
+    } else if (branchInfo.id != null && branchMap[branchInfo.id]) {
+      branchName = branchMap[branchInfo.id];
+    } else if (branchInfo.id != null) {
+      return String(branchInfo.id);
+    } else {
     return '-';
+    }
+    
+    // Translate branch name if available
+    if (branchName) {
+      const normalizedName = branchName.trim().toLowerCase();
+      
+      // Map branch names to translation keys (order matters - more specific first)
+      const branchMappings = [
+        { key: 'head office', translationKey: 'branches.headOffice' },
+        { key: 'pro1 plus (terminal m)', translationKey: 'branches.pro1PlusTerminalM' },
+        { key: 'pro1 plus', translationKey: 'branches.pro1PlusTerminalM' },
+        { key: 'terminal m', translationKey: 'branches.pro1PlusTerminalM' },
+        { key: 'wh-myo houng', translationKey: 'branches.whMyoHoung' },
+        { key: 'wh-mingalardon', translationKey: 'branches.whMingalardon' },
+        { key: 'dc-myawaddy', translationKey: 'branches.dcMyawaddy' },
+        { key: 'dc-mingalardon2', translationKey: 'branches.dcMingalardon2' },
+        { key: 'dc-mingalardon3', translationKey: 'branches.dcMingalardon3' },
+        { key: 'project sales', translationKey: 'branches.projectSales' },
+        { key: 'online sales', translationKey: 'branches.onlineSales' },
+        { key: 'whole sales', translationKey: 'branches.wholeSales' },
+        { key: 'outlet sales', translationKey: 'branches.outletSales' },
+        { key: 'clearance sale', translationKey: 'branches.clearanceSale' },
+        { key: 'south dagon', translationKey: 'branches.southDagon' },
+        { key: 'east dagon', translationKey: 'branches.eastDagon' },
+        { key: 'da nyin gone', translationKey: 'branches.daNyinGone' },
+        { key: 'shwe pyi thar', translationKey: 'branches.shwePyiThar' },
+        { key: 'nay pyi taw', translationKey: 'branches.nayPyiTaw' },
+        { key: 'theik pan', translationKey: 'branches.theikPan' },
+        { key: 'hlaingtharyar', translationKey: 'branches.hlaingtharyar' },
+        { key: 'ayetharyar', translationKey: 'branches.ayetharyar' },
+        { key: 'mingalardon', translationKey: 'branches.mingalardon' },
+        { key: 'lanthit', translationKey: 'branches.lanthit' },
+        { key: 'satsan', translationKey: 'branches.satsan' },
+        { key: 'mawlamyine', translationKey: 'branches.mawlamyine' },
+        { key: 'tampawady', translationKey: 'branches.tampawady' },
+        { key: 'bago', translationKey: 'branches.bago' },
+      ];
+      
+      // Check each mapping
+      for (const mapping of branchMappings) {
+        if (normalizedName.includes(mapping.key)) {
+          return t(mapping.translationKey, { defaultValue: branchName });
+        }
+      }
+      
+      return branchName;
+    }
+    
+    return branchName || '-';
   };
 
   const headers = [
-    'No',
-    'Status',
-    'Document No',
-    'Sell / Not Sell',
-    'Branch',
-    'Requested By',
-    'Amount',
-    'Created Date',
-    'Modified',
+    t('list.columns.no', { defaultValue: 'No' }),
+    t('list.columns.status', { defaultValue: 'Status' }),
+    t('list.columns.documentNo', { defaultValue: 'Document No' }),
+    t('list.columns.sellNotSell', { defaultValue: 'Sell / Not Sell' }),
+    t('list.columns.branch', { defaultValue: 'Branch' }),
+    t('list.columns.requestedBy', { defaultValue: 'Requested By' }),
+    t('list.columns.amount', { defaultValue: 'Amount' }),
+    t('list.columns.createdDate', { defaultValue: 'Created Date' }),
+    t('list.columns.modified', { defaultValue: 'Modified' }),
   ];
 
   // Helper function to get total amount from row data
@@ -1120,20 +1225,16 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                       ? toBranchInfo
                       : fromBranchInfo;
                     const branchName = resolveBranchName(gf, branchInfo);
-                    // Determine sell status dynamically:
-                    // "Other Income Sell" = item has acc_code (account code is set when form is completed with "Other income sell")
-                    // "Not Sell" = item has no acc_code (default)
-                    // Note: acc_code is only set when form is completed, so forms in progress will show "Not Sell" until completed
-                    const hasAccCode = Boolean(row.acc_code || row.acc_code1);
-                    // Check asset_type from backend ("on" = Other income sell, "off" = Not sell)
+                    // Determine sell status based on asset_type from backend:
+                    // "Other Income Sell" = asset_type is "on"
+                    // "Not Sell" = asset_type is "off" (default)
+                    // Account codes can be present on both types of forms, so don't use them as primary determinant
                     const assetType = gf.asset_type || gf.case_type || gf.caseType;
                     const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
-                    // Also check general_form.caseType if available (though it's not typically in API response)
-                    const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
-                    // Check if items array has any item with acc_code (if items are loaded)
-                    const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-                    const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
-                    const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+                    const isOtherIncomeSell = isAssetTypeOn;
+                    const sellStatus = isOtherIncomeSell 
+                      ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
+                      : t('list.notSell', { defaultValue: 'Not Sell' });
                     const totalAmount = getTotalAmount(row, gf);
                     const exceedsThreshold = totalAmount > 500000;
                     return (
@@ -1153,56 +1254,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
                           <div className="flex items-center gap-2">
                             <span>{gf.form_doc_no || '-'}</span>
-                            {(() => {
-                              // Try multiple possible ID fields to match with notification counts
-                              const possibleFormIds = [
-                                String(gf?.id || ''),
-                                String(row?.general_form_id || ''),
-                                String(gf?.general_form_id || ''),
-                                String(row?.id || '')
-                              ].filter(id => id && id !== 'undefined' && id !== 'null');
-                              
-                              // Check each possible form ID against notification counts (supports string/number keys)
-                              const { count: notiCount } = getNotificationCount(possibleFormIds);
-                              
-                              // Check if current user has completed their required action
-                              const userCompletedAction = hasUserCompletedAction(row, gf);
-                              
-                              // Check if form is relevant to user's role (using helper function)
-                              const isRelevant = isFormRelevantToUser(gf);
-
-                              // Suppress unread badge if this form id is explicitly listed
-                              if (isSuppressedForUnread(row, gf)) {
-                                return null;
-                              }
-                              // Determine OP local flag and BM-approved total to suppress badge for OPs on small forms
-                              const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
-                              const curRoleLower = (currentUserRoleName || '').toString().toLowerCase();
-                              const isOpManagerLocalSmall = (currentUserType === 'a2') || curRoleLower.includes('operation') || curRoleLower.includes('op manager') || ((currentUser?.employee_number === '666-666666') && currentUser?.department_id === 8);
-                              const formTotalForSmall = (typeof getTotalAmount === 'function') ? getTotalAmount(row, gf) : null;
-                              const isBMApprovedSmall = ((gf?.status || row?.status || '') + '').toString().toLowerCase().trim() === 'bm approved';
-                              // If OP and BM Approved but total <= 500k, suppress unread bubble
-                              if (isOpManagerLocalSmall && isBMApprovedSmall && Number(formTotalForSmall) <= 500000) {
-                                return null;
-                              }
-                              
-                              // Original behavior:
-                              // Show red speech bubble icon ONLY if:
-                              // - Form is relevant to user's role
-                              // - User hasn't completed their action
-                              // - Form has NO unread notifications (notiCount === 0) - determined by notificationCounts
-                              // - Form is not completed
-                              const isCompleted = ['Completed', 'Issued', 'SupervisorIssued'].includes(gf.status);
-                              if (isRelevant && !userCompletedAction && (notiCount === 0 || notiCount === undefined) && !isCompleted) {
-                                return (
-                                  <span className="inline-flex items-center justify-center">
-                                    <RedSpeechBubbleIcon className="h-4 w-4" />
-                                  </span>
-                                );
-                              }
-                              return null;
-                            })()}
-                               <span className=" whitespace-nowrap">
+                            <span className="whitespace-nowrap">
                           {(() => {
                             // Try multiple possible ID fields to match with notification counts
                             const possibleFormIds = [
@@ -1238,15 +1290,56 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                               return null;
                             }
 
-                            // If there are unread notifications for this form and it's relevant (or OP manager), show the red speech bubble icon
-                            // If notifications exist for this form and it's relevant (or OP manager),
-                            // show the red speech bubble icon — but DO NOT show it to OP managers for
-                            // BM Approved forms that do NOT exceed the OP threshold.
-                            if (
-                              notiCount > 0 &&
-                              (isRelevant || isOpManagerLocal) &&
-                              !(isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) <= 500000)
-                            ) {
+                            // If there are unread notifications for this form, show the red speech bubble icon
+                            // Show badge if there are unread notifications, but hide for "User" role on forms beyond their workflow
+                            if (notiCount > 0) {
+                              // Suppress only for OP managers on small BM Approved forms
+                              if (isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) <= 500000) {
+                                return null;
+                              }
+                              
+                              // Hide badges for "User" role on forms that are beyond their workflow stage
+                              // User role should not see badges on BM Approved, OP Approved, Ac_Acknowledged, or Completed forms
+                              // BUT allow badges for Branch Account users (they need to see notifications)
+                              const { userType: currentUserType, userRole: currentUserRoleName } = extractUserRoleInfo(currentUser || {});
+                              const roleIdStr = (currentUser?.role_id || '').toString().toLowerCase();
+                              const isUserRole = roleIdStr === 'user' || currentUserRoleName === 'user' || currentUserType === '';
+                              
+                              // Check if user is Branch Account - they should see badges
+                              const isBranchAccount = currentUserType === 'ac' || 
+                                                      roleIdStr === 'branch account' || 
+                                                      roleIdStr === 'account' ||
+                                                      currentUserRoleName === 'branch account' ||
+                                                      currentUserRoleName === 'account' ||
+                                                      (currentUser?.role_id === 7) ||
+                                                      String(currentUser?.role_id || '').toLowerCase() === '7';
+                              
+                              // Only suppress badges for User role (not Branch Account)
+                              if (isUserRole && !isBranchAccount) {
+                                const formStatusLower = ((gf?.status || row?.status || '') + '').toString().toLowerCase().trim();
+                                const isBMApproved = formStatusLower === 'bm approved' || formStatusLower === 'bmapproved';
+                                const isOPApproved = formStatusLower === 'op approved' || formStatusLower === 'opapproved' || formStatusLower === 'approved';
+                                const isAcknowledged = formStatusLower === 'ac_acknowledged' || formStatusLower === 'acknowledged';
+                                const isCompleted = formStatusLower === 'completed' || formStatusLower === 'issued' || formStatusLower === 'supervisorissued';
+                                
+                                if (isBMApproved || isOPApproved || isAcknowledged || isCompleted) {
+                                  return null;
+                                }
+                              }
+                              
+                              // Explicitly allow badges for Branch Account users
+                              if (isBranchAccount) {
+                                return (
+                                  <span
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center"
+                                    title={`${notiCount} unread notification${notiCount > 1 ? 's' : ''}`}
+                                  >
+                                    <RedSpeechBubbleIcon className="h-4 w-4 text-red-500" />
+                                  </span>
+                                );
+                              }
+                              
                               return (
                                 <span
                                   onClick={(e) => e.stopPropagation()}
@@ -1259,7 +1352,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                             }
 
                             // Additionally, show badge for OP managers when form is BM Approved and total exceeds OP threshold
-                            if (isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) > 500000) {
+                            // Only show this if there are NO unread notifications (to avoid duplicate badges)
+                            if (notiCount === 0 && isOpManagerLocal && isBMApprovedStatus && Number(formTotalForNotif) > 500000) {
                               return (
                                 <span
                                   onClick={(e) => e.stopPropagation()}
@@ -1282,7 +1376,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           <span
                             className={`text-sm font-medium ${
-                              sellStatus === 'Other Income Sell' 
+                              isOtherIncomeSell
                                 ? 'text-blue-400' 
                                 : 'text-red-500'
                             }`}
@@ -1309,10 +1403,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                          {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
+                          {gf.created_at ? formatDateDDMMYY(gf.created_at) : '-'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                          {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
+                          {gf.updated_at ? formatDateTimeDDMMYY(gf.updated_at) : '-'}
                         </td>
                         
                       </tr>
@@ -1353,18 +1447,15 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
             const fromBranchInfo = normalizeBranch(gf.from_branch || gf.fromBranch);
             const branchInfo = toBranchInfo.id != null || toBranchInfo.name ? toBranchInfo : fromBranchInfo;
             const branchName = resolveBranchName(gf, branchInfo);
-            // Check multiple sources to determine if it's "Other Income Sell":
-            // 1. Check if this item has acc_code (item-level)
-            // 2. Check if general_form has caseType set to "Other income sell"
-            // 3. Check if general_form has case_type set to "Other income sell"
-            // 4. Check if any items in the form have acc_code (if items array is available)
-            const hasAccCode = Boolean(row.acc_code || row.acc_code1);
+            // Determine sell status based on asset_type from backend:
+            // "Other Income Sell" = asset_type is "on"
+            // "Not Sell" = asset_type is "off" (default)
             const assetType = gf.asset_type || gf.case_type || gf.caseType;
             const isAssetTypeOn = assetType === 'on' || assetType === 'Other income sell';
-            const hasCaseType = gf.caseType === 'Other income sell' || gf.case_type === 'Other income sell' || isAssetTypeOn;
-            const hasItemsWithAccCode = Array.isArray(gf.items) && gf.items.some(item => Boolean(item.acc_code || item.acc_code1));
-            const isOtherIncomeSell = hasAccCode || hasCaseType || hasItemsWithAccCode;
-            const sellStatus = isOtherIncomeSell ? 'Other Income Sell' : 'Not Sell';
+            const isOtherIncomeSell = isAssetTypeOn;
+            const sellStatus = isOtherIncomeSell 
+              ? t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' }) 
+              : t('list.notSell', { defaultValue: 'Not Sell' });
             const totalAmount = getTotalAmount(row, gf);
             const exceedsThreshold = totalAmount > 500000;
 
@@ -1472,10 +1563,10 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Sell Status</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.sellStatus', { defaultValue: 'Sell Status' })}</span>
                   <span
                     className={`text-sm font-medium ${
-                      sellStatus === 'Other Income Sell' 
+                      isOtherIncomeSell
                         ? 'text-blue-400' 
                         : 'text-red-500'
                     }`}
@@ -1486,19 +1577,19 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
 
                 <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Branch</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.branch', { defaultValue: 'Branch' })}</span>
                     <span className="text-sm font-medium text-gray-900">
                       {branchName}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Requested By</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.requestedBy', { defaultValue: 'Requested By' })}</span>
                     <span className="text-sm text-gray-700">
                       {(gf.originators && gf.originators.name) || gf.request_user_name || gf.user_id || '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Amount</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.amount', { defaultValue: 'Amount' })}</span>
                     <div className="flex items-center gap-1">
                       {exceedsThreshold ? (
                         <ArrowUpIcon className="h-4 w-4 text-green-600" />
@@ -1511,15 +1602,15 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Created</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.created', { defaultValue: 'Created' })}</span>
                     <span className="text-sm text-gray-700">
-                      {gf.created_at ? new Date(gf.created_at).toLocaleDateString() : '-'}
+                      {gf.created_at ? formatDateDDMMYY(gf.created_at) : '-'}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Modified</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{t('list.columns.modified', { defaultValue: 'Modified' })}</span>
                     <span className="text-sm text-gray-700">
-                      {gf.updated_at ? new Date(gf.updated_at).toLocaleString() : '-'}
+                      {gf.updated_at ? formatDateTimeDDMMYY(gf.updated_at) : '-'}
                     </span>
                   </div>
                 </div>
@@ -1543,7 +1634,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
       {/* Total rows display - centered at bottom with red number */}
       <div className="mt-2 text-center">
         <span className="text-sm text-gray-600">
-          Total <span className="text-red-600 font-semibold">{effectiveTotalRows}</span> Rows
+          {t('list.totalRows', { defaultValue: 'Total' })} <span className="text-red-600 font-semibold">{effectiveTotalRows}</span> {t('list.rows', { defaultValue: 'Rows' })}
         </span>
       </div>
     </div>

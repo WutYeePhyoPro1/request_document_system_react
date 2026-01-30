@@ -1,0 +1,43 @@
+export interface meGeneratorDataType {
+
+    id?:number ,
+     form_doc_no ?: string ,
+    form_branch ?: number ,
+    form_department ?: number ,
+    to_branch ?: number ,
+    to_department ?: number ,
+    user_id ?: number ,
+    receiver_id ?: number ,
+    form_id ?:number ,
+    status ?: string ,
+    date ?: string ,
+    g_remark ?: string ,
+    asset_type ?: string ,
+    requester_name ?: string ,
+    total_amount ?: number ,
+    created_at ?:string | Date ,
+    updated_at ?:string | Date ,
+    
+    reason ?: string ,
+    osnb_doc_no ?: string ,
+    general_form_id ?: number ,
+    generator_date ?: string ,
+    generator_time ?: string ,
+    engine_oil_level ?: number ,
+    fuel_level ?: number ,
+    coolant_level ?: number ,
+    battery_volt_level ?: number ,
+    l1_level ?: number ,
+    l2_level ?:number ,
+    l3_level ?: number ,
+    total_kw_level ?: number ,
+    voltageL_l_level?: number ,
+    gen_kva_level?:number,
+    running_hour?:number,
+    generator_service_date?:string,
+    generator_cleaning_level?:number ,
+    remark?:string ,
+
+
+
+}

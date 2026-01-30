@@ -34,18 +34,18 @@ const ErrorModal = ({ isOpen, onClose, message, autoClose = false, autoCloseDura
         )}
 
         {/* Error Icon with shake animation */}
-        <div className="relative flex items-center justify-center w-20 h-20 text-red-500 mb-4">
+        <div className="relative flex items-center justify-center w-20 h-20 text-yellow-500 mb-4">
           <div className="absolute inset-0 bg-red-100 rounded-full animate-ping opacity-75"></div>
           <XCircle 
             size={80} 
-            className="relative text-red-500 drop-shadow-lg animate-shake" 
+            className="relative text-yellow-500 drop-shadow-lg animate-shake" 
             strokeWidth={2}
           />
         </div>
 
         {/* Error Title */}
-        <h3 className="text-xl font-bold text-gray-800 text-center mb-2">
-          Error!
+        <h3 className="text-xl text-yellow-600 font-bold  text-center mb-2">
+          Warning!
         </h3>
 
         {/* Error Message */}
@@ -57,7 +57,7 @@ const ErrorModal = ({ isOpen, onClose, message, autoClose = false, autoCloseDura
         {!autoClose && (
           <button
             onClick={onClose}
-            className="mt-6 px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
+            className="mt-6 px-6 py-2 border-1  font-medium rounded-lg transition-colors duration-200 shadow-md hover:shadow-lg"
           >
             Close
           </button>
