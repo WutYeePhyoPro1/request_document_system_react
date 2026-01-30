@@ -4,6 +4,7 @@ import { useNavigate,useParams } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
 import { FaFileImport,FaSpinner } from "react-icons/fa";
+import { FiCopy } from 'react-icons/fi';
 
 import $ from "jquery";
 import Select from 'react-select'
@@ -12,11 +13,14 @@ import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
-import {formatDate} from "../../components/Fomatter.jsx";
+import {formatDate,formatStrDateTime} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
 import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
 import { m } from "framer-motion";
+
+import StatusBadge from '../../components/ui/StatusBadge';
+
 
 export default function () {
     const productslimit = 50;
@@ -56,6 +60,15 @@ export default function () {
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
+
+    const [originator,setOriginator] = useState(null);
+    const [getApprover,setGetApprover] = useState(null);
+    const [getSupervisor,setGetSupervisor] = useState(null);
+
+    const [approver,setApprover] = useState(null);
+    const [supervisor,setSupervisor] = useState(null);
+
+    const [copied, setCopied] = useState(false);
  
     const changeHandler = (e,actionMeta) => {
          // react-select
@@ -368,6 +381,7 @@ export default function () {
                         text: errorMessages,
                     });
                 }
+                return;
             }
 
             await Swal.fire({
@@ -599,6 +613,12 @@ export default function () {
 
             setFormState(normalizedForm);
             
+            setOriginator(data.stakeholders.originator);
+            setGetSupervisor(data.stakeholders.getApprover);
+            setGetApprover(data.stakeholders.getApprover);
+
+            setSupervisor(data.authorities.supervisor);
+            setApprover(data.authorities.approver);
         } catch(error){
             console.error('Fetch branches error:', error);
         }
@@ -616,6 +636,83 @@ export default function () {
         fetchProductCategories();
         fetchPriceChange();
     }, []);
+
+    const handleCopy = () => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(formState.form_doc_no)
+                .then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                })
+                .catch((err) => {
+                    console.error("Clipboard copy failed:", err);
+                    fallbackCopy(formState.form_doc_no);
+                });
+        } else {
+            fallbackCopy(formState.form_doc_no);
+        }
+    };
+
+
+    const approveHandler = async (e)=>{
+        var btnStatus = e.target.value;
+        var btnText = e.target.textContent;
+
+
+
+        Swal.fire({
+            icon: "question",
+            text:  `Are you sure you want to ${btnText}?`,
+            showCancelButton: true,
+            confirmButtonText: "OK",
+            cancelButtonText: "Cancel",
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                setForceLoading(true);
+                setIsSubmitting(true);
+
+                const formData = {
+                    status: btnStatus
+                }
+                try{
+                    const res = await axios.post(`/api/price_changes/${id}/approve`,formData,{
+                        headers: {
+                        Authorization: `Bearer ${token}`,
+                        },
+                    });
+                    console.log(res.data);
+
+                    const data = res.data;
+
+                    if(data.success == false){
+                      return;
+                    }
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Form submitted successfully!",
+                        text: data.message,
+                    });
+                    // fetchPriceChange(); 
+                    navigate(0);
+                    // navigate("/price_changes");
+
+                }catch(err){
+                    console.log('There is an error in saving price change document:',err);
+                    // setLoader(false);
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Form Submit Error!!",
+                        text: "Something went wrong while submitting the form.",
+                    });
+                }finally{
+                    setForceLoading(false);
+                    setIsSubmitting(false);
+                }
+            }
+        });
+    };
 
     return (
         <>
@@ -636,19 +733,77 @@ export default function () {
                 {/* Action Bar as Card Header */}
                 <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <h3 className="text-xl font-bold text-blue-900 flex items-center gap-2">
-                            Price Change Form
+                        <h3 className="text-xl font-bold text-blue-900 flex flex-wrap items-center gap-2">
+                            Price Change Form <span className="text-lg">({formState.form_doc_no})</span>
+                            <button
+                                onClick={handleCopy}
+                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                                    ? 'text-green-600 bg-green-50'
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                    }`}
+                                title={copied ? "Copied!" : "Copy ID"}
+                                disabled={copied}
+                            >
+                                {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                            </button>
+                            <StatusBadge status={formState?.status ? formState?.status : ''} />
                         </h3>
 
                         <div className="flex flex-wrap gap-2 sm:justify-end">
                        
-                            <button
-                                type="button"
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
-                                onClick={(e) => submitHandler(e) }
-                            >
-                                Update
-                            </button>
+                            {
+
+                                ((supervisor || approver) && formState.status != 'Partial') ?
+                                <button
+                                    type="button"
+                                    className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
+                                    onClick={(e) => submitHandler(e) }
+                                >
+                                    Update
+                                </button> : ''
+                            }
+
+
+                            {
+                                supervisor &&        
+                                <button
+                                    className="px-4 py-2 text-sm rounded-lg
+                                        bg-amber-500 text-white
+                                        hover:bg-amber-600 transition"
+                                    value="Checked"
+                                    onClick={approveHandler}
+                                        >
+                                    Check
+                                </button>
+                            }
+                     
+                            {
+                                approver &&
+                                <button
+                                    className="px-4 py-2 text-sm rounded-lg
+                                        bg-green-600 text-white
+                                        hover:bg-green-700 transition"
+                                    value="Approved"
+                                    onClick={approveHandler}
+                                    >
+                                    Approve
+                                </button>
+
+                            }
+                          
+                            {
+                                (supervisor || approver) ?
+                                <button
+                                    className="px-4 py-2 text-sm rounded-lg
+                                        bg-red-600 text-white
+                                        hover:bg-red-700 transition"
+                                    value="Rejected"
+                                    onClick={approveHandler}
+                                    >
+                                    Reject
+                                </button> : ''
+                            }
+
                         </div>
                     </div>
                 </header>
@@ -851,7 +1006,70 @@ export default function () {
                         </div>
                     </main>
                 </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
+
+                    {/* Prepared By */}
+                    <div className="">
+                        <div className="text-gray-600">
+                        Prepared By
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        {originator?.title}{originator?.name}
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        ({originator?.departments?.name})
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        {formatStrDateTime(formState?.created_at)}
+                        </div>
+                    </div>
+
+
+                    {/* Audit By */}
+                    <div className="">
+                        <div className="text-gray-600">
+                        Checked By
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        {originator?.title}{originator?.name}
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        ({originator?.departments?.name})
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        {formatStrDateTime(formState?.created_at)}
+                        </div>
+                    </div>
+
+                    {/* Approved By */}
+                    <div className="">
+                        <div className="text-gray-600">
+                        Approved By
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        ({getApprover?.approval_users?.department?.name})
+                        </div>
+
+                        <div className="font-semibold text-blue-900">
+                        {formatStrDateTime(getApprover?.created_at)}
+                        </div>
+                    </div>
+                </div>
             </div>
+
+    
         </div>
         </>
     );
