@@ -80,6 +80,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
+        console.log('is branch it user=>','role id =>',user?.role_id,user?.id);
         const isBranchITUser = user?.role_id === 'Branch IT';
         console.log('is branch it user=>',isBranchITUser,'role id =>',user.role_id);
         return current_user && isBranchITUser;
@@ -306,7 +307,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail',recordDetails??'no detail');
+    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.[0]?.id,'id');
 
     return (
         <>
@@ -714,7 +715,7 @@ export default function CctvDetails() {
                                     recordDetails.form.status === 'BM Approved' &&
                                     recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
                                         <CctvUploadVideo
-                                            recordId={recordDetails?.detail_datas?.[0]?.id}
+                                            recordId={recordDetails?.detail_datas?.[0]?.[0]?.id}
                                             generalId={id}
                                             docNo={formDocno}
                                         />
