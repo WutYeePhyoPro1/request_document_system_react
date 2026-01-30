@@ -12,7 +12,7 @@ import CctvDownloadVideo from './inputs/CctvDownloadVideo';
 import { useDispatch, useSelector } from 'react-redux';
 
 export default function CctvDetails() {
-
+    
     const navigate = useNavigate();
     const { id } = useParams();
     const dispatch = useDispatch();
@@ -54,10 +54,10 @@ export default function CctvDetails() {
         const statusConditions = (
             (checker && recordDetails.form.status === 'Checked') ||
             (!checker && ['Ongoing', 'Ongoing(Edit)'].includes(recordDetails.form.status)) ||
-            (checker && recordDetails.form.status === 'Ongoing')
+            (checker && recordDetails.form.status === 'Ongoing' )
         );
         if (statusConditions) {
-
+           
             const currentUser = approvalProcessUsers.find(u =>
                 u.user_type === 'A1' &&
                 u.general_form_id === recordDetails.form.id &&
@@ -81,12 +81,12 @@ export default function CctvDetails() {
                 u.admin_id === user.id
         );
         const isBranchITUser = user?.role_id === 'Branch IT';
-        console.log('is branch it user=>', isBranchITUser, 'role id =>', user.role_id);
+        console.log('is branch it user=>',isBranchITUser,'role id =>',user.role_id);
         return current_user && isBranchITUser;
     };
 
     const checkManager = () => {
-        if (!recordDetails || recordDetails.form.status !== 'Checked') return false;
+        if (!recordDetails || recordDetails.form.status !== 'Approved') return false;
 
         const approvalProcessUsers = recordDetails.approval_process_users;
         if (!approvalProcessUsers) return false;
@@ -96,8 +96,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
-        // console.log(user?.role_id,'user role');
-        const isManager = user?.role_id === 'Approver';
+        const isManager = user?.role_id === 3;
         return current_user && isManager || user?.employee_number === '000-000548';
     }
 
@@ -108,7 +107,7 @@ export default function CctvDetails() {
         const fetchRecordDetails = async () => {
             hasFetchedInitial.current = true;
             setLoading(true);
-
+            
             try {
                 const recordData = await fetchData(`/api/cctv-records/${id}`, token, 'record details');
                 if (recordData) {
@@ -121,10 +120,10 @@ export default function CctvDetails() {
                 console.error('Error fetching record details:', error);
                 if (error.message.includes('404')) {
                     // Handle 404 - Record not found
-                    navigate('/cctv-request', {
-                        state: {
-                            error: 'Record not found or you do not have permission to view it.'
-                        }
+                    navigate('/cctv-request', { 
+                        state: { 
+                            error: 'Record not found or you do not have permission to view it.' 
+                        } 
                     });
                 }
             } finally {
@@ -278,7 +277,7 @@ export default function CctvDetails() {
     };
 
     function formatTime(time) {
-       
+        console.log(time,'time')
         if (!time) return '-';
         const [hour, minute] = time.split(':');
         const date = new Date();
@@ -307,7 +306,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail', recordDetails ?? 'no detail',recordDetails?.detail_datas?.[0]?.[0]?.cctv_record);
+    console.log('detail',recordDetails??'no detail');
 
     return (
         <>
@@ -325,7 +324,7 @@ export default function CctvDetails() {
                 ) : (
 
                     <div className="p-4 sm:p-6">
-
+                    
                         {isBranchITApprover && isOpen && (
                             <div className="fixed inset-0 bg-opacity-50 flex items-center justify-center z-50 p-4">
                                 <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
@@ -447,79 +446,79 @@ export default function CctvDetails() {
                                         </thead>
                                         <tbody>
                                             {recordDetails?.detail_datas?.map((item, index) => (
-                                                <>
+                                               <>
+                                               
+                                               <tr key={item[0].id}>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {index + 1}
+                                                        <input type="hidden" name="specific_form_id[]" value={item[0].id} />
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {formatTime(item[0].start_time)}
+                                                       
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {formatTime(item[0].end_time)}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">
+                                                        {item[0].issue_date}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden sm:table-cell">
+                                                        {renderCaseType(item[0].case_type)}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2">{item[0].place}</td>
+                                                    <td className="border p-1 sm:p-2 hidden md:table-cell">
 
-                                                    <tr key={item?.id}>
-                                                        <td className="border p-1 sm:p-2">
-                                                            {index + 1}
-                                                            <input type="hidden" name="specific_form_id[]" value={item?.id} />
-                                                        </td>
-                                                        <td className="border p-1 sm:p-2">
-                                                            {formatTime(item?.start_time)}
+                                                        {item[0]?.branch_name || '-'}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden lg:table-cell">
+                                                        {item[0].record_type && item[0].record_type !== 'null' ? item[0].record_type : '-'}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden xl:table-cell">
+                                                        {item[0].description}
+                                                    </td>
+                                                    <td className="border p-1 sm:p-2 hidden md:table-cell">
+                                                        {formatDate(item[0].created_at)}
+                                                    </td>
 
+                                                    {recordDetails?.video_record && (
+                                                        (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
+                                                        (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
+                                                        (user?.employee_number === '000-000548')
+                                                    ) ? (
+                                                        <td className="text-center">
+                                                            <button
+                                                                onClick={() => setIsVideoDownloadOpen(true)}
+                                                                className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
+                                                            >
+                                                                <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
+                                                                Download video
+                                                            </button>
                                                         </td>
-                                                        <td className="border p-1 sm:p-2">
-                                                            {formatTime(item?.end_time)}
-                                                        </td>
-                                                        <td className="border p-1 sm:p-2">
-                                                            {item?.issue_date}
-                                                        </td>
-                                                        <td className="border p-1 sm:p-2 hidden sm:table-cell">
-                                                            {renderCaseType(item?.case_type)}
-                                                        </td>
-                                                        <td className="border p-1 sm:p-2">{item?.place}</td>
-                                                        <td className="border p-1 sm:p-2 hidden md:table-cell">
+                                                    ) : (
+                                                        <td className="text-center">-</td>
+                                                    )}
 
-                                                            {item?.branch_name || '-'}
-                                                        </td>
+                                                    {(isApprover || isBranchITApprover || user?.employee_number === '000-000024' || user?.employee_number === '000-000548') && (
                                                         <td className="border p-1 sm:p-2 hidden lg:table-cell">
-                                                            {item?.record_type && item?.record_type !== 'null' ? item?.record_type : '-'}
+                                                            <Link
+                                                                to={`/cctv-edit/${item[0].id}`}
+                                                                className="text-white font-bold py-1 px-3 rounded cursor-pointer text-sm"
+                                                                style={{
+                                                                    backgroundColor: '#2ea2d1',
+                                                                }}
+                                                                onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
+                                                                onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}
+                                                            >
+                                                                Edit
+                                                            </Link>
                                                         </td>
-                                                        <td className="border p-1 sm:p-2 hidden xl:table-cell">
-                                                            {item?.description}
-                                                        </td>
-                                                        <td className="border p-1 sm:p-2 hidden md:table-cell">
-                                                            {formatDate(item?.created_at)}
-                                                        </td>
+                                                    )}
 
-                                                        {recordDetails?.video_record && (
-                                                            (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
-                                                            (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
-                                                            (user?.employee_number === '000-000548')
-                                                        ) ? (
-                                                            <td className="text-center">
-                                                                <button
-                                                                    onClick={() => setIsVideoDownloadOpen(true)}
-                                                                    className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                                                                >
-                                                                    <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
-                                                                    Download video
-                                                                </button>
-                                                            </td>
-                                                        ) : (
-                                                            <td className="text-center">-</td>
-                                                        )}
-
-                                                        {((isApprover || isBranchITApprover || user?.employee_number === '000-000024' || user?.employee_number === '000-000548') && item?.status!='Completed') && (
-                                                            <td className="border p-1 sm:p-2 hidden lg:table-cell">
-                                                                <Link
-                                                                    to={`/cctv-edit/${item?.id}`}
-                                                                    className="text-white font-bold py-1 px-3 rounded cursor-pointer text-sm"
-                                                                    style={{
-                                                                        backgroundColor: '#2ea2d1',
-                                                                    }}
-                                                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
-                                                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}
-                                                                >
-                                                                    Edit
-                                                                </Link>
-                                                            </td>
-                                                        )}
-
-                                                    </tr>
-                                                </>
-
-
+                                                </tr>
+                                               </>
+                                            
+                                                
                                             ))}
                                         </tbody>
                                     </table>
@@ -530,7 +529,103 @@ export default function CctvDetails() {
                                             id={id}
                                             onClose={() => setIsVideoDownloadOpen(false)}
                                         />
-                                    )}                                  
+                                    )}
+
+
+                                    {/* <div className="lg:hidden space-y-4 mt-4 font-medium text-sm sm:text-base">
+                                        {recordDetails?.detail_datas?.map((item, index) => (
+                                            <div key={item.id} className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm">
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">No:</span>
+                                                    <span>{index + 1}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Start Time:</span>
+                                                    <span>{formatTime(item.start_time)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">End Time:</span>
+                                                    <span>{formatTime(item.end_time)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Case Date:</span>
+                                                    <span>{item.issue_date}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Case Type:</span>
+                                                    <span>{renderCaseType(item.case_type)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Place:</span>
+                                                    <span>{item.place}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Branch:</span>
+                                                    <span>{item.branch_name || '-'}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Record Type:</span>
+                                                    <span>{item.record_type && item.record_type !== 'null' ? item.record_type : '-'}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Description:</span>
+                                                    <span>{item.description}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mb-2">
+                                                    <span className="font-semibold text-gray-700">Replay Date:</span>
+                                                    <span>{formatDate(item.created_at)}</span>
+                                                </div>
+
+                                                <div className="flex flex-col mt-2">
+                                                    <span className="font-semibold text-gray-700">Record Video:</span>
+
+                                                </div>
+
+                                                {recordDetails?.video_record && (
+                                                    (user?.role_id === 3 && recordDetails?.from_branch !== '1') ||
+                                                    (user?.role_id === 3 && recordDetails?.from_branch === '1' && user?.department_id === recordDetails?.from_department) ||
+                                                    (user?.employee_number === '000-000548')
+                                                ) ? (
+
+                                                    <span className="text-gray-800">
+
+                                                        <button
+                                                            onClick={() => setIsVideoDownloadOpen(true)}
+                                                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                                        >
+                                                            <i className="bi bi-cloud-arrow-down-fill mr-1"></i>
+                                                            Download video
+                                                        </button>
+                                                    </span>
+
+
+                                                ) : (
+                                                    <span className="text-gray-800"> - </span>
+                                                )}
+
+                                                {(isApprover || isBranchITApprover || user?.employee_number === '000-000024') && (
+                                                    <div className="flex flex-col mt-2">
+                                                        <span className="font-semibold text-gray-700">Action:</span>
+                                                        <Link
+                                                            to={`/cctv-edit/${item.id}`}
+                                                            className="bg-[#2ea2d1] text-white font-semibold py-1 px-3 rounded w-fit hover:bg-[#6fc3df]"
+                                                        >
+                                                            Edit
+                                                        </Link>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div> */}
 
 
                                     <div className="lg:hidden space-y-4 mt-4 px-2">
@@ -617,9 +712,9 @@ export default function CctvDetails() {
 
                                 {isBranchITApprover &&
                                     recordDetails.form.status === 'BM Approved' &&
-                                    recordDetails?.detail_datas?.[0]?.[0]?.cctv_record === 'on' && (
+                                    recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
                                         <CctvUploadVideo
-                                            recordId={recordDetails?.detail_datas?.[0]?.[0]?.id}
+                                            recordId={recordDetails?.detail_datas?.[0]?.id}
                                             generalId={id}
                                             docNo={formDocno}
                                         />
@@ -628,7 +723,7 @@ export default function CctvDetails() {
                                 <div>
                                     {isBranchITApprover &&
                                         recordDetails.status === 'BM Approved' &&
-                                        recordDetails?.detail_datas?.[0]?.[0]?.cctv_record === 'on' && (
+                                        recordDetails?.detail_datas?.[0]?.cctv_record === 'on' && (
                                             <>
                                                 <span className="text-red-500 text-sm"></span>
                                                 {/* {errors.video} */}
@@ -799,7 +894,6 @@ export default function CctvDetails() {
                                 <div className="space-y-1">
                                     <p className="text-gray-500">Staff / Eyewitness</p>
                                     <p className="text-sm text-gray-800 font-semibold">
-                                        
                                         {recordDetails?.form?.originators?.title ? `${recordDetails.form.originators.title} ` : ''}
                                         {recordDetails?.form?.originators?.name ? `${recordDetails.form.originators.name}` : ''}
                                     </p>
@@ -819,7 +913,7 @@ export default function CctvDetails() {
                                             (
                                                 recordDetails?.form?.status === 'BM Approved' ||
                                                 recordDetails?.form?.status === 'Approved' ||
-                                                recordDetails?.form?.status === 'Checked' ||
+                                                recordDetails?.form?.status === 'Received' ||
                                                 recordDetails?.form?.status === 'Acknowledged' ||
                                                 recordDetails?.form?.status === 'Completed' ||
                                                 (recordDetails?.form?.status === 'Cancel' && recordDetails?.approver?.status !== 'Cancel')
@@ -832,7 +926,7 @@ export default function CctvDetails() {
                                         (
                                             recordDetails?.form?.status === 'BM Approved' ||
                                             recordDetails?.form?.status === 'Approved' ||
-                                            recordDetails?.form?.status === 'Checked' ||
+                                            recordDetails?.form?.status === 'Received' ||
                                             recordDetails?.form?.status === 'Acknowledged' ||
                                             recordDetails?.form?.status === 'Completed' ||
                                             (recordDetails?.form?.status === 'Cancel' && recordDetails?.approver?.status !== 'Cancel')
@@ -864,7 +958,6 @@ export default function CctvDetails() {
                                         {recordDetails?.acknowledger &&
                                             (
                                                 recordDetails?.form?.status === 'Approved' ||
-                                                recordDetails?.form?.status === 'Checked' ||
                                                 recordDetails?.form?.status === 'Completed' ||
                                                 (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                             )
@@ -875,7 +968,6 @@ export default function CctvDetails() {
                                     {recordDetails?.acknowledger &&
                                         (
                                             recordDetails?.form?.status === 'Approved' ||
-                                            recordDetails?.form?.status === 'Checked' ||
                                             recordDetails?.form?.status === 'Completed' ||
                                             (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                         ) ? (
