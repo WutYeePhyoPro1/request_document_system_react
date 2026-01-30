@@ -218,6 +218,7 @@ const Dashboard = () => {
   }, [mutate]);
 
   // Branches load once and cache
+  
   const { data: branchesPayload } = useSWRImmutable(
     token ? ['/api/branches'] : null,
     ([url]) => fetcher(url)
