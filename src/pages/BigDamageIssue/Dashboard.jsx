@@ -67,9 +67,7 @@ const Dashboard = () => {
 
   const buildQuery = () => {
     const params = new URLSearchParams();
-    // Request a very large page size (1000) to get all data for client-side pagination
-    // This ensures consistent page sizes after deduplication and filtering
-    // The backend returns product items, but we deduplicate by form_id, so we need enough data
+   
     params.set("per_page", "1000");
     
     // Always filter for Big Damage Issues by default (form_id: 8)
@@ -77,16 +75,7 @@ const Dashboard = () => {
     // Request total amount in response
     params.set("include_total", "true");
     
-    
-    // Add other filters
-    // NOTE: Do NOT send product filter to backend when doing client-side filtering
-    // We fetch all data and filter client-side to ensure we get all products per form
-    // if (filters.productName) {
-    //   // Send to multiple backend fields to ensure search works
-    //   params.set("search", filters.productName);
-    //   params.set("product_name", filters.productName);
-    //   params.set("product_code", filters.productName);
-    // }
+  
     if (filters.formDocNo) {
       params.set("form_doc_no", filters.formDocNo);
       params.set("doc_no", filters.formDocNo); // fallback key some APIs use
@@ -124,9 +113,7 @@ const Dashboard = () => {
       params.set("to_date", filters.toDate); // fallback key
     }
     
-    // Don't send page parameter - we'll fetch all data and do client-side pagination
-    // This ensures consistent page sizes after deduplication
-    // params.set("page", currentPage); // Removed for client-side pagination
+   
     
     const queryString = params.toString();
     return queryString;
@@ -202,6 +189,7 @@ const Dashboard = () => {
       }
     }
   );
+
 
   // Listen for external updates (e.g., after form submission/system update) and revalidate list
   React.useEffect(() => {
@@ -438,6 +426,7 @@ const Dashboard = () => {
     let notiData = [];
     if (listPayload?.noti_data && Array.isArray(listPayload.noti_data)) {
       notiData = listPayload.noti_data;
+      console.log(notiData,'noti data');
     }
     
     // For Big Damage Issue, ONLY use noti_data from API (already filtered for form_id 8)
@@ -455,10 +444,7 @@ const Dashboard = () => {
       ? notifications.formData 
       : [];
     
-    // Iterate over unread notifications and count by form ID
-    // IMPORTANT: noti_data from API is already filtered for form_id 8 (Big Damage Issue)
-    // The structure from API is: [{ form_id: 8, specific_form_id: ..., form_doc_no: ... }, ...]
-    // The backend uses pluck('data'), so each item is already the data object
+    
     allNotifications.forEach((noti) => {
       // noti_data from API is already the notification data (not wrapped in 'data' property)
       // So we use noti directly, but also check noti.data as fallback for compatibility
@@ -549,21 +535,14 @@ const Dashboard = () => {
         const filteredRows = filterFormsByRole(allRows, user);
         allRows = filteredRows;
         
-        // IMPORTANT: Do NOT deduplicate here when product filter is active
-        // DamageIssueList needs all product rows to properly filter by product name/code
-        // Deduplication will happen in DamageIssueList after product filtering
+        
         const productFilterFromUrl = searchParams.get('search') || searchParams.get('product_name') || searchParams.get('product_code') || '';
         const hasProductFilter = productFilterFromUrl.trim() !== '' || (filters.productName && filters.productName.trim() !== '');
         
-        // Keep all product rows here and let DamageIssueList deduplicate/aggregate totals.
-        // Deduplicating here removed other product rows and caused per-form totals to be incorrect
-        // (only the first product row was kept). Do not deduplicate at this stage.
-        
-      // Client-side pagination: paginate using a UI page size (15) independent from fetch page size.
-      // We fetch many items from backend (perPage may be large) to have enough data for multiple pages,
-      // but the UI should always show 15 forms per page like the original Laravel blade.
+       
       const uiPageSize = 15;
         if (hasProductFilter) {
+          
           // Pass all rows to DamageIssueList - it will handle filtering and deduplication
           return {
             rows: allRows, // Pass all rows, let DamageIssueList handle filtering
@@ -602,12 +581,14 @@ const Dashboard = () => {
       // Case 2: Direct array response (fallback)
       if (Array.isArray(listPayload)) {
         allRows = listPayload;
+        
         meta = {
           current_page: 1,
           per_page: perPage,
           total: allRows.length,
           last_page: Math.ceil(allRows.length / perPage) || 1,
         };
+       
       }
       // Case 3: Object with items array (alternative format)
       else if (listPayload.items && Array.isArray(listPayload.items)) {
@@ -651,6 +632,7 @@ const Dashboard = () => {
       const startIndex = (currentPage - 1) * uiPageSize;
       const paginatedRows = allRows.slice(startIndex, startIndex + uiPageSize);
       
+      
       return {
         rows: paginatedRows,
         meta: {
@@ -664,6 +646,7 @@ const Dashboard = () => {
       };
       
     } catch (error) {
+     
       return { 
         rows: [], 
         meta: { 

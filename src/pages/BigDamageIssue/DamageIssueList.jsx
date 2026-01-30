@@ -759,6 +759,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
 
   // Ensure data is an array and remove duplicates
   const rawIssues = Array.isArray(data) ? data : [];
+ 
   const productNameFilterLower = productNameFilter ? productNameFilter.toLowerCase().trim() : '';
   
   
@@ -768,7 +769,8 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   const formsWithItems = React.useMemo(() => {
     const formsMap = new Map();
     rawIssues.forEach((row) => {
-      const formId = row?.general_form?.id || row?.general_form_id;
+      
+      const formId = row?.general_form?.id || row?.general_form_id ||row?.id;
       if (formId) {
         if (!formsMap.has(formId)) {
           formsMap.set(formId, {
@@ -813,6 +815,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   const formTotals = React.useMemo(() => {
     const totals = new Map();
     formsWithItems.forEach((formData, formId) => {
+    
       const total = formData.items.reduce((sum, item) => sum + (item.amount || 0), 0);
       // Store totals under multiple key shapes (string and numeric) to avoid type-mismatch lookups
       try {
@@ -829,11 +832,12 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     return totals;
   }, [formsWithItems]);
   
+  
   // Filter forms based on product name/code if filter is active
   // Use useMemo to prevent unnecessary recalculations and glitches
   const filteredForms = React.useMemo(() => {
     let forms = Array.from(formsWithItems.values());
-    
+   
     if (productNameFilterLower) {
       const beforeFilterCount = forms.length;
       forms = forms.filter(formData => {
@@ -897,6 +901,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   }, [formsWithItems, productNameFilterLower]);
   
   // Convert back to row format for compatibility with existing code
+
   // Remove duplicates by form ID
   const seenFormIds = new Set();
   let allFilteredIssues = filteredForms
@@ -910,6 +915,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
     seenFormIds.add(formId);
       return true;
     });
+   
   
   // Calculate total after filtering (for pagination)
   const filteredTotal = allFilteredIssues.length;
@@ -917,6 +923,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   // No client-side pagination — always show all filtered issues in this list.
   // Pagination controls have been removed; server-side paging (if used) is handled upstream.
   const issues = allFilteredIssues;
+
   
   // Compute visible issues based on user role defaults.
   // Default filtering is applied only when there's no explicit status filter in the URL
@@ -943,6 +950,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         // But still enforce Operation Manager special view if user is OP manager
         if (isOpManager) {
           return issues.filter((row) => {
+            
             const gf = row.general_form || {};
             const totalAmount = getTotalAmount(row, gf);
             const status = ((gf.status || row.status || '') + '').toString().toLowerCase().trim();
@@ -953,8 +961,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
         return issues;
       }
 
-      // No explicit filters — show all issues (do not apply role-based defaults).
-      // This ensures the list displays all forms unless the user applied an explicit status/product filter.
+     
       return issues;
     } catch (e) {
       return issues;
@@ -986,6 +993,7 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
   }
   
   const hasRecords = issues.length > 0;
+
   const isEmpty = !loading && !hasRecords;
 
   const normalizeBranch = (branch) => {
@@ -1216,7 +1224,9 @@ function DamageIssueList({ data = [], loading = false, currentPage = 1, perPage 
 
                 <tbody className="bg-white">
             {pagedVisibleIssues.map((row, idx) => {
-                    const gf = row.general_form || {};
+                    // const gf = row.general_form || {} || row;
+                    const gf=row || {};
+                    console.log(row,'row')
                     const detailId = row.id;
                     const displayNo = (safeCurrentPage - 1) * pageSize + idx + 1;
                     const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
