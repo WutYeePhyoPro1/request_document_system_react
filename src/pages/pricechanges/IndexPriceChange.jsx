@@ -9,7 +9,7 @@ import { fetchData } from '../../api/FetchApi';
 import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
 
-import {fetchPriceChanges,setFilter,clearFilters} from "./../../store/pricechangeSlice";
+import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
 
 
 export default function IndexPriceChange() {
@@ -31,7 +31,7 @@ export default function IndexPriceChange() {
     
 
     useEffect(()=>{
-        dispatch(fetchPriceChanges());
+        dispatch(fetchPriceChanges({filters,searchQuery: !isFiltersEmpty ? 'all' : ''}));
     },[dispatch]);
 
 
@@ -71,6 +71,15 @@ export default function IndexPriceChange() {
         }
     }
 
+    const searchHandler = (e)=>{
+        e.preventDefault();
+        dispatch(fetchPriceChanges({filters,searchQuery:"all"}));
+    }
+
+    const clearHandler = (e)=>{
+        dispatch(clearFilters())
+        dispatch(fetchPriceChanges());
+    }
 
     return (
         <>
@@ -196,7 +205,7 @@ export default function IndexPriceChange() {
 
                                 <div className="flex items-end">
                                     <button className="text-white px-4 py-2 rounded w-full cursor-pointer" 
-                                        // onClick={handleSearch} 
+                                        onClick={(e)=>searchHandler(e)} 
                                         style={{
                                             backgroundColor: '#2ea2d1',
                                         }}
@@ -212,7 +221,7 @@ export default function IndexPriceChange() {
                                         style={{ backgroundColor: '#4b5563' }}
                                         onMouseEnter={(e) => (e.target.style.backgroundColor = '#6b7280')}
                                         onMouseLeave={(e) => (e.target.style.backgroundColor = '#4b5563')}
-                                        onClick={()=>dispatch(clearFilters())}
+                                        onClick={()=>clearHandler()}
                                     >
                                     Reset Filters
                                     </button>

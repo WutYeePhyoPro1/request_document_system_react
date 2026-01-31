@@ -2,7 +2,7 @@ import { FaMinusCircle } from "react-icons/fa";
 import {formatNumber} from "./Fomatter.jsx";
 
 
-export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors}){
+export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors,authorizedEdit=true}){
     const tablestyle = {
         thead: { backgroundColor: "#A9D8E9" },
         th: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10},
@@ -49,22 +49,41 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td>{formatNumber(item.price)}</td>
                             <td></td>
                             <td >
-                                <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border
-                                    ${
-                                        pricesErrors?.[`Product_${index}_price1`] || pricesErrors?.[`Product_${index}_Price 1`]
-                                            ? 'border-red-600 focus:border-red-600'
-                                            : 'border-cyan-500 focus:border-cyan-500'
-                                    }
-                                `} onChange={(e)=>pricesHandler(e,item.product_code)} value={item.price1}/>
+                                {
+                                    authorizedEdit ?
+                                        <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                            ${
+                                                pricesErrors?.[`Product_${index}_price1`] || pricesErrors?.[`Product_${index}_Price 1`]
+                                                    ? 'border-red-600 focus:border-red-600'
+                                                    : 'border-cyan-500 focus:border-cyan-500'
+                                            }
+                                        `} 
+                                        onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        value={item.price1}
+                                        readOnly={!authorizedEdit}
+                                        />
+                                    : item.price1
+                                }
+
+                            
                             </td>
                             <td>
-                                <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border
-                                    ${
-                                        pricesErrors?.[`Product_${index}_price2`] || pricesErrors?.[`Product_${index}_Price 2`]
-                                            ? 'border-red-600 focus:border-red-600'
-                                            : 'border-cyan-500 focus:border-cyan-500'
-                                    }
-                                `} onChange={(e)=>pricesHandler(e,item.product_code)} value={item.price2}/>
+                                {
+                                    authorizedEdit ?
+                                        <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                            ${
+                                                pricesErrors?.[`Product_${index}_price2`] || pricesErrors?.[`Product_${index}_Price 2`]
+                                                    ? 'border-red-600 focus:border-red-600'
+                                                    : 'border-cyan-500 focus:border-cyan-500'
+                                            }
+                                        `} 
+                                        onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        value={item.price2}
+                                        readOnly={!authorizedEdit}
+                                        />
+                                    : item.price2
+                                }
+
                             </td>
                             <td></td>
                         </tr>

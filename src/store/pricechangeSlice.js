@@ -3,13 +3,19 @@ import axios from "axios";
 
 const API_URL =  `https://dummyjson.com/products?limit=`;
 
-export const fetchPriceChanges = createAsyncThunk( "property/fetchPriceChange", async({page=1}={})=>{
+export const fetchPriceChanges = createAsyncThunk( "property/fetchPriceChange", async({filters,page=1,searchQuery=''}={},{})=>{
      const token = localStorage.getItem('token');
 
+     console.log(filters)
      const {data} = await axios.get(`/api/price_changes`, {
           headers: {
           Authorization: `Bearer ${token}`,
           },
+          params: {
+               page,
+               ...filters,
+               searchQuery
+          }
      });
      console.log(data);
 
@@ -36,12 +42,15 @@ const picechangeSlice = createSlice({
          },
          clearFilters(state){
                state.filters = {
-                    query: "",
-                    city: "all",
-                    status: "all",
-                    minprice: "",
-                    maxprice: ""
+                    form_doc_no: "",
+                    start_date: "",
+                    end_date: "",
+                    search_status: [],
+                    branch_id: ""
                }
+         },
+         isFiltersEmpty(state){
+               return Object.values(state.filters).every(v => !v.length);
          }
      },
      extraReducers: (builder)=>{
@@ -80,11 +89,12 @@ const picechangeSlice = createSlice({
                .addCase(fetchPriceChanges.rejected,(state,action)=>{
                     state.loading = false;
                     state.error = action.error.message || "Failed to load properties";
+                    console.log(action.error.message);
                })
      }
 });
 
-export const {setFilter,clearFilters} = picechangeSlice.actions;
+export const {setFilter,clearFilters,isFiltersEmpty} = picechangeSlice.actions;
 export default picechangeSlice.reducer;
 
 // 

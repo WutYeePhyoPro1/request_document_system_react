@@ -68,6 +68,8 @@ export default function () {
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
 
+    const [allowEdit,setAllowEdit] =  useState(null);
+    // (supervisor || approver) && formState?.status != 'Partial';
     const [copied, setCopied] = useState(false);
  
     const changeHandler = (e,actionMeta) => {
@@ -614,7 +616,7 @@ export default function () {
             setFormState(normalizedForm);
             
             setOriginator(data.stakeholders.originator);
-            setGetSupervisor(data.stakeholders.getApprover);
+            setGetSupervisor(data.stakeholders.getSupervisor);
             setGetApprover(data.stakeholders.getApprover);
 
             setSupervisor(data.authorities.supervisor);
@@ -866,7 +868,7 @@ export default function () {
 
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
-                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
+                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!((supervisor || approver) && formState?.status != 'Partial')}/>
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-6">
@@ -883,7 +885,8 @@ export default function () {
                                             options={catOptions}
                                             placeholder="Select Category"
                                             isSearchable={true}
-                                            isClearable
+                                            menuIsOpen={!((supervisor || approver) && formState?.status != 'Partial') ? false : undefined}
+                                            isClearable={((supervisor || approver) && formState?.status != 'Partial')}
                                             onChange={changeHandler}
                                             value={catOptions.find(opt => opt.value === formState.category_id) || null}
                                             styles={{
@@ -914,6 +917,7 @@ export default function () {
                                         style={{ borderColor: '#2ea2d1' }}
                                         onChange={changeHandler}
                                         value={formState.comment}
+                                        readOnly={!((supervisor || approver) && formState?.status != 'Partial')}
                                     ></textarea>
                                 </div>
 
@@ -1001,7 +1005,7 @@ export default function () {
                                 <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
                             </div>
                             {/* <div className="overflow-auto max-h-[500px]"> */}
-                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
+                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={((supervisor || approver) && formState?.status !== 'Partial')}/>
                             {/* </div> */}
                         </div>
                     </main>
@@ -1030,42 +1034,55 @@ export default function () {
 
 
                     {/* Audit By */}
-                    <div className="">
+                    <div className={`${!getSupervisor?.[0] ? 'opacity-25' : ''}`}>
                         <div className="text-gray-600">
-                        Checked By
+                        Checked By Category Supervisor
                         </div>
+                        {
+                            getSupervisor?.length > 0 &&
+                                getSupervisor.map((supervisor)=>(
+                                    <>
+                                    <div className="font-semibold text-blue-900">
+                                    {supervisor.approval_users?.title}{supervisor.approval_users?.name}
+                                    </div>
 
-                        <div className="font-semibold text-blue-900">
-                        {originator?.title}{originator?.name}
-                        </div>
+                                    <div className="font-semibold text-blue-900">
+                                    ({supervisor.approval_users?.department?.name})
+                                    </div>
 
-                        <div className="font-semibold text-blue-900">
-                        ({originator?.departments?.name})
-                        </div>
-
-                        <div className="font-semibold text-blue-900">
-                        {formatStrDateTime(formState?.created_at)}
-                        </div>
+                                    <div className="font-semibold text-blue-900">
+                                    {formatStrDateTime(supervisor?.created_at)}
+                                    </div>
+                                    </>
+                                ))
+                        }
                     </div>
 
                     {/* Approved By */}
-                    <div className="">
+                    <div className={`${!getApprover?.approval_users || (Array.isArray(getApprover?.approval_users) && !getApprover?.approval_users?.[0]) ? 'opacity-25' : ''}`}>
                         <div className="text-gray-600">
-                        Approved By
+                        Approved By Merchandising Manager
                         </div>
+                        {
+                            getApprover !== null && getApprover.approval_users && formState.status == 'Approved' &&
+                            <>
+                            <div className="font-semibold text-blue-900">
+                            {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
+                            </div>
 
-                        <div className="font-semibold text-blue-900">
-                        {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
-                        </div>
+                            <div className="font-semibold text-blue-900">
+                            ({getApprover?.approval_users?.department?.name})
+                            </div>
 
-                        <div className="font-semibold text-blue-900">
-                        ({getApprover?.approval_users?.department?.name})
-                        </div>
-
-                        <div className="font-semibold text-blue-900">
-                        {formatStrDateTime(getApprover?.created_at)}
-                        </div>
+                            <div className="font-semibold text-blue-900">
+                            {formatStrDateTime(getApprover?.created_at)}
+                            </div>
+                            </>
+                        }
                     </div>
+
+
+                   
                 </div>
             </div>
 
