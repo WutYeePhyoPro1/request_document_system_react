@@ -34,11 +34,14 @@ const picechangeSlice = createSlice({
                end_date: "",
                search_status: [],
                branch_id: ""
-          }
+          },
+          isSearchMode: false,
+          paginationInfo: null
      },
      reducers: {
          setFilter(state,action){
                state.filters = {...state.filters,...action.payload};
+               state.isSearchMode = true;
          },
          clearFilters(state){
                state.filters = {
@@ -47,11 +50,10 @@ const picechangeSlice = createSlice({
                     end_date: "",
                     search_status: [],
                     branch_id: ""
-               }
+               };
+               state.isSearchMode = false;
+               state.paginationInfo = null;
          },
-         isFiltersEmpty(state){
-               return Object.values(state.filters).every(v => !v.length);
-         }
      },
      extraReducers: (builder)=>{
             const formatDate = (dateStr) => {
@@ -85,6 +87,8 @@ const picechangeSlice = createSlice({
                         date: formatDate(item.date_formatted),
                     }))
                     console.log(action.payload.data.data)
+
+                    state.paginationInfo = action.payload.data;
                })
                .addCase(fetchPriceChanges.rejected,(state,action)=>{
                     state.loading = false;

@@ -716,6 +716,26 @@ export default function () {
         });
     };
 
+    const sendToSupervisorClick = async (e)=>{
+        e.preventDefault();
+
+         Swal.fire({
+            icon: "question",
+            text:  `Are you sure you want to send to your supervisor?`,
+            showCancelButton: true,
+            confirmButtonText: "OK",
+            cancelButtonText: "Cancel",
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                setForceLoading(true);
+                setIsSubmitting(true);
+
+            }
+        });
+    }
+
+    const  changable = ((supervisor || approver) && formState?.status != 'Partial');
+
     return (
         <>
         {forceLoading && <FullPageLoader />}
@@ -752,10 +772,20 @@ export default function () {
                         </h3>
 
                         <div className="flex flex-wrap gap-2 sm:justify-end">
-                       
                             {
+                                changable || formState.status == 'Default' &&
+                                <button
+                                    type="button"
+                                    className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
+                                    onClick={(e) => sendToSupervisorClick(e)}
+                                >
+                                    Send To Supervisor
+                                </button>
 
-                                ((supervisor || approver) && formState.status != 'Partial') ?
+                            }
+        
+                            {
+                                changable ?
                                 <button
                                     type="button"
                                     className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
@@ -868,7 +898,7 @@ export default function () {
 
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
-                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!((supervisor || approver) && formState?.status != 'Partial')}/>
+                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/>
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-6">
@@ -885,8 +915,8 @@ export default function () {
                                             options={catOptions}
                                             placeholder="Select Category"
                                             isSearchable={true}
-                                            menuIsOpen={!((supervisor || approver) && formState?.status != 'Partial') ? false : undefined}
-                                            isClearable={((supervisor || approver) && formState?.status != 'Partial')}
+                                            menuIsOpen={!changable ? false : undefined}
+                                            isClearable={changable}
                                             onChange={changeHandler}
                                             value={catOptions.find(opt => opt.value === formState.category_id) || null}
                                             styles={{
@@ -917,7 +947,7 @@ export default function () {
                                         style={{ borderColor: '#2ea2d1' }}
                                         onChange={changeHandler}
                                         value={formState.comment}
-                                        readOnly={!((supervisor || approver) && formState?.status != 'Partial')}
+                                        readOnly={!changable}
                                     ></textarea>
                                 </div>
 
@@ -1005,7 +1035,7 @@ export default function () {
                                 <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
                             </div>
                             {/* <div className="overflow-auto max-h-[500px]"> */}
-                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={((supervisor || approver) && formState?.status !== 'Partial')}/>
+                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable}/>
                             {/* </div> */}
                         </div>
                     </main>

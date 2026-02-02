@@ -17,21 +17,20 @@ export default function IndexPriceChange() {
     
     const statusOptions = [
         { value: "Ongoing", label: "Ongoing" },
-        { value: "BM Approved", label: "BM Approved" },
+        { value: "Checked", label: "Checked" },
         { value: "Approved", label: "Approved" },
-        { value: "Completed", label: "Completed" },
         { value: "Cancel", label: "Cancel" },
     ];
     const [branches, setBranches] = useState([]);
 
-    const {loading,error,datas,filters} = useSelector((state)=>state.pricechanges)
+    const {loading,error,datas,filters,isSearchMode,paginationInfo} = useSelector((state)=>state.pricechanges)
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
     
-
     useEffect(()=>{
-        dispatch(fetchPriceChanges({filters,searchQuery: !isFiltersEmpty ? 'all' : ''}));
+        console.log("Filter Empty:",isFiltersEmpty);
+        dispatch(fetchPriceChanges({filters,searchQuery: isSearchMode ? 'all' : ''}));
     },[dispatch]);
 
 
@@ -40,10 +39,29 @@ export default function IndexPriceChange() {
     }, []);
     
     const onChangeHandler = (e)=>{
+        console.log(e);
         dispatch(setFilter({
             [e.target.name]: e.target.value
         }))
+
+        // setFormState(prev=>{
+        //     return {...prev,tags:[...prev.tags,tagname]}
+        // });
     }
+
+    const handleSelectChange = (name) => (value) => {
+        dispatch(setFilter({
+            [name]: Array.isArray(value)
+                    ? (value ? value.map(v => v.value) : []) 
+                    : value ? value.value : ""        
+        }));
+    };
+
+    const handlePageClick = (page) => {
+        if (page >= 1 && page <= paginationInfo.last_page) {
+            dispatch(fetchPriceChanges({filters,searchQuery: isSearchMode ? 'all' : '',page}));
+        }
+    };
 
 
     const fetchBranches = async () => {
@@ -170,13 +188,7 @@ export default function IndexPriceChange() {
                                         className="basic-multi-select"
                                         classNamePrefix="select"
                                         value={statusOptions.filter(option => filters.search_status.includes(option.value))}
-                                        // onChange={(selected) => {
-                                        //     const selectedValues = selected.map((opt) => opt.value);
-                                        //     setFormData((prev) => ({
-                                        //         ...prev,
-                                        //         status: selectedValues,
-                                        //     }));
-                                        // }}
+                                        onChange={handleSelectChange('search_status')}
                                         placeholder="Select Status"
                                     />
                                 </div>
@@ -186,8 +198,8 @@ export default function IndexPriceChange() {
                                         Branch
                                     </label>
                                     <select
-                                        id="branch"
-                                        name="branch"
+                                        id="branch_id"
+                                        name="branch_id"
                                         className="border focus:outline-none p-2 w-full rounded-md"
                                         value={filters.branch}
                                         onChange={onChangeHandler}
@@ -240,6 +252,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">Effective Date</th>
                                             <th className="py-2 px-4 border-b">Department</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
+                                            <th className="py-2 px-4 border-b">Branch</th>
                                             <th className="py-2 px-4 border-b">Created Date</th>
                                         </tr>
                                     </thead>
@@ -250,7 +263,7 @@ export default function IndexPriceChange() {
                                                         onClick={() =>navigate(`/price_changes_detail/${data.id}`)}
                                                     className="cursor-pointer hover:bg-[#efefef] transition"
                                                     >
-                                                        <td className="py-2 px-4 border-b">{++idx}</td>
+                                                        <td className="py-2 px-4 border-b">{paginationInfo.from + idx}</td>
                                                         <td className="py-2 px-4 border-b">
                                                             <StatusBadge status={data.status} />
                                                         </td>
@@ -258,6 +271,9 @@ export default function IndexPriceChange() {
                                                         <td className="py-2 px-4 border-b">{data.date}</td>
                                                         <td className="py-2 px-4 border-b">{data.to_category.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {branches.find(branch => branch.id === data.from_branch)?.branch_name || '—'}
+                                                        </td>
                                                         <td className="py-2 px-4 border-b">{data.created_at}</td>
                                                     </tr>
                                                 ))
@@ -265,7 +281,32 @@ export default function IndexPriceChange() {
                                     </tbody>
                                 </table>
 
-
+                                <div className="navigation w-full overflow-x-auto">
+                                        <ul className="inline-flex whitespace-nowrap min-w-max -space-x-px text-sm">
+                                            {paginationInfo?.links?.map((link, index) => (
+                                                <li key={index}>
+                                                    <button
+                                                        onClick={() => {
+                                                            if (link.url) {
+                                                                const url = new URL(link.url);
+                                                                const page = url.searchParams.get('page');
+                                                                handlePageClick(Number(page));
+                                                            }
+                                                        }}
+                                                        disabled={!link.url}
+                                                        className={`flex items-center justify-center px-3 min-w-[40px] h-8 leading-tight cursor-pointer
+                                                            ${link.active ? 'text-gray-600 border border-[#2ea2d1] bg-[#2ea2d1]' : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-700'}
+                                                            ${index === 0 ? 'rounded-s-lg' : ''}
+                                                            ${index === paginationInfo.links.length - 1 ? 'rounded-e-lg' : ''}
+                                                        `}
+                                                        >
+                                                        {link.label === '&laquo; Previous' ? 'Previous' :
+                                                            link.label === 'Next &raquo;' ? 'Next' : link.label}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                             </div>
 
                     </div >
