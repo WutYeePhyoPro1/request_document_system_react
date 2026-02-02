@@ -37,7 +37,6 @@ export const NotificationProvider = ({ children }) => {
 
   useEffect(() => {
     const handleNotificationsUpdated = (event) => {
-      console.log('Notifications updated event received, refreshing notifications...');
       refreshNotifications();
     };
 

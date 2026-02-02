@@ -473,11 +473,16 @@ export default function DamageItemTable({
       // For big_damage forms: If user is account user (isAccount: true), allow ACK approval even if admin_id doesn't match
       // This handles cases where ACK approval might be assigned to a different user but current user is still an account user
       // Laravel checks admin_id match strictly, but we'll allow account users to see the button if:
-      // 1. User is an account user (isAccount: true)
+      // 1. User is an account user (isAccount: true) OR is Branch Account by role_id/role_name
       // 2. ACK approval exists
       // 3. Status matches amount condition
       // This is a frontend workaround for cases where admin_id assignment might be different
-      const allowAccountUserAccess = isAccount && !userIdMatches;
+      const currentUserRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+      const isBranchAccountByRoleId = Number(currentUserRoleId) === 7;
+      const currentUserRoleName = (currentUser?.role_name || currentUser?.role?.name || '').toString().toLowerCase();
+      const isBranchAccountByRoleName = currentUserRoleName.includes('branch account') || currentUserRoleName.includes('account');
+      const isAccountUser = isAccount || isBranchAccountByRoleId || isBranchAccountByRoleName;
+      const allowAccountUserAccess = isAccountUser && !userIdMatches;
 
       if (!userIdMatches && !allowAccountUserAccess) {
         return;
@@ -534,6 +539,7 @@ export default function DamageItemTable({
     }
 
     // User must be account/ACK role (checked via isAccount or role name)
+    // Also check role_id === 7 (Branch Account) or role_name includes "Branch Account"
     const acknowledgeRoleAliases = new Set([
       'acknowledge',
       'account',
@@ -542,8 +548,19 @@ export default function DamageItemTable({
       'acknowledgement',
       'branch_account',
       'branchaccount',
+      'branch account', // Add with space for "Branch Account"
     ]);
-    const isAcknowledgeRole = isAccount || acknowledgeRoleAliases.has(normalizedRole);
+    
+    // Check if user is Branch Account by role_id (7) or role_name
+    const currentUserRoleId = currentUser?.role_id || currentUser?.roleId || currentUser?.role?.id || currentUser?.role?.role_id;
+    const isBranchAccountByRoleId = Number(currentUserRoleId) === 7;
+    const currentUserRoleName = (currentUser?.role_name || currentUser?.role?.name || '').toString().toLowerCase();
+    const isBranchAccountByRoleName = currentUserRoleName.includes('branch account') || currentUserRoleName.includes('account');
+    
+    const isAcknowledgeRole = isAccount || 
+                             acknowledgeRoleAliases.has(normalizedRole) ||
+                             isBranchAccountByRoleId ||
+                             isBranchAccountByRoleName;
 
     if (!isAcknowledgeRole) {
       return false;

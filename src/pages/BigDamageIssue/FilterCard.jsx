@@ -1,358 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import Swal from 'sweetalert2';
 import Select from 'react-select';
-import { MagnifyingGlassIcon, CalendarIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
-
-export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions, allowAllBranchSelection = false }) {
-  const { t } = useTranslation();
-  // Styles matching Laravel blade design
-  // custom-fs = font-size: 13px
-  // custom-rounded = border-radius: 8px, border-color: #2ea2d1
-  // custom-text = color: #012970
-  // fw-bold = font-weight: bold
+import { CalendarIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { STATUS_OPTIONS, STATUS_COLORS } from './utils/constants';
   
-  const CONTROL_CLASSES = `w-full border px-2
-                           text-[#012970] font-bold
-                           rounded-[8px] border-[#2ea2d1]
+const CONTROL_CLASSES = `w-full border px-2 text-[#012970] font-bold rounded-[8px] border-[#2ea2d1]
                            focus:outline-none focus:ring-2 focus:ring-[#2ea2d1] focus:ring-opacity-50`;
 
-  const statusOptions = [
-    { value: 'Ongoing', label: 'Ongoing' },
-    { value: 'Checked', label: 'Checked' },
-    { value: 'BM Approved', label: 'BM Approved' },
-    // { value: 'OPApproved', label: 'Operation Manager Approved' },
-    { value: 'Ac_Acknowledged', label: 'OP Approved' },
-    { value: 'Approved', label: 'Approved' },
-    { value: 'Completed', label: 'Completed' },
-    { value: 'Cancel', label: 'Cancel' },
-  ];
-
-  // Initialize local filters from props to prevent flickering on mount
-  const getInitialFilters = () => {
-    // Normalize incoming filters.status to an array of option objects for multi-select
-    let statusValue = [];
-    if (filters.status) {
-      if (Array.isArray(filters.status) && filters.status.length > 0) {
-        statusValue = filters.status.map(s => (typeof s === 'string' ? statusOptions.find(o => o.value.toLowerCase() === s.toString().toLowerCase()) || { value: s, label: s } : s));
-      } else if (typeof filters.status === 'string' && filters.status.trim()) {
-        // Comma separated? split
-        const parts = filters.status.split(',').map(p => p.trim()).filter(Boolean);
-        statusValue = parts.map(p => statusOptions.find(o => o.value.toLowerCase() === p.toLowerCase()) || { value: p, label: p });
-      } else if (typeof filters.status === 'object' && filters.status.value) {
-        statusValue = [filters.status];
-      }
-    }
-
-    return {
-      productName: filters.productName || "",
-      formDocNo: filters.formDocNo || "",
-      fromDate: filters.fromDate || "",
-      toDate: filters.toDate || "",
-      status: statusValue,
-      branch: filters.branch || null,
-    };
-  };
-  
-  // Local state to store filter values before applying
-  const [localFilters, setLocalFilters] = useState(getInitialFilters);
-
-  const [branchOptions, setBranchOptions] = useState([
-    { value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) },
-  ]);
-
-  // Function to filter branches based on user's branch
-  // Use selectedBranch parameter or localFilters.branch as source of truth
-  const filterBranchesByUser = (allBranchOptions, selectedBranch = null) => {
-    const ensureAllBranchOption = (options) => {
-      if (!Array.isArray(options)) {
-        return [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }];
-      }
-      const normalized = [...options];
-      const allBranchLabel = t('filter.allBranch', { defaultValue: 'All Branch' });
-      if (!normalized.find(opt => opt.value === '' || opt.value === null || opt.value === undefined)) {
-        normalized.unshift({ value: '', label: allBranchLabel });
-      }
-      return normalized;
-    };
-
-    if (allowAllBranchSelection) {
-      const normalizedOptions = ensureAllBranchOption(allBranchOptions);
-      if (selectedBranch && selectedBranch.value && !normalizedOptions.find(opt => String(opt.value) === String(selectedBranch.value))) {
-        normalizedOptions.push(selectedBranch);
-      }
-      setBranchOptions(normalizedOptions);
-      return;
-    }
-
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userBranchId = storedUser?.from_branch_id;
-      
-      // Use selectedBranch parameter, then localFilters.branch, then filters.branch as fallback
-      const currentBranch = selectedBranch || localFilters.branch || filters.branch;
-
-      if (!userBranchId) {
-        // If user has no branch assigned, show only "All Branch" option
-        // But preserve selected branch if one exists
-        if (currentBranch && currentBranch.value) {
-          const branchExists = allBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
-          if (branchExists) {
-            setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }, branchExists]);
-            return;
-          }
-        }
-        setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
-        return;
-      }
-
-      // Filter to only show user's branch and "All Branch" option
-      const filteredOptions = allBranchOptions.filter(option => {
-        // Keep "All Branch" option
-        if (!option.value || option.value === '') return true;
-        // Keep only the user's branch
-        return Number(option.value) === Number(userBranchId);
-      });
-
-      // Preserve selected branch even if it's not the user's branch (to prevent glitching)
-      if (currentBranch && currentBranch.value) {
-        const branchExists = allBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
-        if (branchExists && !filteredOptions.find(opt => String(opt.value) === String(currentBranch.value))) {
-          // Add selected branch to options if it's not already there
-          filteredOptions.push(branchExists);
-        }
-      }
-
-      setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
-    } catch (e) {
-      // On error, preserve selected branch if possible
-      const currentBranch = selectedBranch || localFilters.branch || filters.branch;
-      if (currentBranch && currentBranch.value) {
-        const branchExists = allBranchOptions?.find(opt => String(opt.value) === String(currentBranch.value));
-        if (branchExists) {
-          setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }, branchExists]);
-          return;
-        }
-      }
-      setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
-    }
-  };
-
-  // Sync local filters with props when filters are cleared from parent
-  // Use ref to track previous filters and prevent unnecessary updates that cause flickering
-  const prevFiltersRef = React.useRef(null);
-  const localFiltersRef = React.useRef(localFilters);
-  
-  // Keep ref in sync with state
-  useEffect(() => {
-    localFiltersRef.current = localFilters;
-  }, [localFilters]);
-  
-  useEffect(() => {
-    // Skip if filters haven't changed (same reference)
-    if (prevFiltersRef.current === filters) {
-      return;
-    }
-    
-    // Handle status - normalize incoming filters.status into an array of option objects
-    let statusValue = [];
-    if (filters.status) {
-      if (Array.isArray(filters.status) && filters.status.length > 0) {
-        statusValue = filters.status.map(s => (typeof s === 'string' ? statusOptions.find(o => o.value.toLowerCase() === s.toString().toLowerCase()) || { value: s, label: s } : s));
-      } else if (typeof filters.status === 'object' && filters.status.value) {
-        statusValue = [filters.status];
-      } else if (typeof filters.status === 'string' && filters.status.trim()) {
-        // CRITICAL: Split comma-separated string and ensure we always create valid objects
-        // This handles default status from clearAllFilters (e.g., "Ongoing,Checked")
-        const parts = filters.status.split(',').map(p => p.trim()).filter(Boolean);
-        statusValue = parts.map(p => {
-          const found = statusOptions.find(o => o.value.toLowerCase() === p.toLowerCase());
-          return found || { value: p, label: p };
-        });
-        // Ensure we have at least one item if the original string was non-empty
-        if (statusValue.length === 0 && filters.status.trim()) {
-          // Fallback: create a single object from the original string
-          statusValue = [{ value: filters.status.trim(), label: filters.status.trim() }];
-        }
-      }
-    }
-    
-    const newFilters = {
-      productName: filters.productName || "",
-      formDocNo: filters.formDocNo || "",
-      fromDate: filters.fromDate || "",
-      toDate: filters.toDate || "",
-      status: statusValue,
-      branch: filters.branch || null,
-    };
-    
-    // Only update if filters actually changed (prevent flickering on navigation)
-    const currentLocal = localFiltersRef.current;
-    const hasChanged = 
-      newFilters.productName !== currentLocal.productName ||
-      newFilters.formDocNo !== currentLocal.formDocNo ||
-      newFilters.fromDate !== currentLocal.fromDate ||
-      newFilters.toDate !== currentLocal.toDate ||
-      newFilters.status !== currentLocal.status ||
-      JSON.stringify(newFilters.branch) !== JSON.stringify(currentLocal.branch);
-    
-    if (hasChanged) {
-      setLocalFilters(newFilters);
-    }
-    
-    prevFiltersRef.current = filters;
-  }, [filters]);
-  
-  // Separate effect to ensure selected branch is always in branchOptions
-  // Use localFilters.branch to track current selection state
-  useEffect(() => {
-    const currentBranch = localFilters.branch || filters.branch;
-    if (currentBranch && currentBranch.value && externalBranchOptions) {
-      setBranchOptions(prev => {
-        const branchExists = prev.find(opt => String(opt.value) === String(currentBranch.value));
-        if (!branchExists) {
-          // Selected branch is not in options, add it
-          const branchFromAll = externalBranchOptions.find(opt => String(opt.value) === String(currentBranch.value));
-          if (branchFromAll) {
-            return [...prev, branchFromAll];
-          }
-        }
-        return prev;
-      });
-    }
-  }, [localFilters.branch, filters.branch, externalBranchOptions]);
-
-  // Use ref to track previous externalBranchOptions to prevent unnecessary re-filtering
-  const prevExternalBranchOptionsRef = React.useRef(externalBranchOptions);
-  const hasInitializedBranchOptionsRef = React.useRef(false);
-  
-  useEffect(() => {
-    // Only re-filter if externalBranchOptions actually changed (reference or content)
-    const optionsChanged = prevExternalBranchOptionsRef.current !== externalBranchOptions ||
-      (externalBranchOptions && prevExternalBranchOptionsRef.current && 
-       externalBranchOptions.length !== prevExternalBranchOptionsRef.current.length);
-    
-    // If parent passes branch options (even initially), use them and skip fetching
-    if (externalBranchOptions) {
-      // Only filter if options changed or if we haven't initialized yet
-      if (optionsChanged || !hasInitializedBranchOptionsRef.current) {
-        // Use localFilters.branch as source of truth (current state)
-        filterBranchesByUser(externalBranchOptions, localFilters.branch || filters.branch);
-        prevExternalBranchOptionsRef.current = externalBranchOptions;
-        hasInitializedBranchOptionsRef.current = true;
-      }
-      return;
-    }
-
-    const token = localStorage.getItem('token');
-    const fetchBranches = async () => {
-      try {
-        const res = await fetch('/api/branches', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const list = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.data)
-            ? data.data
-            : Array.isArray(data?.data?.data)
-              ? data.data.data
-              : [];
-        const mapped = list.map(b => ({ value: b.id, label: b.branch_name }));
-        const allOptions = [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }, ...mapped];
-        // Filter branches based on user's branch, passing current branch from localFilters
-        filterBranchesByUser(allOptions, localFilters.branch || filters.branch);
-      } catch (e) {
-        // keep default All Branch only on failure
-        setBranchOptions([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
-      }
-    };
-    fetchBranches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalBranchOptions, allowAllBranchSelection]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    // Only update local state, don't apply filters
-    setLocalFilters({ ...localFilters, [name]: value });
-  };
-
-  const handleClearInput = (fieldName) => {
-    setLocalFilters({ ...localFilters, [fieldName]: "" });
-  };
-
-  const handleSelectChange = (selected, action) => {
-    const { name } = action;
-    // Only update local state, don't apply filters
-    // For multi-select (status), selected is an array or null
-    // For single select (branch), selected is an object or null
-    setLocalFilters({ ...localFilters, [name]: selected });
-  };
-
-  const handleSearch = () => {
-    // Allow search even without filters - will use default status based on user role
-    // No validation required - if no filters are set, default status will be applied
-    // Apply filters when search button is clicked
-    onFilter(localFilters);
-  };
-
-  const clearFilters = () => {
-    // Reset local filters
-    const emptyFilters = {
-      productName: "",
-      formDocNo: "",
-      fromDate: "",
-      toDate: "",
-      status: [],
-      branch: null,
-    };
-    setLocalFilters(emptyFilters);
-    // Clear filters in parent
-    onClear?.();
-  };
-
-  const isAnyFilterApplied = Object.entries(localFilters).some(([key, val]) => {
-    if (key === 'status') {
-      // For status (multi-select), check if it's a non-empty array or string
-      // Also check if it's an array with valid objects (even if empty array, check if it was originally a string)
-      if (Array.isArray(val)) {
-        // Check if array has items OR if the original filters.status was a string (default status)
-        return val.length > 0 || (filters.status && typeof filters.status === 'string' && filters.status.trim() !== '');
-      }
-      return typeof val === 'string' && val.trim() !== '';
-    }
-    // Exclude branch from this check - branch may be auto-selected by dashboard logic
-    if (key === 'branch') return false;
-    return val !== null && val !== undefined && val !== '';
-  });
-
-  // Get status color based on status value (matching DamageIssueList colors)
   const getStatusColor = (statusValue) => {
-    const colorMap = {
-      'Ongoing': { bg: '#fbb193', text: '#e1341e', border: '#e1341e' },
-      'Checked': { bg: '#fedec3', text: '#fb923c', border: '#fb923c' },
-      'BM Approved': { bg: '#ffeaab', text: '#e6ac00', border: '#e6ac00' },
-      'BMApproved': { bg: '#ffeaab', text: '#e6ac00', border: '#e6ac00' },
-      'OPApproved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
-      'OP Approved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
-      'Approved': { bg: '#e9f9cf', text: '#a3e635', border: '#a3e635' },
-      'Ac_Acknowledged': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
-      'Operation Manager Approved': { bg: '#aff1d7', text: '#20be7f', border: '#20be7f' },
-      'Completed': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
-      'Issued': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
-      'SupervisorIssued': { bg: '#adebbb', text: '#28a745', border: '#28a745' },
-      'Cancel': { bg: '#fda19d', text: '#f91206', border: '#f91206' },
-      'Cancelled': { bg: '#fda19d', text: '#f91206', border: '#f91206' },
-    };
-    return colorMap[statusValue] || { bg: '#fef3c7', text: '#d97706', border: '#d97706' };
+  const colors = STATUS_COLORS[statusValue];
+  return colors ? { bg: colors.bg, text: colors.text, border: colors.text } : { bg: '#fef3c7', text: '#d97706', border: '#d97706' };
   };
 
-  // Shared react-select style matching Laravel blade design
   const customSelectStyles = {
     control: (base, state) => ({
       ...base,
@@ -361,9 +20,8 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       fontWeight: 'bold',
       color: '#012970',
       borderRadius: '8px',
-      borderColor: state.isFocused ? '#2ea2d1' : '#2ea2d1',
+    borderColor: '#2ea2d1',
       boxShadow: state.isFocused ? '0 0 0 3px rgba(46, 162, 209, 0.1)' : 'none',
-      // Allow height to grow for multi-select
       height: state.selectProps.isMulti ? 'auto' : '32px',
     }),
     singleValue: (base) => ({
@@ -373,19 +31,10 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       fontWeight: 'bold',
       fontSize: '10px',
     }),
-    indicatorsContainer: (base) => ({
-      ...base,
-      height: '32px',
-    }),
-    placeholder: (base) => ({
-      ...base,
-      fontSize: '10px',
-      color: '#9CA3AF',
-      fontWeight: 'bold',
-    }),
+  indicatorsContainer: (base) => ({ ...base, height: '32px' }),
+  placeholder: (base) => ({ ...base, fontSize: '10px', color: '#9CA3AF', fontWeight: 'bold' }),
     multiValue: (base, state) => {
-      const statusValue = state.data?.value;
-      const colors = getStatusColor(statusValue);
+    const colors = getStatusColor(state.data?.value);
       return {
         ...base,
         backgroundColor: colors.bg,
@@ -395,39 +44,26 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
         fontSize: '0.75rem',
         fontWeight: '500',
         border: `1px solid ${colors.border}`,
-        boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
       };
     },
     multiValueLabel: (base, state) => {
-      const statusValue = state.data?.value;
-      const colors = getStatusColor(statusValue);
-      return {
-        ...base,
-        color: colors.text,
-        fontSize: '0.75rem',
-        fontWeight: '500',
-        padding: '2px 6px',
-      };
+    const colors = getStatusColor(state.data?.value);
+    return { ...base, color: colors.text, fontSize: '0.75rem', fontWeight: '500', padding: '2px 6px' };
     },
     multiValueRemove: (base, state) => {
-      const statusValue = state.data?.value;
-      const colors = getStatusColor(statusValue);
+    const colors = getStatusColor(state.data?.value);
       return {
         ...base,
         color: colors.text,
         borderRadius: '0 0.25rem 0.25rem 0',
         padding: '2px 6px',
-        '&:hover': {
-          backgroundColor: colors.border,
-          color: colors.text,
-          cursor: 'pointer',
-        },
+      '&:hover': { backgroundColor: colors.border, color: colors.text, cursor: 'pointer' },
       };
     },
     menu: (base) => ({
       ...base,
       borderRadius: '0.5rem',
-      boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
       border: '1px solid #E5E7EB',
       marginTop: '4px',
     }),
@@ -435,37 +71,138 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
       ...base,
       fontSize: '0.8rem',
       padding: '8px 12px',
-      backgroundColor: state.isSelected
-        ? '#DBEAFE'
-        : state.isFocused
-        ? '#F3F4F6'
-        : 'white',
+    backgroundColor: state.isSelected ? '#DBEAFE' : state.isFocused ? '#F3F4F6' : 'white',
       color: state.isSelected ? '#1E40AF' : '#374151',
       fontWeight: state.isSelected ? '600' : '400',
       cursor: 'pointer',
-      '&:active': {
-        backgroundColor: '#DBEAFE',
-      },
-    }),
-    valueContainer: (base) => ({
-      ...base,
-      padding: '1px 4px',
-      gap: '2px',
-    }),
+  }),
+  valueContainer: (base) => ({ ...base, padding: '1px 4px', gap: '2px' }),
+};
+
+export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions, allowAllBranchSelection = false }) {
+  const { t } = useTranslation();
+  
+  const normalizeStatusValue = (status) => {
+    if (!status) return [];
+    if (Array.isArray(status)) {
+      return status.map(s => typeof s === 'string' 
+        ? STATUS_OPTIONS.find(o => o.value.toLowerCase() === s.toLowerCase()) || { value: s, label: s }
+        : s
+      );
+    }
+    if (typeof status === 'string' && status.trim()) {
+      return status.split(',').map(p => p.trim()).filter(Boolean)
+        .map(p => STATUS_OPTIONS.find(o => o.value.toLowerCase() === p.toLowerCase()) || { value: p, label: p });
+    }
+    if (typeof status === 'object' && status.value) {
+      return [status];
+    }
+    return [];
   };
 
+  const [localFilters, setLocalFilters] = useState(() => ({
+    productName: filters.productName || '',
+    formDocNo: filters.formDocNo || '',
+    fromDate: filters.fromDate || '',
+    toDate: filters.toDate || '',
+    status: normalizeStatusValue(filters.status),
+    branch: filters.branch || null,
+  }));
 
-  const handleFormSubmit = (e) => {
-    e.preventDefault();
-    handleSearch();
+  const [branchOptions, setBranchOptions] = useState([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
+  const prevFiltersRef = useRef(null);
+  const hasInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (prevFiltersRef.current === filters) return;
+    
+    const newFilters = {
+      productName: filters.productName || '',
+      formDocNo: filters.formDocNo || '',
+      fromDate: filters.fromDate || '',
+      toDate: filters.toDate || '',
+      status: normalizeStatusValue(filters.status),
+      branch: filters.branch || null,
+    };
+    
+    setLocalFilters(newFilters);
+    prevFiltersRef.current = filters;
+  }, [filters]);
+
+  useEffect(() => {
+    if (!externalBranchOptions) return;
+    
+    const allBranchOption = { value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) };
+    
+    if (allowAllBranchSelection) {
+      const opts = externalBranchOptions.find(o => !o.value) 
+        ? externalBranchOptions 
+        : [allBranchOption, ...externalBranchOptions];
+      setBranchOptions(opts);
+      return;
+    }
+
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const userBranchId = storedUser?.from_branch_id;
+
+      if (!userBranchId) {
+        setBranchOptions([allBranchOption]);
+        return;
+      }
+
+      const filteredOptions = externalBranchOptions.filter(option => 
+        !option.value || Number(option.value) === Number(userBranchId)
+      );
+
+      setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [allBranchOption]);
+    } catch {
+      setBranchOptions([allBranchOption]);
+    }
+    
+    hasInitializedRef.current = true;
+  }, [externalBranchOptions, allowAllBranchSelection, t]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setLocalFilters(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleClearInput = (fieldName) => {
+    setLocalFilters(prev => ({ ...prev, [fieldName]: '' }));
+  };
+
+  const handleSelectChange = (selected, action) => {
+    setLocalFilters(prev => ({ ...prev, [action.name]: selected }));
+  };
+
+  const handleSearch = () => onFilter(localFilters);
+
+  const clearFilters = () => {
+    const emptyFilters = {
+      productName: '',
+      formDocNo: '',
+      fromDate: '',
+      toDate: '',
+      status: [],
+      branch: null,
+    };
+    setLocalFilters(emptyFilters);
+    onClear?.();
+  };
+
+  const isAnyFilterApplied = Object.entries(localFilters).some(([key, val]) => {
+    if (key === 'status') return Array.isArray(val) && val.length > 0;
+    if (key === 'branch') return false;
+    return val !== null && val !== undefined && val !== '';
+  });
+
+  const inputStyle = { fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' };
 
   return (
     <div className="bg-white shadow-lg rounded-xl p-4 w-full">
-      <form onSubmit={handleFormSubmit}>
-        {/* All filters in one row */}
+      <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }}>
         <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
-          {/* Product Name / Code */}
           <div className="w-full sm:w-auto sm:flex-1 min-w-[140px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
               {t('filter.productNameCode', { defaultValue: 'Product Name/Code' })}
@@ -474,11 +211,11 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               <input
                 type="text"
                 name="productName"
-                value={localFilters.productName || ""}
+                value={localFilters.productName}
                 onChange={handleChange}
                 placeholder={t('filter.productNameCodePlaceholder', { defaultValue: 'Enter product name/code' })}
                 className={`${CONTROL_CLASSES} ${localFilters.productName ? 'pr-8' : ''}`}
-                style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
+                style={inputStyle}
               />
               {localFilters.productName && (
                 <button
@@ -492,7 +229,6 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
             </div>
           </div>
 
-          {/* Form Doc No */}
           <div className="w-full sm:w-auto sm:flex-1 min-w-[120px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
               {t('filter.formDocNo', { defaultValue: 'Form Doc No' })}
@@ -501,11 +237,11 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
               <input
                 type="text"
                 name="formDocNo"
-                value={localFilters.formDocNo || ""}
+                value={localFilters.formDocNo}
                 onChange={handleChange}
                 placeholder={t('filter.formDocNoPlaceholder', { defaultValue: 'Enter document number' })}
                 className={`${CONTROL_CLASSES} ${localFilters.formDocNo ? 'pr-8' : ''}`}
-                style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
+                style={inputStyle}
               />
               {localFilters.formDocNo && (
                 <button
@@ -519,25 +255,20 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
             </div>
           </div>
 
-          {/* From Date */}
           <div className="w-full sm:w-auto min-w-[130px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
               {t('filter.fromDate', { defaultValue: 'From Date' })}
             </label>
             <div className="relative">
               <input
-                type={localFilters.fromDate ? "date" : "text"}
+                type={localFilters.fromDate ? 'date' : 'text'}
                 name="fromDate"
-                value={localFilters.fromDate || ""}
+                value={localFilters.fromDate}
                 onChange={handleChange}
                 placeholder={t('filter.datePlaceholder', { defaultValue: 'mm/dd/yyyy' })}
                 className={`${CONTROL_CLASSES} ${localFilters.fromDate ? 'pr-14' : 'pr-8'}`}
-                style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
-                onFocus={(e) => {
-                  if (!e.target.value) {
-                    e.target.type = 'date';
-                  }
-                }}
+                style={inputStyle}
+                onFocus={(e) => { if (!e.target.value) e.target.type = 'date'; }}
               />
               {localFilters.fromDate && (
                 <button
@@ -552,25 +283,20 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
             </div>
           </div>
 
-          {/* To Date */}
           <div className="w-full sm:w-auto min-w-[130px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1" style={{ whiteSpace: 'nowrap' }}>
               {t('filter.toDate', { defaultValue: 'To Date' })}
             </label>
             <div className="relative">
               <input
-                type={localFilters.toDate ? "date" : "text"}
+                type={localFilters.toDate ? 'date' : 'text'}
                 name="toDate"
-                value={localFilters.toDate || ""}
+                value={localFilters.toDate}
                 onChange={handleChange}
                 placeholder={t('filter.datePlaceholder', { defaultValue: 'mm/dd/yyyy' })}
                 className={`${CONTROL_CLASSES} ${localFilters.toDate ? 'pr-14' : 'pr-8'}`}
-                style={{ fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' }}
-                onFocus={(e) => {
-                  if (!e.target.value) {
-                    e.target.type = 'date';
-                  }
-                }}
+                style={inputStyle}
+                onFocus={(e) => { if (!e.target.value) e.target.type = 'date'; }}
               />
               {localFilters.toDate && (
                 <button
@@ -585,17 +311,15 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
             </div>
           </div>
 
-          {/* Status Select */}
           <div className="w-full sm:w-auto min-w-[120px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1">
               {t('filter.status', { defaultValue: 'Status' })}
             </label>
             <Select
               name="status"
-              // Always show selected status chips so both OPApproved and Ac_Acknowledged are visible
-              value={Array.isArray(localFilters.status) ? localFilters.status : (localFilters.status ? [localFilters.status] : [])}
+              value={localFilters.status}
               onChange={(selected) => handleSelectChange(selected, { name: 'status' })}
-              options={statusOptions}
+              options={STATUS_OPTIONS}
               placeholder={t('filter.statusPlaceholder', { defaultValue: 'Select status' })}
               isClearable
               isMulti
@@ -608,22 +332,18 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                   height: 'auto',
                   fontSize: '11px',
                 }),
-                indicatorsContainer: (base) => ({
-                  ...base,
-                  height: '28px',
-                }),
+                indicatorsContainer: (base) => ({ ...base, height: '28px' }),
               }}
             />
           </div>
 
-          {/* Branch Select */}
           <div className="w-full sm:w-auto min-w-[130px]">
             <label className="block text-[11px] font-medium text-gray-700 mb-1">
               {t('filter.branch', { defaultValue: 'Branch' })}
             </label>
             <Select
               name="branch"
-              value={localFilters.branch || null}
+              value={localFilters.branch}
               onChange={handleSelectChange}
               options={branchOptions}
               placeholder={t('filter.allBranch', { defaultValue: 'All Branch' })}
@@ -636,15 +356,11 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
                   height: '30px',
                   fontSize: '11px',
                 }),
-                indicatorsContainer: (base) => ({
-                  ...base,
-                  height: '28px',
-                }),
+                indicatorsContainer: (base) => ({ ...base, height: '28px' }),
               }}
             />
           </div>
 
-          {/* Search and Reset Buttons */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               type="submit"
