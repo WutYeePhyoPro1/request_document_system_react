@@ -12,8 +12,9 @@ export default function StatusBadge({ status, count }) {
     
     // Match Laravel blade badge colors exactly from custom.css
     switch (normalized) {
+      case "default":
+        return "bg-[#3c7cc1] text-[#fff]";
       case "ongoing":
-        // custom-badge-bg-ongoing: bg #fbb193, text #e1341e
         return "bg-[#fbb193] text-[#e1341e]";
       case "checked":
         // custom-badge-bg-checked: bg #fedec3, text #fb923c
