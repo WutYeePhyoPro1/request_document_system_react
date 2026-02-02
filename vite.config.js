@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_')
 
   // Default to localhost:8000 if VITE_API_URL is not set
-  const apiUrl = env.VITE_API_URL || 'http://localhost:8000'
+  const apiUrl = env.VITE_API_URL || 'http://localhost:8000' || 'http://rds.test'
 
   return {
     plugins: [react(), tailwindcss(), tsconfigPaths()],

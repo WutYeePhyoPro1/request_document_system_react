@@ -87,7 +87,7 @@ export default function CctvDetails() {
     };
 
     const checkManager = () => {
-        if (!recordDetails || recordDetails.form.status !== 'Approved') return false;
+        if (!recordDetails || recordDetails.form.status !== 'Checked') return false;
 
         const approvalProcessUsers = recordDetails.approval_process_users;
         if (!approvalProcessUsers) return false;
@@ -97,7 +97,7 @@ export default function CctvDetails() {
                 u.general_form_id === recordDetails.form.id &&
                 u.admin_id === user.id
         );
-        const isManager = user?.role_id === 3;
+        const isManager = user?.role_id === 'Approver';
         return current_user && isManager || user?.employee_number === '000-000548';
     }
 
@@ -306,7 +306,7 @@ export default function CctvDetails() {
     const openVideoDownloadModal = () => {
         setIsVideoDownloadOpen(true);
     }
-    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.id,'id');
+    console.log('detail',recordDetails??'no detail',isBranchITApprover,recordDetails?.form?.status,recordDetails?.detail_datas?.[0]?.[0]?.id,'id');
 
     return (
         <>
@@ -922,7 +922,7 @@ export default function CctvDetails() {
                                     {recordDetails?.approver &&
                                         (
                                             recordDetails?.form?.status === 'BM Approved' ||
-                                            recordDetails?.form?.status === 'Approved' ||
+                                            recordDetails?.form?.status === 'Checked' ||
                                             recordDetails?.form?.status === 'Received' ||
                                             recordDetails?.form?.status === 'Acknowledged' ||
                                             recordDetails?.form?.status === 'Completed' ||
@@ -954,7 +954,7 @@ export default function CctvDetails() {
                                     <p className="text-gray-500">
                                         {recordDetails?.acknowledger &&
                                             (
-                                                recordDetails?.form?.status === 'Approved' ||
+                                                recordDetails?.form?.status === 'Checked' ||
                                                 recordDetails?.form?.status === 'Completed' ||
                                                 (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                             )
@@ -964,7 +964,7 @@ export default function CctvDetails() {
 
                                     {recordDetails?.acknowledger &&
                                         (
-                                            recordDetails?.form?.status === 'Approved' ||
+                                            recordDetails?.form?.status === 'Checked' ||
                                             recordDetails?.form?.status === 'Completed' ||
                                             (recordDetails?.form?.status === 'Cancel' && recordDetails?.acknowledger?.status !== 'Cancel')
                                         ) ? (
@@ -1039,35 +1039,7 @@ export default function CctvDetails() {
                                 className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
                             >
                                 <span className="mr-1 sm:mr-2">←</span> Back
-                            </Link>
-
-
-                            {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
-                    <a
-                        href={`/users/${recordDetails.id}/print`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
-                        style={{ backgroundColor: "#D75E28" }}
-                    >
-                        Download Pdf aa
-                    </a>
-                )} */}
-
-                            {/* {(recordDetails?.status === "Acknowledged" || recordDetails?.status === "Completed") && (
-                                <button
-                                    // onClick={handleDownloadPdf}
-                                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 ml-3 rounded text-white items-center text-sm sm:text-base"
-                                    style={{ backgroundColor: "#D75E28" }}
-                                >
-                                    <i className="bi bi-download mr-2"></i>
-                                    Download PDF
-                                </button>
-                            )} */}
-
-
-
-
+                            </Link>                          
 
                         </div>
                     </div >

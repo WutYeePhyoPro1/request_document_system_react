@@ -11,7 +11,7 @@ export default function AutoLogin() {
   const params = new URLSearchParams(window.location.search);
   const token = params.get("token");
   const redirect = params.get("redirect");
-
+    console.log(token,'token');
   if (!token) {
     navigate("/login");
     return;
