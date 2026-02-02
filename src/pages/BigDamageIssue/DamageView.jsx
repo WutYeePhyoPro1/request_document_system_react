@@ -559,33 +559,59 @@ export default function DamageView() {
         return { record: payload, items: [], approvals: [], actions: {}, attachments: [] };
       }
       
-        // OPTIMIZE: Fetch all data in parallel instead of sequentially
-        // This reduces total loading time from sum of all requests to max of all requests
-        const [
-          itemsResult,
-          imagesResult,
-          operationFilesResult,
-          approvalsResult
-        ] = await Promise.allSettled([
-          // Fetch items (reduced per_page from 1000 to 500 for better performance)
-          fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-issues?per_page=500`).catch(() => ({ data: [] })),
-        // Fetch images
-        fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-images`).catch(() => ({ data: [] })),
-        // Fetch operation files
-        fetchJsonWithBackoff('/api/big-damage-issues/get-image', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            type: 'all',
-            id: gfId
-          })
-        }).catch(() => ({ img: [] })),
-        // Fetch approvals
-        fetchJsonWithBackoff(`/api/general-forms/${gfId}/approvals`).catch(() => ({ data: [] }))
-      ]);
+      // OPTIMIZED: Check if api_show returned all_items (new optimized response)
+      // If so, skip the additional API calls for items and approvals
+      const hasOptimizedResponse = Array.isArray(payload?.all_items);
+      
+      // Only fetch what we don't already have
+      const fetchPromises = [];
+      const fetchKeys = [];
+      
+      if (!hasOptimizedResponse) {
+        // Need to fetch items separately (old API behavior)
+        fetchPromises.push(fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-issues?per_page=500`).catch(() => ({ data: [] })));
+        fetchKeys.push('items');
+      }
+      
+      // Always fetch images (for additional image data)
+      fetchPromises.push(fetchJsonWithBackoff(`/api/general-forms/${gfId}/big-damage-images`).catch(() => ({ data: [] })));
+      fetchKeys.push('images');
+      
+      // Always fetch operation files
+      fetchPromises.push(fetchJsonWithBackoff('/api/big-damage-issues/get-image', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          type: 'all',
+          id: gfId
+        })
+      }).catch(() => ({ img: [] })));
+      fetchKeys.push('operationFiles');
+      
+      if (!hasOptimizedResponse || !Array.isArray(payload?.approvals)) {
+        // Need to fetch approvals separately
+        fetchPromises.push(fetchJsonWithBackoff(`/api/general-forms/${gfId}/approvals`).catch(() => ({ data: [] })));
+        fetchKeys.push('approvals');
+      }
+      
+      const results = await Promise.allSettled(fetchPromises);
+      
+      // Map results to their keys
+      const resultMap = {};
+      fetchKeys.forEach((key, index) => {
+        resultMap[key] = results[index];
+      });
+      
+      // Use optimized response data or fetch results
+      const itemsResult = hasOptimizedResponse ? { status: 'fulfilled', value: { data: payload.all_items } } : resultMap.items;
+      const imagesResult = resultMap.images;
+      const operationFilesResult = resultMap.operationFiles;
+      const approvalsResult = hasOptimizedResponse && Array.isArray(payload?.approvals) 
+        ? { status: 'fulfilled', value: { data: payload.approvals } } 
+        : resultMap.approvals;
 
       // Process items
       let items = [];
