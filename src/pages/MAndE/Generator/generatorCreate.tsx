@@ -27,8 +27,10 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 const GeneratorCreate: React.FC = () => {
   const location = useLocation();
-  const { formId } = location.state || {};
-  console.log("Sub_form_id>>", formId);
+  const { formId } = location.state || "";
+  const { reAdd } = location.state || "";
+  const { generalFormId } = location.state || "";
+  console.log("Sub_form_id>>", reAdd, formId, generalFormId);
 
   const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
     { id: uuidv4(), file: null },
@@ -100,6 +102,9 @@ const GeneratorCreate: React.FC = () => {
     remark: "Remark is required",
   };
   const navigate = useNavigate();
+  const handleBack = () => {
+    navigate(-1);
+  };
   const handleSubmit = async (btnStatus: string) => {
     const formElement = document.querySelector("form") as HTMLFormElement;
     const formData = new FormData(formElement);
@@ -129,6 +134,37 @@ const GeneratorCreate: React.FC = () => {
       });
       return;
     }
+    const percentFields = [
+      "engine_oil_level",
+      "fuel_level",
+      "coolant_level",
+      "generator_cleaning_level",
+    ];
+
+    const rangeErrors: string[] = [];
+
+    percentFields.forEach((field) => {
+      const value = Number(formData.get(field));
+
+      if (isNaN(value) || value < 1 || value > 100) {
+        rangeErrors.push(
+          `${field.replaceAll("_", " ")} must be between 1 and 100`,
+        );
+      }
+    });
+
+    if (rangeErrors.length > 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "Invalid Value",
+        html: `
+      <ul style="text-align:left">
+        ${rangeErrors.map((e) => `<li>• ${e}</li>`).join("")}
+      </ul>
+    `,
+      });
+      return;
+    }
 
     // 🔥 append files
     invoiceFile.forEach((fileItem, index) => {
@@ -149,7 +185,8 @@ const GeneratorCreate: React.FC = () => {
       });
 
       formElement.reset(); // optional
-      navigate(`/generator/${formId}`);
+      // navigate(`/generator/${formId}`);
+      navigate(-1);
     } catch (error) {
       Swal.fire({
         icon: "error",
@@ -210,6 +247,12 @@ const GeneratorCreate: React.FC = () => {
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
               <input type="hidden" name="sub_form_id" value={formId} />
+              <input
+                type="hidden"
+                name="reAdd"
+                value={reAdd == true ? "reAdd" : ""}
+              />
+              <input type="hidden" name="generalFormID" value={generalFormId} />
             </div>
 
             <div className="">
@@ -230,8 +273,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 required
                 name="engine_oil_level"
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -243,8 +284,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="fuel_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -258,8 +297,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="coolant_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -271,8 +308,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="battery_volt_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -286,8 +321,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="l1_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -300,8 +333,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="l2_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -316,8 +347,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="l3_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -329,8 +358,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="total_kw_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -345,8 +372,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="voltageL_l_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -358,8 +383,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="gen_kva_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -373,8 +396,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="running_hour"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -386,8 +407,6 @@ const GeneratorCreate: React.FC = () => {
                 type="date"
                 name="generator_service_date"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -401,8 +420,6 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="generator_cleaning_level"
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -500,27 +517,59 @@ const GeneratorCreate: React.FC = () => {
                 ))}
             </div>
           </div>
-          <div className="flex justify-center gap-12">
-            <Button
-              type="button"
-              onClick={() => handleSubmit("Default")}
-              disabled={loading}
-              color="green"
-              radius="md"
-            >
-              {loading ? "Processing..." : "Save as Draft"}
-            </Button>
+          {reAdd == true ? (
+            <div className="flex justify-center gap-12">
+              <Button
+                type="button"
+                onClick={() => handleSubmit("Default")}
+                disabled={loading}
+                color="green"
+                radius="md"
+              >
+                {loading ? "Processing..." : "Submit"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => navigate(-1)}
+                disabled={loading}
+                color="red"
+                radius="md"
+              >
+                {loading ? "Processing..." : "Cancel"}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-center gap-12">
+              <Button
+                type="button"
+                onClick={() => handleSubmit("Default")}
+                disabled={loading}
+                color="green"
+                radius="md"
+              >
+                {loading ? "Processing..." : "Save as Draft"}
+              </Button>
 
-            <Button
-              type="button"
-              onClick={() => handleSubmit("Ongoing")}
-              disabled={loading}
-              color="blue"
-              radius="md"
-            >
-              {loading ? "Processing..." : "Send to Manager"}
-            </Button>
-          </div>
+              <Button
+                type="button"
+                onClick={() => handleSubmit("Ongoing")}
+                disabled={loading}
+                color="blue"
+                radius="md"
+              >
+                {loading ? "Processing..." : "Send to Manager"}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => navigate(-1)}
+                disabled={loading}
+                color="red"
+                radius="md"
+              >
+                {loading ? "Processing..." : "Cancel"}
+              </Button>
+            </div>
+          )}
         </div>
       </form>
     </div>

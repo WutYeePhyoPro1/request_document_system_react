@@ -1,43 +1,74 @@
 import React from "react";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
-import { Modal, Table, type TableData } from "@mantine/core";
-import { Group, Button } from "@mantine/core";
-import {
-  IconEdit,
-  IconFile,
-  IconFileAi,
-  IconFileAlert,
-  IconPhoto,
-  IconTrash,
-} from "@tabler/icons-react";
-import { FileIcon, FileImageIcon } from "lucide-react";
+import { Modal, Table, type TableData, Group, Button } from "@mantine/core";
+import { IconEdit, IconFile, IconTrash } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { generatorDelete } from "../../../api/ME/Generator/generatos";
+import Swal from "sweetalert2";
 
-const TableDetail: React.FC<Props> = ({ detailData }) => {
-  const { detailData: generator, files, generalForm } = detailData;
+type Props = {
+  detailData: {
+    detailData: meGeneratorDataType[];
+    files: any[];
+    generalForm: any;
+    onRefresh: () => void;
+  };
+  // onDeleted: (generalFormDeleted: boolean) => void;
+};
+
+const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
+  const [activeGeneratorId, setActiveGeneratorId] = React.useState<
+    number | null
+  >(null);
+
+  const { detailData: generatorList, files, generalForm } = detailData;
+
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);
-  const handleEdit = (id?: number) => {
-    if (!id) return;
-    console.log("Edit ID:", id);
+  const navigate = useNavigate();
+
+  const handleDelete = async (
+    generalFormID?: string | number,
+    formId?: string | number,
+  ) => {
+    if (!generalFormID || !formId) return;
+
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "This record will be permanently deleted!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      confirmButtonText: "Yes, delete it!",
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await generatorDelete(token, generalFormID, formId);
+
+      Swal.fire({
+        icon: "success",
+        title: "Deleted!",
+        timer: 1200,
+        showConfirmButton: false,
+      });
+      if (generatorList.length <= 1) {
+        navigate(`/generator/${formId}`); // or wherever your list page is
+      } else {
+        onRefresh();
+      }
+
+      // onDeleted(res.general_form_deleted);
+    } catch {
+      Swal.fire("Error", "Delete failed", "error");
+    }
   };
 
-  const handleDelete = (id?: number) => {
-    if (!id) return;
-    if (!confirm("Are you sure you want to delete this record?")) return;
-
-    console.log("Delete ID:", id);
-  };
-
-  // console.log("DetailData>>", detailData);
-  const isImageFile = (url: string) => {
-    return /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-  };
-
-  const isPdfFile = (url: string) => {
-    return /\.pdf$/i.test(url);
-  };
   const tableData: TableData = {
     head: [
       "No",
@@ -58,73 +89,82 @@ const TableDetail: React.FC<Props> = ({ detailData }) => {
       "Cleaning Level",
       "Remark",
       "Image",
-      "Action",
+      generalForm?.status == "Default" && "Action",
     ],
-    body: detailData
-      ? [
-          [
-            1,
-            generator?.generator_date,
-            generator?.generator_time_ampm,
-            generator?.engine_oil_level,
-            generator?.fuel_level,
-            generator?.coolant_level,
-            generator?.battery_volt_level,
-            generator?.l1_level,
-            generator?.l2_level,
-            generator?.l3_level,
-            generator?.total_kw_level,
-            generator?.voltageL_l_level,
-            generator?.gen_kva_level,
-            generator?.running_hour,
-            generator?.generator_service_date,
-            generator?.generator_cleaning_level,
-            generator?.remark,
-            <span className="inline-flex items-center justify-center text-blue-700 text-lg">
-              {files?.length > 0 && (
-                <span className="inline-flex items-center justify-center text-blue-700 text-lg">
-                  {files?.length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={openFileModal}
-                      className="hover:text-blue-900 transition"
-                    >
-                      <IconFile size={18} />
-                    </button>
-                  ) : (
-                    <span className="text-sm text-gray-400">No file</span>
-                  )}
-                </span>
-              )}
-            </span>,
-            <Group gap="xs" key="action">
-              <Link
-                state={{ generalForm }}
-                to={`/generator_edit/${generator?.id}`}
-                className="contents"
+
+    body: generatorList?.length
+      ? generatorList.map((element, index) => [
+          index + 1,
+          element.generator_date,
+          element.generator_time_ampm,
+          element.engine_oil_level,
+          element.fuel_level,
+          element.coolant_level,
+          element.battery_volt_level,
+          element.l1_level,
+          element.l2_level,
+          element.l3_level,
+          element.total_kw_level,
+          element.voltageL_l_level,
+          element.gen_kva_level,
+          element.running_hour,
+          element.generator_service_date,
+          element.generator_cleaning_level,
+          element.remark,
+
+          // 📎 Image
+
+          <span
+            key={`file-${element.id}`}
+            className="inline-flex items-center justify-center text-blue-700"
+          >
+            {files?.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveGeneratorId(element.id);
+                  openFileModal();
+                }}
+                className="hover:text-blue-900 transition"
               >
+                <IconFile size={18} />
+              </button>
+            ) : (
+              <span className="text-sm text-gray-400">No file</span>
+            )}
+          </span>,
+
+          // ⚙ Action
+          <Group gap="xs" key={`action-${element.id}`}>
+            {generalForm?.status == "Default" && (
+              <>
+                <Link
+                  to={`/generator_edit/${element.id}`}
+                  state={{ generalForm }}
+                  className="contents"
+                >
+                  <Button size="xs" variant="light" color="blue">
+                    <IconEdit size={16} />
+                  </Button>
+                </Link>
+
                 <Button
                   size="xs"
                   variant="light"
-                  color="blue"
-                  onClick={() => handleEdit(generator?.id)}
+                  color="red"
+                  onClick={() => handleDelete(generalForm?.id, element.id)}
                 >
-                  <IconEdit size={16} />
+                  <IconTrash size={16} />
                 </Button>
-              </Link>
-              <Button
-                size="xs"
-                variant="light"
-                color="red"
-                onClick={() => handleDelete(generator?.id)}
-              >
-                <IconTrash size={16} />
-              </Button>
-            </Group>,
-          ],
-        ]
+              </>
+            )}
+          </Group>,
+        ])
       : [],
   };
+  const filteredFiles = files?.filter(
+    (file) => file.generator_id === activeGeneratorId,
+  );
 
   return (
     <div className="mt-6 overflow-x-auto">
@@ -135,23 +175,25 @@ const TableDetail: React.FC<Props> = ({ detailData }) => {
           th: { backgroundColor: "inherit" },
         }}
       />
+
       <Modal
         opened={fileOpened}
-        onClose={closeFileModal}
+        onClose={() => {
+          closeFileModal();
+          setActiveGeneratorId(null);
+        }}
         title="Attached Files"
         size="lg"
         centered
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {files?.map((file, i) => {
-            const isPDF = file.file_url.toLowerCase().endsWith(".pdf");
-
-            return (
+        {filteredFiles?.length ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {filteredFiles.map((file, i) => (
               <div
                 key={i}
                 className="flex flex-col items-center gap-2 border rounded-lg p-2"
               >
-                {isPDF ? (
+                {file.file_url.toLowerCase().endsWith(".pdf") ? (
                   <IconFile size={48} className="text-red-500" />
                 ) : (
                   <img
@@ -170,9 +212,13 @@ const TableDetail: React.FC<Props> = ({ detailData }) => {
                   {file.name}
                 </a>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-center text-gray-400 text-sm">
+            No files for this record
+          </p>
+        )}
       </Modal>
     </div>
   );
