@@ -24,7 +24,7 @@ const Detail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const dispatch = useDispatch<AppDispatch>();
   const { detailData, loading } = useSelector(
-    (state: RootState) => state.discount
+    (state: RootState) => state.discount,
   );
 
   const [pageLoading, setPageLoading] = useState<boolean>(true);
@@ -58,7 +58,7 @@ const Detail: React.FC = () => {
       },
       (err) => {
         console.log("Copy Failed:", err);
-      }
+      },
     );
   };
   const isImageFile = (url: string) => {
@@ -148,13 +148,13 @@ const Detail: React.FC = () => {
                     ? detailData?.form?.form_doc_no
                     : ""}
                   )
-                  
                   <button
                     onClick={onCopyClick}
-                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${
+                      copied
                         ? "text-green-600 bg-green-50"
                         : "text-blue-500 mt-1 hover:text-gray-700 hover:bg-gray-100 cursor-pointer"
-                      }`}
+                    }`}
                     title={copied ? "Copied!" : "Copy ID"}
                     disabled={copied}
                   >
@@ -166,25 +166,24 @@ const Detail: React.FC = () => {
                     }
                   />
                 </h2>
-                
+
                 <div className="text-gray-600 text-sm sm:text-base">
                   {detailData?.form?.created_at
                     ? dateFormat(detailData?.form?.created_at)
                     : ""}
                 </div>
-                
               </div>
-                    
 
-                {detailData?.form?.remark && (
-                    // <div className="mb-6">{detailData?.form?.remark}</div>
-                    // <div className="">hello jh sjdejh sjdejg</div>
-                    <div className="bg-red-300 text-white rounded-lg p-4 mb-4 ">
-  <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
-    {detailData?.form?.remark || "hello hpw rare what want to previous back"}
-  </p>
-</div>
-                  )}
+              {detailData?.form?.remark && (
+                // <div className="mb-6">{detailData?.form?.remark}</div>
+                // <div className="">hello jh sjdejh sjdejg</div>
+                <div className="bg-red-300 text-white rounded-lg p-4 mb-4 ">
+                  <p className="text-sm leading-relaxed break-words whitespace-pre-wrap">
+                    {detailData?.form?.remark ||
+                      "hello hpw rare what want to previous back"}
+                  </p>
+                </div>
+              )}
               <div className="mb-6">
                 <div className="font-medium mb-2">
                   Request Manual Discount Detail
@@ -280,78 +279,78 @@ const Detail: React.FC = () => {
                                     {file.name}
                                   </a>
                                   {["Ongoing", "BM Approved"].includes(
-                                    detailData?.form?.status
+                                    detailData?.form?.status,
                                   ) && (
-                                      <Button
-                                        onClick={() => handleDete(file.id)}
-                                        color="red"
-                                        variant="filled"
-                                        size="xs"
-                                      >
-                                        Delete
-                                      </Button>
-                                    )}
+                                    <Button
+                                      onClick={() => handleDete(file.id)}
+                                      color="red"
+                                      variant="filled"
+                                      size="xs"
+                                    >
+                                      Delete
+                                    </Button>
+                                  )}
                                 </div>
                               );
                             })}
                           </div>
                         </Modal>
 
-                        {detailData?.files?.length > 0 && (() => {
-                          const latestFile =
-                            detailData.files[detailData.files.length - 1];
+                        {detailData?.files?.length > 0 &&
+                          (() => {
+                            const latestFile =
+                              detailData.files[detailData.files.length - 1];
 
-                          return (
-                            <>
-                              <a
-                                href={latestFile.file_url}
-                                className="text-blue-600 underline"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Operation Attach File
-                              </a>
-
-                              {isImageFile(latestFile.file_url) && (
-                                <img
-                                  src={latestFile.file_url}
-                                  alt={latestFile.name || "Discount Attachment"}
-                                  className="w-40 h-40 object-cover rounded border cursor-pointer"
-                                  onClick={openFileModal}
-                                  loading="lazy"
-                                />
-                              )}
-
-                              {isPdfFile(latestFile.file_url) && (
-                                <div
-                                  className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
-                                  onClick={openFileModal}
+                            return (
+                              <>
+                                <a
+                                  href={latestFile.file_url}
+                                  className="text-blue-600 underline"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
                                 >
-                                  <iframe
+                                  Operation Attach File
+                                </a>
+
+                                {isImageFile(latestFile.file_url) && (
+                                  <img
                                     src={latestFile.file_url}
-                                    title="PDF Preview"
-                                    className="w-full h-full rounded"
+                                    alt={
+                                      latestFile.name || "Discount Attachment"
+                                    }
+                                    className="w-40 h-40 object-cover rounded border cursor-pointer"
+                                    onClick={openFileModal}
+                                    loading="lazy"
                                   />
-                                  <div className="absolute inset-0 z-10" />
-                                </div>
-                              )}
-                            </>
-                          );
-                        })()}
+                                )}
 
+                                {isPdfFile(latestFile.file_url) && (
+                                  <div
+                                    className="relative w-40 h-40 border rounded bg-gray-100 cursor-pointer"
+                                    onClick={openFileModal}
+                                  >
+                                    <iframe
+                                      src={latestFile.file_url}
+                                      title="PDF Preview"
+                                      className="w-full h-full rounded"
+                                    />
+                                    <div className="absolute inset-0 z-10" />
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
 
-                        {["Ongoing"].includes(
-                          detailData?.form?.status
-                        ) && (
-                            <AddAttachFile
-                              generalFormId={id}
-                              onUploaded={() => {
-                                if (token && id) {
-                                  dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
-                                }
-                              }}
-                            />
-                          )}
+                        {["Ongoing"].includes(detailData?.form?.status) && (
+                          <AddAttachFile
+                            generalFormId={id}
+                            onUploaded={() => {
+                              if (token && id) {
+                                dispatch(fetchDetailData({ token, id })); // 🔥 reload Detail
+                              }
+                            }}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -427,7 +426,7 @@ const Detail: React.FC = () => {
                     <div>
                       {detailData?.getSupervisor ? (
                         ["Approved", "Acknowledged", "Completed"].includes(
-                          detailData?.form?.status
+                          detailData?.form?.status,
                         ) ? (
                           <div>
                             <div className="font-medium">
@@ -453,7 +452,7 @@ const Detail: React.FC = () => {
                             </div>
                             <div className="text-blue-500 mt-1">
                               {dateFormat(
-                                detailData?.getSupervisor[0]?.created_at
+                                detailData?.getSupervisor[0]?.created_at,
                               )}
                             </div>
                             {detailData?.getSupervisor[0]?.comment && (
@@ -481,7 +480,7 @@ const Detail: React.FC = () => {
                     {/* <div> */}
                     {detailData?.getApprover2 ? (
                       ["Acknowledged", "Completed"].includes(
-                        detailData?.form?.status
+                        detailData?.form?.status,
                       ) ? (
                         <div>
                           <div className="font-medium">Acknowledge By</div>
@@ -538,7 +537,7 @@ const Detail: React.FC = () => {
                             </div>
                             <div className="text-blue-500 mt-1">
                               {dateFormat(
-                                detailData?.getAcknowledge?.created_at
+                                detailData?.getAcknowledge?.created_at,
                               )}
                             </div>
                             {detailData?.getAcknowledge?.comment && (

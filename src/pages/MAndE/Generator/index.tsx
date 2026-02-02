@@ -32,7 +32,7 @@ const Index: React.FC = () => {
     status: [] as string[],
     branch_id: null as string | null,
   });
-  console.log("SearchTerm>>", searchTerm);
+
   useEffect(() => {
     const cached = sessionStorage.getItem("generator_cache");
     if (cached) {
@@ -56,6 +56,7 @@ const Index: React.FC = () => {
               user_branches: data?.user_branches,
               noti_data: data?.noti_data,
               authBranch: data?.authBranch,
+              createdUser: data?.createdUser,
             },
             data: parsed.data,
           });
@@ -81,6 +82,7 @@ const Index: React.FC = () => {
           user_branches: data?.user_branches,
           noti_data: data?.noti_data,
           authBranch: data?.authBranch,
+          createdUser: data?.createdUser,
         },
         data: data?.data,
       });
@@ -91,6 +93,8 @@ const Index: React.FC = () => {
       setLoading(false);
     }
   };
+  // console.log("SearchTerm>>", generalData);
+  // console.log("createdUser>>", generalData?.meta?.createdUser);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
@@ -152,7 +156,7 @@ const Index: React.FC = () => {
       );
 
       setGeneralData((prev) => ({ ...prev, data: results.data }));
-      console.log("Search Data>>", generalData);
+
       setActivePage(1);
     } catch (error) {
       console.error(error);
@@ -177,7 +181,7 @@ const Index: React.FC = () => {
     setLoading(true);
     await fetchData();
 
-    navigate("/generator", { replace: true });
+    navigate(`/generator/${formId}`, { replace: true });
   };
   const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
@@ -280,18 +284,20 @@ const Index: React.FC = () => {
         />
         <div className="flex justify-between mr-4">
           <h2 className="text-xl font-semibold">Generator Form</h2>
-          <Link
-            to="/generator_create"
-            state={{ formId: formId }}
-            className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
-            style={{ background: "#2ea2d1" }}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#2ea2d1";
-            }}
-          >
-            Add
-          </Link>
+          {generalData?.meta?.createdUser === true && (
+            <Link
+              to="/generator_create"
+              state={{ formId: formId }}
+              className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
+              style={{ background: "#2ea2d1" }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#2ea2d1";
+              }}
+            >
+              Add
+            </Link>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 text-sm mt-4">
           <div className="flex flex-col">
@@ -368,14 +374,7 @@ const Index: React.FC = () => {
             <MultiSelect
               id="status"
               placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
-              data={[
-                "All",
-                "Ongoing",
-                "BM Approved",
-                "Approved",
-                "Acknowledged",
-                "Completed",
-              ]}
+              data={["All", "Ongoing", "Completed", "Cancel"]}
               className="border border-blue-500 focus:outline-none w-full rounded-md"
               value={searchTerm.status}
               onChange={handleStatusChange}

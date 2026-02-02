@@ -205,6 +205,35 @@ const GeneratorEdit: React.FC = () => {
       });
       return;
     }
+    const percentFields: Record<string, string> = {
+      engine_oil_level: "Engine Oil %",
+      fuel_level: "Fuel %",
+      coolant_level: "Coolant %",
+      generator_cleaning_level: "Generator Cleaning",
+    };
+
+    const rangeErrors: string[] = [];
+
+    Object.entries(percentFields).forEach(([field, label]) => {
+      const value = Number(formData.get(field));
+
+      if (isNaN(value) || value < 1 || value > 100) {
+        rangeErrors.push(`${label} must be between 1 and 100`);
+      }
+    });
+
+    if (rangeErrors.length > 0) {
+      Swal.fire({
+        icon: "warning",
+        title: "Invalid Value",
+        html: `
+        <ul style="text-align:left">
+          ${rangeErrors.map((e) => `<li>• ${e}</li>`).join("")}
+        </ul>
+      `,
+      });
+      return;
+    }
     invoiceFile.forEach((fileItem, index) => {
       if (fileItem.file) {
         formData.append(`file[${index}]`, fileItem.file);
@@ -277,7 +306,7 @@ const GeneratorEdit: React.FC = () => {
                 value={form.generator_date}
                 type="date"
                 onChange={handleChange}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
               <input
@@ -302,7 +331,7 @@ const GeneratorEdit: React.FC = () => {
                 required
                 name="generator_time"
                 value={form.generator_time}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -316,10 +345,8 @@ const GeneratorEdit: React.FC = () => {
                 required
                 name="engine_oil_level"
                 value={form.engine_oil_level}
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -331,10 +358,8 @@ const GeneratorEdit: React.FC = () => {
                 name="fuel_level"
                 value={form.fuel_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -348,10 +373,8 @@ const GeneratorEdit: React.FC = () => {
                 name="coolant_level"
                 value={form.coolant_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -363,10 +386,8 @@ const GeneratorEdit: React.FC = () => {
                 name="battery_volt_level"
                 value={form.battery_volt_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -380,10 +401,8 @@ const GeneratorEdit: React.FC = () => {
                 name="l1_level"
                 value={form.l1_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -396,10 +415,8 @@ const GeneratorEdit: React.FC = () => {
                 name="l2_level"
                 value={form.l2_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -414,10 +431,8 @@ const GeneratorEdit: React.FC = () => {
                 name="l3_level"
                 value={form.l3_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -429,10 +444,8 @@ const GeneratorEdit: React.FC = () => {
                 name="total_kw_level"
                 value={form.total_kw_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -447,10 +460,8 @@ const GeneratorEdit: React.FC = () => {
                 name="voltageL_l_level"
                 value={form.voltageL_l_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -462,10 +473,8 @@ const GeneratorEdit: React.FC = () => {
                 name="gen_kva_level"
                 value={form.gen_kva_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -479,10 +488,8 @@ const GeneratorEdit: React.FC = () => {
                 name="running_hour"
                 value={form.running_hour}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -494,10 +501,8 @@ const GeneratorEdit: React.FC = () => {
                 name="generator_service_date"
                 value={form.generator_service_date}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -511,10 +516,8 @@ const GeneratorEdit: React.FC = () => {
                 name="generator_cleaning_level"
                 value={form.generator_cleaning_level}
                 required
-                min={1}
-                max={100}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -527,7 +530,7 @@ const GeneratorEdit: React.FC = () => {
                 id=""
                 cols="3"
                 rows="1"
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               ></textarea>
             </div>
@@ -543,7 +546,7 @@ const GeneratorEdit: React.FC = () => {
                     onChange={(e) =>
                       updateFile(fileField.id, e.target.files?.[0] || null)
                     }
-                    className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-purple-400"
+                    className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                     style={{ borderColor: "rgb(213, 216, 221)" }}
                   />
 
@@ -667,16 +670,26 @@ const GeneratorEdit: React.FC = () => {
             </div>
           )}
 
-          <div className="flex justify-center">
+          <div className="flex justify-center gap-6">
             <Button
               type="submit"
               disabled={loading}
-              variant="gradient"
-              gradient={{ from: "green", to: "violet", deg: 90 }}
+              // variant="gradient"
+              // gradient={{ from: "green", to: "violet", deg: 90 }}
+              color="blue"
               radius="md"
               size="md"
             >
               {loading ? "Processing..." : "Update"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => navigate(-1)}
+              disabled={loading}
+              color="red"
+              radius="md"
+            >
+              {loading ? "Processing..." : "Cancel"}
             </Button>
           </div>
         </div>
