@@ -22,8 +22,13 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
     number | null
   >(null);
 
-  const { detailData: generatorList, files, generalForm } = detailData;
-
+  const {
+    detailData: generatorList,
+    files,
+    generalForm,
+    authUserId,
+  } = detailData;
+  console.log("as>", authUserId, generalForm);
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);
   const navigate = useNavigate();
@@ -89,7 +94,9 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
       "Cleaning Level",
       "Remark",
       "Image",
-      generalForm?.status == "Default" && "Action",
+      generalForm?.status == "Default" &&
+        authUserId == generalForm?.user_id &&
+        "Action",
     ],
 
     body: generatorList?.length
@@ -136,28 +143,29 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
 
           // ⚙ Action
           <Group gap="xs" key={`action-${element.id}`}>
-            {generalForm?.status == "Default" && (
-              <>
-                <Link
-                  to={`/generator_edit/${element.id}`}
-                  state={{ generalForm }}
-                  className="contents"
-                >
-                  <Button size="xs" variant="light" color="blue">
-                    <IconEdit size={16} />
-                  </Button>
-                </Link>
+            {generalForm?.status == "Default" &&
+              authUserId == generalForm?.user_id && (
+                <>
+                  <Link
+                    to={`/generator_edit/${element.id}`}
+                    state={{ generalForm }}
+                    className="contents"
+                  >
+                    <Button size="xs" variant="light" color="blue">
+                      <IconEdit size={16} />
+                    </Button>
+                  </Link>
 
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="red"
-                  onClick={() => handleDelete(generalForm?.id, element.id)}
-                >
-                  <IconTrash size={16} />
-                </Button>
-              </>
-            )}
+                  <Button
+                    size="xs"
+                    variant="light"
+                    color="red"
+                    onClick={() => handleDelete(generalForm?.id, element.id)}
+                  >
+                    <IconTrash size={16} />
+                  </Button>
+                </>
+              )}
           </Group>,
         ])
       : [],

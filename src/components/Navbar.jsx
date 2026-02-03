@@ -20,7 +20,6 @@ export default function Navbar({ toggleSidebar }) {
 
     const { t } = useTranslation();
     const { notifications } = useContext(NotificationContext); 
-    // const token = localStorage.getItem("token");
 
     const [menuOpen, setMenuOpen] = useState(false);
     const dropdownRef = useRef(null);
@@ -58,60 +57,7 @@ export default function Navbar({ toggleSidebar }) {
   navigate("/login", { replace: true });
 };
 
-    // useEffect(() => {
-    //     const fetchNotifications = async () => {
-    //         if (!user || !token) return;
-    //         try {
-    //             const res = await fetch(`/api/notifications/${userRoleId}`, {
-    //                 headers: { 
-    //                     'Authorization': `Bearer ${token}`,
-    //                     'Accept': 'application/json',
-    //                     'Content-Type': 'application/json',
-    //                     'X-Requested-With': 'XMLHttpRequest'
-    //                 },
-    //                 credentials: 'include'
-    //             });
-                
-    //             if (!res.ok) {
-    //                 const errorData = await res.json().catch(() => ({}));
-    //                 if (res.status === 401) {
-    //                     localStorage.removeItem('token');
-    //                     localStorage.removeItem('user');
-    //                     window.location.href = '/login';
-    //                     return;
-    //                 }
-    //                 throw new Error(errorData.message || 'Failed to fetch notifications');
-    //             }
-
-    //             const data = await res.json();
-                
-    //             if (!Array.isArray(data)) {
-    //                 return;
-    //             }
-
-    //             const parsed = data.map(n => ({
-    //                 form_id: n.data?.form_id,
-    //                 specific_form_id: n.data?.specific_form_id,
-    //                 form_doc_no: n.data?.form_doc_no,
-    //                 created_at: n.created_at,
-    //                 form_name: n.form_name || 'Unknown Form',
-    //                 status: n.status || 'pending',
-    //             }));
-
-    //             setNotifications(parsed);
-    //             localStorage.setItem("notifications", JSON.stringify(parsed));
-    //         } catch (err) {
-    //             // Don't throw to prevent uncaught promise rejection
-    //         }
-    //     };
-
-    //     fetchNotifications();
-    //     subscribeToPush();
-    //     const interval = setInterval(fetchNotifications, 30000);
-    //     return () => clearInterval(interval);
-    // }, [userRoleId, token, setNotifications]);
-
-   
+    
 
     useEffect(() => {
         if (!menuOpen) return;
