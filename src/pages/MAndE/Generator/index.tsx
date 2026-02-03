@@ -17,8 +17,7 @@ import Swal from "sweetalert2";
 import { searchMeData } from "../../../api/ME/meData";
 
 const Index: React.FC = () => {
-  const location = useLocation();
-  const { formId } = location.state || {};
+  const formId = 1;
   console.log("FormID>>", formId);
   const [generalData, setGeneralData] = useState<IndexData[]>([]);
   const [copied, setCopied] = useState<boolean>(false);

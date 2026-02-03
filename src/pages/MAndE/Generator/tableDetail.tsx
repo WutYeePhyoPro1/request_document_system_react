@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Modal, Table, type TableData, Group, Button } from "@mantine/core";
 import { IconEdit, IconFile, IconTrash } from "@tabler/icons-react";
@@ -21,7 +21,7 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
   const [activeGeneratorId, setActiveGeneratorId] = React.useState<
     number | null
   >(null);
-
+  const [loading, setLoading] = useState<boolean>(false);
   const {
     detailData: generatorList,
     files,
@@ -52,6 +52,7 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
     });
 
     if (!result.isConfirmed) return;
+    setLoading(true);
 
     try {
       const res = await generatorDelete(token, generalFormID, formId);
@@ -71,6 +72,8 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
       // onDeleted(res.general_form_deleted);
     } catch {
       Swal.fire("Error", "Delete failed", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -160,6 +163,7 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
                     size="xs"
                     variant="light"
                     color="red"
+                    loading={loading}
                     onClick={() => handleDelete(generalForm?.id, element.id)}
                   >
                     <IconTrash size={16} />
