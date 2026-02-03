@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import { approveFormME } from "../../api/ME/meData";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Button, Textarea } from "@mantine/core";
 import Swal from "sweetalert2";
+import { NotificationContext } from "../../context/NotificationContext";
 
 type MeApproveFormProps = {
   detailData: meGeneratorDataType;
@@ -13,6 +14,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
   detailData,
   onRefresh,
 }) => {
+  const { refreshNotifications } = useContext(NotificationContext);
   const [loading, setLoading] = useState(false);
   const [comment, setComment] = useState("");
 
@@ -144,7 +146,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
         title: "Success",
         text: successMap[statusValue] ?? `Form ${statusValue} successfully`,
       });
-
+      await refreshNotifications();
       setComment("");
       onRefresh();
     } catch (error) {

@@ -10,21 +10,7 @@ const Notification = () => {
   const { notifications  } = useContext(NotificationContext);
 // const [upperNoti, setUpperNoti] = useState([]);
   const navigate = useNavigate();
-  // useEffect(() => {
-  //   const token = localStorage.getItem("token");
-  //   if (!token) return;
-
-  //   const fetchNoti = async () => {
-  //     try {
-  //       const response = await badgeNoti(token);
-  //       setUpperNoti(response);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //   };
-
-  //   fetchNoti();
-  // }, []);
+  
   
   const toggleDropdown = () => {
     setIsDropdownOpen((prev) => !prev);
@@ -32,6 +18,8 @@ const Notification = () => {
  const formDataUpperNoti = notifications?.formData ?? [];
 const unreadNotiUpperNoti = notifications?.getUnreadNoti  ?? [];
 const countNotiUpperNoti = unreadNotiUpperNoti.length;
+const subFormData = notifications?.subFormData ?? [] ;
+
 
 const handleNotiClick = (path) => {
   setIsDropdownOpen(false); // close dropdown
@@ -41,7 +29,7 @@ const handleNotiClick = (path) => {
 // console.log("FormUpperNoti>>" , formDataUpperNoti);
   return (
     <div className="relative">
-      {/* Bell Icon with Badge */}
+     {/* Bell Icon with Badge */}
       <div className="relative cursor-pointer group" onClick={toggleDropdown}>
         <div className="p-2 rounded-full transition-all duration-200 group-hover:bg-blue-50">
           <FaBell className="text-2xl text-gray-700 group-hover:text-blue-600 transition-colors" />
@@ -75,19 +63,40 @@ const handleNotiClick = (path) => {
       {/* List */}
       <div className="max-h-[420px] overflow-y-auto">
         {countNotiUpperNoti > 0 ? (
-          unreadNotiUpperNoti.map((noti, index) => {
+          unreadNotiUpperNoti.map((noti, index) => { 
             const matchedForm = formDataUpperNoti.find(
               (form) => form.id === noti.data.form_id
             );
+            
             if (!matchedForm) return null;
+            // const routeName = {
+
+           
+    let path = "";
+
+    if (matchedForm.route === "m_and_e") {
+      const matchedSubForm = subFormData.find(
+        (sub) => sub.id === noti.data.sub_form_id
+      );
+
+      if (!matchedSubForm) return null;
+const slug = matchedSubForm.name
+  .toLowerCase()
+  .replace(/\s+/g, "_");
+      // /m_and_e/panel_board/123
+      path = `/${slug}_detail/${noti.data.specific_form_id}`;
+    } else {
+      // /leave_detail/123
+      path = `/${matchedForm.route}_detail/${noti.data.specific_form_id}`;
+    }
+
+           
 
             return (
               <div
                 key={index}
                 onClick={() =>
-                  handleNotiClick(
-                    `/${matchedForm.route}_detail/${noti.data.specific_form_id}`
-                  )
+                  handleNotiClick(path)
                 }
                 className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b"
               >
