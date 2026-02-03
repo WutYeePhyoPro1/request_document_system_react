@@ -31,7 +31,8 @@ function DamageIssueList({
   branchMap = {}, 
   productFilter = '', 
   notificationCounts = new Map(), 
-  suppressUnreadForFormIds = [] 
+  suppressUnreadForFormIds = [],
+  notiData = []
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -155,19 +156,15 @@ function DamageIssueList({
     const hasExplicitStatus = statusParam?.trim();
     const hasProductFilter = productFilter?.trim();
 
-      if (hasExplicitStatus || hasProductFilter) {
-      if (isOpManager(currentUser)) {
-        return allFilteredIssues.filter((row) => {
-            const gf = row.general_form || {};
-          const totalAmount = getTotalAmount(row, gf, formTotals);
-          const status = (gf.status || row.status || '').toString().toLowerCase().trim();
-          const isBmApproved = status === 'bm approved' || status === 'bmapproved';
-          return isBmApproved && Number(totalAmount) > OP_THRESHOLD;
-          });
-        }
+    // If there's an explicit status filter, show ALL matching forms (no threshold filter)
+    // When filtering explicitly, show all matching forms regardless of threshold
+    if (hasExplicitStatus || hasProductFilter) {
       return allFilteredIssues;
-      }
+    }
 
+    // Default view: Backend already filters forms for OP Manager, so just return what backend sent
+    // Backend returns: user's own forms, BM Approved over 500k, OP Approved, Acknowledged, Completed, etc.
+    // No need for additional frontend filtering - backend handles it correctly
     return allFilteredIssues;
   }, [allFilteredIssues, currentUser, productFilter, searchParams, formTotals]);
 
@@ -204,54 +201,37 @@ function DamageIssueList({
   ];
 
   const renderNotificationBadge = (row, gf) => {
-    const possibleFormIds = [gf?.id, row?.general_form_id, gf?.general_form_id, row?.id]
-      .filter(id => id != null)
-      .map(String);
-    
-    const { count: notiCount } = getNotificationCount(possibleFormIds);
-    
-    if (isSuppressedForUnread(row, gf)) return null;
-    
-    const { userType, userRole } = extractUserRoleInfo(currentUser || {});
-    const isOpManagerLocal = isOpManager(currentUser);
-    const totalAmount = getTotalAmount(row, gf, formTotals);
-    const status = (gf?.status || row?.status || '').toString().toLowerCase();
-    const isBMApprovedStatus = status.includes('bm') && status.includes('approved');
-
-    if (isOpManagerLocal && isBMApprovedStatus && Number(totalAmount) <= OP_THRESHOLD) {
+    if (isSuppressedForUnread(row, gf)) {
       return null;
     }
-
-    if (notiCount > 0) {
-      const roleIdStr = (currentUser?.role_id || '').toString().toLowerCase();
-      const isUserRole = roleIdStr === 'user' || userRole === 'user' || userType === '';
-      const isBranchAccount = isAccountUser(currentUser);
-      
-      if (isUserRole && !isBranchAccount) {
-        const statusLower = status.trim();
-        const isAdvancedStatus = ['bm approved', 'bmapproved', 'op approved', 'opapproved', 
-                                   'approved', 'ac_acknowledged', 'acknowledged', 
-                                   'completed', 'issued', 'supervisorissued'].includes(statusLower);
-        if (isAdvancedStatus) return null;
-      }
-
-  return (
-        <span
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center"
-          title={`${notiCount} unread notification${notiCount > 1 ? 's' : ''}`}
-        >
-          <NotificationIcon className="h-4 w-4 text-red-500" />
-        </span>
-      );
+    
+    // Simple check like request discount form - directly check notiData array
+    if (!Array.isArray(notiData) || notiData.length === 0) {
+      return null;
     }
+    
+    const formDocNo = gf?.form_doc_no || gf?.general_form?.form_doc_no || gf?.document_number || gf?.doc_no || row?.form_doc_no || row?.document_number || row?.doc_no;
+    const formId = gf?.id || row?.general_form_id || gf?.general_form_id || row?.id;
+    const generalFormId = gf?.general_form_id || row?.general_form_id;
+    
+    const hasUnreadNotification = notiData.some((item) => {
+      const notiDataItem = item?.data || item;
+      const notiFormId = notiDataItem?.specific_form_id || notiDataItem?.general_form_id;
+      const notiFormDocNo = notiDataItem?.form_doc_no;
+      
+      const matchesById = formId && (String(formId) === String(notiFormId) || (generalFormId && String(generalFormId) === String(notiFormId)));
+      const matchesByDocNo = formDocNo && formDocNo !== '-' && formDocNo === notiFormDocNo;
+      
+      // Match by form ID or form document number
+      return matchesById || matchesByDocNo;
+    });
 
-    if (notiCount === 0 && isOpManagerLocal && isBMApprovedStatus && Number(totalAmount) > OP_THRESHOLD) {
+    if (hasUnreadNotification) {
       return (
         <span
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center"
-          title={`Requires OP action — total ${Number(totalAmount).toLocaleString()}`}
+          title="Unread notification"
         >
           <NotificationIcon className="h-4 w-4 text-red-500" />
         </span>
@@ -375,6 +355,7 @@ function DamageIssueList({
                   {formDocNo}
                         </p>
                 {formDocNo !== '-' && <CopyButton text={formDocNo} size="small" />}
+                        <span className="whitespace-nowrap">{renderNotificationBadge(row, gf)}</span>
                       </div>
                     </div>
                   </div>
