@@ -118,9 +118,9 @@ const GeneratorCreate: React.FC = () => {
       }
     });
 
-    if (!invoiceFile[0]?.file) {
-      missingFields.push("Upload file is required");
-    }
+    // if (!invoiceFile[0]?.file) {
+    //   missingFields.push("Upload file is required");
+    // }
 
     if (missingFields.length > 0) {
       Swal.fire({

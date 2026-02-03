@@ -1,11 +1,19 @@
-import React, { useState } from "react";
+import React, { useContext, useState } from "react";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
-import { Modal, Table, type TableData, Group, Button } from "@mantine/core";
+import {
+  Modal,
+  Table,
+  type TableData,
+  Group,
+  Button,
+  Loader,
+} from "@mantine/core";
 import { IconEdit, IconFile, IconTrash } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import { Link, useNavigate } from "react-router-dom";
 import { generatorDelete } from "../../../api/ME/Generator/generatos";
 import Swal from "sweetalert2";
+import { NotificationContext } from "../../../context/NotificationContext";
 
 type Props = {
   detailData: {
@@ -18,6 +26,7 @@ type Props = {
 };
 
 const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
+  const { refreshNotifications } = useContext(NotificationContext);
   const [activeGeneratorId, setActiveGeneratorId] = React.useState<
     number | null
   >(null);
@@ -64,6 +73,7 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
         showConfirmButton: false,
       });
       if (generatorList.length <= 1) {
+        await refreshNotifications();
         navigate(`/generator/${formId}`); // or wherever your list page is
       } else {
         onRefresh();
@@ -177,7 +187,13 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
   const filteredFiles = files?.filter(
     (file) => file.generator_id === activeGeneratorId,
   );
-
+  if (loading) {
+    return (
+      <div className="flex justify-center py-10">
+        <Loader />
+      </div>
+    );
+  }
   return (
     <div className="mt-6 overflow-x-auto">
       <Table
