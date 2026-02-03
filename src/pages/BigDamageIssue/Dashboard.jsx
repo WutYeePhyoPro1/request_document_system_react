@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useContext } from "react";
 import useSWR from 'swr';
 import { Link, useLocation } from "react-router-dom";
 import { PlusIcon, FunnelIcon, XMarkIcon } from '@heroicons/react/24/solid';
@@ -7,6 +7,8 @@ import DamageIssueList from "./DamageIssueList";
 import { filterFormsByRole } from "../../utils/roleBasedFilter";
 import { useFilters, useBranches, useNotifications } from './hooks';
 import { getToken, getCurrentUser } from './utils/helpers';
+import { NotificationContext } from '../../context/NotificationContext';
+import { BIG_DAMAGE_FORM_ID } from './utils/constants';
 
 const fetcher = async (url) => {
   const token = getToken();
@@ -57,6 +59,32 @@ const Dashboard = () => {
   } = useFilters();
 
   const { branchOptions, branchMap, canViewAllBranchesAccess } = useBranches(fetcher);
+  
+  // Get notifications from context (same source as useNotifications hook)
+  const { notifications } = useContext(NotificationContext);
+  
+  // Extract notiData for Big Damage Issue forms (form_id 8)
+  const notiData = useMemo(() => {
+    const contextUnreadNoti = notifications?.getUnreadNoti || [];
+    
+    if (!Array.isArray(contextUnreadNoti) || contextUnreadNoti.length === 0) {
+      return [];
+    }
+    
+    // Filter for Big Damage Issue form (form_id 8) and extract data
+    const bigDamageNotifications = contextUnreadNoti
+      .filter(noti => {
+        const data = noti?.data || noti;
+        const formId = Number(data?.form_id) || data?.form_id;
+        return formId === BIG_DAMAGE_FORM_ID;
+      })
+      .map(noti => {
+        // Extract just the data object (like backend pluck('data'))
+        return noti?.data || noti;
+      });
+    
+    return bigDamageNotifications;
+  }, [notifications]);
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -378,6 +406,7 @@ const Dashboard = () => {
               onPageChange={handlePageChange}
               productFilter={filters.productName || ''}
               notificationCounts={notificationCountsByForm}
+              notiData={notiData}
             />
       </div>
 
