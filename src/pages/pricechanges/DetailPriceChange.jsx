@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,useParams } from "react-router-dom";
 import NavPath from "../../components/NavPath";
@@ -24,7 +25,8 @@ import StatusBadge from '../../components/ui/StatusBadge';
 
 export default function () {
     const productslimit = 50;
-    const token = localStorage.getItem('token');
+    // const token = localStorage.getItem('token');
+    const { user, token } = useSelector((state) => state.auth);
 
     const navigate = useNavigate();
     const { id } = useParams();
@@ -64,6 +66,8 @@ export default function () {
     const [originator,setOriginator] = useState(null);
     const [getApprover,setGetApprover] = useState(null);
     const [getSupervisor,setGetSupervisor] = useState(null);
+    const [formRejected,setFormRejected] = useState(null);
+    
 
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
@@ -578,6 +582,32 @@ export default function () {
         label: category.name
     }));
 
+
+    const downloadHandler = async () => {
+        const response = await axios.get(
+            '/api/price_changes/sample_download',
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+                responseType: 'blob',
+            }
+        );
+
+        const blob = new Blob([response.data]);
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'price_change_sample.xlsx'; // file name
+        a.click();
+
+        window.URL.revokeObjectURL(url);
+    };
+
+
     const fetchPriceChange = async ()=> {
         try{
 
@@ -618,6 +648,8 @@ export default function () {
             setOriginator(data.stakeholders.originator);
             setGetSupervisor(data.stakeholders.getSupervisor);
             setGetApprover(data.stakeholders.getApprover);
+            setFormRejected(data.stakeholders.form_rejected);
+
 
             setSupervisor(data.authorities.supervisor);
             setApprover(data.authorities.approver);
@@ -730,11 +762,47 @@ export default function () {
                 setForceLoading(true);
                 setIsSubmitting(true);
 
+                try{
+                    const res = await axios.get(`/api/price_changes/${id}/send_to_supervisor`,{
+                        headers: {
+                        Authorization: `Bearer ${token}`,
+                        },
+                    });
+                    console.log(res.data);
+
+                    const data = res.data;
+
+                    if(data.success == false){
+                      return;
+                    }
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Form was sent to supervisor successfully!",
+                        text: data.message,
+                    });
+
+                    navigate("/price_changes");
+
+                }catch(err){
+                    console.log('There is an error in sending price change document to supervisor:',err);
+                    // setLoader(false);
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Form Send Error!!",
+                        text: "Something went wrong while sending the form.",
+                    });
+                }finally{
+                    setForceLoading(false);
+                    setIsSubmitting(false);
+                }
+
             }
         });
     }
-
-    const  changable = ((supervisor || approver) && formState?.status != 'Partial');
+    const  forwardable = (formState.status == 'Default' && originator.id == user.id)
+    const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
 
     return (
         <>
@@ -773,7 +841,7 @@ export default function () {
 
                         <div className="flex flex-wrap gap-2 sm:justify-end">
                             {
-                                changable || formState.status == 'Default' &&
+                                changable && forwardable &&
                                 <button
                                     type="button"
                                     className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
@@ -829,10 +897,10 @@ export default function () {
                                     className="px-4 py-2 text-sm rounded-lg
                                         bg-red-600 text-white
                                         hover:bg-red-700 transition"
-                                    value="Rejected"
+                                    value="Cancel"
                                     onClick={approveHandler}
                                     >
-                                    Reject
+                                    Cancel
                                 </button> : ''
                             }
 
@@ -1008,14 +1076,13 @@ export default function () {
                                             {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
                                         </button>
 
-                                        <a
-                                            href="/assets/documents/tp_products_sample_excel.xlsx"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
+                                        <button
+                                            type="button"
                                             className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
+                                            onClick={downloadHandler}
                                         >
                                             Sample
-                                        </a>
+                                        </button>
 
                                         <input
                                             type="file"
@@ -1041,7 +1108,29 @@ export default function () {
                     </main>
                 </div>
 
+ 
+
+
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
+
+                    {/* Alert Box */}
+                    {formRejected &&
+                    <div className="flex items-cneter col-span-2 md:col-span-3">
+                        <div className="relative w-full rounded-lg bg-red-100 border border-red-300 px-4 py-3 text-red-800">
+                            <p>
+                                This form was canceled by<span className="font-bold"> {formRejected?.approval_users?.title} {formRejected?.approval_users?.name}</span>
+                            </p>
+
+                            {/* Close button */}
+                            <button
+                                onClick={''}
+                                className="absolute top-2 right-2 text-red-700 hover:text-red-900"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </div>
+                    }
 
                     {/* Prepared By */}
                     <div className="">
@@ -1122,3 +1211,44 @@ export default function () {
     );
 
 }
+
+
+// =>If POS Databases Are Separate Servers (Very Common)
+// Recommended Flow
+// HQ API
+//    ↓
+// Branch POS API (per branch)
+//    ↓
+// Branch responds (success / fail)
+//    ↓
+// HQ updates branch status
+
+// Branch POS endpoint
+// POST /branch-api/update-prices
+
+
+// Response:
+
+// {
+//   "status": "success",
+//   "updated_products": 125
+// }
+
+// =>UI Suggestion (Very Important)
+
+// Show progress dashboard after approval:
+
+// Price Change Document #PC-2025-001
+
+// ✔ Yangon        Updated
+// ⏳ Mandalay     Updating...
+// ❌ Naypyidaw    Failed (Retry)
+
+
+// Add:
+
+// 🔁 Retry failed branch
+
+// 👁 View error log
+
+// 📊 Progress bar
