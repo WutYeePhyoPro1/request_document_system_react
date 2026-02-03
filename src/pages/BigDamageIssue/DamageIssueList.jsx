@@ -156,19 +156,15 @@ function DamageIssueList({
     const hasExplicitStatus = statusParam?.trim();
     const hasProductFilter = productFilter?.trim();
 
-      if (hasExplicitStatus || hasProductFilter) {
-      if (isOpManager(currentUser)) {
-        return allFilteredIssues.filter((row) => {
-            const gf = row.general_form || {};
-          const totalAmount = getTotalAmount(row, gf, formTotals);
-          const status = (gf.status || row.status || '').toString().toLowerCase().trim();
-          const isBmApproved = status === 'bm approved' || status === 'bmapproved';
-          return isBmApproved && Number(totalAmount) > OP_THRESHOLD;
-          });
-        }
+    // If there's an explicit status filter, show ALL matching forms (no threshold filter)
+    // When filtering explicitly, show all matching forms regardless of threshold
+    if (hasExplicitStatus || hasProductFilter) {
       return allFilteredIssues;
-      }
+    }
 
+    // Default view: Backend already filters forms for OP Manager, so just return what backend sent
+    // Backend returns: user's own forms, BM Approved over 500k, OP Approved, Acknowledged, Completed, etc.
+    // No need for additional frontend filtering - backend handles it correctly
     return allFilteredIssues;
   }, [allFilteredIssues, currentUser, productFilter, searchParams, formTotals]);
 
