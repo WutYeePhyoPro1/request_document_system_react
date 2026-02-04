@@ -373,7 +373,7 @@ const Index: React.FC = () => {
             <MultiSelect
               id="status"
               placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
-              data={["All", "Ongoing", "Completed", "Cancel"]}
+              data={["All", "Default", "Ongoing", "Completed", "Cancel"]}
               className="border border-blue-500 focus:outline-none w-full rounded-md"
               value={searchTerm.status}
               onChange={handleStatusChange}
