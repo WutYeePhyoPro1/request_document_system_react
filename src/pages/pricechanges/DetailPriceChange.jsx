@@ -748,6 +748,58 @@ export default function () {
         });
     };
 
+    const runHandler = async (e)=>{
+        Swal.fire({
+            icon: "question",
+            text:  `Are you sure you want to run the latest updated prices on POS servers?`,
+            showCancelButton: true,
+            confirmButtonText: "OK",
+            cancelButtonText: "Cancel",
+        }).then(async (result) => {
+            if (result.isConfirmed) {
+                setForceLoading(true);
+                setIsSubmitting(true);
+
+                try{
+                    const res = await axios.get(`/api/price_changes/${id}/gcp_document`,{
+                        headers: {
+                        Authorization: `Bearer ${token}`,
+                        },
+                    });
+                    console.log(res.data);
+
+                    const data = res.data;
+
+                    if(data.success == false){
+                      return;
+                    }
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Form was sent to supervisor successfully!",
+                        text: data.message,
+                    });
+
+                    navigate("/price_changes");
+
+                }catch(err){
+                    console.log('There is an error in running latest updated price:',err);
+                    // setLoader(false);
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Prices Run Error!!",
+                        text: "Something went wrong while running prices.",
+                    });
+                }finally{
+                    setForceLoading(false);
+                    setIsSubmitting(false);
+                }
+
+            }
+        });
+    }
+
     const sendToSupervisorClick = async (e)=>{
         e.preventDefault();
 
@@ -803,6 +855,7 @@ export default function () {
     }
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
     const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
+    const runable = (formState.status == "Approved" && getApprover?.approval_users?.id == user.id)
 
     return (
         <>
@@ -904,6 +957,20 @@ export default function () {
                                 </button> : ''
                             }
 
+                            {
+                                runable &&
+                                <button
+                                    className="px-4 py-2 text-sm rounded-lg
+                                        bg-sky-600 text-white
+                                        hover:bg-sky-700 active:bg-sky-800
+                                        transition shadow-sm"
+                                    onClick={runHandler}
+                                >
+                                    Run
+                                </button>
+                            }
+                        
+
                         </div>
                     </div>
                 </header>
@@ -982,7 +1049,7 @@ export default function () {
                                             name="category_id"
                                             options={catOptions}
                                             placeholder="Select Category"
-                                            isSearchable={true}
+                                            isSearchable={changable}
                                             menuIsOpen={!changable ? false : undefined}
                                             isClearable={changable}
                                             onChange={changeHandler}
@@ -1159,8 +1226,8 @@ export default function () {
                         </div>
                         {
                             getSupervisor?.length > 0 &&
-                                getSupervisor.map((supervisor)=>(
-                                    <>
+                                getSupervisor.map((supervisor,idx)=>(
+                                    <div key={idx}>
                                     <div className="font-semibold text-blue-900">
                                     {supervisor.approval_users?.title}{supervisor.approval_users?.name}
                                     </div>
@@ -1172,7 +1239,7 @@ export default function () {
                                     <div className="font-semibold text-blue-900">
                                     {formatStrDateTime(supervisor?.created_at)}
                                     </div>
-                                    </>
+                                    </div>
                                 ))
                         }
                     </div>
