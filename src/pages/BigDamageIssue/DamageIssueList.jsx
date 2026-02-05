@@ -158,9 +158,9 @@ function DamageIssueList({
 
     // If there's an explicit status filter, show ALL matching forms (no threshold filter)
     // When filtering explicitly, show all matching forms regardless of threshold
-    if (hasExplicitStatus || hasProductFilter) {
+      if (hasExplicitStatus || hasProductFilter) {
       return allFilteredIssues;
-    }
+      }
 
     // Default view: Backend already filters forms for OP Manager, so just return what backend sent
     // Backend returns: user's own forms, BM Approved over 500k, OP Approved, Acknowledged, Completed, etc.
@@ -209,11 +209,11 @@ function DamageIssueList({
     if (!Array.isArray(notiData) || notiData.length === 0) {
       return null;
     }
-    
+
     const formDocNo = gf?.form_doc_no || gf?.general_form?.form_doc_no || gf?.document_number || gf?.doc_no || row?.form_doc_no || row?.document_number || row?.doc_no;
     const formId = gf?.id || row?.general_form_id || gf?.general_form_id || row?.id;
     const generalFormId = gf?.general_form_id || row?.general_form_id;
-    
+      
     const hasUnreadNotification = notiData.some((item) => {
       const notiDataItem = item?.data || item;
       const notiFormId = notiDataItem?.specific_form_id || notiDataItem?.general_form_id;
