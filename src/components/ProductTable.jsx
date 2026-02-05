@@ -1,11 +1,12 @@
 import { FaMinusCircle } from "react-icons/fa";
-import {formatNumber} from "./Fomatter.jsx";
+import {formatNumber,formattDecimalNumber,formatTo2Decimals} from "./Fomatter.jsx";
 
 
 export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors,authorizedEdit=true}){
     const tablestyle = {
         thead: { backgroundColor: "#A9D8E9" },
         th: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10},
+        thNumber: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10, textAlign: "right"},
     }
     // console.log(data);
     // console.log(pricesErrors);
@@ -13,7 +14,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
     return (
         <>
         <div className="overflow-auto max-h-[500px]">
-        <table id="productTable" className="table table-striped">
+        <table id="productTable" className="table table-striped" style={{ tableLayout: "auto" }}>
             <thead className="sticky top-0 z-30" style={tablestyle['thead']}>
                 <tr>
                     <th style={tablestyle['th']}>Actions</th>
@@ -21,11 +22,11 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                     <th style={tablestyle['th']}>Product Code</th>
                     <th style={tablestyle['th']}>Product Name</th>
                     <th style={tablestyle['th']}>Unit</th>
-                    <th style={tablestyle['th']}>Price</th>
-                    <th style={tablestyle['th']}>Net Cost Price</th>
-                    <th style={tablestyle['th']}>Price 1</th>
-                    <th style={tablestyle['th']}>Price 2</th>
-                    <th style={tablestyle['th']}>Profit</th>
+                    <th style={tablestyle['thNumber']}>Price</th>
+                    <th style={tablestyle['thNumber']}>New Cost Price</th>
+                    <th style={tablestyle['thNumber']}>Price 1</th>
+                    <th style={tablestyle['thNumber']}>Price 2</th>
+                    <th style={tablestyle['thNumber']}>Profit</th>
                 </tr>
 
             </thead>
@@ -46,9 +47,25 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td>{item.product_code}</td>
                             <td>{item.product_name}</td>
                             <td>{item.unit}</td>
-                            <td>{formatNumber(item.price)}</td>
-                            <td></td>
-                            <td >
+                            <td className="text-right">{formatNumber(item.price)}</td>
+                            <td className="text-right">
+                                {
+                                    authorizedEdit ?
+                                        <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                            ${
+                                                pricesErrors?.[`Product_${index}_new_cost_price`] || pricesErrors?.[`Product_${index}_New Cost Price`]
+                                                    ? 'border-red-600 focus:border-red-600'
+                                                    : 'border-cyan-500 focus:border-cyan-500'
+                                            }
+                                        `} 
+                                        onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        value={item.new_cost_price}
+                                        readOnly={!authorizedEdit}
+                                        />
+                                    : formatNumber(item.new_cost_price)
+                                }
+                            </td>
+                            <td className="text-right">
                                 {
                                     authorizedEdit ?
                                         <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border
@@ -62,12 +79,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                         value={item.price1}
                                         readOnly={!authorizedEdit}
                                         />
-                                    : item.price1
+                                    : formatNumber(item.price1)
                                 }
 
                             
                             </td>
-                            <td>
+                            <td className="text-right">
                                 {
                                     authorizedEdit ?
                                         <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border
@@ -81,11 +98,16 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                         value={item.price2}
                                         readOnly={!authorizedEdit}
                                         />
-                                    : item.price2
+                                    : formatNumber(item.price2)
                                 }
 
                             </td>
-                            <td></td>
+                            <td className={`text-right ${formatTo2Decimals(item.profit * 100) <= 0 ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`} style={{ whiteSpace: "nowrap"}}>
+                                {formatTo2Decimals(item.profit * 100)} %
+                            </td>
+                            {/* <td>
+                                {(item.profit)}
+                            </td> */}
                         </tr>
                     ))
                 }

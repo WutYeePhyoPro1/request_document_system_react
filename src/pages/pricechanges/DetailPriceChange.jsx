@@ -67,6 +67,9 @@ export default function () {
     const [getApprover,setGetApprover] = useState(null);
     const [getSupervisor,setGetSupervisor] = useState(null);
     const [formRejected,setFormRejected] = useState(null);
+
+    const [generalFormFiles,setGeneralFormFiles] = useState([]);
+
     
 
     const [approver,setApprover] = useState(null);
@@ -140,18 +143,45 @@ export default function () {
         });
         console.log(formState)
     };
-    const pricesHandler = (e,product_code)=>{
-        const { name, value, type, checked } = e.target;
-        console.log(products);
-        // console.log("Price",products);
-        // console.log(name,value);
-        setProducts((prev)=> 
-            prev.map(item =>
-                item.product_code === product_code
-                    ? { ...item, [name]: value }
-                    : item
-            )
-        )
+    const pricesHandler = (e, product_code) => {
+        const { name, value } = e.target;
+
+        setProducts(prev =>
+            prev.map(item => {
+                if (item.product_code !== product_code) return item;
+
+                let updatedItem = {
+                    ...item,
+                    [name]: value,
+                };
+
+                if (name === "new_cost_price") {
+                    const price1 = Number(item.price1);
+                    const newCost = Number(value);
+
+                    const profit =
+                        price1 > 0
+                            ? ((price1 - newCost) / price1)
+                            : 0;
+
+                    updatedItem.profit = profit;
+                }
+
+                if (name === "price1") {
+                    const price1 = Number(value);
+                    const newCost = Number(item.new_cost_price) || 0;
+
+                    const profit =
+                        newCost > 0
+                            ? ((price1 - newCost) / price1)
+                            : 0;
+
+                    updatedItem.profit = profit;
+                }
+
+                return updatedItem;
+            })
+        );
     };
     const [pricesErrors,setPricesErrors] = useState({});
 
@@ -240,13 +270,15 @@ export default function () {
             console.log(data);
             const apiProduct = data.data;
 
+            const new_cost_price = apiProduct.new_cost_price || row["New Cost Price"] || '';
+            const price1 = apiProduct.price2 | row["Price 2"] || '';
             const result = {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || '',
                 price2: apiProduct.price2 | row["Price 2"] || '',
-                net_cost_price: 0,
-                profit: 0,
+                new_cost_price: apiProduct.new_cost_price || row["New Cost Price"] || '',
+                profit: calculateProfit(new_cost_price,price1),
                 remark: 0
             };
             if(!data.error){
@@ -275,6 +307,13 @@ export default function () {
             // setLoading(false);
         
         }
+    }
+
+    const calculateProfit = (new_cost_price, price1)=>{
+        const profit = price1 > 0 || new_cost_price > 0
+                            ? ((price1 - new_cost_price) / price1)
+                            : 0;
+        return profit;
     }
 
     const removeHandler = (e,product_code)=>{
@@ -338,7 +377,9 @@ export default function () {
         // Start Validate Prices
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
-            price2: { required: true, numeric: true, min: 1, max:"price1"}
+            price2: { required: true, numeric: true, min: 1, max:"price1"},
+            new_cost_price: { required: true, numeric: true, min: 1},
+            profit: { required: true, numeric: true},
         };
         const productMessages = {
             price1: {
@@ -348,6 +389,13 @@ export default function () {
             price2: {
                 required: "Price 2 is required.",
                 numeric: "Price 2 must be numeric value."
+            },
+            new_cost_price: {
+                required: "New Cost Price is required.",
+                numeric: "New Cost Price must be numeric value."
+            },
+            profit: {
+                required: "Profit is required.",
             }
         }
 
@@ -437,12 +485,14 @@ export default function () {
             const importSchema = {
                 'Product Code': {required:true},
                 'Price 1': {required:true,numeric: true, min: 1},
-                'Price 2': {required:true,numeric: true, min: 1}
+                'Price 2': {required:true,numeric: true, min: 1},
+                'New Cost Price': {required:true,numeric: true, min: 1},
             }
             const importMessage = {
                 'Product Code': {required: "Product Code is required."},
                 'Price 1': {required: "Price 1 is required.", numeric: "Price 1 must be numeric value."},
                 'Price 2': {required: "Price 2 is required.", numeric: "Price 2 must be numeric value."},
+                'New Cost Price': {required: "New Cost Price is required.", numeric: "New Cost Price must be numeric value."},
             }
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
@@ -650,6 +700,7 @@ export default function () {
             setGetApprover(data.stakeholders.getApprover);
             setFormRejected(data.stakeholders.form_rejected);
 
+            setGeneralFormFiles(data.general_form_files);
 
             setSupervisor(data.authorities.supervisor);
             setApprover(data.authorities.approver);
@@ -1020,12 +1071,27 @@ export default function () {
                         
                         {/* Document Information Stacked on top */}
                         <section className="p-6 border-b border-gray-100 bg-white">
-                            <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-6">
-                                <h2 className="text-base font-semibold text-slate-800">Document Information</h2>
+                            <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
+                                <h2 className="text-md font-semibold text-slate-800 uppercase">Document Information</h2>
                                 {/* <ServerTime /> */}
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
+                                <div className="col-span-1 md:col-span-2 xl:col-span-3">
+                                    <div className="flex flex-col md:flex-row gap-4 mb-2">
+                                        {generalFormFiles.length > 0 &&
+                                            <label className="text-base font-bold text-[#007bff] uppercases">GCP Document No:</label>
+                                        }
+                                        <div>
+                                        {
+                                            generalFormFiles.map((generalFormFile,idx)=>(
+                                                <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}</label>
+                                            ))
+                                        }
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date</label>
                                     <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
@@ -1048,8 +1114,8 @@ export default function () {
                                             id="category_id"
                                             name="category_id"
                                             options={catOptions}
-                                            placeholder="Select Category"
-                                            isSearchable={changable}
+                                            placeholder="Sele"
+                                            isSearchable={changable}ct Category
                                             menuIsOpen={!changable ? false : undefined}
                                             isClearable={changable}
                                             onChange={changeHandler}
@@ -1250,7 +1316,7 @@ export default function () {
                         Approved By Merchandising Manager
                         </div>
                         {
-                            getApprover !== null && getApprover.approval_users && formState.status == 'Approved' &&
+                            getApprover !== null && getApprover.approval_users && !(Array.isArray(getApprover?.approval_users) && getApprover.approval_users.length === 0) &&
                             <>
                             <div className="font-semibold text-blue-900">
                             {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}

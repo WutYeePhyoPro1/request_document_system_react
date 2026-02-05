@@ -114,18 +114,45 @@ export default function () {
         });
         console.log(formState)
     };
-    const pricesHandler = (e,product_code)=>{
-        const { name, value, type, checked } = e.target;
-        console.log(products);
-        // console.log("Price",products);
-        // console.log(name,value);
-        setProducts((prev)=> 
-            prev.map(item =>
-                item.product_code === product_code
-                    ? { ...item, [name]: value }
-                    : item
-            )
-        )
+    const pricesHandler = (e, product_code) => {
+        const { name, value } = e.target;
+
+        setProducts(prev =>
+            prev.map(item => {
+                if (item.product_code !== product_code) return item;
+
+                let updatedItem = {
+                    ...item,
+                    [name]: value,
+                };
+
+                if (name === "new_cost_price") {
+                    const price1 = Number(item.price1);
+                    const newCost = Number(value);
+
+                    const profit =
+                        price1 > 0
+                            ? ((price1 - newCost) / price1)
+                            : 0;
+
+                    updatedItem.profit = profit;
+                }
+
+                if (name === "price1") {
+                    const price1 = Number(value);
+                    const newCost = Number(item.new_cost_price) || 0;
+
+                    const profit =
+                        newCost > 0
+                            ? ((price1 - newCost) / price1)
+                            : 0;
+
+                    updatedItem.profit = profit;
+                }
+
+                return updatedItem;
+            })
+        );
     };
     const [pricesErrors,setPricesErrors] = useState({});
 
@@ -214,13 +241,15 @@ export default function () {
             console.log(data);
             const apiProduct = data.data;
 
+            const new_cost_price = apiProduct.new_cost_price || row["New Cost Price"] || '';
+            const price1 = apiProduct.price2 | row["Price 2"] || '';
             const result = {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || '',
                 price2: apiProduct.price2 | row["Price 2"] || '',
-                net_cost_price: 0,
-                profit: 0,
+                new_cost_price: apiProduct.new_cost_price || row["New Cost Price"] || '',
+                profit: calculateProfit(new_cost_price,price1),
                 remark: 0
             };
             if(!data.error){
@@ -249,6 +278,13 @@ export default function () {
             // setLoading(false);
         
         }
+    }
+
+    const calculateProfit = (new_cost_price, price1)=>{
+        const profit = price1 > 0 || new_cost_price > 0
+                            ? ((price1 - new_cost_price) / price1)
+                            : 0;
+        return profit;
     }
 
     const removeHandler = (e,product_code)=>{
@@ -312,7 +348,9 @@ export default function () {
         // Start Validate Prices
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
-            price2: { required: true, numeric: true, min: 1, max:"price1"}
+            price2: { required: true, numeric: true, min: 1, max:"price1"},
+            new_cost_price: { required: true, numeric: true, min: 1},
+            profit: { required: true, numeric: true},
         };
         const productMessages = {
             price1: {
@@ -322,6 +360,13 @@ export default function () {
             price2: {
                 required: "Price 2 is required.",
                 numeric: "Price 2 must be numeric value."
+            },
+            new_cost_price: {
+                required: "New Cost Price is required.",
+                numeric: "New Cost Price must be numeric value."
+            },
+            profit: {
+                required: "Profit is required.",
             }
         }
 
@@ -333,56 +378,67 @@ export default function () {
         if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
-        setForceLoading(true);
-        setIsSubmitting(true);
-         try{
-            const res = await axios.post(`/api/price_changes`,formData,{
-                headers: {
-                Authorization: `Bearer ${token}`,
-                },
-            });
-            console.log(res.data);
 
-            const data = res.data;
-
-            if(data.success == false){
-                if(data.errors){
-                    let errorMessages = "";
-                    Object.values(data.errors).forEach(errorArray => {
-                        errorArray.forEach(error => {
-                            errorMessages += `• ${error} \n`;
+        Swal.fire({
+                icon: "question",
+                text:  `Are you sure you want to save Price Change Form?`,
+                showCancelButton: true,
+                confirmButtonText: "OK",
+                cancelButtonText: "Cancel",
+        }).then(async (result) => {
+                if (result.isConfirmed) {
+                    setForceLoading(true);
+                    setIsSubmitting(true);
+                    try{
+                        const res = await axios.post(`/api/price_changes`,formData,{
+                            headers: {
+                            Authorization: `Bearer ${token}`,
+                            },
                         });
-                    });
+                        console.log(res.data);
 
-                    Swal.fire({
-                        icon: "error",
-                        title: " Invalid Form!!",
-                        // text: "Some fields contain errors. Please review the form and try again.",
-                        text: errorMessages,
-                    });
+                        const data = res.data;
+
+                        if(data.success == false){
+                            if(data.errors){
+                                let errorMessages = "";
+                                Object.values(data.errors).forEach(errorArray => {
+                                    errorArray.forEach(error => {
+                                        errorMessages += `• ${error} \n`;
+                                    });
+                                });
+
+                                Swal.fire({
+                                    icon: "error",
+                                    title: " Invalid Form!!",
+                                    // text: "Some fields contain errors. Please review the form and try again.",
+                                    text: errorMessages,
+                                });
+                            }
+                        }
+
+                        Swal.fire({
+                            icon: "success",
+                            title: "Form submitted successfully!",
+                            text: data.message,
+                        });
+                        navigate("/price_changes");
+
+                    }catch(err){
+                        console.log('There is an error in saving price change document:',err);
+                        // setLoader(false);
+
+                        Swal.fire({
+                            icon: "error",
+                            title: "Form Submit Error!!",
+                            text: "Something went wrong while submitting the form.",
+                        });
+                    }finally{
+                        setForceLoading(true);
+                        isSubmitting(false);
+                    }
                 }
-            }
-
-            Swal.fire({
-                icon: "success",
-                title: "Form submitted successfully!",
-                text: data.message,
-            });
-            navigate("/price_changes");
-
-        }catch(err){
-            console.log('There is an error in saving price change document:',err);
-            // setLoader(false);
-
-            Swal.fire({
-                icon: "error",
-                title: "Form Submit Error!!",
-                text: "Something went wrong while submitting the form.",
-            });
-        }finally{
-            setForceLoading(true);
-            isSubmitting(false);
-        }
+        });
     }
     const excelImportHandler = async (e) => {
         setImporting(true);
@@ -408,12 +464,14 @@ export default function () {
             const importSchema = {
                 'Product Code': {required:true},
                 'Price 1': {required:true,numeric: true, min: 1},
-                'Price 2': {required:true,numeric: true, min: 1}
+                'Price 2': {required:true,numeric: true, min: 1},
+                'New Cost Price': {required:true,numeric: true, min: 1},
             }
             const importMessage = {
                 'Product Code': {required: "Product Code is required."},
                 'Price 1': {required: "Price 1 is required.", numeric: "Price 1 must be numeric value."},
                 'Price 2': {required: "Price 2 is required.", numeric: "Price 2 must be numeric value."},
+                'New Cost Price': {required: "New Cost Price is required.", numeric: "New Cost Price must be numeric value."},
             }
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
