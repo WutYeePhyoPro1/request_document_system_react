@@ -60,8 +60,26 @@ const GeneratorDetail: React.FC = () => {
     navigate(-1);
     // detailData(null);
   };
-  if (loading) return <div>Loading...</div>;
-  if (!detailData) return <div>No Data Found</div>;
+  const FullPageLoader = () => (
+    <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
+      <Loader size="xl" color="blue" />
+    </div>
+  );
+
+  if (loading)
+    return (
+      <>
+        {loading && <FullPageLoader />}
+
+        {!detailData ? (
+          <div className="flex justify-center items-center min-h-screen">
+            <Loader size="xl" />
+          </div>
+        ) : (
+          <div>{/* your existing content */}</div>
+        )}
+      </>
+    );
 
   return (
     <>
@@ -153,33 +171,22 @@ const GeneratorDetail: React.FC = () => {
               </div>
 
               <div className="mb-6">
-                {/* <div className="font-medium mb-2">
-                  Request Manual Discount Detail
-                </div> */}
                 <div className="bodyData">
                   <div className="tableData">
                     <TableDetail
                       detailData={detailData}
                       onRefresh={() => fetchData(id!)}
+                      loading={loading}
+                      setLoading={setLoading}
                     />
-                    {/* <TableDetail
-                      detailData={detailData}
-                      onDeleted={(generalFormDeleted) => {
-                        if (generalFormDeleted) {
-                          navigate(
-                            `/generator_detail/${detailData?.generalForm?.id}`,
-                          );
-                        } else {
-                          fetchData(id!);
-                        }
-                      }}
-                    /> */}
                   </div>
                   <hr className="mt-8 mb-6" />
                   <div className="approve">
                     <MeApproveForm
                       detailData={detailData}
                       onRefresh={() => fetchData(id!)}
+                      loading={loading}
+                      setLoading={setLoading}
                     />
                   </div>
                   <div className="userData grid lg:grid-cols-6 md:grid-cols-6 grid-cols-3 items-start text-sm">

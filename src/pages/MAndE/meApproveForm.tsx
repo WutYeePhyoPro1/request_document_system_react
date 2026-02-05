@@ -8,14 +8,18 @@ import { NotificationContext } from "../../context/NotificationContext";
 type MeApproveFormProps = {
   detailData: meGeneratorDataType;
   onRefresh: () => void;
+  loading: (value: boolean) => void;
+  setLoading: (value: boolean) => void;
 };
 
 const MeApproveForm: React.FC<MeApproveFormProps> = ({
   detailData,
   onRefresh,
+  loading,
+  setLoading,
 }) => {
   const { refreshNotifications } = useContext(NotificationContext);
-  const [loading, setLoading] = useState(false);
+
   const [comment, setComment] = useState("");
 
   const handleCommentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -29,64 +33,6 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     }
     setComment(e.target.value);
   };
-
-  // const handleSubmit = async (statusValue: string) => {
-  //   const token = localStorage.getItem("token");
-  //   if (!token) return;
-
-  //   const generalFormId = detailData?.generalForm?.id;
-  //   const subFormId = detailData?.subForm?.sub_form_id;
-  //   const formID = detailData?.generalForm?.form_id;
-
-  //   if (!generalFormId || !subFormId) {
-  //     console.error("Form id is missing");
-  //     return;
-  //   }
-
-  //   setLoading(true);
-  //   const isBack = statusValue === "back_to_previous";
-  //   const sendManager = (statusValue = "Ongoing");
-  //   if (statusValue === "back_to_previous" || statusValue === "Cancel") {
-  //     if (!comment || comment.trim() === "") {
-  //       Swal.fire({
-  //         icon: "warning",
-  //         title: "Please fill in a remark",
-  //         text: "You must fill a reason for sending back to the previous step.",
-  //         confirmButtonText: "OK",
-  //       });
-  //       return;
-  //     }
-  //   }
-
-  //   try {
-  //     const submitData = {
-  //       status: statusValue,
-  //       comment,
-  //     };
-  //     // Final approve flow
-  //     await approveFormME(token, submitData, formID, generalFormId, subFormId);
-  //     console.log("submitData>>", submitData);
-  //     Swal.fire({
-  //       icon: "success",
-  //       title: "Success",
-  //       text: sendManager
-  //         ? "Form send successfully to manager"
-  //         : isBack
-  //           ? `Form has been backed successfully!`
-  //           : `Form has been ${statusValue} successfully!`,
-  //     });
-  //     onRefresh();
-  //   } catch (error) {
-  //     console.error(error);
-  //     Swal.fire({
-  //       icon: "error",
-  //       title: "Error",
-  //       text: "Something went wrong",
-  //     });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   const handleSubmit = async (statusValue: string) => {
     const token = localStorage.getItem("token");

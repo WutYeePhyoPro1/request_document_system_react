@@ -21,16 +21,22 @@ type Props = {
     files: any[];
     generalForm: any;
     onRefresh: () => void;
+    loading: (value: boolean) => void;
+    setLoading: (value: boolean) => void;
   };
   // onDeleted: (generalFormDeleted: boolean) => void;
 };
 
-const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
+const TableDetail: React.FC<Props> = ({
+  detailData,
+  onRefresh,
+  loading,
+  setLoading,
+}) => {
   const { refreshNotifications } = useContext(NotificationContext);
   const [activeGeneratorId, setActiveGeneratorId] = React.useState<
     number | null
   >(null);
-  const [loading, setLoading] = useState<boolean>(false);
   const {
     detailData: generatorList,
     files,
@@ -187,15 +193,14 @@ const TableDetail: React.FC<Props> = ({ detailData, onRefresh }) => {
   const filteredFiles = files?.filter(
     (file) => file.generator_id === activeGeneratorId,
   );
-  if (loading) {
-    return (
-      <div className="flex justify-center py-10">
-        <Loader />
-      </div>
-    );
-  }
+
   return (
-    <div className="mt-6 overflow-x-auto">
+    <div className="relative mt-6 overflow-x-auto">
+      {/* {loading && (
+        <div className="absolute inset-0 z-50 bg-white/60 flex items-center justify-center">
+          <Loader />
+        </div>
+      )} */}
       <Table
         data={tableData}
         styles={{
