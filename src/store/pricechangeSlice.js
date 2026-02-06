@@ -17,7 +17,7 @@ export const fetchPriceChanges = createAsyncThunk( "property/fetchPriceChange", 
                searchQuery
           }
      });
-     console.log(data);
+     // console.log(data);
 
      return data;
 });

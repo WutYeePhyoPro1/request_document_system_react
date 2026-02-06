@@ -530,7 +530,7 @@ export default function () {
             e.target.value = "";
         }
     };
-    const excludeBranchIds = [1];
+    const excludeBranchIds = [1,18,19,21,22];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branches', {
@@ -552,7 +552,7 @@ export default function () {
                         ? data.data.data
                         : [];
             list = [...list]
-                            .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
+                            .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.branch_code > b.branch_code ? 1 : -1);
 
             setBranches(list);
         } catch (error) {

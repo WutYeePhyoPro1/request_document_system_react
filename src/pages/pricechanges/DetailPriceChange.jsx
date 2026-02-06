@@ -4,7 +4,7 @@ import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,useParams } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
-import { FaFileImport,FaSpinner } from "react-icons/fa";
+import { FaFileImport,FaSpinner,FaInfoCircle } from "react-icons/fa";
 import { FiCopy } from 'react-icons/fi';
 
 import $ from "jquery";
@@ -70,7 +70,7 @@ export default function () {
 
     const [generalFormFiles,setGeneralFormFiles] = useState([]);
 
-    
+    const [showModal, setShowModal] = useState(false);
 
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
@@ -551,7 +551,7 @@ export default function () {
             e.target.value = "";
         }
     };
-    const excludeBranchIds = [1];
+    const excludeBranchIds = [1,18,19,21,22];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branches', {
@@ -573,7 +573,7 @@ export default function () {
                         ? data.data.data
                         : [];
             list = [...list]
-                            .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
+                            .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.branch_code > b.branch_code ? 1 : -1);
 
             setBranches(list);
             branch_length = list.length;
@@ -680,7 +680,7 @@ export default function () {
                 ...general_form,
                 change_price_date: general_form.created_at ? formatDate(new Date(general_form.created_at)): '',
                 effective_date: general_form.date_formatted ? formatDate(new Date(general_form.date_formatted)): '',
-                branches:  price_change_branches.map(brch=>brch.branch_id),
+                branches:  price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id),
                 urgent_price_change: general_form.asset_type == 'on',
                 category_id: general_form.to_department,
                 comment: general_form.remark,
@@ -689,9 +689,12 @@ export default function () {
 
                 form_id: 21,
                 layout_id: 19,
-                route: "price_changes"
+                route: "price_changes",
+
+                runbranches:  price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id),
+                price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1)
             }
-            console.log(price_change_branches.length, branch_length);
+            // console.log(price_change_branches.length, branch_length);
 
             setFormState(normalizedForm);
             
@@ -799,57 +802,98 @@ export default function () {
         });
     };
 
-    const runHandler = async (e)=>{
-        Swal.fire({
+    const updateBranchStatus = (branchId, status, message = null) => {
+        setFormState(prev => ({
+            ...prev,
+            price_change_branches: prev.price_change_branches.map(branch =>
+                branch.branch_id === branchId
+                    ? { ...branch, status, message }
+                    : branch
+            )
+        }));
+    };
+
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+    const runHandler = async () => {
+        const result = await Swal.fire({
             icon: "question",
-            text:  `Are you sure you want to run the latest updated prices on POS servers?`,
+            text: "Are you sure you want to run the latest updated prices on POS servers?",
             showCancelButton: true,
             confirmButtonText: "OK",
             cancelButtonText: "Cancel",
-        }).then(async (result) => {
-            if (result.isConfirmed) {
-                setForceLoading(true);
-                setIsSubmitting(true);
-
-                try{
-                    const res = await axios.get(`/api/price_changes/${id}/gcp_document`,{
-                        headers: {
-                        Authorization: `Bearer ${token}`,
-                        },
-                    });
-                    console.log(res.data);
-
-                    const data = res.data;
-
-                    if(data.success == false){
-                      return;
-                    }
-
-                    Swal.fire({
-                        icon: "success",
-                        title: "Form was sent to supervisor successfully!",
-                        text: data.message,
-                    });
-
-                    navigate("/price_changes");
-
-                }catch(err){
-                    console.log('There is an error in running latest updated price:',err);
-                    // setLoader(false);
-
-                    Swal.fire({
-                        icon: "error",
-                        title: "Prices Run Error!!",
-                        text: "Something went wrong while running prices.",
-                    });
-                }finally{
-                    setForceLoading(false);
-                    setIsSubmitting(false);
-                }
-
-            }
         });
-    }
+
+        if (!result.isConfirmed) return;
+
+        setForceLoading(true);
+        setIsSubmitting(true);
+        setShowModal(true);
+        try {
+            
+             const updateRequests = formState.runbranches.map(branchId => {
+
+                updateBranchStatus(branchId, "updating");
+
+                return axios
+                    .get(`/api/price_changes/${id}/${branchId}/update_price`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    })
+                    .then(async (res) => {
+                        if (res.data?.success === false) {
+                            // updateBranchStatus(branchId, "failed", res.data.message);
+                            throw new Error(`Branch ${branchId} failed`);
+                        }
+
+                        await sleep(2000);
+                        updateBranchStatus(branchId, "success",res.data.message);
+                        return res;
+                    })
+                    .catch(err => {
+                        updateBranchStatus(
+                            branchId,
+                            "failed",
+                            err.response?.data?.message || err.message
+                        );
+                        throw err;
+                    });
+                });
+
+            const results = await Promise.all(updateRequests);
+
+            // Only runs if ALL branches succeeded
+            //  Start GCP Document API
+            // const gcpRes = await axios.get(
+            //     `/api/price_changes/${id}/gcp_document`,
+            //     { headers: { Authorization: `Bearer ${token}` } }
+            // );
+
+            // if (gcpRes.data.success === false) {
+            //     throw new Error("GCP document creation failed");
+            // }
+            // // End GCP Document API
+
+            // Swal.fire({
+            //     icon: "success",
+            //     title: "POS Prices Updated",
+            //     text: "All branches updated and GCP document created successfully.",
+            // });
+
+            // navigate("/price_changes");
+
+        } catch (err) {
+            console.error(err);
+
+            Swal.fire({
+                icon: "error",
+                title: "Prices Run Error",
+                text: err.message || "Some branches failed to update.",
+            });
+        } finally {
+            setForceLoading(false);
+            setIsSubmitting(false);
+            // setShowModal(false);
+        }
+    };
 
     const sendToSupervisorClick = async (e)=>{
         e.preventDefault();
@@ -1031,8 +1075,14 @@ export default function () {
                     
                     {/* Branch Sidebar (Left Column) */}
                     <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
-                        <div className="p-5 border-b border-gray-100 bg-white/50">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600">Branches</h2>
+                        <div className="flex justify-between items-start p-5 border-b border-gray-100 bg-white/50 ">
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 m-0" onClick={() => setShowModal(true)}>Branches</h2>
+                            <span
+                                onClick={() => setShowModal(true)}
+                                className="cursor-pointer text-sky-500 text-lg hover:text-sky-600 flex"
+                                role="button"
+                                aria-label="Remove product"
+                            ><FaInfoCircle className="text-sky-500" /></span>
                         </div>
 
                         <div className="flex-1 overflow-y-auto p-5 space-y-3">
@@ -1340,6 +1390,87 @@ export default function () {
 
     
         </div>
+        {showModal && formState.price_change_branches && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-1/2 mx-4 overflow-hidden">
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b bg-slate-50 border-gray-200">
+                <h2 className="text-lg font-semibold">
+                POS Branch Update Status
+                </h2>
+                <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+                >
+                ✕
+                </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
+                <ul className="space-y-3">
+                    {/* {
+                        formState.price_change_branches?.map((branch) => console.log(formState.price_change_branches) )
+                    } */}
+                {formState.price_change_branches?.map((pcbranch) => (
+                    <li
+                    key={pcbranch}
+                    className="flex items-center justify-between p-1 rounded-lg borders"
+                    >
+                    <span className="font-medium">
+                        {pcbranch.branch?.branch_name}: {pcbranch.message} 
+                        {/* {pcbranch.status}  */}
+                    </span>
+
+
+                    {/* Status */}
+                    <div>
+                    {(pcbranch.status.toLowerCase()  == "default" || pcbranch.status.toLowerCase() === "pending" ) && (
+                        <span className="text-sm text-yellow-600">
+                        ⏳ Pending
+                        </span>
+                    )}
+
+                    {pcbranch.status.toLowerCase() === "updating" && (
+                        <span className="text-sm text-blue-600">
+                        🔄 Updating...
+                        </span>
+                    )}
+
+                    {pcbranch.status.toLowerCase() === "success" && (
+                        <span className="text-sm text-green-600">
+                        ✔ Updated
+                        </span>
+                    )}
+
+                    {pcbranch.status.toLowerCase() === "failed" && (
+                        <span className="text-sm text-red-600">
+                        ❌ Failed
+                        </span>
+                    )}
+                    </div>
+
+                    </li>
+                ))}
+                </ul>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
+                <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100"
+                >
+                Close
+                </button>
+            </div>
+
+            </div>
+        </div>
+        )}
+
         </>
     );
 
