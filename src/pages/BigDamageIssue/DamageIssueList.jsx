@@ -230,10 +230,10 @@ function DamageIssueList({
       return (
         <span
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center"
+          className="inline-flex items-center rounded-full border border-red-200 bg-red-50 p-1.5 shadow-sm"
           title="Unread notification"
         >
-          <NotificationIcon className="h-4 w-4 text-red-500" />
+          <NotificationIcon className="h-5 w-5 text-red-500" />
         </span>
       );
     }
@@ -347,19 +347,16 @@ function DamageIssueList({
                 }}
                 className="bg-white rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
-                <div className="flex items-start justify-between gap-2 min-w-0">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <div className="min-w-0 flex-1">
-                      <div className="mt-1 flex items-center gap-2">
-                        <p className="text-base font-semibold text-gray-900 truncate">
-                  {formDocNo}
-                        </p>
-                {formDocNo !== '-' && <CopyButton text={formDocNo} size="small" />}
-                        <span className="whitespace-nowrap">{renderNotificationBadge(row, gf)}</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-base font-semibold text-gray-900 break-all">
+                      {formDocNo}
+                    </p>
                     <StatusBadge status={gf.status || '-'} />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="whitespace-nowrap">{renderNotificationBadge(row, gf)}</span>
+                  </div>
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
@@ -419,7 +416,7 @@ function DamageIssueList({
   };
 
   return (
-    <div className="mx-auto font-sans px-6">
+    <div className="font-sans px-2 md:px-6">
       <div className="hidden md:block bg-white rounded-xl shadow-lg">
         <div className="overflow-x-auto">
           <div className="overflow-hidden rounded-t-xl border border-gray-200">

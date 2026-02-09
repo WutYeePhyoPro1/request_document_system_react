@@ -271,7 +271,7 @@ export default function ProductDetailModal({
               </div>
 
               {/* Qty Section */}
-              <div className="bg-blue-100 rounded-lg p-3 grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+              <div className="bg-blue-100 rounded-lg p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 <div className="flex flex-col items-center gap-1">
                   <div className="flex gap-2 items-center">
                     <Layers size={16} className="text-gray-500" />
@@ -279,7 +279,7 @@ export default function ProductDetailModal({
                       {t('damageForm.systemQty')}
                     </p>
                   </div>
-                  <p className="text-gray-800">{product.system_qty}</p>
+                  <p className="text-gray-800">{product.system_qty ?? 0}</p>
                 </div>
 
                 <div className="flex flex-col items-center gap-1">
@@ -289,7 +289,7 @@ export default function ProductDetailModal({
                       {t('damageForm.requestQty')}
                     </p>
                   </div>
-                  <p className="text-gray-800">{product.request_qty}</p>
+                  <p className="text-gray-800">{product.request_qty ?? 0}</p>
                 </div>
 
                 <div className="flex flex-col items-center gap-1">
@@ -299,7 +299,17 @@ export default function ProductDetailModal({
                       {t('damageForm.finalQty')}
                     </p>
                   </div>
-                  <p className="text-gray-800">{product.final_qty}</p>
+                  <p className="text-gray-800">{product.final_qty ?? 0}</p>
+                </div>
+
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex gap-2 items-center">
+                    <Layers size={16} className="text-gray-500" />
+                    <p className="text-xs font-semibold text-gray-500">
+                      {t('damageForm.actualQty', { defaultValue: 'Actual Qty' })}
+                    </p>
+                  </div>
+                  <p className="text-gray-800">{product.actual_qty ?? 0}</p>
                 </div>
               </div>
 

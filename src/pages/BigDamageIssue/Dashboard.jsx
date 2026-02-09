@@ -129,13 +129,13 @@ const Dashboard = () => {
     token ? [`/api/big-damage-issues?${query}`] : null,
     ([url]) => fetcher(url),
     { 
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
       revalidateOnMount: true,
-      dedupingInterval: 30000,
+      dedupingInterval: 0,
       refreshInterval: 0,
-      keepPreviousData: true,
-      revalidateIfStale: false,
+      keepPreviousData: false,
+      revalidateIfStale: true,
       onError: (error) => {
         if (error.status === 429) {
           setHas429Error(true);
