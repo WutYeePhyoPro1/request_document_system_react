@@ -65,8 +65,12 @@
   "damageForm": {
     "addProduct": "Add Product",
     "productCode": "Product Code",
+    "productName": "Product Name",
+    "productCategory": "Product Category",
     "quantity": "Quantity",
     "amount": "Amount",
+    "unit": "Unit",
+    "price": "Price",
     "remark": "Remark",
     "images": "Images",
     "viewImages": "View Images",
@@ -82,7 +86,19 @@
     "enterProductCodePlaceholder": "Enter product code...",
     "searching": "Searching...",
     "search": "Search",
-    "case": "Case"
+    "case": "Case",
+    "systemQty": "System Qty",
+    "requestQty": "Request Qty",
+    "finalQty": "Final Qty",
+    "title": "Big Damage Issue Form",
+    "docNo": "Doc No",
+    "date": "Date",
+    "requester": "Requester",
+    "pending": "Pending",
+    "approvalFlow": "Approval Flow",
+    "addRemark": "Add remark...",
+    "addImage": "Add Image",
+    "noImagesUploaded": "No images uploaded"
   },
   "approval": {
     "preparedBy": "Prepared by",

@@ -1135,6 +1135,9 @@ const handleInputChange = (id, field, value) => {
         // In these stages, always use actual_qty for amount calculation
         // Use the actual_qty from the updated item (which may have been changed)
         qtyForAmount = parseFloat(updatedItem.actual_qty) || 0;
+      } else if (mode === 'add') {
+        // In add mode, use request_qty for amount calculation (and fall back to request_qty if editing final_qty)
+        qtyForAmount = field === 'request_qty' ? qtyNumeric : (updatedItem.request_qty ?? 0);
       } else {
         // For other stages, use final_qty
         qtyForAmount = field === 'final_qty' ? qtyNumeric : (updatedItem.final_qty ?? qtyNumeric);
@@ -1142,7 +1145,7 @@ const handleInputChange = (id, field, value) => {
       const amountNumeric = (isNaN(qtyForAmount) || isNaN(price))
         ? 0
         : Math.round((qtyForAmount * price + Number.EPSILON) * 100) / 100;
-      
+
       updatedItem.amount = amountNumeric;
       updatedItem.total = amountNumeric;
     }
@@ -1152,45 +1155,41 @@ const handleInputChange = (id, field, value) => {
     if (field === 'request_qty') {
       const oldRequestQty = item.request_qty;
       const existingFinalQty = item.final_qty;
-      const isFinalQtyUnset = existingFinalQty === null || 
-                               existingFinalQty === undefined || 
+      const isFinalQtyUnset = existingFinalQty === null ||
+                               existingFinalQty === undefined ||
                                existingFinalQty === '' ||
                                existingFinalQty === 0 ||
                                (typeof existingFinalQty === 'string' && existingFinalQty.trim() === '');
-      
+
       // Update final_qty if:
       // 1. final_qty is unset, OR
       // 2. final_qty matches the old request_qty (meaning it was auto-synced, not manually edited)
-      const shouldUpdateFinalQty = isFinalQtyUnset || 
-                                   (oldRequestQty !== null && 
-                                    oldRequestQty !== undefined && 
+      const shouldUpdateFinalQty = isFinalQtyUnset ||
+                                   (oldRequestQty !== null &&
+                                    oldRequestQty !== undefined &&
                                     oldRequestQty !== '' &&
                                     Number(existingFinalQty) === Number(oldRequestQty));
-      
+
       if (shouldUpdateFinalQty && qtyNumeric !== null) {
         updatedItem.final_qty = value === '' ? '' : qtyNumeric;
       }
     }
-    
-    // CRITICAL: When request_qty is entered, do NOT automatically fill actual_qty
-    // They should be independent fields - user should enter actual_qty separately
-    // Only initialize actual_qty if it's truly unset (null/undefined/empty/0)
-    if (field === 'request_qty' && mode === 'add') {
-      const existingActualQty = item.actual_qty;
-      const isActualQtyUnset = existingActualQty === null || 
-                               existingActualQty === undefined || 
-                               existingActualQty === '' ||
-                               existingActualQty === 0 ||
-                               (typeof existingActualQty === 'string' && existingActualQty.trim() === '');
-      
-      // Only initialize actual_qty if it hasn't been set yet
-      if (isActualQtyUnset) {
-        // Don't auto-fill - let user enter actual_qty separately
-        // updatedItem.actual_qty = qtyNumeric; // REMOVED - don't auto-fill
-      } else {
-        // Preserve existing actual_qty value
-        updatedItem.actual_qty = existingActualQty;
+
+    // CRITICAL: When final_qty changes, update actual_qty to match for ongoing forms viewed by checker
+    // This ensures actual_qty stays in sync with final_qty when checker edits final_qty
+    if (field === 'final_qty') {
+      const normalizedStatus = (status || '').toString().trim().toLowerCase();
+      const isOngoingForChecker = (normalizedStatus === 'ongoing' || normalizedStatus === 'onging') && !isCompleted;
+
+      if (isOngoingForChecker && qtyNumeric !== null) {
+        // For ongoing forms viewed by checker, actual_qty should match final_qty
+        updatedItem.actual_qty = value === '' ? '' : qtyNumeric;
       }
+    }
+    
+    // In add mode, when request_qty changes, keep actual_qty in sync
+    if (field === 'request_qty' && mode === 'add' && qtyNumeric !== null) {
+      updatedItem.actual_qty = value === '' ? '' : qtyNumeric;
     }
     
     newItems[index] = updatedItem;
@@ -1202,8 +1201,8 @@ const handleInputChange = (id, field, value) => {
     return matchId === id;
   });
   
-  if (index !== -1) {
-    const item = items[index];
+    if (index !== -1) {
+      const item = items[index];
     // For quantity fields, preserve string value if it ends with dot (intermediate state)
     // Convert to number only for calculations, but keep string for display
     let valueToSend = value;
@@ -1233,6 +1232,8 @@ const handleInputChange = (id, field, value) => {
         // In these stages, always use actual_qty for amount calculation
         // Use the actual_qty from the item (which is the correct value for these stages)
         qtyForAmount = parseFloat(item.actual_qty) || 0;
+      } else if (mode === 'add' && field === 'request_qty') {
+        qtyForAmount = valueToSend === '.' ? 0 : (parseFloat(valueToSend) || 0);
       } else {
         // For other stages, use final_qty
         // Convert to number for calculation (handle string values like "2.")
@@ -1247,6 +1248,10 @@ const handleInputChange = (id, field, value) => {
       
       // Store the value (preserve string for display if it ends with dot)
       onItemChange(index, field, valueToSend);
+      if (mode === 'add' && field === 'request_qty') {
+        const actualQtyValue = valueToSend === '.' ? 0 : (parseFloat(valueToSend) || 0);
+        onItemChange(index, 'actual_qty', actualQtyValue);
+      }
       onItemChange(index, 'amount', amountNumeric);
       onItemChange(index, 'total', amountNumeric);
     } else {
@@ -1849,7 +1854,8 @@ const normalizeImageEntries = (list) => {
         qtyForTotal = 0;
       }
 
-      return sum + (price * qtyForTotal);
+      const itemTotal = price * qtyForTotal;
+      return sum + itemTotal;
     },
     0
   );
@@ -2165,6 +2171,16 @@ const normalizeImageEntries = (list) => {
       <div className="relative flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
         {/* Left side: Search box and Filter button */}
         <div className="relative flex items-center gap-2 w-full sm:w-auto order-2 sm:order-1">
+          {/* Select All - mobile only */}
+          <button
+            type="button"
+            onClick={toggleSelectAll}
+            className="md:hidden px-2 py-1.5 text-[0.75rem] border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-100 transition"
+          >
+            {selectedIds.length > 0 && paginatedItems.length > 0 && paginatedItems.every((item) => selectedIds.includes(item.id))
+              ? t('table.clearSelection', { defaultValue: 'Clear All' })
+              : t('table.selectAll', { defaultValue: 'Select All' })}
+          </button>
           <div className="relative w-full sm:w-55">
             <Search
               size={14}
@@ -2210,9 +2226,9 @@ const normalizeImageEntries = (list) => {
             )}
           </button>
 
-          {/* Account Code Selection Hint - Only show for branch account viewing BM Approved or OP Approved forms */}
+          {/* Account Code Selection Hint - Only show on desktop */}
           {isAccount && (status === 'BM Approved' || status === 'OPApproved' || status === 'OP Approved') && (
-            <div className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200 ml-2">
+            <div className="hidden md:inline-flex text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-md border border-blue-200 ml-2">
               {t('table.selectAllAccountCodesHint', {
                 defaultValue: 'You can select the account code all at once when you click select all button'
               })}
@@ -2221,9 +2237,9 @@ const normalizeImageEntries = (list) => {
 
           {/* Bulk Account Code Selector - Only show when items are selected and account codes are visible */}
           {showAccountCodes && selectedIds.length > 0 && !isCompleted && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-2 basis-full sm:basis-auto">
               <select
-                className="border border-emerald-300 rounded-md px-2 py-1.5 text-[0.75rem] sm:text-[0.8rem] bg-emerald-50 text-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-400 transition-all shadow-sm"
+                className="w-full border border-emerald-300 rounded-md px-2 py-1.5 text-[0.75rem] sm:text-[0.8rem] bg-emerald-50 text-emerald-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-400 transition-all shadow-sm"
                 value=""
                 onChange={(e) => {
                   if (e.target.value) {
@@ -3198,110 +3214,363 @@ const normalizeImageEntries = (list) => {
                       </div>
                       
                       {/* Editable quantity inputs for mobile */}
-                      {(status === 'Ongoing' || status === 'Checked' || status === 'checked') && !isCompleted && mode !== 'add' && (
-                        <div 
-                          className="mt-2 space-y-2"
+                      {(() => {
+                        // Determine which inputs to show based on user role and status (matching desktop logic)
+                        const normalizedStatus = (status || '').toString().trim();
+                        const isCheckedStage = (normalizedStatus === 'Checked' || normalizedStatus === 'checked') && !isCompleted;
+                        const isBMApprovedStage = normalizedStatus === 'BM Approved' || normalizedStatus === 'BMApproved';
+                        const isOPApprovedStage = normalizedStatus === 'OPApproved' || normalizedStatus === 'OP Approved';
+                        const isAcAcknowledgedStage = normalizedStatus === 'Ac_Acknowledged' || normalizedStatus === 'Acknowledged';
+
+                        // Determine edit permissions based on desktop logic
+                        const canEditActualQty = ((normalizedStatus === 'Checked' || normalizedStatus === 'checked') && !isCompleted) ||
+                                                 (isAccount && (isBMApprovedStage || isOPApprovedStage || isAcAcknowledgedStage));
+
+                        const canEditFinalQty = !isCheckedStage && mode !== 'add' && allowFinalQtyEdit && !(isOpManager && isOPApprovedStage);
+
+                        const canEditRequestQty = mode === 'add';
+
+                        // Show inputs if any editing is allowed
+                        const showInputs = canEditRequestQty || canEditActualQty || canEditFinalQty;
+
+                        if (!showInputs) {
+                          return null;
+                        }
+
+                        return (
+                          <div
+                            className="mt-2 space-y-2"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onTouchEnd={(e) => e.stopPropagation()}
+                            onPointerDown={(e) => e.stopPropagation()}
+                          >
+                            {/* Request Qty - shown in add mode */}
+                            {canEditRequestQty && (
+                              <div>
+                                <label
+                                  className="block text-xs text-gray-600 mb-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  {t('table.requestQty', { defaultValue: 'Request Qty' })}
+                                </label>
+                                <input
+                                  type="number"
+                                  data-item-id={item.id}
+                                  data-field="request_qty"
+                                  value={item.request_qty ?? ''}
+                                  step="any"
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const val = e.target.value;
+
+                                    // Mobile validation for system qty limits (same as desktop)
+                                    const systemQty = parseFloat(item.system_qty) || 0;
+                                    const numericValue = val === '' || val === '.' || !val ? 0 : parseFloat(val) || 0;
+
+
+                                    if (systemQty === 0 && numericValue > 0) {
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                      });
+                                      return;
+                                    }
+
+                                    if (systemQty > 0 && numericValue > systemQty) {
+                                      const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.requestQtyExceedsSystem', {
+                                          productName,
+                                          qty: numericValue,
+                                          systemQty,
+                                          defaultValue: `${productName}: Request Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                        })
+                                      });
+                                      return;
+                                    }
+
+                                    handleInputChange(item.id, 'request_qty', val);
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  min="0"
+                                />
+                              </div>
+                            )}
+
+                            {/* Final Qty - shown when allowed (not in checked stage for BM) */}
+                            {canEditFinalQty && (
+                              <div>
+                                <label
+                                  className="block text-xs text-gray-600 mb-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  {t('table.finalQty', { defaultValue: 'Final Qty' })}
+                                </label>
+                                <input
+                                  type="number"
+                                  data-item-id={item.id}
+                                  data-field="final_qty"
+                                  value={item.final_qty ?? ''}
+                                  step="any"
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const val = e.target.value;
+
+                                    // Mobile validation for system qty limits
+                                    const systemQty = parseFloat(item.system_qty) || 0;
+                                    const numericValue = val === '' || val === '.' ? 0 : parseFloat(val);
+
+                                    if (systemQty === 0 && numericValue > 0) {
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                      });
+                                      return;
+                                    }
+
+                                    if (systemQty > 0 && numericValue > systemQty) {
+                                      const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.finalQtyExceedsSystem', {
+                                          productName,
+                                          qty: numericValue,
+                                          systemQty,
+                                          defaultValue: `${productName}: Final Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                        })
+                                      });
+                                      return;
+                                    }
+
+                                    handleInputChange(item.id, 'final_qty', val);
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  min="0"
+                                />
+                              </div>
+                            )}
+
+                            {/* Actual Qty - shown for checker in ongoing, BM in checked, branch account in approved stages */}
+                            {canEditActualQty && (
+                              <div>
+                                <label
+                                  className="block text-xs text-gray-600 mb-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  {t('table.actualQty', { defaultValue: 'Actual Qty' })}
+                                </label>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  data-item-id={item.id}
+                                  data-field="actual_qty"
+                                  data-qty-field="true"
+                                  value={item.actual_qty ?? ''}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const nextValue = e.target.value;
+
+                                    // Allow empty, numbers, decimals, and intermediate states like "." or "5."
+                                    // Also allow comma (,) as decimal separator (common in some locales)
+                                    // Convert comma to dot for consistency
+                                    let normalizedValue = nextValue.replace(',', '.');
+
+                                    // Check: only digits and at most one dot (after normalization)
+                                    const hasOnlyDigitsAndOneDot = /^[\d.]*$/.test(normalizedValue) && (normalizedValue.match(/\./g) || []).length <= 1;
+
+                                    if (nextValue === '' || hasOnlyDigitsAndOneDot) {
+                                      const valueToUse = normalizedValue;
+                                      // Validate against system_qty (only if we have a valid number)
+                                      const systemQty = parseFloat(item.system_qty) || 0;
+                                      const numericValue = valueToUse === '' || valueToUse === '.' ? 0 : parseFloat(valueToUse);
+
+                                      if (systemQty === 0 && numericValue > 0) {
+                                        setQtyErrorModal({
+                                          isOpen: true,
+                                          message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                        });
+                                        return; // Don't update the value
+                                      }
+
+                                      if (systemQty > 0 && numericValue > systemQty) {
+                                        const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                        setQtyErrorModal({
+                                          isOpen: true,
+                                          message: t('messages.errors.actualQtyExceedsSystem', {
+                                            productName,
+                                            qty: numericValue,
+                                            systemQty,
+                                            defaultValue: `${productName}: Actual Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                          })
+                                        });
+                                        return; // Don't update the value
+                                      }
+
+                                      // Use handleQtyChange instead of handleInputChange to properly recalculate amount
+                                      handleQtyChange(item.id, valueToUse, 'actual_qty');
+
+                                      // Check if branch account is editing actual_qty in BM Approved status with amount > 500k
+                                      // OP Approved forms don't need warning as they're already approved by Operation Manager
+                                      const isBmApprovedOnly = status === 'BM Approved' || status === 'BMApproved';
+
+                                      // Calculate current total from items to check against 500k threshold
+                                      // Use the updated value for current item, existing values for others
+                                      const currentItemId = item.id;
+                                      const currentTotal = items.reduce((acc, currItem) => {
+                                        let qty;
+                                        if (String(currItem.id) === String(currentItemId)) {
+                                          // This is the current item being edited - use the new value
+                                          qty = parseFloat(valueToUse) || 0;
+                                        } else {
+                                          // Other items - use their current actual_qty
+                                          qty = parseFloat(currItem.actual_qty) || 0;
+                                        }
+                                        const price = parseFloat(currItem.price) || 0;
+                                        const amount = qty * price;
+                                        return acc + amount;
+                                      }, 0);
+
+                                      if (isAccount && isBmApprovedOnly && currentTotal > 500000) {
+                                        setAmountWarningModal({
+                                          isOpen: true,
+                                          message: t('messages.amountOver500kWarning', {
+                                            defaultValue: 'The total amount exceeds 500,000. Please click "Back to Previous" to return this form for Operation Manager approval before making changes.'
+                                          })
+                                        });
+                                      }
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    // Normalize value: handle empty, just ".", or trailing "."
+                                    let normalizedValue = e.target.value.trim();
+                                    if (normalizedValue === '' || normalizedValue === '.') {
+                                      normalizedValue = '0';
+                                    } else if (normalizedValue.endsWith('.')) {
+                                      // Remove trailing dot: "5." becomes "5"
+                                      normalizedValue = normalizedValue.slice(0, -1);
+                                    }
+                                    const systemQty = parseFloat(item.system_qty) || 0;
+                                    const numericValue = parseFloat(normalizedValue) || 0;
+                                    
+                                    // Validate on blur as well - show error but don't auto-change
+                                    if (systemQty === 0 && numericValue > 0) {
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
+                                      });
+                                      return;
+                                    }
+                                    
+                                    if (systemQty > 0 && numericValue > systemQty) {
+                                      const productName = item.product_name || item.name || item.product_code || item.code || t('common.product', { defaultValue: 'Product' });
+                                      setQtyErrorModal({
+                                        isOpen: true,
+                                        message: t('messages.errors.actualQtyExceedsSystem', {
+                                          productName,
+                                          qty: numericValue,
+                                          systemQty,
+                                          defaultValue: `${productName}: Actual Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
+                                        })
+                                      });
+                                      return;
+                                    }
+                                    
+                                    // Update with normalized value on blur
+                                    if (normalizedValue !== String(item.actual_qty ?? '')) {
+                                      handleQtyChange(item.id, normalizedValue, 'actual_qty');
+                                    }
+                                  }}
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                  onTouchStart={(e) => e.stopPropagation()}
+                                  onPointerDown={(e) => e.stopPropagation()}
+                                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  min="0"
+                                />
+                              </div>
+                            )}
+
+                            {/* Remark - always editable when inputs are shown */}
+                            <div>
+                              <label
+                                className="block text-xs text-gray-600 mb-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.stopPropagation()}
+                              >
+                                {t('table.remark', { defaultValue: 'Remark' })}
+                              </label>
+                              <input
+                                type="text"
+                                value={item.remark || ''}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  handleInputChange(item.id, 'remark', e.target.value);
+                                }}
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onTouchStart={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                placeholder={t('table.enterRemark', { defaultValue: 'Enter remark...' })}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Account Code - show in mobile detail card */}
+                      {showAccountCodes && (
+                        <div
+                          className="mt-2"
                           onClick={(e) => e.stopPropagation()}
                           onMouseDown={(e) => e.stopPropagation()}
                           onTouchStart={(e) => e.stopPropagation()}
                           onTouchEnd={(e) => e.stopPropagation()}
                           onPointerDown={(e) => e.stopPropagation()}
                         >
-                          <div className="flex gap-2">
-                            <div className="flex-1">
-                              <label 
-                                className="block text-xs text-gray-600 mb-0.5"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              >
-                                Request Qty
-                              </label>
-                              <input
-                                type="number"
-                                data-item-id={item.id}
-                                data-field="request_qty"
-                                value={item.request_qty ?? ''}
-                                step="any"
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  const val = e.target.value;
-                                  handleInputChange(item.id, 'request_qty', val);
-                                }}
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onTouchStart={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onPointerDown={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                min="0"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <label 
-                                className="block text-xs text-gray-600 mb-0.5"
-                                onClick={(e) => e.stopPropagation()}
-                                onMouseDown={(e) => e.stopPropagation()}
-                              >
-                                Final Qty
-                              </label>
-                              <input
-                                type="number"
-                                value={item.final_qty ?? ''}
-                                step="any"
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  const val = e.target.value;
-                                  handleInputChange(item.id, 'final_qty', val);
-                                }}
-                                onMouseDown={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onTouchStart={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                onPointerDown={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                min="0"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <label 
-                              className="block text-xs text-gray-600 mb-0.5"
-                              onClick={(e) => e.stopPropagation()}
-                              onMouseDown={(e) => e.stopPropagation()}
-                            >
-                              {t('table.remark', { defaultValue: 'Remark' })}
-                            </label>
-                            <input
-                              type="text"
-                              value={item.remark || ''}
+                          <label className="block text-xs text-gray-600 mb-0.5">
+                            {t('table.accountCode', { defaultValue: 'Account Code' })}
+                          </label>
+                          {isCompleted ? (
+                            <span className="inline-block w-full rounded border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+                              {getAccountCodeLabel(item.acc_code1 ?? item.acc_code ?? '')}
+                            </span>
+                          ) : (
+                            <select
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                              value={item.acc_code1 ?? item.acc_code ?? ''}
                               onChange={(e) => {
-                                e.stopPropagation();
-                                handleInputChange(item.id, 'remark', e.target.value);
+                                const matchId = item.id ?? item.specific_form_id;
+                                onItemAccountCodeChange(matchId, e.target.value);
                               }}
-                              onMouseDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onTouchStart={(e) => {
-                                e.stopPropagation();
-                              }}
-                              onPointerDown={(e) => {
-                                e.stopPropagation();
-                              }}
-                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                              placeholder={t('table.enterRemark', { defaultValue: 'Enter remark...' })}
-                            />
-                          </div>
+                            >
+                              <option value="">{t('table.chooseAccountCode', { defaultValue: 'Choose Account Code' })}</option>
+                              {accountCodes.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       )}
+
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">

@@ -507,11 +507,14 @@ export default function DamageView() {
             const price = Number(r.price ?? 0);
             // CRITICAL: Preserve actual_qty from database - don't use product_type or final_qty as fallback
             // actual_qty should remain as the original request quantity, even if final_qty changes
+            // If request_qty is 0, use final_qty as fallback
             const actualQty = (r.actual_qty !== undefined && r.actual_qty !== null)
               ? Number(r.actual_qty)
-              : ((r.request_qty !== undefined && r.request_qty !== null)
+              : ((r.request_qty !== undefined && r.request_qty !== null && r.request_qty !== 0)
                   ? Number(r.request_qty)
-                  : 0);
+                  : ((r.final_qty !== undefined && r.final_qty !== null)
+                      ? Number(r.final_qty)
+                      : 0));
             // Always recalculate amount to ensure accuracy (use final_qty for amount calculation)
             const finalQty = Number(r.final_qty ?? r.product_type ?? actualQty ?? 0);
             const amount = Number((price * finalQty).toFixed(2));
@@ -524,6 +527,11 @@ export default function DamageView() {
                
             }
             
+            // If request_qty is 0, use final_qty as fallback
+            const requestQty = (r.request_qty !== undefined && r.request_qty !== null && r.request_qty !== 0)
+              ? Number(r.request_qty)
+              : (r.final_qty !== undefined && r.final_qty !== null ? Number(r.final_qty) : 0);
+            
             return {
               id: r.id,
               category: (r.categories && r.categories.name) || '',
@@ -532,7 +540,7 @@ export default function DamageView() {
               name: r.product_name || '',
               unit: r.unit || '',
               system_qty: r.system_qty ?? 0,
-              request_qty: r.request_qty ?? 0,
+              request_qty: requestQty,
               final_qty: r.final_qty ?? 0,
               actual_qty: actualQty,
               price: price,
@@ -629,11 +637,14 @@ export default function DamageView() {
             const price = Number(r.price ?? 0);
             // CRITICAL: Preserve actual_qty from database - don't use product_type or final_qty as fallback
             // actual_qty should remain as the original request quantity, even if final_qty changes
+            // If request_qty is 0, use final_qty as fallback
             const actualQty = (r.actual_qty !== undefined && r.actual_qty !== null)
               ? Number(r.actual_qty)
-              : ((r.request_qty !== undefined && r.request_qty !== null)
+              : ((r.request_qty !== undefined && r.request_qty !== null && r.request_qty !== 0)
                   ? Number(r.request_qty)
-                  : 0);
+                  : ((r.final_qty !== undefined && r.final_qty !== null)
+                      ? Number(r.final_qty)
+                      : 0));
             
             // CRITICAL: Calculate amount based on form status
             // For Completed/Issued/SupervisorIssued forms, use actual_qty (price * actual_qty)
@@ -660,6 +671,11 @@ export default function DamageView() {
               ? r.images.find((entry) => entry && entry.path)
               : null;
 
+            // If request_qty is 0, use final_qty as fallback
+            const requestQty = (r.request_qty !== undefined && r.request_qty !== null && r.request_qty !== 0)
+              ? Number(r.request_qty)
+              : (r.final_qty !== undefined && r.final_qty !== null ? Number(r.final_qty) : 0);
+            
             return {
               id: r.id,
               category: (r.categories && r.categories.name) || '',
@@ -668,7 +684,7 @@ export default function DamageView() {
               name: r.product_name || '',
               unit: r.unit || '',
               system_qty: r.system_qty ?? 0,
-              request_qty: r.request_qty ?? 0,
+              request_qty: requestQty,
               final_qty: r.final_qty ?? 0,
               actual_qty: actualQty,
               price: price,
@@ -913,10 +929,12 @@ export default function DamageView() {
       return { record: payload, items, approvals, actions, attachments: operationFiles };
     },
     { 
-      revalidateOnFocus: false, 
-      revalidateOnReconnect: false, 
+      revalidateOnFocus: true, 
+      revalidateOnReconnect: true, 
       revalidateOnMount: true,
-      dedupingInterval: 1000 
+      dedupingInterval: 0,
+      keepPreviousData: false,
+      revalidateIfStale: true
     }
   );
 
@@ -926,6 +944,17 @@ export default function DamageView() {
   const actions = viewData?.actions || {};
   const operationFiles = viewData?.attachments || [];
   const gf = record?.general_form || {};
+
+  // Force revalidation when entering the form to ensure fresh data
+  // This ensures we always fetch fresh data instead of using stale SWR cache
+  useEffect(() => {
+    if (id && token) {
+      // Force revalidation when component mounts or id changes
+      // This bypasses any cached data and fetches fresh data from the server
+      mutate(undefined, { revalidate: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Only depend on id to revalidate when navigating to different forms
 
   // Mark form as viewed (but NOT mark notifications as read)
   // IMPORTANT: Notifications should only be marked as read when user completes their action (Check, Approve, Issue, etc.)
@@ -1199,9 +1228,10 @@ export default function DamageView() {
     branch: gf.from_branch_name || gf.to_branch_name || "",
     caseType: convertAssetTypeToCaseType(gf.case_type || gf.caseType || gf.asset_type || 'off'),
     datetime: gf.created_at || new Date().toISOString().slice(0, 16),
-    requester_name: gf.requester_name || gf.originator_name || gf.created_by_name || gf.originators?.name || '',
+    requester_name: gf.requester_name || gf.originator_name || gf.created_by_name || gf.originators?.name || gf.request_user_name || '',
     originator_name: gf.originators?.name || gf.originator_name || '',
     created_by_name: gf.created_by_name || gf.originators?.name || '',
+    request_user_name: gf.request_user_name || gf.originators?.name || '',
     user_name: gf.user?.name || '',
     user_id: gf.user_id || gf.created_by || null,
     created_by: gf.created_by || null,

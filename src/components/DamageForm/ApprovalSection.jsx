@@ -705,19 +705,33 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
           ? resolveName(matchingApproval, label, formData)
           : null,
         // For "Prepared by", check formData sources if not found in approval
+        // Use the same sources as the damage issue list: originators?.name || request_user_name
+        // Filter out 0 values - ensure we only use valid string names
         (label === 'Prepared by')
-          ? (
-              formData?.requester_name ||
-              formData?.originator_name ||
-              formData?.created_by_name ||
-              formData?.user_name ||
-              formData?.general_form?.requester_name ||
-              formData?.general_form?.originator_name ||
-              formData?.general_form?.created_by_name ||
-              formData?.general_form?.originators?.name ||
-              formData?.general_form?.user?.name ||
-              ''
-            )
+          ? (() => {
+              const candidates = [
+                formData?.general_form?.originators?.name,
+                formData?.general_form?.request_user_name,
+                formData?.originators?.name,
+                formData?.request_user_name,
+                formData?.requester_name,
+                formData?.originator_name,
+                formData?.created_by_name,
+                formData?.user_name,
+                formData?.general_form?.requester_name,
+                formData?.general_form?.originator_name,
+                formData?.general_form?.created_by_name,
+                formData?.general_form?.user?.name
+              ];
+              // Find first valid non-zero string value
+              const validName = candidates.find(name => 
+                name && 
+                name !== 0 && 
+                name !== '0' && 
+                (typeof name === 'string' ? name.trim() : String(name).trim())
+              );
+              return validName || '';
+            })()
           : null
       ];
 
@@ -727,12 +741,16 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
       const resolvedNameRaw = pickFirstFilled(...nameCandidates);
 
+      // Filter out 0 values - ensure we don't display 0 as a name
+      const cleanedNameRaw = (resolvedNameRaw && resolvedNameRaw !== '0' && resolvedNameRaw !== 0) 
+        ? resolvedNameRaw 
+        : '';
 
-      const hasAssignedName = Boolean(resolvedNameRaw && resolvedNameRaw.trim());
+      const hasAssignedName = Boolean(cleanedNameRaw && cleanedNameRaw.trim());
       const showDetails = isPreparedBy || hasActed;
 
       let resolvedName = hasActed
-        ? resolvedNameRaw
+        ? cleanedNameRaw
         : isCurrentStep
           ? (currentUser?.name || '')
           : null;
@@ -873,24 +891,39 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       };
       
       // For "Prepared by", always try to get name from formData if not in approval
-      if (label === 'Prepared by' && !resolvedName.trim()) {
-        const preparedName = formData?.requester_name ||
+      // Use the same sources as the damage issue list: originators?.name || request_user_name
+      if (label === 'Prepared by' && (!resolvedName || (typeof resolvedName === 'string' && !resolvedName.trim()))) {
+        const preparedName = formData?.general_form?.originators?.name ||
+                            formData?.general_form?.request_user_name ||
+                            formData?.originators?.name ||
+                            formData?.request_user_name ||
+                            formData?.requester_name ||
                             formData?.originator_name ||
                             formData?.created_by_name ||
                             formData?.user_name ||
                             formData?.general_form?.requester_name ||
                             formData?.general_form?.originator_name ||
                             formData?.general_form?.created_by_name ||
-                            formData?.general_form?.originators?.name ||
+                            formData?.general_form?.user?.name ||
                             '';
-        if (preparedName.trim()) {
-          resolvedName = preparedName;
+        // Filter out numeric values like 0 and ensure it's a valid string
+        if (preparedName && preparedName !== 0 && preparedName !== '0') {
+          const nameStr = typeof preparedName === 'string' ? preparedName : String(preparedName);
+          if (nameStr.trim() && nameStr.trim() !== '0') {
+            resolvedName = nameStr.trim();
+          }
         }
       }
       
+      // Filter out 0 values from resolvedName - ensure it's a valid string
+      if (resolvedName === 0 || resolvedName === '0' || (typeof resolvedName === 'string' && resolvedName.trim() === '0')) {
+        resolvedName = '';
+      }
+      
       // For "Checked by" in Ongoing forms, don't show name unless actually checked
+      const resolvedNameStr = resolvedName && typeof resolvedName === 'string' ? resolvedName.trim() : '';
       let displayName = showDetails
-        ? (resolvedName.trim() || (isCurrentStep && !hasActed ? "In Progress" : ""))
+        ? (resolvedNameStr || (isCurrentStep && !hasActed ? "In Progress" : ""))
         : "";
       
       if (label === 'Checked by' && (status === 'Ongoing' || status === 'ongoing') && !hasActed) {
@@ -948,7 +981,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
             ? isCancelledCard
               ? 'bg-red-100 text-red-700 border-blue-300'
               : isBmStage
-                ? 'bg-blue-100 text-blue-700 border-blue-300'
+                ? 'bg-green-100 text-blue-700 border-green-300'
                 : 'bg-green-100 text-green-700 border-green-300'
             : approval.isCurrentStep
             ? isCancelledCard
@@ -965,7 +998,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
         if (approval.acted) {
               return isBmStage 
-                ? '[box-shadow:inset_0_0_30px_rgba(59,130,246,0.25)]' // Blue inner shadow for BM Approved
+                ? '[box-shadow:inset_0_0_30px_rgba(34,197,94,0.25)]' // Green inner shadow for BM Approved
                 : '[box-shadow:inset_0_0_30px_rgba(34,197,94,0.25)]'; // Green inner shadow for acted
             }
             if (approval.isCurrentStep) {

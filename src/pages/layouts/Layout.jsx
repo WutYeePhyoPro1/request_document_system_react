@@ -49,6 +49,14 @@ export default function Layout() {
 
             {/* Sidebar + Page content */}
             <div className="flex flex-1 overflow-hidden">
+                {isSidebarOpen && (
+                    <button
+                        type="button"
+                        aria-label="Close sidebar"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="fixed inset-0 bg-black/40 z-40 lg:hidden"
+                    />
+                )}
                 <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
                 <div className="flex-1 overflow-y-auto p-3">
