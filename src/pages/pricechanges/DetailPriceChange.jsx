@@ -76,11 +76,19 @@ export default function () {
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
 
+    const  forwardable = (formState.status == 'Default' && originator.id == user.id)
+    const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
+    const runable = ((formState.status == "Approved" || formState.status == "Failed") && getApprover?.approval_users?.id == user.id)
+
     // (supervisor || approver) && formState?.status != 'Partial';
     const [copied, setCopied] = useState(false);
-    const [updateDoc, setUpdateDoc] = useState(false);
+    const updateDoc = useRef(false);
  
     const changeHandler = (e,actionMeta) => {
+        if(!changable) return;
+
+        updateDoc.current = true;
+
          // react-select
         // console.log(e,action);
         if (!e?.target) {
@@ -144,9 +152,12 @@ export default function () {
         });
         console.log(formState);
 
-        setUpdateDoc(true);
     };
     const pricesHandler = (e, product_code) => {
+        if(!changable) return;
+
+        updateDoc.current = true;
+
         const { name, value } = e.target;
 
         setProducts(prev =>
@@ -186,7 +197,6 @@ export default function () {
             })
         );
 
-        setUpdateDoc(true);
     };
     const [pricesErrors,setPricesErrors] = useState({});
 
@@ -205,6 +215,8 @@ export default function () {
         }
     };
     const searchHandler = async () => {
+            if(!changable) return;
+
             setSearching(true);
 
             try{
@@ -448,6 +460,7 @@ export default function () {
             //     title: "Form submitted successfully!",
             //     text: data.message,
             // });
+            console.log("Form submitted successfully!")
             fetchPriceChange(); 
             return true;
             // navigate(0);
@@ -470,6 +483,7 @@ export default function () {
         }
     }
     const excelImportHandler = async (e) => {
+        if(!changable) return;
         setImporting(true);
 
         try{
@@ -717,6 +731,8 @@ export default function () {
 
             setSupervisor(data.authorities.supervisor);
             setApprover(data.authorities.approver);
+
+            return normalizedForm;
         } catch(error){
             console.error('Fetch branches error:', error);
         }
@@ -729,16 +745,7 @@ export default function () {
     }
 
 
-    useEffect(() => {
-        const init = async () => {
-            await fetchBranches();
-            await fetchProductCategories();
-            await fetchPriceChange();
-        };
-
-        init();
-    }, []);
-
+    
     const handleCopy = () => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(formState.form_doc_no)
@@ -778,7 +785,8 @@ export default function () {
 
 
                 // Start Update & Approve
-                if(updateDoc){
+                // console.log(updateDoc.current);
+                if(updateDoc.current){
                     const submitSuccess = await submitHandler();
                     if (!submitSuccess) {
                         console.log("Submit failed");
@@ -809,18 +817,23 @@ export default function () {
                       return;
                     }
 
-                    Swal.fire({
-                        icon: "success",
-                        title: "Form submitted successfully!",
-                        text: data.message,
-                        // text: "hay"
-                    });
-                    fetchPriceChange(); 
+                    if(btnStatus == 'Approved'){
+                        console.log(`Form ${btnText} successfully!`);
+                    }else{
+                        Swal.fire({
+                            icon: "success",
+                            title: `Form ${btnText} successfully!`,
+                            text: data.message,
+                            // text: "hay"
+                        });
+                    }
+
+                    const updatedForm = await fetchPriceChange();
                     // navigate(0);
                     // navigate("/price_changes");
 
                     if(btnStatus == 'Approved'){
-                        runHandler();
+                        runHandler(false,updatedForm);
                     }
 
                 }catch(err){
@@ -835,6 +848,9 @@ export default function () {
                 }finally{
                     setForceLoading(false);
                     setIsSubmitting(false);
+
+                    confirmApprovedRef.current = false;
+                    approvingRef.current = false;
                 }
             }
         });
@@ -854,13 +870,14 @@ export default function () {
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     let runningRef = useRef(false);
     let confirmRunRef = useRef(false);
-    const runHandler = async (retry = false) => {
+    const runHandler = async (retry = false, latestForm = null) => {
+        const data = latestForm || formState;
 
         if(retry){
             if (runningRef.current) return;
             const result = await Swal.fire({
                 icon: "question",
-                text: "Are you sure you want to run the latest updated prices on POS servers?",
+                text: "Are you sure you want to run the latest updated prices on POS & ERP servers?",
                 showCancelButton: true,
                 confirmButtonText: "OK",
                 cancelButtonText: "Cancel",
@@ -882,7 +899,9 @@ export default function () {
         setShowModal(true);
         try {
             
-            const runBranches = formState.price_change_branches.filter(pcbranch=>pcbranch.status == 'Default' || pcbranch.status == 'Failed').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
+            // console.log(formState.price_change_branches);
+            const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
+            // console.log(runBranches);
             const updateRequests = runBranches.map(branchId => {
 
                 updateBranchStatus(branchId, "Updating");
@@ -894,7 +913,8 @@ export default function () {
                     .then(async (res) => {
                         if (res.data?.success === false) {
                             // updateBranchStatus(branchId, "failed", res.data.message);
-                            throw new Error(`Branch ${branchId} failed`);
+                            // throw new Error(`Branch ${branchId} failed`);
+                            throw new Error(res?.data?.message);
                         }
 
                         await sleep(2000);
@@ -931,23 +951,104 @@ export default function () {
                 text: "All branches updated and GCP document created successfully.",
             });
 
-            fetchPriceChange();
+            // fetchPriceChange();
             // navigate("/price_changes");
 
         } catch (err) {
-            console.error(err);
+            console.error(err,err.message);
 
-            Swal.fire({
-                icon: "error",
-                title: "Prices Run Error",
-                text: err.message || "Some branches failed to update.",
-            });
+            // Swal.fire({
+            //     icon: "error",
+            //     title: "Prices Run Error",
+            //     text: err.message || "Some branches failed to update.",
+            // });
         } finally {
             setForceLoading(false);
             setIsSubmitting(false);
             // setShowModal(false);
+
+            fetchPriceChange();
+
+            confirmRunRef.current = false;
+            runningRef.current = false;
         }
     };
+
+    const onlineHandler = async ()=>{
+        try {
+            
+            // console.log(formState.price_change_branches);
+            const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
+            // console.log(runBranches);
+            const updateRequests = runBranches.map(branchId => {
+
+                updateBranchStatus(branchId, "Updating");
+
+                return axios
+                    .get(`/api/price_changes/${id}/${branchId}/update_price`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    })
+                    .then(async (res) => {
+                        if (res.data?.success === false) {
+                            // updateBranchStatus(branchId, "failed", res.data.message);
+                            // throw new Error(`Branch ${branchId} failed`);
+                            throw new Error(res?.data?.message);
+                        }
+
+                        await sleep(2000);
+                        updateBranchStatus(branchId, res.data.status ,res.data.message);
+                        return res;
+                    })
+                    .catch(err => {
+                        updateBranchStatus(
+                            branchId,
+                            "Failed",
+                            err.response?.data?.message || err.message
+                        );
+                        throw err;
+                    });
+                });
+
+            const results = await Promise.all(updateRequests);
+
+            // =>Update Online File & Timestamp
+            //  Start GCP Document API
+            const gcpRes = await axios.get(
+                `/api/price_changes/${id}/gcp_document`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (gcpRes.data.success === false) {
+                throw new Error("GCP document creation failed");
+            }
+            // // End GCP Document API
+
+            Swal.fire({
+                icon: "success",
+                title: "POS Prices Updated",
+                text: "All branches updated and GCP document created successfully.",
+            });
+
+            // fetchPriceChange();
+            // navigate("/price_changes");
+
+        } catch (err) {
+            console.error(err,err.message);
+
+            // Swal.fire({
+            //     icon: "error",
+            //     title: "Update Online Error",
+            //     text: err.message || "Some branches failed to update.",
+            // });
+        } finally {
+            setForceLoading(false);
+            setIsSubmitting(false);
+            // setShowModal(false);
+
+            fetchPriceChange();
+
+        }
+    }
 
     const sendToSupervisorClick = async (e)=>{
         e.preventDefault();
@@ -1002,9 +1103,17 @@ export default function () {
             }
         });
     }
-    const  forwardable = (formState.status == 'Default' && originator.id == user.id)
-    const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
-    const runable = ((formState.status == "Approved" || formState.status == "Failed") && getApprover?.approval_users?.id == user.id)
+
+
+    useEffect(() => {
+        const init = async () => {
+            await fetchBranches();
+            await fetchProductCategories();
+            await fetchPriceChange();
+        };
+
+        init();
+    }, []);
 
     return (
         <>
@@ -1146,7 +1255,7 @@ export default function () {
                                     id="all_branches" 
                                     name="all_branches" 
                                     className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
-                                    onChange={changeHandler} 
+                                    onChange={(e) => changable && changeHandler(e)} 
                                     checked={formState.all_branches} 
                                 />
                                 All Branches
@@ -1160,7 +1269,7 @@ export default function () {
                                             type="checkbox" 
                                             className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
                                             value={branch.id} 
-                                            onChange={changeHandler} 
+                                            onChange={(e) => changable && changeHandler(e)} 
                                             checked={formState.branches.includes(branch.id)} 
                                         /> 
                                         {branch.branch_name}
@@ -1287,6 +1396,7 @@ export default function () {
                                     </div>
                                 </div>
 
+                                                
                                 <div className="flex items-end gap-3 md:col-span-2">
                                     <div className="flex-1">
                                         <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
