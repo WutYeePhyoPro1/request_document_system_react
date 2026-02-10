@@ -78,7 +78,8 @@ export default function () {
 
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
     const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
-    const runable = ((formState.status == "Approved" || formState.status == "Failed") && getApprover?.approval_users?.id == user.id)
+    const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
+    const onlineActionable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
 
     // (supervisor || approver) && formState?.status != 'Partial';
     const [copied, setCopied] = useState(false);
@@ -934,21 +935,22 @@ export default function () {
             const results = await Promise.all(updateRequests);
 
             // =>Only runs if ALL branches succeeded
+            //  =Update Online File & Timestamp
             //  Start GCP Document API
-            const gcpRes = await axios.get(
-                `/api/price_changes/${id}/gcp_document`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            // const gcpRes = await axios.get(
+            //     `/api/price_changes/${id}/gcp_document`,
+            //     { headers: { Authorization: `Bearer ${token}` } }
+            // );
 
-            if (gcpRes.data.success === false) {
-                throw new Error("GCP document creation failed");
-            }
+            // if (gcpRes.data.success === false) {
+            //     throw new Error("GCP document creation failed");
+            // }
             // // End GCP Document API
 
             Swal.fire({
                 icon: "success",
-                title: "POS Prices Updated",
-                text: "All branches updated and GCP document created successfully.",
+                title: "POS and ERP Prices Updated",
+                text: "All branches are now live with the updated pricing.",
             });
 
             // fetchPriceChange();
@@ -977,76 +979,12 @@ export default function () {
     const onlineHandler = async ()=>{
         try {
             
-            // console.log(formState.price_change_branches);
-            const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
-            // console.log(runBranches);
-            const updateRequests = runBranches.map(branchId => {
-
-                updateBranchStatus(branchId, "Updating");
-
-                return axios
-                    .get(`/api/price_changes/${id}/${branchId}/update_price`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    })
-                    .then(async (res) => {
-                        if (res.data?.success === false) {
-                            // updateBranchStatus(branchId, "failed", res.data.message);
-                            // throw new Error(`Branch ${branchId} failed`);
-                            throw new Error(res?.data?.message);
-                        }
-
-                        await sleep(2000);
-                        updateBranchStatus(branchId, res.data.status ,res.data.message);
-                        return res;
-                    })
-                    .catch(err => {
-                        updateBranchStatus(
-                            branchId,
-                            "Failed",
-                            err.response?.data?.message || err.message
-                        );
-                        throw err;
-                    });
-                });
-
-            const results = await Promise.all(updateRequests);
-
-            // =>Update Online File & Timestamp
-            //  Start GCP Document API
-            const gcpRes = await axios.get(
-                `/api/price_changes/${id}/gcp_document`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            if (gcpRes.data.success === false) {
-                throw new Error("GCP document creation failed");
-            }
-            // // End GCP Document API
-
-            Swal.fire({
-                icon: "success",
-                title: "POS Prices Updated",
-                text: "All branches updated and GCP document created successfully.",
-            });
-
-            // fetchPriceChange();
-            // navigate("/price_changes");
+         
 
         } catch (err) {
-            console.error(err,err.message);
-
-            // Swal.fire({
-            //     icon: "error",
-            //     title: "Update Online Error",
-            //     text: err.message || "Some branches failed to update.",
-            // });
+        
         } finally {
-            setForceLoading(false);
-            setIsSubmitting(false);
-            // setShowModal(false);
-
-            fetchPriceChange();
-
+        
         }
     }
 
@@ -1201,7 +1139,21 @@ export default function () {
                                 </button>
 
                             }
-                          
+
+                            {
+                                runable &&
+                                <button
+                                    className="px-4 py-2 text-sm rounded-lg
+                                        bg-green-600 text-white
+                                        hover:bg-green-700 transition"
+                                    value="Approved"
+                                    onClick={() => setShowModal(true)}
+                                    >
+                                    Apply Branch
+                                </button>
+
+                            }
+
                             {
                                 (supervisor || approver) ?
                                 <button
@@ -1214,21 +1166,6 @@ export default function () {
                                     Cancel
                                 </button> : ''
                             }
-
-                            {
-                                runable &&
-                                <button
-                                    className="px-4 py-2 text-sm rounded-lg
-                                        bg-sky-600 text-white
-                                        hover:bg-sky-700 active:bg-sky-800
-                                        transition shadow-sm"
-                                    onClick={()=>runHandler(true)}
-                                >
-                                    Run
-                                </button>
-                            }
-                        
-
                         </div>
                     </div>
                 </header>
@@ -1560,16 +1497,53 @@ export default function () {
             <div className="bg-white rounded-xl shadow-xl w-full max-w-1/2 mx-4 overflow-hidden">
 
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-slate-50 border-gray-200">
-                <h2 className="text-lg font-semibold">
-                POS Branch Update Status
-                </h2>
-                <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-                >
-                ✕
-                </button>
+            <div className="border-b bg-slate-50 border-gray-200">
+                <div className="flex items-center justify-between px-6 py-4 ">
+                    <h2 className="text-lg font-semibold">
+                    POS Branch Update Status
+                    </h2>
+                    <button
+                    onClick={() => setShowModal(false)}
+                    className="text-gray-400 hover:text-gray-600"
+                    >
+                    ✕
+                    </button>
+                </div>
+                <ul className="p-0.5">
+                    {
+                        runable &&
+                        <li  className="flex items-center justify-start p-2 rounded-lg bg-white border border-gray-200 gap-2">
+                            {
+                                runable &&
+                                <button
+                                    className="px-4 py-2 text-sm rounded-lg
+                                        bg-sky-600 text-white
+                                        hover:bg-sky-700 active:bg-sky-800
+                                        transition shadow-sm"
+                                    onClick={()=>runHandler(true)}
+                                >
+                                    Run
+                                </button>
+                            }
+
+
+                            {
+                                true &&
+                                <button
+                                    className="px-4 py-2 text-sm font-medium rounded-lg
+                                        bg-blue-600 text-white 
+                                        hover:bg-blue-700 transition shadow-sm"
+                                    onClick={approveHandler}
+                                    value="Approved"
+                                >
+                                    Update Price Online
+                                </button>
+                            }
+                        </li>
+                    }
+
+
+                </ul>
             </div>
 
             {/* Body */}
@@ -1578,6 +1552,8 @@ export default function () {
                     {/* {
                         formState.price_change_branches?.map((branch) => console.log(formState.price_change_branches) )
                     } */}
+                   
+
                 {formState.price_change_branches?.map((pcbranch) => (
                     <li
                     key={pcbranch}

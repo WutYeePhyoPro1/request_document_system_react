@@ -48,7 +48,7 @@ export default function StatusBadge({ status, count }) {
         return "bg-[#e9f9cf] text-[#a3e635]";
       case "already changed":
          return "bg-[#007bff1a] text-[#007bff]";
-      case "failed":
+      case "partial":
           return "bg-[#ffb703] text-[#7c2d12] font-bold";
       default:
         return "bg-gray-200 text-gray-600";
