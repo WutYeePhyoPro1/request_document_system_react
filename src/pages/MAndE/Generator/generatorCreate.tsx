@@ -16,7 +16,7 @@ import {
 import React, { useRef, useState } from "react";
 import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
-import { FilesIcon } from "lucide-react";
+import { FilesIcon, Loader } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
@@ -172,7 +172,7 @@ const GeneratorCreate: React.FC = () => {
         formData.append(`file[${index}]`, fileItem.file);
       }
     });
-
+setLoading(true);
     try {
       const token = localStorage.getItem("token");
 
@@ -193,11 +193,20 @@ const GeneratorCreate: React.FC = () => {
         title: "Error",
         text: "Something went wrong while saving data",
       });
+    }finally{
+      setLoading(false) ;
     }
   };
+const FullPageLoader = () => (
+    <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
+      <Loader size="xl" color="blue" />
+    </div>
+  );
 
+  
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 relative" >
+        {loading && <FullPageLoader />}
       {/* Header Image */}
       <img
         src={cctvPhoto}
