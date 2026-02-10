@@ -161,10 +161,10 @@ const TableDetail: React.FC<Props> = ({
           </span>,
 
           // ⚙ Action
-          <Group gap="xs" key={`action-${element.id}`}>
+          <Group gap="xs" key={`action-${element.id}`} >
             {generalForm?.status == "Default" &&
               authUserId == generalForm?.user_id && (
-                <>
+                <div className="flex gap-2">
                   <Link
                     to={`/generator_edit/${element.id}`}
                     state={{ generalForm }}
@@ -184,7 +184,7 @@ const TableDetail: React.FC<Props> = ({
                   >
                     <IconTrash size={16} />
                   </Button>
-                </>
+                </div>
               )}
           </Group>,
         ])
