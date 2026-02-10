@@ -76,10 +76,17 @@ export default function () {
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
 
+    // const allBranchUpdated = formState?.price_change_branches.every(
+    //     branch => branch.status === "Updated"
+    // );
+    const allBranchUpdated = formState?.price_change_branches?.every(
+    branch => branch.status === "Updated"
+    );
+    // const allBranchUpdated = true;
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
     const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
     const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
-    const onlineActionable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
+    const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) && allBranchUpdated;
 
     // (supervisor || approver) && formState?.status != 'Partial';
     const [copied, setCopied] = useState(false);
@@ -934,18 +941,7 @@ export default function () {
 
             const results = await Promise.all(updateRequests);
 
-            // =>Only runs if ALL branches succeeded
-            //  =Update Online File & Timestamp
-            //  Start GCP Document API
-            // const gcpRes = await axios.get(
-            //     `/api/price_changes/${id}/gcp_document`,
-            //     { headers: { Authorization: `Bearer ${token}` } }
-            // );
 
-            // if (gcpRes.data.success === false) {
-            //     throw new Error("GCP document creation failed");
-            // }
-            // // End GCP Document API
 
             Swal.fire({
                 icon: "success",
@@ -976,10 +972,63 @@ export default function () {
         }
     };
 
-    const onlineHandler = async ()=>{
+    let updatingRef = useRef(false);
+    let confirmUpdateRef = useRef(false);
+    const onlineHandler = async (e)=>{
+        if (updatingRef.current) return;
+
+
+        var btnText = e.target.textContent;
+
         try {
+            Swal.fire({
+                icon: "question",
+                text:  `Are you sure you want to ${btnText}?`,
+                showCancelButton: true,
+                confirmButtonText: "OK",
+                cancelButtonText: "Cancel",
+            }).then(async (result) => {
+
+                if (result.isConfirmed && !confirmUpdateRef.current) {
+                    confirmUpdateRef.current = true;
+                    updatingRef.current = true;
+
+                    // console.log("Online:");
+
+                    setForceLoading(true);
+                    setIsSubmitting(true);
+
+                    try{
+                        
+
+                    }catch(err){
+
+
+                    }finally{
+                        setForceLoading(false);
+                        setIsSubmitting(false);
+
+                        confirmUpdateRef.current = false;
+                        updatingRef.current = false;
+                    }
+                }
+            });
+
+
             
-         
+
+            // =>Only runs if ALL branches succeeded
+            //  =Update Online File & Timestamp
+            //  Start GCP Document API
+            // const gcpRes = await axios.get(
+            //     `/api/price_changes/${id}/gcp_document`,
+            //     { headers: { Authorization: `Bearer ${token}` } }
+            // );
+
+            // if (gcpRes.data.success === false) {
+            //     throw new Error("GCP document creation failed");
+            // }
+            // End GCP Document API
 
         } catch (err) {
         
@@ -1141,7 +1190,7 @@ export default function () {
                             }
 
                             {
-                                runable &&
+                                (runable || onlineActionable) &&
                                 <button
                                     className="px-4 py-2 text-sm rounded-lg
                                         bg-green-600 text-white
@@ -1494,7 +1543,7 @@ export default function () {
         {showModal && formState.price_change_branches && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-1/2 mx-4 overflow-hidden">
+            <div className="bg-white rounded-xl shadow-xl w-full lg:max-w-1/2 mx-4 overflow-hidden">
 
             {/* Header */}
             <div className="border-b bg-slate-50 border-gray-200">
@@ -1511,7 +1560,7 @@ export default function () {
                 </div>
                 <ul className="p-0.5">
                     {
-                        runable &&
+                        (runable || onlineActionable) &&
                         <li  className="flex items-center justify-start p-2 rounded-lg bg-white border border-gray-200 gap-2">
                             {
                                 runable &&
@@ -1528,12 +1577,12 @@ export default function () {
 
 
                             {
-                                true &&
+                                onlineActionable &&
                                 <button
                                     className="px-4 py-2 text-sm font-medium rounded-lg
                                         bg-blue-600 text-white 
                                         hover:bg-blue-700 transition shadow-sm"
-                                    onClick={approveHandler}
+                                    onClick={onlineHandler}
                                     value="Approved"
                                 >
                                     Update Price Online
