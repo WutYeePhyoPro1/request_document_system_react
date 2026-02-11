@@ -66,7 +66,8 @@ export const hasAllBranchAccessUser = (user) => {
     for (const key of branchFlags) {
         if (!(key in user)) continue;
         const value = user[key];
-        if (value === true || value === 1 || value === '1' || value === 'true') {
+        // Check for 'on' value to match backend logic (normalized to lowercase)
+        if (value === true || value === 1 || value === '1' || value === 'true' || normaliseText(value) === 'on') {
             return true;
         }
     }
