@@ -14,7 +14,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
 
     return (
         <div
-            className={`fixed top-0 left-0 h-screen w-64 bg-white shadow-lg transition-all duration-300 z-50
+            className={`fixed top-0 left-0 h-screen w-64 bg-gray-100 shadow-lg transition-all duration-300 z-50
         ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}
         lg:relative lg:translate-x-0 flex flex-col`}
         >
@@ -33,14 +33,14 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
             <nav className="flex-1 overflow-y-auto mt-2">
                 <ul className="space-y-1">
                     <li>
-                        <Link to="/dashboard" className="flex items-center p-3 hover:bg-gray-100 rounded-md">
+                        <Link to="/dashboard" className="flex items-center p-3 hover:bg-gray-200 rounded-md">
                             <AiOutlineDashboard className="text-blue-400" size={20} />
                             <span className="ml-3">{t('sidebar.dashboard')}</span>
                         </Link>
                     </li>
 
                     <li>
-                        <Link to="/big_damage_issue" className="flex items-center p-3 hover:bg-gray-100 rounded-md">
+                        <Link to="/big_damage_issue" className="flex items-center p-3 hover:bg-gray-200 rounded-md">
                             <FaBook className="text-blue-400" size={20} />
                             <span className="ml-3">{t('sidebar.bigDamageIssue')}</span>
                         </Link>
@@ -56,8 +56,8 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                             <button
                                 onClick={() => !item.disabled && toggleMenu(item.key)}
                                 className={`flex items-center justify-between w-full p-3 rounded-md ${item.disabled
-                                    ? "bg-gray-50 text-gray-400 cursor-not-allowed opacity-50"
-                                    : "hover:bg-gray-100"
+                                    ? "bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
+                                    : "hover:bg-gray-200"
                                     }`}
                                 disabled={item.disabled}
                             >
@@ -81,7 +81,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar }) => {
                         <button
                             onClick={() => { }}
                             disabled
-                            className="flex items-center justify-between w-full p-3 rounded-md bg-gray-50 text-gray-400 cursor-not-allowed opacity-50"
+                            className="flex items-center justify-between w-full p-3 rounded-md bg-gray-200 text-gray-400 cursor-not-allowed opacity-50"
                         >
                             <div className="flex items-center">
                                 <FiInfo className="text-blue-300" size={20} />

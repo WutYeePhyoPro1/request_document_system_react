@@ -2262,8 +2262,22 @@ const normalizeImageEntries = (list) => {
 
         {/* Right side: Action buttons and Add Product button */}
         <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
-          {/* Delete button - Only for account, not for supervisor */}
-          {!isCompleted && !isSupervisorUser && selectedIds.length > 0 && (
+          {/* Delete button - Same logic as Add button: Show for Ongoing or Checked (approver only) status, hide for Account and regular users */}
+          {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || 
+            (status === 'Checked' && isApproverRole)) && 
+           status !== 'Completed' && 
+           status !== 'Issued' && 
+           status !== 'SupervisorIssued' &&
+           mode !== 'add' && 
+           status !== 'BM Approved' && 
+           status !== 'BMApproved' &&
+           status !== 'Ac_Acknowledged' && 
+           status !== 'Acknowledged' &&
+           !isAccount && 
+           !isUserRole && 
+           !isSupervisorUser && 
+           !(isCheckerRole && ((status || '').toString().toLowerCase() === 'checked')) &&
+           selectedIds.length > 0 && (
             <button
               onClick={confirmMultipleDelete}
               className="flex items-center gap-1 px-2 py-[1px] text-[0.65rem] sm:text-[0.75rem] bg-red-600 text-white rounded hover:bg-red-700 transition"
@@ -3702,7 +3716,22 @@ const normalizeImageEntries = (list) => {
           <p className="text-center text-gray-400 text-sm py-6">{t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}</p>
         )}
 
-        {!isCompleted && selectedIds.length > 0 && (
+             {/* Delete button - Same logic as Add button: Show for Ongoing or Checked (approver only) status, hide for Account and regular users */}
+             {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || 
+            (status === 'Checked' && isApproverRole)) && 
+           status !== 'Completed' && 
+           status !== 'Issued' && 
+           status !== 'SupervisorIssued' &&
+           mode !== 'add' && 
+           status !== 'BM Approved' && 
+           status !== 'BMApproved' &&
+           status !== 'Ac_Acknowledged' && 
+           status !== 'Acknowledged' &&
+           !isAccount && 
+           !isUserRole && 
+           !isSupervisorUser && 
+           !(isCheckerRole && ((status || '').toString().toLowerCase() === 'checked')) &&
+           selectedIds.length > 0 && (
           <div className="sticky bottom-2 left-0 w-full flex justify-center mt-3">
             <button
               onClick={confirmMultipleDelete}

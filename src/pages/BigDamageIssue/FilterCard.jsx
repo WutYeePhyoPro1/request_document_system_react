@@ -71,7 +71,7 @@ const CONTROL_CLASSES = `w-full border px-2 text-[#012970] font-bold rounded-[8p
       ...base,
       fontSize: '0.8rem',
       padding: '8px 12px',
-    backgroundColor: state.isSelected ? '#DBEAFE' : state.isFocused ? '#F3F4F6' : 'white',
+    backgroundColor: state.isSelected ? '#DBEAFE' : state.isFocused ? '#F3F4F6' : '#F9FAFB',
       color: state.isSelected ? '#1E40AF' : '#374151',
       fontWeight: state.isSelected ? '600' : '400',
       cursor: 'pointer',
@@ -200,7 +200,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
   const inputStyle = { fontSize: '11px', height: '30px', paddingTop: '4px', paddingBottom: '4px' };
 
   return (
-    <div className="bg-white shadow-lg rounded-xl p-4 w-full">
+    <div className="bg-gray-100 shadow-lg rounded-xl p-4 w-full">
       <form onSubmit={(e) => { e.preventDefault(); handleSearch(); }}>
         <div className="flex flex-wrap lg:flex-nowrap items-end gap-3">
           <div className="w-full sm:w-auto sm:flex-1 min-w-[140px]">
