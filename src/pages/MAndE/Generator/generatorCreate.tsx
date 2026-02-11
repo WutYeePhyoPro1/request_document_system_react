@@ -275,12 +275,18 @@ const GeneratorCreate: React.FC = () => {
               />
             </div>
           </div>
-          <div className="relative grid g                rid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <label htmlFor="">Engine Oil%</label>
               <input
                 type="number"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 name="engine_oil_level"
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -293,6 +299,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="fuel_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -306,6 +318,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="coolant_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -317,6 +335,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="battery_volt_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -330,6 +354,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="l1_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -341,6 +371,12 @@ const GeneratorCreate: React.FC = () => {
               <input
                 type="number"
                 name="l2_level"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -355,6 +391,12 @@ const GeneratorCreate: React.FC = () => {
               <input
                 type="number"
                 name="l3_level"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -367,6 +409,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="total_kw_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -381,6 +429,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="voltageL_l_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -392,6 +446,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="gen_kva_level"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -405,6 +465,12 @@ const GeneratorCreate: React.FC = () => {
                 type="number"
                 name="running_hour"
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -428,6 +494,12 @@ const GeneratorCreate: React.FC = () => {
               <input
                 type="number"
                 name="generator_cleaning_level"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
