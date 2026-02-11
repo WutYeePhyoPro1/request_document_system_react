@@ -5,6 +5,7 @@ import { useNavigate,useParams } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
 import { FaFileImport,FaSpinner,FaInfoCircle } from "react-icons/fa";
+import { BsCartCheck } from "react-icons/bs";
 import { FiCopy } from 'react-icons/fi';
 
 import $ from "jquery";
@@ -63,6 +64,7 @@ export default function () {
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
+    const [transfering,setTransfering] = useState(false);
 
     const [originator,setOriginator] = useState(null);
     const [getApprover,setGetApprover] = useState(null);
@@ -86,7 +88,11 @@ export default function () {
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
     const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
     const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
-    const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) && allBranchUpdated;
+    const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
+                                && allBranchUpdated 
+                                && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).length <= 0;
+    const trackable = getApprover?.approval_users?.id == user.id;
+    const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).length > 0
 
     // (supervisor || approver) && formState?.status != 'Partial';
     const [copied, setCopied] = useState(false);
@@ -845,12 +851,12 @@ export default function () {
                     }
 
                 }catch(err){
-                    console.log('There is an error in saving price change document:',err);
+                    console.log('There is an error in approving price change document:',err);
                     // setLoader(false);
 
                     Swal.fire({
                         icon: "error",
-                        title: "Form Submit Error!!",
+                        title: "Form Approve Error!!",
                         text: "Something went wrong while submitting the form.",
                     });
                 }finally{
@@ -980,7 +986,6 @@ export default function () {
 
         var btnText = e.target.textContent;
 
-        try {
             Swal.fire({
                 icon: "question",
                 text:  `Are you sure you want to ${btnText}?`,
@@ -998,42 +1003,103 @@ export default function () {
                     setForceLoading(true);
                     setIsSubmitting(true);
 
+                    const branchCodeList = formState.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
+                    const productList = products.map(product => ({
+                        productCode: product.product_code,
+                        itemCode: product.product_code,
+                        normalPrice: parseFloat(product.price1),
+                        memberPrice: parseFloat(product.price2),
+                        effectiveDate: formState.effective_date
+                    }));
+                    const timestamp = Date.now().toString();
+                    // const timestamp = (Date.now() + 2 * 60 * 1000).toString();
+                    console.log(timestamp);
+
+                    const formData = {
+                        data:{
+                            branchCodeList,
+                            productList,
+                            timestamp
+                        }
+                    }
+                    console.log(formData);
                     try{
-                        
+                        const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
+                            headers: {
+                            Authorization: `Bearer ${token}`,
+                            },
+                        });
+
+                        console.log(res);
+
+                        const data = res.data;
+
+                        if(data.success == false){
+                            return;
+                        }
+
+                        // const updatedForm = await fetchPriceChange();
+                        // Swal.fire({
+                        //     icon: "success",
+                        //     title: `Update online successfully!`,
+                        //     text: data.message,
+                        // });
+
+                        transferGCPHandler();
 
                     }catch(err){
+                        console.log('There is an error in updating onlilne:',err);
 
+                        Swal.fire({
+                            icon: "error",
+                            title: "Update Online Error",
+                            text: "Something went wrong while updating online.",
+                        });
 
                     }finally{
                         setForceLoading(false);
                         setIsSubmitting(false);
+
+                        fetchPriceChange();
 
                         confirmUpdateRef.current = false;
                         updatingRef.current = false;
                     }
                 }
             });
+    }
+
+    const transferGCPHandler = async ()=>{
+        setTransfering(true);
+        try{
+            // //  =Update Online File & Timestamp
+            // //  Start GCP Document API
+            const gcpRes = await axios.get(
+                `/api/price_changes/${id}/gcp_document`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (gcpRes.data?.success === false) {
+                throw new Error("GCP document creation failed");
+            }
 
 
-            
+            Swal.fire({
+                icon: "success",
+                title: "Price Change Form Process Finished Successfully!",
+                text: "Online Update and GCP document created successfully.",
+            });
+            // // End GCP Document API
+        }catch(err){
+            Swal.fire({
+                icon: "error",
+                title: "GCP Document Error!!",
+                text: "Something went wrong while creating GCP Document.",
+            });
+        }finally {
+            setTransfering(false);
 
-            // =>Only runs if ALL branches succeeded
-            //  =Update Online File & Timestamp
-            //  Start GCP Document API
-            // const gcpRes = await axios.get(
-            //     `/api/price_changes/${id}/gcp_document`,
-            //     { headers: { Authorization: `Bearer ${token}` } }
-            // );
-
-            // if (gcpRes.data.success === false) {
-            //     throw new Error("GCP document creation failed");
-            // }
-            // End GCP Document API
-
-        } catch (err) {
-        
-        } finally {
-        
+            fetchPriceChange();
         }
     }
 
@@ -1190,7 +1256,7 @@ export default function () {
                             }
 
                             {
-                                (runable || onlineActionable) &&
+                                (trackable) &&
                                 <button
                                     className="px-4 py-2 text-sm rounded-lg
                                         bg-green-600 text-white
@@ -1278,12 +1344,12 @@ export default function () {
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
                                 <div className="col-span-1 md:col-span-2 xl:col-span-3">
                                     <div className="flex flex-col md:flex-row gap-4 mb-2">
-                                        {generalFormFiles.length > 0 &&
+                                        {generalFormFiles.filter(gf=>gf.name.includes("CP")).length > 0 &&
                                             <label className="text-base font-bold text-[#007bff] uppercases">GCP Document No:</label>
                                         }
                                         <div>
                                         {
-                                            generalFormFiles.map((generalFormFile,idx)=>(
+                                            generalFormFiles.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
                                                 <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}</label>
                                             ))
                                         }
@@ -1549,7 +1615,7 @@ export default function () {
             <div className="border-b bg-slate-50 border-gray-200">
                 <div className="flex items-center justify-between px-6 py-4 ">
                     <h2 className="text-lg font-semibold">
-                    POS Branch Update Status
+                    Branch Price Update Status
                     </h2>
                     <button
                     onClick={() => setShowModal(false)}
@@ -1560,7 +1626,7 @@ export default function () {
                 </div>
                 <ul className="p-0.5">
                     {
-                        (runable || onlineActionable) &&
+                        (runable || onlineActionable || transferable) &&
                         <li  className="flex items-center justify-start p-2 rounded-lg bg-white border border-gray-200 gap-2">
                             {
                                 runable &&
@@ -1583,9 +1649,22 @@ export default function () {
                                         bg-blue-600 text-white 
                                         hover:bg-blue-700 transition shadow-sm"
                                     onClick={onlineHandler}
-                                    value="Approved"
                                 >
                                     Update Price Online
+                                </button>
+                            }
+
+                            {
+                                // transferGCPHandler
+                                transferable &&
+                                <button
+                                    className="px-4 py-2 text-sm font-medium rounded-lg
+                                        bg-blue-600 text-white 
+                                        hover:bg-blue-700 transition shadow-sm"
+                                    onClick={transferGCPHandler}
+                                    disabled={transfering}
+                                >
+                                    {transfering ? 'Loading...' : 'Transfer To GCP'}
                                 </button>
                             }
                         </li>
@@ -1601,7 +1680,21 @@ export default function () {
                     {/* {
                         formState.price_change_branches?.map((branch) => console.log(formState.price_change_branches) )
                     } */}
-                   
+                    {
+                    generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).map((online,idx)=>(
+                        <li
+                            className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-gray-200 font-semibold text-blue-900"
+                            key={idx}
+                            >
+                            <div className="font-mediums flex flex-col">
+                            {online.name}: {formatStrDateTime(online?.created_at)}
+                            </div>
+                            <span className="text-sm text-green-600s flex items-center">
+                                <span className="text-2xl me-2"><BsCartCheck/></span> <span>Online</span>
+                            </span>
+                        </li>
+                    ))}
+
 
                 {formState.price_change_branches?.map((pcbranch) => (
                     <li
