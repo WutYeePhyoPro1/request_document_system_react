@@ -8,6 +8,7 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { fetchData } from '../../api/FetchApi';
 import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
+import { FiCopy } from 'react-icons/fi';
 
 import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
 
@@ -19,6 +20,9 @@ export default function IndexPriceChange() {
         { value: "Ongoing", label: "Ongoing" },
         { value: "Checked", label: "Checked" },
         { value: "Approved", label: "Approved" },
+        { value: "Partial", label: "Partial" },
+        { value: "Completed", label: "Completed" },
+        { value: "Already changed", label: "Already changed" },
         { value: "Cancel", label: "Cancel" },
     ];
     const [branches, setBranches] = useState([]);
@@ -60,6 +64,24 @@ export default function IndexPriceChange() {
     const handlePageClick = (page) => {
         if (page >= 1 && page <= paginationInfo.last_page) {
             dispatch(fetchPriceChanges({filters,searchQuery: isSearchMode ? 'all' : '',page}));
+        }
+    };
+
+    const [copied, setCopied] = useState(false);
+    const handleCopy = (e,id) => {
+        const data = datas.find(data=>data.id == id);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(data.form_doc_no)
+                .then(() => {
+                    setCopied(data.id);
+                    setTimeout(() => setCopied(false), 2000);
+                })
+                .catch((err) => {
+                    console.error("Clipboard copy failed:", err);
+                    fallbackCopy(formState.form_doc_no);
+                });
+        } else {
+            fallbackCopy(formState.form_doc_no);
         }
     };
 
@@ -267,7 +289,23 @@ export default function IndexPriceChange() {
                                                         <td className="py-2 px-4 border-b">
                                                             <StatusBadge status={data.status} />
                                                         </td>
-                                                        <td className="py-2 px-4 border-b">{data.form_doc_no}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {data.form_doc_no}
+                                                            <button
+                                                                onClick={(e)=>{
+                                                                    e.stopPropagation(); 
+                                                                    handleCopy(e,data.id)
+                                                                }}
+                                                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == data.id
+                                                                    ? 'text-green-600 bg-green-50'
+                                                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                                                    }`}
+                                                                title={copied == data.id ? "Copied!" : "Copy ID"}
+                                                                disabled={copied == data.id}
+                                                            >
+                                                                {copied == data.id ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                            </button>
+                                                        </td>
                                                         <td className="py-2 px-4 border-b">{data.date}</td>
                                                         <td className="py-2 px-4 border-b">{data.to_category.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
@@ -306,7 +344,13 @@ export default function IndexPriceChange() {
                                                 </li>
                                             ))}
                                         </ul>
+                                </div>
+
+                                {paginationInfo && (
+                                    <div className="text-center text-sm text-gray-600 mt-4">
+                                        Total {paginationInfo.total} Rows
                                     </div>
+                                )}
                             </div>
 
                     </div >

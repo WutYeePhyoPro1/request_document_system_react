@@ -1,7 +1,7 @@
 import React, { useEffect, useState,useCallback, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { confirmAlert } from "react-confirm-alert";
-import { useNavigate,useParams } from "react-router-dom";
+import { useNavigate,useParams,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
 import { FaFileImport,FaSpinner,FaInfoCircle } from "react-icons/fa";
@@ -15,7 +15,7 @@ import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
-import {formatDate,formatStrDateTime} from "../../components/Fomatter.jsx";
+import {formatDate,formatStrDateTime,formatTo2Decimals} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
 import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
@@ -187,10 +187,7 @@ export default function () {
                     const price1 = Number(item.price1);
                     const newCost = Number(value);
 
-                    const profit =
-                        (price1 > 0 && newCost > 0)
-                            ? ((price1 - newCost) / price1)
-                            : 0;
+                    const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
                 }
@@ -199,10 +196,7 @@ export default function () {
                     const price1 = Number(value);
                     const newCost = Number(item.new_cost_price) || 0;
 
-                    const profit =
-                        (newCost > 0 && price1 > 0)
-                            ? ((price1 - newCost) / price1)
-                            : 0;
+                    const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
                 }
@@ -302,12 +296,12 @@ export default function () {
             const apiProduct = data.data;
 
             const new_cost_price = apiProduct.new_cost_price || row["New Cost Price"] || '';
-            const price1 = apiProduct.price2 | row["Price 2"] || '';
+            const price1 = apiProduct.price1 || row["Price 1"] || '';
             const result = {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
-                price1: apiProduct.price1 || row["Price 1"] || '',
-                price2: apiProduct.price2 | row["Price 2"] || '',
+                price1: apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '',
+                price2: apiProduct.price2 | row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
                 new_cost_price: apiProduct.new_cost_price || row["New Cost Price"] || '',
                 profit: calculateProfit(new_cost_price,price1),
                 remark: 0
@@ -340,14 +334,16 @@ export default function () {
         }
     }
 
-    const calculateProfit = (new_cost_price, price1)=>{
-        const profit = price1 > 0 || new_cost_price > 0
+    const calculateProfit = (new_cost_price = 0, price1 = 0)=>{
+        const profit = price1 > 0
                             ? ((price1 - new_cost_price) / price1)
                             : 0;
         return profit;
     }
 
     const removeHandler = (e,product_code)=>{
+        if(!changable) return;
+
         e.preventDefault();
         // console.log(product_code);
 
@@ -1281,6 +1277,14 @@ export default function () {
                                     Cancel
                                 </button> : ''
                             }
+
+                            <Link
+                                to="/price_changes"
+                                className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
+                            >
+                                <span className="mr-1 sm:mr-2">←</span> Back
+                            </Link>
+                            
                         </div>
                     </div>
                 </header>

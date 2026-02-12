@@ -17,7 +17,10 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
         <table id="productTable" className="table table-striped" style={{ tableLayout: "auto" }}>
             <thead className="sticky top-0 z-30" style={tablestyle['thead']}>
                 <tr>
-                    <th style={tablestyle['th']}>Actions</th>
+                    {
+                        authorizedEdit &&
+                            <th style={tablestyle['th']}>Actions</th>
+                    }
                     <th style={tablestyle['th']}>No</th>
                     <th style={tablestyle['th']}>Product Code</th>
                     <th style={tablestyle['th']}>Product Name</th>
@@ -35,14 +38,17 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                 {
                     data.map((item,index)=>(
                         <tr key={index}>
-                            <td>
-                                <span
-                                    onClick={(e) => removeHandler(e,item.product_code)}
-                                    className="cursor-pointer text-red-500 text-lg hover:text-red-600"
-                                    role="button"
-                                    aria-label="Remove product"
-                                ><FaMinusCircle className="text-red-500 text-lg" /></span>
-                            </td>
+                            {
+                                authorizedEdit &&
+                                <td>
+                                    <span
+                                        onClick={(e) => removeHandler(e,item.product_code)}
+                                        className="cursor-pointer text-red-500 text-lg hover:text-red-600"
+                                        role="button"
+                                        aria-label="Remove product"
+                                    ><FaMinusCircle className="text-red-500 text-lg" /></span>
+                                </td>
+                            }
                             <td>{++index}</td>
                             <td>{item.product_code}</td>
                             <td>{item.product_name}</td>
