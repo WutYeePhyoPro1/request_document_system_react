@@ -319,7 +319,7 @@ export default function DamageFormHeader({
 
       <div className=" space-y-4 mb-0 pb-0">
  
-        <div className="bg-white   rounded-2xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mt-2 relative overflow-hidden">
+        <div className="bg-gray-50   rounded-2xl p-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-0 mt-2 relative overflow-hidden">
           {(() => {
             const status = formData.status;
             if (!status) return null;

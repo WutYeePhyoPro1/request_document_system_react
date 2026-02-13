@@ -265,7 +265,7 @@ function DamageIssueList({
     return (
                       <tr
                         key={row.id}
-                        className="border-b border-gray-200 hover:bg-gray-100 transition duration-150 ease-in-out cursor-pointer"
+                        className="border-b border-gray-200 bg-gray-100 hover:bg-gray-200 transition duration-150 ease-in-out cursor-pointer"
                         onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
                       >
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 w-12">
@@ -274,7 +274,7 @@ function DamageIssueList({
                         <td className="px-4 py-3 whitespace-nowrap text-center">
                           <StatusBadge status={gf.status || '-'} />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-medium">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 font-bold">
                           <div className="flex items-center gap-2">
             <span>{formDocNo}</span>
             <span className="whitespace-nowrap">{renderNotificationBadge(row, gf)}</span>
@@ -345,11 +345,11 @@ function DamageIssueList({
                     navigateToDetail(detailId, row.id, gf.id || null);
                   }
                 }}
-                className="bg-white rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="bg-gray-100 rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
               >
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-base font-semibold text-gray-900 break-all">
+                    <p className="text-base font-bold text-gray-900 break-all">
                       {formDocNo}
                     </p>
                     <StatusBadge status={gf.status || '-'} />
@@ -417,7 +417,7 @@ function DamageIssueList({
 
   return (
     <div className="font-sans px-2 md:px-6">
-      <div className="hidden md:block bg-white rounded-xl shadow-lg">
+      <div className="hidden md:block bg-gray-100 rounded-xl shadow-lg">
         <div className="overflow-x-auto">
           <div className="overflow-hidden rounded-t-xl border border-gray-200">
             {loading ? (
@@ -428,7 +428,7 @@ function DamageIssueList({
               <EmptyState />
             ) : (
               <table className="min-w-full">
-                <thead className="bg-white border-b border-gray-200">
+                <thead className="bg-gray-100 border-b border-gray-200">
                   <tr>
                     {headers.map((header, index) => (
                       <th
@@ -452,7 +452,7 @@ function DamageIssueList({
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white">
+                <tbody className="bg-gray-100">
                   {pagedVisibleIssues.map((row, idx) => renderRow(row, idx))}
                 </tbody>
               </table>
@@ -464,7 +464,7 @@ function DamageIssueList({
       <div className="md:hidden space-y-4">
         {loading ? (
           [...Array(3)].map((_, index) => (
-            <div key={`mobile-skeleton-${index}`} className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+            <div key={`mobile-skeleton-${index}`} className="bg-gray-100 rounded-xl shadow-md border border-gray-200 p-4">
               <div className="flex items-start justify-between">
                 <Skeleton width={80} height={16} />
                 <Skeleton width={90} height={24} borderRadius={999} />
@@ -477,7 +477,7 @@ function DamageIssueList({
             </div>
           ))
         ) : isEmpty ? (
-          <div className="bg-white rounded-xl shadow-md border border-gray-200">
+          <div className="bg-gray-100 rounded-xl shadow-md border border-gray-200">
             <EmptyState />
           </div>
         ) : (
