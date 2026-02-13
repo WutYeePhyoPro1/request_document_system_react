@@ -96,9 +96,9 @@ const GeneratorCreate: React.FC = () => {
     l3_level: "L3 is required",
     total_kw_level: "Total KW is required",
     voltageL_l_level: "Voltage L-L is required",
-    gen_kva_level: "GEN KVA is required",
+    load_level: "Load % is required",
     running_hour: "Running Hour is required",
-    generator_service_date: "Service Date is required",
+    // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
     remark: "Remark is required",
   };
@@ -140,6 +140,7 @@ const GeneratorCreate: React.FC = () => {
       "fuel_level",
       "coolant_level",
       "generator_cleaning_level",
+      "load_level",
     ];
 
     const rangeErrors: string[] = [];
@@ -441,10 +442,10 @@ const GeneratorCreate: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor=""> GEN KVA</label>
+              <label htmlFor=""> Load%</label>
               <input
                 type="number"
-                name="gen_kva_level"
+                name="load_level"
                 required
                 min="0"
                 onKeyDown={(e) => {
@@ -490,7 +491,7 @@ const GeneratorCreate: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> Generator Cleaning</label>
+              <label htmlFor=""> Generator Cleaning%</label>
               <input
                 type="number"
                 name="generator_cleaning_level"

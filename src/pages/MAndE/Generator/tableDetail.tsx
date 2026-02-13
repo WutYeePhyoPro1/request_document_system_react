@@ -14,6 +14,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { generatorDelete } from "../../../api/ME/Generator/generatos";
 import Swal from "sweetalert2";
 import { NotificationContext } from "../../../context/NotificationContext";
+import {
+  fullNumberFormat,
+  numberFormat,
+} from "../../../utils/requestDiscountUtil/helper";
 
 type Props = {
   detailData: {
@@ -107,6 +111,7 @@ const TableDetail: React.FC<Props> = ({
       "L3",
       "Total KW",
       "Voltage L-L",
+      "Load",
       "Generator Kva",
       "Running Hour",
       "Service Date",
@@ -126,16 +131,19 @@ const TableDetail: React.FC<Props> = ({
           element.engine_oil_level,
           element.fuel_level,
           element.coolant_level,
-          element.battery_volt_level,
-          element.l1_level,
-          element.l2_level,
-          element.l3_level,
-          element.total_kw_level,
-          element.voltageL_l_level,
-          element.gen_kva_level,
-          element.running_hour,
-          element.generator_service_date,
-          element.generator_cleaning_level,
+          fullNumberFormat(element.battery_volt_level),
+          fullNumberFormat(element.l1_level),
+          fullNumberFormat(element.l2_level),
+          fullNumberFormat(element.l3_level),
+          fullNumberFormat(element.total_kw_level),
+          fullNumberFormat(element.voltageL_l_level),
+          fullNumberFormat(element.load_level ? element.load_level : ""),
+          fullNumberFormat(element.gen_kva_level),
+          fullNumberFormat(element.running_hour),
+          element.generator_service_date
+            ? element.generator_service_date
+            : "not have ",
+          fullNumberFormat(element.generator_cleaning_level),
           element.remark,
 
           // 📎 Image
@@ -161,7 +169,7 @@ const TableDetail: React.FC<Props> = ({
           </span>,
 
           // ⚙ Action
-          <Group gap="xs" key={`action-${element.id}`} >
+          <Group gap="xs" key={`action-${element.id}`}>
             {generalForm?.status == "Default" &&
               authUserId == generalForm?.user_id && (
                 <div className="flex gap-2">
