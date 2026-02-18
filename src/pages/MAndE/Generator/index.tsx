@@ -68,6 +68,7 @@ const Index: React.FC = () => {
       fetchData();
     }
   }, []);
+  
   const fetchData = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -92,8 +93,8 @@ const Index: React.FC = () => {
       setLoading(false);
     }
   };
-  // console.log("SearchTerm>>", generalData);
-  // console.log("createdUser>>", generalData?.meta?.createdUser);
+  console.log("SearchTerm>>", generalData);
+  console.log("createdUser>>", generalData?.meta?.createdUser);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
