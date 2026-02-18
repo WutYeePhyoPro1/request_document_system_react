@@ -1,0 +1,67 @@
+/* Base table */
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    font-size: 0.9rem;
+    color: #212529;
+    background-color: #fff;
+}
+
+/* Table head */
+.table thead th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #000;
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #dee2e6;
+    white-space: nowrap;
+}
+
+/* Table body cells */
+.table tbody td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+/* Hover effect */
+.table-hover tbody tr:hover {
+    background-color: #f1f3f5;
+}
+
+/* Striped rows */
+.table-striped tbody tr:nth-of-type(odd) {
+    background-color: #f8f9fa;
+}
+
+/* Bordered table */
+.table-bordered {
+    border: 1px solid #dee2e6;
+}
+
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #dee2e6;
+}
+
+/* Small table */
+.table-sm th,
+.table-sm td {
+    padding: 0.4rem;
+}
+
+/* Responsive scroll (important for your requirement) */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+}
+
+/* Optional alignment helpers */
+.text-center {
+    text-align: center;
+}
+.text-end {
+    text-align: right;
+}

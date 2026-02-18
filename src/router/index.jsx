@@ -31,6 +31,10 @@ import Index from "../pages/MAndE/Generator/index.js";
 import GeneratorCreate from "../pages/MAndE/Generator/generatorCreate.js";
 import GeneratorDetail from "../pages/MAndE/Generator/GeneratorDetail.js";
 import GeneratorEdit from "../pages/MAndE/Generator/generatorEdit.js";
+import IndexPriceChange from "../pages/pricechanges/IndexPriceChange.jsx";
+import CreatePriceChange from "../pages/pricechanges/CreatePriceChange.jsx";
+import DetailPriceChange from "../pages/pricechanges/DetailPriceChange.jsx";
+
 const LoginRoute = () => {
     const token = localStorage.getItem('token');
     return token ? <Navigate to="/dashboard" /> : <Login />;
@@ -155,6 +159,18 @@ const router = createBrowserRouter([
             {
                 path: "generator_edit/:id" ,
                 element:<GeneratorEdit/>
+            },
+            {
+                path: "price_changes" ,
+                element: <IndexPriceChange/>
+            },
+            {
+                path: "price_changes/create",
+                element: <CreatePriceChange />
+            },
+            {
+                path: "price_changes_detail/:id",
+                element: <DetailPriceChange />
             },
         ]
     }

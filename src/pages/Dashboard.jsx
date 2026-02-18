@@ -125,6 +125,7 @@ useEffect(() => {
             }
           })
         );
+        // console.log(counts);
 
         // console.log('[MAIN_DASHBOARD_DEBUG] Final formCounts:', counts);
         setFormCounts(counts);
@@ -156,6 +157,7 @@ useEffect(() => {
     "CCTV Request Form": "📹",
     "Stock Adjust Form": "⚙️",
     "Coupon Voucher": "📑",
+    "Price Change Form": "💲"
     }
   const requests = allForm.map((form) => ({
     title:form?.name || '' ,
