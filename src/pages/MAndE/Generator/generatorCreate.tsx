@@ -448,6 +448,7 @@ const GeneratorCreate: React.FC = () => {
                 name="load_level"
                 required
                 min="0"
+                max="500"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();

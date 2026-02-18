@@ -210,6 +210,7 @@ const GeneratorEdit: React.FC = () => {
       fuel_level: "Fuel %",
       coolant_level: "Coolant %",
       generator_cleaning_level: "Generator Cleaning",
+      load_level: "Load%",
     };
 
     const rangeErrors: string[] = [];
@@ -520,7 +521,7 @@ const GeneratorEdit: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor=""> GEN KVA</label>
+              <label htmlFor=""> Load%</label>
               <input
                 onChange={handleChange}
                 type="number"
@@ -528,6 +529,7 @@ const GeneratorEdit: React.FC = () => {
                 value={form.load_level}
                 required
                 min="0"
+                max="500"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
