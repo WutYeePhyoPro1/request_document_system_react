@@ -12,7 +12,7 @@ const LoadingScreen = () => {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center">
       {/* Blur backdrop background - frosted glass effect */}
-      <div className="absolute inset-0 backdrop-blur-xl bg-gray-100/30"></div>
+      <div className="absolute inset-0 backdrop-blur-xl bg-gray-100/50"></div>
 
       {/* Logo container with animations */}
       <div className="relative z-10 flex flex-col items-center">
@@ -195,7 +195,7 @@ useEffect(() => {
               key={index}
               to={`/${form.route?.toLowerCase().replace(/\s+/g, "-")}`}
               className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition 
-                bg-white border-blue-300 hover:shadow-lg cursor-pointer
+                bg-gray-100 border-blue-200 hover:shadow-lg cursor-pointer
               `
             }
             >

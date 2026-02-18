@@ -37,7 +37,7 @@ const GeneratorEdit: React.FC = () => {
     l3_level: "",
     total_kw_level: "",
     voltageL_l_level: "",
-    gen_kva_level: "",
+    load_level: "",
     running_hour: "",
     generator_service_date: "",
     generator_cleaning_level: "",
@@ -173,9 +173,9 @@ const GeneratorEdit: React.FC = () => {
     l3_level: "L3 is required",
     total_kw_level: "Total KW is required",
     voltageL_l_level: "Voltage L-L is required",
-    gen_kva_level: "GEN KVA is required",
+    load_level: "Load % is required",
     running_hour: "Running Hour is required",
-    generator_service_date: "Service Date is required",
+    // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
     remark: "Remark is required",
   };
@@ -344,6 +344,12 @@ const GeneratorEdit: React.FC = () => {
                 onChange={handleChange}
                 required
                 name="engine_oil_level"
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 value={form.engine_oil_level}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -358,6 +364,12 @@ const GeneratorEdit: React.FC = () => {
                 name="fuel_level"
                 value={form.fuel_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -373,6 +385,12 @@ const GeneratorEdit: React.FC = () => {
                 name="coolant_level"
                 value={form.coolant_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -386,6 +404,12 @@ const GeneratorEdit: React.FC = () => {
                 name="battery_volt_level"
                 value={form.battery_volt_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -401,6 +425,12 @@ const GeneratorEdit: React.FC = () => {
                 name="l1_level"
                 value={form.l1_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -415,6 +445,12 @@ const GeneratorEdit: React.FC = () => {
                 name="l2_level"
                 value={form.l2_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -431,6 +467,12 @@ const GeneratorEdit: React.FC = () => {
                 name="l3_level"
                 value={form.l3_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -444,6 +486,12 @@ const GeneratorEdit: React.FC = () => {
                 name="total_kw_level"
                 value={form.total_kw_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -460,6 +508,12 @@ const GeneratorEdit: React.FC = () => {
                 name="voltageL_l_level"
                 value={form.voltageL_l_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -470,9 +524,15 @@ const GeneratorEdit: React.FC = () => {
               <input
                 onChange={handleChange}
                 type="number"
-                name="gen_kva_level"
-                value={form.gen_kva_level}
+                name="load_level"
+                value={form.load_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -488,6 +548,12 @@ const GeneratorEdit: React.FC = () => {
                 name="running_hour"
                 value={form.running_hour}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -500,7 +566,6 @@ const GeneratorEdit: React.FC = () => {
                 type="date"
                 name="generator_service_date"
                 value={form.generator_service_date}
-                required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
@@ -509,13 +574,19 @@ const GeneratorEdit: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> Generator Cleaning</label>
+              <label htmlFor=""> Generator Cleaning%</label>
               <input
                 onChange={handleChange}
                 type="number"
                 name="generator_cleaning_level"
                 value={form.generator_cleaning_level}
                 required
+                min="0"
+                onKeyDown={(e) => {
+                  if (e.key === "-" || e.key === "e") {
+                    e.preventDefault();
+                  }
+                }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}

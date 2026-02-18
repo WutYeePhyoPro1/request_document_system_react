@@ -308,7 +308,7 @@ const Dashboard = () => {
 
   return (
     <div>
-      <div className="bg-white border-b border-gray-200 px-6 py-3 mb-4">
+      <div className="bg-gray-100 border-b border-gray-200 px-6 py-3 mb-4">
         <h1 className="text-lg font-semibold text-[#012970] mb-2">Request Document System</h1>
         <nav className="text-sm text-gray-600">
           <span>Dashboard</span>
@@ -356,10 +356,10 @@ const Dashboard = () => {
       {isFilterOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div className="absolute inset-0 bg-black opacity-40" onClick={() => setIsFilterOpen(false)} />
-          <div className="relative ml-auto w-full max-w-md bg-white h-full shadow-xl overflow-auto p-4">
+          <div className="relative ml-auto w-full max-w-md bg-gray-100 h-full shadow-xl overflow-auto p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-semibold text-[#012970]">Filters</h3>
-              <button onClick={() => setIsFilterOpen(false)} className="p-2 rounded bg-gray-100">
+              <button onClick={() => setIsFilterOpen(false)} className="p-2 rounded bg-gray-200">
                 <XMarkIcon className="h-5 w-5 text-gray-600" />
               </button>
             </div>

@@ -972,7 +972,7 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
   const displayApprovals = buildDisplayApprovals();
 
   return (
-    <div className="bg-white rounded-xl p-4 shadow-sm">
+    <div className="bg-gray-50 rounded-xl p-4 shadow-sm">
       <div className="grid grid-cols-2 md:flex md:flex-nowrap gap-2 w-full" style={{ fontSize: '13px' }}>
         {displayApprovals.map((approval, index) => {
           const isBmStage = (approval.label || '').toLowerCase().includes('bm approved');
@@ -1017,8 +1017,8 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
                 (approval.label || '').toLowerCase().includes('cancelled')
                   ? ''
                   : approval.acted
-                    ? 'bg-white'
-                    : 'bg-white'
+                    ? 'bg-gray-50'
+                    : 'bg-gray-50'
               } md:shadow-sm ${getInnerShadowClass()} md:[box-shadow:none]`}
               style={(approval.label || '').toLowerCase().includes('cancelled') 
                 ? { backgroundColor: '#fda19d' } 

@@ -108,3 +108,18 @@ export const numberFormat = (
   }).format(num);
 };
 
+export const fullNumberFormat = (
+  value: number | string | null | undefined,
+  decimal = 0
+): string => {
+  if (value === null || value === undefined || value === "") return "-";
+
+  const num = Number(value);
+  if (isNaN(num)) return "-";
+
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimal,
+    maximumFractionDigits: decimal,
+  }).format(num);
+};
+

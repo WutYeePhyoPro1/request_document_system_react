@@ -3716,7 +3716,22 @@ const normalizeImageEntries = (list) => {
           <p className="text-center text-gray-400 text-sm py-6">{t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}</p>
         )}
 
-        {!isCompleted && selectedIds.length > 0 && (
+             {/* Delete button - Same logic as Add button: Show for Ongoing or Checked (approver only) status, hide for Account and regular users */}
+             {((status === 'Ongoing' || status?.toLowerCase() === 'ongoing') || 
+            (status === 'Checked' && isApproverRole)) && 
+           status !== 'Completed' && 
+           status !== 'Issued' && 
+           status !== 'SupervisorIssued' &&
+           mode !== 'add' && 
+           status !== 'BM Approved' && 
+           status !== 'BMApproved' &&
+           status !== 'Ac_Acknowledged' && 
+           status !== 'Acknowledged' &&
+           !isAccount && 
+           !isUserRole && 
+           !isSupervisorUser && 
+           !(isCheckerRole && ((status || '').toString().toLowerCase() === 'checked')) &&
+           selectedIds.length > 0 && (
           <div className="sticky bottom-2 left-0 w-full flex justify-center mt-3">
             <button
               onClick={confirmMultipleDelete}

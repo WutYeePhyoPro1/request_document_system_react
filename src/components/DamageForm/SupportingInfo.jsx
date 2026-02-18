@@ -543,7 +543,7 @@ export default function SupportingInfo({
                   return (
                     <div 
                       key={file.id} 
-                      className="relative bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col group"
+                      className="relative bg-gray-50 border border-gray-200 rounded-lg shadow-sm overflow-hidden flex flex-col group"
                     >
                       {!isCompleted && !effectiveReadOnly && (
                         <button 

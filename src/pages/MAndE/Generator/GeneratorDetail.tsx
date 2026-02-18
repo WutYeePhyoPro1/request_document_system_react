@@ -122,7 +122,7 @@ const GeneratorDetail: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold">
-                  Request Discount Form(
+                  MAndE Generator Form(
                   {detailData?.generalForm?.form_doc_no
                     ? detailData?.generalForm?.form_doc_no
                     : ""}
@@ -213,7 +213,7 @@ const GeneratorDetail: React.FC = () => {
                         detailData?.generalForm?.status,
                       ) ? (
                         <div>
-                          sdfnmdnsfm
+                          {/* sdfnmdnsfm */}
                           <div className="font-medium ">Checked By</div>
                           <div className="font-semibold text-blue-400 mt-1">
                             {detailData?.getApprover?.approval_users?.title}{" "}

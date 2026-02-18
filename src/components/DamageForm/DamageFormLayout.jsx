@@ -5813,7 +5813,7 @@ const resolveApproveAction = () => {
   };
 
   return (
-    <div className="p-2 sm:p-6 md:p-8 bg-white shadow-lg min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
+    <div className="p-2 sm:p-6 md:p-8 bg-gray-100 shadow-lg min-h-screen space-y-4 sm:space-y-6 font-sans w-full">
       {isSubmitting && <Pro1LoadingAnimation message={getLoadingMessage()} />}
       
       {error && (
@@ -5924,8 +5924,8 @@ const resolveApproveAction = () => {
             className="absolute inset-0 bg-black/50 modal-backdrop" 
             onClick={handleCloseAddProductModal}
           />
-          <div className="relative bg-white rounded-lg shadow-xl w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto modal-expandable">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <div className="relative bg-gray-50 rounded-lg shadow-xl w-11/12 max-w-4xl max-h-[90vh] overflow-y-auto modal-expandable">
+            <div className="sticky top-0 bg-gray-50 border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
               <h3 className="text-lg font-semibold text-gray-800">Add Product</h3>
               <button
                 onClick={handleCloseAddProductModal}
@@ -5963,7 +5963,7 @@ const resolveApproveAction = () => {
       {dupModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDupModal({ open: false, code: '' })} />
-          <div className="relative bg-white rounded-lg shadow-xl w-11/12 max-w-sm p-5">
+          <div className="relative bg-gray-50 rounded-lg shadow-xl w-11/12 max-w-sm p-5">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Duplicate Product</h3>
             <p className="text-sm text-gray-600 mb-4">The product code <span className="font-mono font-semibold">{dupModal.code}</span> is already added.</p>
             <div className="flex justify-end gap-2">
@@ -5981,7 +5981,7 @@ const resolveApproveAction = () => {
       {notFoundModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setNotFoundModal({ open: false, code: '' })} />
-          <div className="relative bg-white rounded-lg shadow-xl w-11/12 max-w-sm p-5">
+          <div className="relative bg-gray-50 rounded-lg shadow-xl w-11/12 max-w-sm p-5">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Product Not Found</h3>
             <p className="text-sm text-gray-600 mb-4">We couldn't find any data for product code <span className="font-mono font-semibold">{notFoundModal.code}</span>.</p>
             <div className="flex justify-end gap-2">
@@ -6310,7 +6310,7 @@ const resolveApproveAction = () => {
         // Only show ISS information if we have at least one of them
         if (remarkTypeLabel || issNumbers.length > 0) {
           return (
-            <div className="bg-white rounded-xl  space-y-3">
+            <div className="rounded-xl  space-y-3">
               <h4 className="text-xs sm:text-sm font-semibold text-gray-800 flex items-center gap-2 mb-3">
                 <Hash size={18} className="text-gray-600" />
                 {t('iss.title', { defaultValue: 'ISS Information' })}

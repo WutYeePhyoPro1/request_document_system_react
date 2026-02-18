@@ -59,13 +59,13 @@ export default function Layout() {
                 )}
                 <Sidebar isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
 
-                <div className="flex-1 overflow-y-auto p-3">
+                <div className="flex-1 overflow-y-auto p-3 bg-gray-100">
                     <Outlet />
                 </div>
             </div>
 
             {/* Footer */}
-            <footer className="bg-[#A9D8E9] text-gray text-center py-2">
+            <footer className="bg-slate-100 text-gray text-center py-2">
                 <p className="text-sm">
                     &copy; {new Date().getFullYear()} Pro1 Global Home Center. All rights reserved.
                 </p>
