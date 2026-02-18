@@ -8,7 +8,7 @@ import { FaFileImport,FaSpinner,FaInfoCircle } from "react-icons/fa";
 import { BsCartCheck } from "react-icons/bs";
 import { FiCopy } from 'react-icons/fi';
 
-import $ from "jquery";
+// import $ from "jquery";
 import Select from 'react-select'
 import axios from "axios";
 import Swal from "sweetalert2";
