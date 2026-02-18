@@ -5,6 +5,7 @@ import { PlusIcon, FunnelIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import FilterCard from "./FilterCard";
 import DamageIssueList from "./DamageIssueList";
 import { filterFormsByRole } from "../../utils/roleBasedFilter";
+import { canViewAllBranches } from "../../utils/userAccess";
 import { useFilters, useBranches, useNotifications } from './hooks';
 import { getToken, getCurrentUser } from './utils/helpers';
 import { NotificationContext } from '../../context/NotificationContext';
@@ -46,6 +47,7 @@ const Dashboard = () => {
 
   const token = useMemo(() => getToken(), []);
   const [currentUser, setCurrentUser] = useState(getCurrentUser);
+  const canViewAllBranchesAccess = useMemo(() => canViewAllBranches(currentUser), [currentUser]);
 
   const {
     filters,
@@ -58,7 +60,7 @@ const Dashboard = () => {
     initializeFiltersFromUrl,
   } = useFilters();
 
-  const { branchOptions, branchMap, canViewAllBranchesAccess } = useBranches(fetcher);
+  const { branchOptions, branchMap } = useBranches(fetcher);
   
   // Get notifications from context (same source as useNotifications hook)
   const { notifications } = useContext(NotificationContext);
@@ -336,9 +338,8 @@ const Dashboard = () => {
               <FilterCard
                 filters={filters}
                 onFilter={applyFilters}
-              onClear={clearFilters}
+                onClear={clearFilters}
                 externalBranchOptions={branchOptions}
-                allowAllBranchSelection={canViewAllBranchesAccess}
               />
           </div>
         </div>
@@ -368,7 +369,6 @@ const Dashboard = () => {
               onFilter={(v) => { applyFilters(v); setIsFilterOpen(false); }}
               onClear={() => { clearFilters(); setIsFilterOpen(false); }}
               externalBranchOptions={branchOptions}
-              allowAllBranchSelection={canViewAllBranchesAccess}
             />
           </div>
         </div>

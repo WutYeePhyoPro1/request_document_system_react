@@ -79,7 +79,7 @@ const CONTROL_CLASSES = `w-full border px-2 text-[#012970] font-bold rounded-[8p
   valueContainer: (base) => ({ ...base, padding: '1px 4px', gap: '2px' }),
 };
 
-export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions, allowAllBranchSelection = false }) {
+export default function FilterCard({ filters, onFilter, onClear, externalBranchOptions }) {
   const { t } = useTranslation();
   
   const normalizeStatusValue = (status) => {
@@ -109,9 +109,7 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     branch: filters.branch || null,
   }));
 
-  const [branchOptions, setBranchOptions] = useState([{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }]);
   const prevFiltersRef = useRef(null);
-  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
     if (prevFiltersRef.current === filters) return;
@@ -129,39 +127,10 @@ export default function FilterCard({ filters, onFilter, onClear, externalBranchO
     prevFiltersRef.current = filters;
   }, [filters]);
 
-  useEffect(() => {
-    if (!externalBranchOptions) return;
-    
-    const allBranchOption = { value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) };
-    
-    if (allowAllBranchSelection) {
-      const opts = externalBranchOptions.find(o => !o.value) 
-        ? externalBranchOptions 
-        : [allBranchOption, ...externalBranchOptions];
-      setBranchOptions(opts);
-      return;
-    }
-
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const userBranchId = storedUser?.from_branch_id;
-
-      if (!userBranchId) {
-        setBranchOptions([allBranchOption]);
-        return;
-      }
-
-      const filteredOptions = externalBranchOptions.filter(option => 
-        !option.value || Number(option.value) === Number(userBranchId)
-      );
-
-      setBranchOptions(filteredOptions.length > 0 ? filteredOptions : [allBranchOption]);
-    } catch {
-      setBranchOptions([allBranchOption]);
-    }
-    
-    hasInitializedRef.current = true;
-  }, [externalBranchOptions, allowAllBranchSelection, t]);
+  // Use externalBranchOptions directly from API (backend handles filtering)
+  const branchOptions = externalBranchOptions && externalBranchOptions.length > 0
+    ? externalBranchOptions
+    : [{ value: '', label: t('filter.allBranch', { defaultValue: 'All Branch' }) }];
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -47,7 +47,7 @@ export const isOperationManagerUser = (user) => {
     const roleName = normaliseText(resolveRoleName(user));
     if (roleName.includes('operation manager') || roleName.includes('op manager')) return true;
     
-    // Check if user is in special employee IDs AND department is Operation (department_id: 8)
+    // Check if user is in special employee IDs AND department is Operation (department_id: 8) 
     const employeeId = user.emp_id || user.employee_number || user.employeeNumber || user.employee_id || '';
     const departmentId = user.department_id || user.departmentId || 0;
     if (employeeId === '666-666666' && departmentId === 8) return true;
@@ -66,7 +66,8 @@ export const hasAllBranchAccessUser = (user) => {
     for (const key of branchFlags) {
         if (!(key in user)) continue;
         const value = user[key];
-        if (value === true || value === 1 || value === '1' || value === 'true') {
+        // Check for 'on' value to match backend logic (normalized to lowercase)
+        if (value === true || value === 1 || value === '1' || value === 'true' || normaliseText(value) === 'on') {
             return true;
         }
     }
