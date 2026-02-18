@@ -5,7 +5,7 @@ import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
 import { FaFileImport,FaSpinner } from "react-icons/fa";
 
-import $ from "jquery";
+// import $ from "jquery";
 import Select from 'react-select'
 import axios from "axios";
 import Swal from "sweetalert2";
