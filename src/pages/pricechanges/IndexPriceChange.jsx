@@ -203,7 +203,6 @@ export default function IndexPriceChange() {
                                     </label>
                                     <Select
                                         id="status"
-                                        id="name"
                                         isMulti
                                         name="search_status"
                                         options={statusOptions}
