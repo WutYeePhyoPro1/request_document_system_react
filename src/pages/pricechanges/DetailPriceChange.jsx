@@ -583,10 +583,10 @@ export default function () {
             e.target.value = "";
         }
     };
-    const excludeBranchIds = [1,18,19,21,22];
+    const excludeBranchIds = [1,18,19,21,22,15];
     const fetchBranches = useCallback(async () => {
         try {
-            const response = await fetch('/api/branches', {
+            const response = await fetch('/api/branchesall', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,

@@ -88,7 +88,7 @@ export default function IndexPriceChange() {
 
     const fetchBranches = async () => {
         try {
-            const response = await fetch('/api/branches', {
+            const response = await fetch('/api/branchesall', {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,
