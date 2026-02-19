@@ -299,7 +299,7 @@ const Index: React.FC = () => {
             </Link>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 text-sm mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6 text-sm mt-4 items-center">
           <div className="flex flex-col">
             <label
               htmlFor="formDocNo"
@@ -417,7 +417,7 @@ const Index: React.FC = () => {
               />
             )}
           </div>
-          <div className="flex items-end">
+          <div className="flex items-center mt-3">
             <button
               className="text-white px-4 py-2 rounded w-full cursor-pointer"
               style={{
@@ -428,7 +428,7 @@ const Index: React.FC = () => {
               Search
             </button>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-center mt-3">
             <button
               className="text-white px-4 py-2 rounded w-full cursor-pointer"
               style={{
@@ -436,7 +436,7 @@ const Index: React.FC = () => {
               }}
               onClick={handleRestart}
             >
-              Clear Search
+              Clear
             </button>
           </div>
         </div>
