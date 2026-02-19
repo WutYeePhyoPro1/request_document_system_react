@@ -2962,24 +2962,26 @@ const normalizeImageEntries = (list) => {
                   </td>
                   
                   {/* Remark */}
-                  <td className="px-2 py-2 text-[13px]">
+                  <td className="px-2 py-2 text-[13px] align-top">
                     <div className="w-full" onClick={e => e.stopPropagation()}>
-                      {/* Make remark editable when: mode is not view, OR status is Ongoing/Checked (for newly added products) */}
+                      {/* View mode: wrap long text and allow vertical scroll if too long */}
                       {(mode === 'view' && status !== 'Ongoing' && status !== 'Checked' && status !== 'checked') ? (
                         <div className="min-w-[100px] p-1">
-                          {item.remark || '-'}
+                          <div className="whitespace-pre-wrap break-words max-h-40 overflow-auto text-sm">
+                            {item.remark && item.remark.trim() ? item.remark : '-'}
+                          </div>
                         </div>
                       ) : (
-                        <input
-                          type="text"
+                        <textarea
                           value={item.remark || ''}
                           onChange={(e) => {
                             e.stopPropagation();
                             handleRemarkChange(item.id, e.target.value);
                           }}
                           onClick={e => e.stopPropagation()}
-                          className="w-full p-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y max-h-48 overflow-auto text-sm"
                           placeholder="Add remark..."
+                          rows={3}
                           disabled={isCompleted && mode === 'view'}
                         />
                       )}
