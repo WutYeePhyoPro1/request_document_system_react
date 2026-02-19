@@ -45,7 +45,9 @@ export const translateBranchName = (branchName, t) => {
   
   // Check each mapping
   for (const mapping of branchMappings) {
+    console.log(normalizedName,'nor name');
     if (normalizedName.includes(mapping.key)) {
+      
       return t(mapping.translationKey, { defaultValue: branchName });
     }
   }
