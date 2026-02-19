@@ -161,7 +161,7 @@ const Dashboard = () => {
     "Supplier Agreement Form": "📜",
     "Member Issue Form": "🆔",
     "CCTV Request Form": "📹",
-    "M and E Form": "⚙️",
+    "M&E Form": "⚙️",
     "Coupon Voucher": "📑",
     "Price Change Form": "💲"
     }
