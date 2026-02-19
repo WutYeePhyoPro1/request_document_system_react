@@ -77,7 +77,8 @@ export const validateArrayField = (items, schema, label = 'Item',messages={}) =>
         for (const field in schema) {
             const rules = schema[field];
             const value = item[field];
-            const errorKey = `${label}_${index + 1}_${field}`;
+            const realIndex = item?.id || index;
+            const errorKey = `${label}_${realIndex}_${field}`;
             const fieldMessages = messages[field] || {};
 
             if (rules.required && (value === '' || value === null || value === undefined)) {

@@ -59,7 +59,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                     authorizedEdit ?
                                         <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border
                                             ${
-                                                pricesErrors?.[`Product_${index}_new_cost_price`] || pricesErrors?.[`Product_${index}_New Cost Price`]
+                                                pricesErrors?.[`Product_${item.product_code}_new_cost_price`] || pricesErrors?.[`Product_${item.product_code}_New Cost Price`]
                                                     ? 'border-red-600 focus:border-red-600'
                                                     : 'border-cyan-500 focus:border-cyan-500'
                                             }
@@ -76,11 +76,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                     authorizedEdit ?
                                         <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border
                                             ${
-                                                pricesErrors?.[`Product_${index}_price1`] || pricesErrors?.[`Product_${index}_Price 1`]
+                                                pricesErrors?.[`Product_${item.product_code}_price1`] || pricesErrors?.[`Product_${item.product_code}_Price 1`]
                                                     ? 'border-red-600 focus:border-red-600'
                                                     : 'border-cyan-500 focus:border-cyan-500'
                                             }
                                         `} 
+                                        data-priceError = {pricesErrors?.[`Product_${item.product_code}_price1`] || pricesErrors?.[`Product_${item.product_code}_Price 1`]}
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
                                         value={item.price1}
                                         readOnly={!authorizedEdit}
@@ -95,7 +96,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                     authorizedEdit ?
                                         <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border
                                             ${
-                                                pricesErrors?.[`Product_${index}_price2`] || pricesErrors?.[`Product_${index}_Price 2`]
+                                                pricesErrors?.[`Product_${item.product_code}_price2`] || pricesErrors?.[`Product_${item.product_code}_Price 2`]
                                                     ? 'border-red-600 focus:border-red-600'
                                                     : 'border-cyan-500 focus:border-cyan-500'
                                             }
