@@ -601,7 +601,7 @@ const GeneratorCreate: React.FC = () => {
             </div>
           </div>
           {reAdd == true ? (
-            <div className="flex justify-center gap-12">
+            <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
               <Button
                 type="button"
                 onClick={() => handleSubmit("Default")}
@@ -622,7 +622,7 @@ const GeneratorCreate: React.FC = () => {
               </Button>
             </div>
           ) : (
-            <div className="flex justify-center gap-12">
+            <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
               <Button
                 type="button"
                 onClick={() => handleSubmit("Default")}
