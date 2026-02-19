@@ -743,7 +743,7 @@ const GeneratorEdit: React.FC = () => {
             </div>
           )}
 
-          <div className="flex justify-center gap-6">
+          <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
             <Button
               type="submit"
               disabled={loading}
