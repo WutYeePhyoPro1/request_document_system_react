@@ -19,6 +19,7 @@ import {
   getTotalAmount,
   normalizeBranch,
 } from './utils/helpers';
+import { getBranchName } from '../../components/common/branchMappings';
 import { PAGE_SIZE, OP_THRESHOLD } from './utils/constants';
 
 function DamageIssueList({ 
@@ -117,25 +118,33 @@ function DamageIssueList({
   
   const filteredForms = useMemo(() => {
     let forms = Array.from(formsWithItems.values());
-   
+
+    // When product filter is set, the list API was already called with search= so backend returned
+    // only forms that have a matching product. The API returns one row per form (no product lines),
+    // so we must not filter here or we would remove all forms (rows have no product_code).
+    // When product filter is not set but we have product data on rows, do client-side filter.
     if (productNameFilterLower) {
-      forms = forms.filter(formData => {
-        const hasMatchingItem = formData.items.some(item => {
-          const code = String(item.product_code || '').toLowerCase();
-          const name = String(item.product_name || '').toLowerCase();
-          return code.includes(productNameFilterLower) || name.includes(productNameFilterLower);
+      const hasAnyProductData = forms.some(f =>
+        f.items.some(i => (i.product_code || i.product_name || '').toString().trim())
+      );
+      if (hasAnyProductData) {
+        forms = forms.filter(formData => {
+          const hasMatchingItem = formData.items.some(item => {
+            const code = String(item.product_code || '').toLowerCase();
+            const name = String(item.product_name || '').toLowerCase();
+            return code.includes(productNameFilterLower) || name.includes(productNameFilterLower);
+          });
+          if (!hasMatchingItem && formData.formRow) {
+            const rowCode = (formData.formRow?.product_code || formData.formRow?.code || '').toString().toLowerCase();
+            const rowName = (formData.formRow?.product_name || formData.formRow?.name || '').toString().toLowerCase();
+            return rowCode.includes(productNameFilterLower) || rowName.includes(productNameFilterLower);
+          }
+          return hasMatchingItem;
         });
-        
-        if (!hasMatchingItem && formData.formRow) {
-          const rowCode = (formData.formRow?.product_code || formData.formRow?.code || '').toString().toLowerCase();
-          const rowName = (formData.formRow?.product_name || formData.formRow?.name || '').toString().toLowerCase();
-          return rowCode.includes(productNameFilterLower) || rowName.includes(productNameFilterLower);
-        }
-        
-        return hasMatchingItem;
-      });
+      }
+      // else: backend already filtered; show all returned forms
     }
-    
+
     return forms;
   }, [formsWithItems, productNameFilterLower]);
   
@@ -183,8 +192,13 @@ function DamageIssueList({
     if (branchInfo.name) return branchInfo.name;
     if (gf?.to_branch_name) return gf.to_branch_name;
     if (gf?.from_branch_name) return gf.from_branch_name;
-    if (branchInfo.id != null && branchMap[branchInfo.id]) return branchMap[branchInfo.id];
-    if (branchInfo.id != null) return String(branchInfo.id);
+    if (branchInfo.id != null) {
+      const fromMap = branchMap[branchInfo.id] ?? branchMap[String(branchInfo.id)];
+      if (fromMap) return fromMap;
+      const fromMappings = getBranchName(branchInfo.id) ?? getBranchName(String(branchInfo.id));
+      if (fromMappings) return fromMappings;
+      return String(branchInfo.id);
+    }
     return '-';
   };
 
