@@ -122,7 +122,7 @@ const GeneratorDetail: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold">
-                  MAndE Generator Form(
+                  M&E Generator Form(
                   {detailData?.generalForm?.form_doc_no
                     ? detailData?.generalForm?.form_doc_no
                     : ""}
