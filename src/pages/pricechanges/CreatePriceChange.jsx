@@ -114,6 +114,7 @@ export default function () {
         });
         console.log(formState)
     };
+    const [pricesErrors,setPricesErrors] = useState({});
     const pricesHandler = (e, product_code) => {
         const { name, value } = e.target;
 
@@ -133,6 +134,19 @@ export default function () {
                     const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
+
+                    const productMessages = {
+                        new_cost_price: {
+                            required: "New Cost Price is required.",
+                            numeric: "New Cost Price must be numeric value."
+                        }
+                    }
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
                 }
 
                 if (name === "price1") {
@@ -142,13 +156,55 @@ export default function () {
                     const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
+
+                    // Show/Hide Red Box
+                    const productMessages = {
+                        price1: {
+                            required: "Price 1 is required.",
+                            numeric: "Price 1 must be numeric value."
+                        },
+                    }
+                    const pricesAlerts = validateArrayField(
+                        [updatedItem]
+                        ,{
+                            'price1': {required:true,numeric: true, min: 1},
+                            'price2': {required:true,numeric: true, min: 1, max:"price1"}
+                        }
+                        , 'Product'
+                        ,productMessages
+                    );
+
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
                 }
+
+                if(name === "price2"){
+
+                    // Show/Hide Red Box
+                    const productMessages = {
+                        price2: {
+                            required: "Price 2 is required.",
+                            numeric: "Price 2 must be numeric value."
+                        },
+                    }
+
+
+                    const pricesAlerts = validateArrayField([updatedItem], {'price2': {required:true,numeric: true, min: 1, max:"price1"}}, 'Product',productMessages);
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
+                }
+
 
                 return updatedItem;
             })
         );
     };
-    const [pricesErrors,setPricesErrors] = useState({});
 
     const [productCode,setProductCode] = useState("");
     const searchSchema = {
@@ -241,10 +297,11 @@ export default function () {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '',
-                price2: apiProduct.price2 | row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
+                price2: apiProduct.price2 || row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
                 new_cost_price: apiProduct.new_cost_price || row["New Cost Price"] || '',
                 profit: calculateProfit(new_cost_price,price1),
-                remark: 0
+                remark: 0,
+                id: apiProduct.barcode,
             };
             if(!data.error){
                 setProductCode("");
@@ -368,12 +425,24 @@ export default function () {
             }
         }
 
+        // => Adding Id property
+        formData.products.forEach((row, i) => {
+            row.id = row['product_code'] || row['Product Code'];
+        });
+
         const productErrors = validateArrayField(formData.products, productSchema, 'Product',productMessages);
         setPricesErrors(productErrors);
-        const messagesSet = Array.from(new Set(Object.values(productErrors))).map((msg, idx) => [`error_${idx}`, msg]);
-        const displayErrors = Object.fromEntries(messagesSet);
+        
+            // Flatten nested error messages
+            const allMessages = Object.values(productErrors)
+                .flatMap(fields => Object.values(fields));
 
-        if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
+            const messagesSet = Array.from(new Set(allMessages))
+                .map((msg, idx) => [`error_${idx}`, msg]);
+
+            const displayErrors = Object.fromEntries(messagesSet);
+            // console.log(productErrors,allMessages,messagesSet,displayErrors);
+            if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
 
@@ -480,11 +549,24 @@ export default function () {
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
             console.log(importErrors);
-            const messagesSet = Array.from(new Set(Object.values(importErrors))).map((msg, idx) => [`error_${idx}`, msg]);
+            
+            // Flatten nested error messages
+            const allMessages = Object.values(importErrors)
+                .flatMap(fields => Object.values(fields));
+
+            const messagesSet = Array.from(new Set(allMessages))
+                .map((msg, idx) => [`error_${idx}`, msg]);
+
             const displayErrors = Object.fromEntries(messagesSet);
+            // console.log(importErrors,allMessages,messagesSet,displayErrors);
+            
 
             if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
+            // => Adding Id property
+            jsonData.forEach((row, i) => {
+                row.id = row['product_code'] || row['Product Code'];
+            });
 
             const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
             setPricesErrors(pricesAlerts);
@@ -896,3 +978,6 @@ export default function () {
     );
 
 }
+
+
+
