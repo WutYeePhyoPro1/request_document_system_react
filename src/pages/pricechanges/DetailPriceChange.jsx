@@ -410,6 +410,7 @@ export default function () {
 
     const submitHandler = async (e,btntype)=>{
         // e.preventDefault();
+        if(!changable) return;
     
         const formData = {
             ...formState,
@@ -612,7 +613,7 @@ export default function () {
 
 
             // => Adding Id property
-            formData.products.forEach((row, i) => {
+            jsonData.forEach((row, i) => {
                 row.id = row['product_code'] || row['Product Code'];
             });
 
@@ -809,7 +810,7 @@ export default function () {
 
                 price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1)
             }
-            console.log(price_change_branches.length, branchCountRef.current);
+            // console.log(price_change_branches.length, branchCountRef.current);
 
             setFormState(normalizedForm);
             
