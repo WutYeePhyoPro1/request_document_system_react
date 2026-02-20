@@ -172,7 +172,7 @@ export default function () {
         if(!changable) return;
 
         updateDoc.current = true;
-
+        
         const { name, value } = e.target;
 
         setProducts(prev =>
@@ -191,6 +191,19 @@ export default function () {
                     const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
+
+                    const productMessages = {
+                        new_cost_price: {
+                            required: "New Cost Price is required.",
+                            numeric: "New Cost Price must be numeric value."
+                        }
+                    }
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
                 }
 
                 if (name === "price1") {
@@ -200,12 +213,54 @@ export default function () {
                     const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
+
+                    // Show/Hide Red Box
+                    const productMessages = {
+                        price1: {
+                            required: "Price 1 is required.",
+                            numeric: "Price 1 must be numeric value."
+                        },
+                    }
+                    const pricesAlerts = validateArrayField(
+                        [updatedItem]
+                        ,{
+                            'price1': {required:true,numeric: true, min: 1},
+                            'price2': {required:true,numeric: true, min: 1, max:"price1"}
+                        }
+                        , 'Product'
+                        ,productMessages
+                    );
+
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
                 }
+
+                if(name === "price2"){
+
+                    // Show/Hide Red Box
+                    const productMessages = {
+                        price2: {
+                            required: "Price 2 is required.",
+                            numeric: "Price 2 must be numeric value."
+                        },
+                    }
+
+
+                    const pricesAlerts = validateArrayField([updatedItem], {'price2': {required:true,numeric: true, min: 1, max:"price1"}}, 'Product',productMessages);
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
+                }
+
 
                 return updatedItem;
             })
         );
-
     };
 
     const [productCode,setProductCode] = useState("");
@@ -353,10 +408,8 @@ export default function () {
         )
     }
 
-     const submitHandler = async (e,btntype)=>{
-        if (submitingRef.current) return;
-
-        e.preventDefault();
+    const submitHandler = async (e,btntype)=>{
+        // e.preventDefault();
     
         const formData = {
             ...formState,
@@ -400,7 +453,7 @@ export default function () {
         }
 
         const errors = validateForm(formData, schema, messages);
-        if (showValidationErrors(errors)) return;
+        if (showValidationErrors(errors)) return false;
 
 
 
@@ -436,7 +489,7 @@ export default function () {
 
         const productErrors = validateArrayField(formData.products, productSchema, 'Product',productMessages);
         setPricesErrors(productErrors);
-        
+
             // Flatten nested error messages
             const allMessages = Object.values(productErrors)
                 .flatMap(fields => Object.values(fields));
@@ -449,75 +502,66 @@ export default function () {
             if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
+        setForceLoading(true);
+        setIsSubmitting(true);
+        try{
+            const res = await axios.patch(`/api/price_changes/${id}/update`,formData,{
+                headers: {
+                Authorization: `Bearer ${token}`,
+                },
+            });
+            console.log(res.data);
 
-        Swal.fire({
-                icon: "question",
-                text:  `Are you sure you want to save Price Change Form?`,
-                showCancelButton: true,
-                confirmButtonText: "OK",
-                cancelButtonText: "Cancel",
-        }).then(async (result) => {
-                if (result.isConfirmed && !confirmSubmitedRef.current) {
-                    confirmSubmitedRef.current = true;
-                    submitingRef.current = true;
+            const data = res.data;
 
-                    setForceLoading(true);
-                    setIsSubmitting(true);
-                    try{
-                        const res = await axios.post(`/api/price_changes`,formData,{
-                            headers: {
-                            Authorization: `Bearer ${token}`,
-                            },
+            if(data.success == false){
+                if(data.errors){
+                    let errorMessages = "";
+                    Object.values(data.errors).forEach(errorArray => {
+                        errorArray.forEach(error => {
+                            errorMessages += `• ${error} \n`;
                         });
-                        console.log(res.data);
+                    });
 
-                        const data = res.data;
-
-                        if(data.success == false){
-                            if(data.errors){
-                                let errorMessages = "";
-                                Object.values(data.errors).forEach(errorArray => {
-                                    errorArray.forEach(error => {
-                                        errorMessages += `• ${error} \n`;
-                                    });
-                                });
-
-                                Swal.fire({
-                                    icon: "error",
-                                    title: " Invalid Form!!",
-                                    // text: "Some fields contain errors. Please review the form and try again.",
-                                    text: errorMessages,
-                                });
-                            }
-                        }
-
-                        Swal.fire({
-                            icon: "success",
-                            title: "Form submitted successfully!",
-                            text: data.message,
-                        });
-                        navigate("/price_changes");
-
-                    }catch(err){
-                        console.log('There is an error in saving price change document:',err);
-                        // setLoader(false);
-
-                        Swal.fire({
-                            icon: "error",
-                            title: "Form Submit Error!!",
-                            text: "Something went wrong while submitting the form.",
-                        });
-                    }finally{
-                        setForceLoading(true);
-                        isSubmitting(false);
-
-                        confirmSubmitedRef.current = false;
-                        submitingRef.current = false;
-                    }
+                    Swal.fire({
+                        icon: "error",
+                        title: " Invalid Form!!",
+                        // text: "Some fields contain errors. Please review the form and try again.",
+                        text: errorMessages,
+                    });
                 }
-        });
+                return false;
+            }
+
+            // await Swal.fire({
+            //     icon: "success",
+            //     title: "Form submitted successfully!",
+            //     text: data.message,
+            // });
+            console.log("Form submitted successfully!")
+            fetchPriceChange(); 
+            return true;
+            // navigate(0);
+            // navigate("/price_changes");
+
+        }catch(err){
+            console.log('There is an error in saving price change document:',err);
+            // setLoader(false);
+
+            Swal.fire({
+                icon: "error",
+                title: "Form Submit Error!!",
+                text: "Something went wrong while submitting the form.",
+            });
+
+            return false;
+        }finally{
+            setForceLoading(false);
+            setIsSubmitting(false);
+        }
     }
     const excelImportHandler = async (e) => {
+        if(!changable) return;
         setImporting(true);
 
         try{
@@ -553,22 +597,22 @@ export default function () {
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
             console.log(importErrors);
+                // Flatten nested error messages
+                const allMessages = Object.values(importErrors)
+                    .flatMap(fields => Object.values(fields));
+
+                const messagesSet = Array.from(new Set(allMessages))
+                    .map((msg, idx) => [`error_${idx}`, msg]);
+
+                const displayErrors = Object.fromEntries(messagesSet);
+                // console.log(importErrors,allMessages,messagesSet,displayErrors);
             
-            // Flatten nested error messages
-            const allMessages = Object.values(importErrors)
-                .flatMap(fields => Object.values(fields));
 
-            const messagesSet = Array.from(new Set(allMessages))
-                .map((msg, idx) => [`error_${idx}`, msg]);
+                if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
-            const displayErrors = Object.fromEntries(messagesSet);
-            // console.log(importErrors,allMessages,messagesSet,displayErrors);
-            
-
-            if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
             // => Adding Id property
-            jsonData.forEach((row, i) => {
+            formData.products.forEach((row, i) => {
                 row.id = row['product_code'] || row['Product Code'];
             });
 

@@ -550,18 +550,18 @@ export default function () {
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
             console.log(importErrors);
             
-            // Flatten nested error messages
-            const allMessages = Object.values(importErrors)
-                .flatMap(fields => Object.values(fields));
+                // Flatten nested error messages
+                const allMessages = Object.values(importErrors)
+                    .flatMap(fields => Object.values(fields));
 
-            const messagesSet = Array.from(new Set(allMessages))
-                .map((msg, idx) => [`error_${idx}`, msg]);
+                const messagesSet = Array.from(new Set(allMessages))
+                    .map((msg, idx) => [`error_${idx}`, msg]);
 
-            const displayErrors = Object.fromEntries(messagesSet);
-            // console.log(importErrors,allMessages,messagesSet,displayErrors);
+                const displayErrors = Object.fromEntries(messagesSet);
+                // console.log(importErrors,allMessages,messagesSet,displayErrors);
             
 
-            if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
+                if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
             // => Adding Id property
             jsonData.forEach((row, i) => {
