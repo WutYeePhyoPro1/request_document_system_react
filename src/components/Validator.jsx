@@ -81,13 +81,15 @@ export const validateArrayField = (items, schema, label = 'Item',messages={}) =>
             const errorKey = `${label}_${realIndex}_${field}`;
             const fieldMessages = messages[field] || {};
 
+            errors[realIndex] = errors[realIndex] || {};
+
             if (rules.required && (value === '' || value === null || value === undefined)) {
-                errors[errorKey] = fieldMessages.required || `${field} is required`;
+                errors[realIndex][field] = fieldMessages.required || `${field} is required`;
                 continue; // skip other rules if required fails
             }
 
             if (rules.numeric && value !== '' && value !== null && isNaN(Number(value))) {
-                errors[errorKey] = fieldMessages.numeric || `${field} must be a number`;
+                errors[realIndex][field] = fieldMessages.numeric || `${field} must be a number`;
                 continue;
             }
 
@@ -99,7 +101,7 @@ export const validateArrayField = (items, schema, label = 'Item',messages={}) =>
                         : Number(rules.min);
 
                 if (!isNaN(minValue) && numericValue < minValue) {
-                    errors[errorKey] =
+                    errors[realIndex][field] =
                         fieldMessages.min ||
                         `${field} must be at least ${rules.min}`;
                 }
@@ -113,7 +115,7 @@ export const validateArrayField = (items, schema, label = 'Item',messages={}) =>
                         : Number(rules.max);
 
                 if (!isNaN(maxValue) && numericValue > maxValue) {
-                    errors[errorKey] =
+                    errors[realIndex][field] =
                         fieldMessages.max ||
                         `${field} must not be greater than ${rules.max}`;
                 }

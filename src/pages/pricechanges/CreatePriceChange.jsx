@@ -134,6 +134,19 @@ export default function () {
                     const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
+
+                    const productMessages = {
+                        new_cost_price: {
+                            required: "New Cost Price is required.",
+                            numeric: "New Cost Price must be numeric value."
+                        }
+                    }
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
                 }
 
                 if (name === "price1") {
@@ -143,33 +156,50 @@ export default function () {
                     const profit = calculateProfit(newCost,price1);
 
                     updatedItem.profit = profit;
-                }
 
-                if(name === "price2"){
-
+                    // Show/Hide Red Box
                     const productMessages = {
                         price1: {
                             required: "Price 1 is required.",
                             numeric: "Price 1 must be numeric value."
                         },
+                    }
+                    const pricesAlerts = validateArrayField(
+                        [updatedItem]
+                        ,{
+                            'price1': {required:true,numeric: true, min: 1},
+                            'price2': {required:true,numeric: true, min: 1, max:"price1"}
+                        }
+                        , 'Product'
+                        ,productMessages
+                    );
+
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
+                    console.log(pricesAlerts);
+                }
+
+                if(name === "price2"){
+
+                    // Show/Hide Red Box
+                    const productMessages = {
                         price2: {
                             required: "Price 2 is required.",
                             numeric: "Price 2 must be numeric value."
                         },
-                        new_cost_price: {
-                            required: "New Cost Price is required.",
-                            numeric: "New Cost Price must be numeric value."
-                        },
-                        profit: {
-                            required: "Profit is required.",
-                        }
                     }
 
 
                     const pricesAlerts = validateArrayField([updatedItem], {'price2': {required:true,numeric: true, min: 1, max:"price1"}}, 'Product',productMessages);
+                    setPricesErrors(prev => ({
+                        ...prev,
+                        ...pricesAlerts
+                    }));
                     console.log(pricesAlerts);
-                    setPricesErrors(pricesAlerts); // Need to extend previous value
                 }
+
 
                 return updatedItem;
             })
@@ -402,10 +432,17 @@ export default function () {
 
         const productErrors = validateArrayField(formData.products, productSchema, 'Product',productMessages);
         setPricesErrors(productErrors);
-        const messagesSet = Array.from(new Set(Object.values(productErrors))).map((msg, idx) => [`error_${idx}`, msg]);
-        const displayErrors = Object.fromEntries(messagesSet);
+        
+            // Flatten nested error messages
+            const allMessages = Object.values(productErrors)
+                .flatMap(fields => Object.values(fields));
 
-        if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
+            const messagesSet = Array.from(new Set(allMessages))
+                .map((msg, idx) => [`error_${idx}`, msg]);
+
+            const displayErrors = Object.fromEntries(messagesSet);
+            // console.log(productErrors,allMessages,messagesSet,displayErrors);
+            if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
 
@@ -512,8 +549,17 @@ export default function () {
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
             console.log(importErrors);
-            const messagesSet = Array.from(new Set(Object.values(importErrors))).map((msg, idx) => [`error_${idx}`, msg]);
+            
+            // Flatten nested error messages
+            const allMessages = Object.values(importErrors)
+                .flatMap(fields => Object.values(fields));
+
+            const messagesSet = Array.from(new Set(allMessages))
+                .map((msg, idx) => [`error_${idx}`, msg]);
+
             const displayErrors = Object.fromEntries(messagesSet);
+            // console.log(importErrors,allMessages,messagesSet,displayErrors);
+            
 
             if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
@@ -932,3 +978,6 @@ export default function () {
     );
 
 }
+
+
+

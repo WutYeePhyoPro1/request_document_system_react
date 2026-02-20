@@ -353,8 +353,10 @@ export default function () {
         )
     }
 
-    const submitHandler = async (e,btntype)=>{
-        // e.preventDefault();
+     const submitHandler = async (e,btntype)=>{
+        if (submitingRef.current) return;
+
+        e.preventDefault();
     
         const formData = {
             ...formState,
@@ -398,7 +400,7 @@ export default function () {
         }
 
         const errors = validateForm(formData, schema, messages);
-        if (showValidationErrors(errors)) return false;
+        if (showValidationErrors(errors)) return;
 
 
 
@@ -434,72 +436,88 @@ export default function () {
 
         const productErrors = validateArrayField(formData.products, productSchema, 'Product',productMessages);
         setPricesErrors(productErrors);
-        const messagesSet = Array.from(new Set(Object.values(productErrors))).map((msg, idx) => [`error_${idx}`, msg]);
-        const displayErrors = Object.fromEntries(messagesSet);
+        
+            // Flatten nested error messages
+            const allMessages = Object.values(productErrors)
+                .flatMap(fields => Object.values(fields));
 
-        if (showValidationErrors(displayErrors, 'Product Validation Error')) return false;
+            const messagesSet = Array.from(new Set(allMessages))
+                .map((msg, idx) => [`error_${idx}`, msg]);
+
+            const displayErrors = Object.fromEntries(messagesSet);
+            // console.log(productErrors,allMessages,messagesSet,displayErrors);
+            if (showValidationErrors(displayErrors, 'Product Validation Error')) return;
         // End Validate Prices
 
-        setForceLoading(true);
-        setIsSubmitting(true);
-        try{
-            const res = await axios.patch(`/api/price_changes/${id}/update`,formData,{
-                headers: {
-                Authorization: `Bearer ${token}`,
-                },
-            });
-            console.log(res.data);
 
-            const data = res.data;
+        Swal.fire({
+                icon: "question",
+                text:  `Are you sure you want to save Price Change Form?`,
+                showCancelButton: true,
+                confirmButtonText: "OK",
+                cancelButtonText: "Cancel",
+        }).then(async (result) => {
+                if (result.isConfirmed && !confirmSubmitedRef.current) {
+                    confirmSubmitedRef.current = true;
+                    submitingRef.current = true;
 
-            if(data.success == false){
-                if(data.errors){
-                    let errorMessages = "";
-                    Object.values(data.errors).forEach(errorArray => {
-                        errorArray.forEach(error => {
-                            errorMessages += `• ${error} \n`;
+                    setForceLoading(true);
+                    setIsSubmitting(true);
+                    try{
+                        const res = await axios.post(`/api/price_changes`,formData,{
+                            headers: {
+                            Authorization: `Bearer ${token}`,
+                            },
                         });
-                    });
+                        console.log(res.data);
 
-                    Swal.fire({
-                        icon: "error",
-                        title: " Invalid Form!!",
-                        // text: "Some fields contain errors. Please review the form and try again.",
-                        text: errorMessages,
-                    });
+                        const data = res.data;
+
+                        if(data.success == false){
+                            if(data.errors){
+                                let errorMessages = "";
+                                Object.values(data.errors).forEach(errorArray => {
+                                    errorArray.forEach(error => {
+                                        errorMessages += `• ${error} \n`;
+                                    });
+                                });
+
+                                Swal.fire({
+                                    icon: "error",
+                                    title: " Invalid Form!!",
+                                    // text: "Some fields contain errors. Please review the form and try again.",
+                                    text: errorMessages,
+                                });
+                            }
+                        }
+
+                        Swal.fire({
+                            icon: "success",
+                            title: "Form submitted successfully!",
+                            text: data.message,
+                        });
+                        navigate("/price_changes");
+
+                    }catch(err){
+                        console.log('There is an error in saving price change document:',err);
+                        // setLoader(false);
+
+                        Swal.fire({
+                            icon: "error",
+                            title: "Form Submit Error!!",
+                            text: "Something went wrong while submitting the form.",
+                        });
+                    }finally{
+                        setForceLoading(true);
+                        isSubmitting(false);
+
+                        confirmSubmitedRef.current = false;
+                        submitingRef.current = false;
+                    }
                 }
-                return false;
-            }
-
-            // await Swal.fire({
-            //     icon: "success",
-            //     title: "Form submitted successfully!",
-            //     text: data.message,
-            // });
-            console.log("Form submitted successfully!")
-            fetchPriceChange(); 
-            return true;
-            // navigate(0);
-            // navigate("/price_changes");
-
-        }catch(err){
-            console.log('There is an error in saving price change document:',err);
-            // setLoader(false);
-
-            Swal.fire({
-                icon: "error",
-                title: "Form Submit Error!!",
-                text: "Something went wrong while submitting the form.",
-            });
-
-            return false;
-        }finally{
-            setForceLoading(false);
-            setIsSubmitting(false);
-        }
+        });
     }
     const excelImportHandler = async (e) => {
-        if(!changable) return;
         setImporting(true);
 
         try{
@@ -535,13 +553,22 @@ export default function () {
 
             const importErrors = validateArrayField(jsonData, importSchema, 'Product',importMessage);
             console.log(importErrors);
-            const messagesSet = Array.from(new Set(Object.values(importErrors))).map((msg, idx) => [`error_${idx}`, msg]);
+            
+            // Flatten nested error messages
+            const allMessages = Object.values(importErrors)
+                .flatMap(fields => Object.values(fields));
+
+            const messagesSet = Array.from(new Set(allMessages))
+                .map((msg, idx) => [`error_${idx}`, msg]);
+
             const displayErrors = Object.fromEntries(messagesSet);
+            // console.log(importErrors,allMessages,messagesSet,displayErrors);
+            
 
             if (showValidationErrors(displayErrors, 'Excel Validation Error')) return;
 
             // => Adding Id property
-            formData.products.forEach((row, i) => {
+            jsonData.forEach((row, i) => {
                 row.id = row['product_code'] || row['Product Code'];
             });
 
