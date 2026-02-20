@@ -504,8 +504,8 @@ export default function () {
                             text: "Something went wrong while submitting the form.",
                         });
                     }finally{
-                        setForceLoading(true);
-                        isSubmitting(false);
+                        setForceLoading(false);
+                        setIsSubmitting(false);
 
                         confirmSubmitedRef.current = false;
                         submitingRef.current = false;
