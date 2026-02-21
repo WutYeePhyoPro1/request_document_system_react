@@ -90,9 +90,9 @@ export default function () {
     const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
     const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
                                 && allBranchUpdated 
-                                && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).length <= 0;
+                                && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() != "Updated")
     const trackable = getApprover?.approval_users?.id == user.id;
-    const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).length > 0
+    const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() == "Updated").length > 0
 
     // (supervisor || approver) && formState?.status != 'Partial';
     const [copied, setCopied] = useState(false);
@@ -200,7 +200,7 @@ export default function () {
                     }
                     const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
                     setPricesErrors(prev => {
-                        const code = updatedItem.product_code;
+                        const code = updatedItem.id || updatedItem.product_code;
                         const newFields = pricesAlerts[code] || {};
 
                         const merged = {
@@ -246,7 +246,7 @@ export default function () {
                     );
 
                     setPricesErrors(prev => {
-                        const code = updatedItem.product_code;
+                        const code = updatedItem.id || updatedItem.product_code;
                         const newFields = pricesAlerts[code] || {};
 
                         const merged = {
@@ -279,7 +279,7 @@ export default function () {
 
                     const pricesAlerts = validateArrayField([updatedItem], {'price2': {required:true,numeric: true, min: 1, max:"price1"}}, 'Product',productMessages);
                     setPricesErrors(prev => {
-                        const code = updatedItem.product_code;
+                        const code = updatedItem.id || updatedItem.product_code;
                         const newFields = pricesAlerts[code] || {};
 
                         const merged = {
@@ -1008,6 +1008,19 @@ export default function () {
         }));
     };
 
+    const updateOnlineStatus = (name, status, message = null)=>{
+        // generalFormFiles.filter(gf=>gf.name.includes("Update Online Price"))
+
+        setGeneralFormFiles(prev =>
+            prev.map(f =>
+                f.name === name
+                ? { ...f, file: status }
+                : f
+            )
+        );
+
+    }
+
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     let runningRef = useRef(false);
     let confirmRunRef = useRef(false);
@@ -1076,14 +1089,17 @@ export default function () {
 
 
 
-            Swal.fire({
-                icon: "success",
-                title: "POS and ERP Prices Updated",
-                text: "All branches are now live with the updated pricing.",
-            });
+            // Swal.fire({
+            //     icon: "success",
+            //     title: "POS and ERP Prices Updated",
+            //     text: "All branches are now live with the updated pricing.",
+            // });
 
             // fetchPriceChange();
             // navigate("/price_changes");
+
+
+            onlineHandler();
 
         } catch (err) {
             console.error(err,err.message);
@@ -1105,25 +1121,10 @@ export default function () {
         }
     };
 
-    let updatingRef = useRef(false);
-    let confirmUpdateRef = useRef(false);
-    const onlineHandler = async (e)=>{
-        if (updatingRef.current) return;
 
+    const onlineHandler = async (e)=>{
 
         var btnText = e.target.textContent;
-
-            Swal.fire({
-                icon: "question",
-                text:  `Are you sure you want to ${btnText}?`,
-                showCancelButton: true,
-                confirmButtonText: "OK",
-                cancelButtonText: "Cancel",
-            }).then(async (result) => {
-
-                if (result.isConfirmed && !confirmUpdateRef.current) {
-                    confirmUpdateRef.current = true;
-                    updatingRef.current = true;
 
                     // console.log("Online:");
 
@@ -1150,6 +1151,8 @@ export default function () {
                         }
                     }
                     console.log(formData);
+
+                    updateOnlineStatus("Update Online Price", "Updating");
                     try{
                         const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
                             headers: {
@@ -1162,7 +1165,7 @@ export default function () {
                         const data = res.data;
 
                         if(data.success == false){
-                            return;
+                            throw new Error(res?.data?.message);
                         }
 
                         // const updatedForm = await fetchPriceChange();
@@ -1172,6 +1175,7 @@ export default function () {
                         //     text: data.message,
                         // });
 
+                        updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
                         transferGCPHandler();
 
                     }catch(err){
@@ -1183,17 +1187,15 @@ export default function () {
                             text: "Something went wrong while updating online.",
                         });
 
+                        updateOnlineStatus("Update Online Price", "Failed");
+
                     }finally{
                         setForceLoading(false);
                         setIsSubmitting(false);
 
                         fetchPriceChange();
-
-                        confirmUpdateRef.current = false;
-                        updatingRef.current = false;
                     }
-                }
-            });
+            
     }
 
     const transferGCPHandler = async ()=>{
@@ -1214,7 +1216,7 @@ export default function () {
             Swal.fire({
                 icon: "success",
                 title: "Price Change Form Process Finished Successfully!",
-                text: "Online Update and GCP document created successfully.",
+                text: "GCP document created successfully.",
             });
             // // End GCP Document API
         }catch(err){
@@ -1822,11 +1824,36 @@ export default function () {
                             key={idx}
                             >
                             <div className="font-mediums flex flex-col">
-                            {online.name}: {formatStrDateTime(online?.created_at)}
+                            {online.name}: { String(online.file).toLowerCase() == 'updated' ? formatStrDateTime(online?.created_at) : "" }
                             </div>
-                            <span className="text-sm text-green-600s flex items-center">
-                                <span className="text-2xl me-2"><BsCartCheck/></span> <span>Online</span>
-                            </span>
+
+                            {
+                                String(online.file).toLowerCase() == 'updated' &&  
+                                <span className="text-sm text-green-600s flex items-center">
+                                    <span className="text-2xl me-2">🛒</span> <span>Online</span>
+                                </span>
+                            }
+                          
+                            {
+                                String(online.file).toLowerCase() == 'default' &&  
+                                <span className="text-sm text-green-600s flex items-center">
+                                    <span className="text-2xl me-2">🕒</span> <span>Pending</span>
+                                </span>
+                            }
+
+                            {
+                                String(online.file).toLowerCase() == 'updating' &&  
+                                <span className="text-sm text-green-600s flex items-center">
+                                    <span className="text-2xl me-2">🔁</span> <span>Updating....</span>
+                                </span>
+                            }
+
+                            {
+                                String(online.file).toLowerCase() == 'failed' &&  
+                                <span className="text-sm text-green-600s flex items-center">
+                                    <span className="text-2xl me-2">🚫</span> <span>Failed</span>
+                                </span>
+                            }
                         </li>
                     ))}
 
