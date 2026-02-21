@@ -169,6 +169,10 @@ export default function () {
     };
     const [pricesErrors,setPricesErrors] = useState({});
     const pricesHandler = (e, product_code) => {
+        if(!changable) return;
+
+        updateDoc.current = true;
+
         const { name, value } = e.target;
 
         setProducts(prev =>
@@ -318,6 +322,8 @@ export default function () {
     const searchHandler = async () => {
             if(!changable) return;
 
+            updateDoc.current = true;
+
             setSearching(true);
 
             try{
@@ -437,6 +443,8 @@ export default function () {
 
     const removeHandler = (e,product_code)=>{
         if(!changable) return;
+
+        updateDoc.current = true;
 
         e.preventDefault();
         // console.log(product_code);
@@ -601,6 +609,9 @@ export default function () {
     }
     const excelImportHandler = async (e) => {
         if(!changable) return;
+
+        updateDoc.current = true;
+
         setImporting(true);
 
         try{
