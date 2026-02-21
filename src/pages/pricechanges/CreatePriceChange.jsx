@@ -142,10 +142,24 @@ export default function () {
                         }
                     }
                     const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
-                    setPricesErrors(prev => ({
-                        ...prev,
-                        ...pricesAlerts
-                    }));
+                    setPricesErrors(prev => {
+                        const code = updatedItem.product_code;
+                        const newFields = pricesAlerts[code] || {};
+
+                        const merged = {
+                            ...prev[code],
+                            ...newFields
+                        };
+
+                        if (!newFields[name]) {
+                            delete merged[name];
+                        }
+
+                        return {
+                            ...prev,
+                            [code]: merged
+                        };
+                    });
                     console.log(pricesAlerts);
                 }
 
@@ -174,10 +188,24 @@ export default function () {
                         ,productMessages
                     );
 
-                    setPricesErrors(prev => ({
-                        ...prev,
-                        ...pricesAlerts
-                    }));
+                    setPricesErrors(prev => {
+                        const code = updatedItem.product_code;
+                        const newFields = pricesAlerts[code] || {};
+
+                        const merged = {
+                            ...prev[code],
+                            ...newFields
+                        };
+
+                        if (!newFields[name]) {
+                            delete merged[name];
+                        }
+
+                        return {
+                            ...prev,
+                            [code]: merged
+                        };
+                    });
                     console.log(pricesAlerts);
                 }
 
@@ -193,10 +221,24 @@ export default function () {
 
 
                     const pricesAlerts = validateArrayField([updatedItem], {'price2': {required:true,numeric: true, min: 1, max:"price1"}}, 'Product',productMessages);
-                    setPricesErrors(prev => ({
-                        ...prev,
-                        ...pricesAlerts
-                    }));
+                    setPricesErrors(prev => {
+                        const code = updatedItem.product_code;
+                        const newFields = pricesAlerts[code] || {};
+
+                        const merged = {
+                            ...prev[code],
+                            ...newFields
+                        };
+
+                        if (!newFields[name]) {
+                            delete merged[name];
+                        }
+
+                        return {
+                            ...prev,
+                            [code]: merged
+                        };
+                    });
                     console.log(pricesAlerts);
                 }
 
