@@ -63,6 +63,7 @@ export default function () {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
+    const [updating,setUpdating] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
     const [transfering,setTransfering] = useState(false);
 
@@ -1124,7 +1125,9 @@ export default function () {
 
     const onlineHandler = async (e)=>{
 
-        var btnText = e.target.textContent;
+        setUpdating(true);
+
+        // var btnText = e.target.textContent;
 
                     // console.log("Online:");
 
@@ -1194,6 +1197,8 @@ export default function () {
                         setIsSubmitting(false);
 
                         fetchPriceChange();
+
+                        setUpdating(false);
                     }
             
     }
@@ -1719,20 +1724,23 @@ export default function () {
                         Approved By Merchandising Manager
                         </div>
                         {
-                            getApprover !== null && getApprover.approval_users && !(Array.isArray(getApprover?.approval_users) && getApprover.approval_users.length === 0) &&
-                            <>
-                            <div className="font-semibold text-blue-900">
-                            {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
-                            </div>
+                            getApprover &&
+                            getApprover.approval_users &&
+                            !(Array.isArray(getApprover.approval_users) && getApprover.approval_users.length === 0) &&
+                            (!formRejected || formRejected.user_type === "A1") &&
+                                <>
+                                <div className="font-semibold text-blue-900">
+                                {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
+                                </div>
 
-                            <div className="font-semibold text-blue-900">
-                            ({getApprover?.approval_users?.department?.name})
-                            </div>
+                                <div className="font-semibold text-blue-900">
+                                ({getApprover?.approval_users?.department?.name})
+                                </div>
 
-                            <div className="font-semibold text-blue-900">
-                            {formatStrDateTime(getApprover?.created_at)}
-                            </div>
-                            </>
+                                <div className="font-semibold text-blue-900">
+                                {formatStrDateTime(getApprover?.created_at)}
+                                </div>
+                                </>
                         }
                     </div>
 
@@ -1786,10 +1794,12 @@ export default function () {
                                         bg-blue-600 text-white 
                                         hover:bg-blue-700 transition shadow-sm"
                                     onClick={onlineHandler}
+                                    disabled={updating}
                                 >
-                                    Update Price Online
+                                {updating ? 'Loading...' : 'Update Price Online'}
                                 </button>
                             }
+
 
                             {
                                 // transferGCPHandler
@@ -1824,7 +1834,7 @@ export default function () {
                             key={idx}
                             >
                             <div className="font-mediums flex flex-col">
-                            {online.name}: { String(online.file).toLowerCase() == 'updated' ? formatStrDateTime(online?.created_at) : "" }
+                            {online.name}: { String(online.file).toLowerCase() == 'updated' ? formatStrDateTime(online?.updated_at) : "" }
                             </div>
 
                             {
