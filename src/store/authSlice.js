@@ -9,33 +9,25 @@ export const login = createAsyncThunk(
         "/api/login",
         { employee_number, password },
         {
-          withCredentials: true, // Include cookies for Laravel session
+          withCredentials: true,
           headers: {
             Accept: "application/json",
             "X-Requested-With": "XMLHttpRequest",
           },
-        }
+        },
       );
-
-      // Use the user data directly from API (now includes user_type)
+      console.log("USerDatas>>", response.data);
       const enriched = { ...response.data.user };
-
       const token = response.data.token;
-
-      // Clear any old cached data first
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
-
-      // Save in localStorage
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(enriched));
-
-      // Return both user and token
       return { user: enriched, token };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Login failed");
     }
-  }
+  },
 );
 export const logout = createAsyncThunk(
   "auth/logout",
@@ -54,7 +46,7 @@ export const logout = createAsyncThunk(
               Accept: "application/json",
               "X-Requested-With": "XMLHttpRequest",
             },
-          }
+          },
         );
       }
     } catch (e) {
@@ -68,7 +60,7 @@ export const logout = createAsyncThunk(
     localStorage.removeItem("notifications");
 
     return true;
-  }
+  },
 );
 export const loginWithToken = createAsyncThunk(
   "auth/loginWithToken",
@@ -78,27 +70,28 @@ export const loginWithToken = createAsyncThunk(
       const response = await axios.post(
         "/api/auto-login",
         { token },
-        { withCredentials: true }
+        { withCredentials: true },
       );
 
       const user = { ...response.data.user };
       const tokenValue = response.data.token;
-       const redirect = response.data.redirect;
+      const redirect = response.data.redirect;
 
       // Clear any old cached data first
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+      localStorage.removeItem("user");
+      localStorage.removeItem("token");
 
       localStorage.setItem("token", tokenValue);
       localStorage.setItem("user", JSON.stringify(user));
 
-      return { user, token: tokenValue ,redirect };
+      return { user, token: tokenValue, redirect };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Auto-login failed");
+      return rejectWithValue(
+        err.response?.data?.message || "Auto-login failed",
+      );
     }
-  }
+  },
 );
-
 
 const authSlice = createSlice({
   name: "auth",
@@ -108,9 +101,7 @@ const authSlice = createSlice({
     status: "idle",
     error: null,
   },
-  reducers: {
-
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       .addCase(login.pending, (state) => {
@@ -126,24 +117,24 @@ const authSlice = createSlice({
         state.status = "failed";
         state.error = action.payload;
       })
-       .addCase(logout.fulfilled, (state) => {
+      .addCase(logout.fulfilled, (state) => {
         state.user = null;
         state.token = null;
         state.status = "idle";
-      }).addCase(loginWithToken.pending, (state) => {
-  state.status = "loading";
-  state.error = null;
-})
-.addCase(loginWithToken.fulfilled, (state, action) => {
-  state.user = action.payload.user;
-  state.token = action.payload.token;
-  state.status = "succeeded";
-})
-.addCase(loginWithToken.rejected, (state, action) => {
-  state.status = "failed";
-  state.error = action.payload;
-});
-;
+      })
+      .addCase(loginWithToken.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(loginWithToken.fulfilled, (state, action) => {
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.status = "succeeded";
+      })
+      .addCase(loginWithToken.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      });
   },
 });
 

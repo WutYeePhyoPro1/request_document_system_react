@@ -25,6 +25,7 @@ import Swal from "sweetalert2";
 import { m } from "framer-motion";
 import { getStoreGeneratorData } from "../../../api/ME/Generator/generatos";
 import { useLocation, useNavigate } from "react-router-dom";
+import { FaStar } from "react-icons/fa";
 
 const GeneratorCreate: React.FC = () => {
   const location = useLocation();
@@ -100,7 +101,7 @@ const GeneratorCreate: React.FC = () => {
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
-    remark: "Remark is required",
+    // remark: "Remark is required",
   };
   const navigate = useNavigate();
   const handleBack = () => {
@@ -248,11 +249,17 @@ const GeneratorCreate: React.FC = () => {
         <div className="flex flex-justify flex-col gap-4">
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">Date</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Date</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 required
                 name="generator_date"
                 type="date"
+                max={new Date().toISOString().split("T")[0]}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
@@ -266,7 +273,12 @@ const GeneratorCreate: React.FC = () => {
             </div>
 
             <div className="">
-              <label htmlFor="">Time</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Time</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="time"
                 required
@@ -278,15 +290,27 @@ const GeneratorCreate: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">Engine Oil%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Engine Oil%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 required
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 name="engine_oil_level"
                 onWheel={(e) => e.currentTarget.blur()}
@@ -295,16 +319,28 @@ const GeneratorCreate: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor="">Fule%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Fule%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="fuel_level"
                 required
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -314,16 +350,28 @@ const GeneratorCreate: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">Coolant%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Coolant%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="coolant_level"
                 required
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -331,12 +379,43 @@ const GeneratorCreate: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor="">Battery Volt</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Battery Volt</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="battery_volt_level"
                 required
-                min="0"
+                step="0.01"
+                inputMode="decimal"
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  value = value.replace(/[^0-9.]/g, "");
+
+                  // Prevent multiple decimals
+                  const parts = value.split(".");
+                  if (parts.length > 2) {
+                    value = parts[0] + "." + parts[1];
+                  }
+
+                  // Limit 4 digits before decimal
+                  if (parts[0].length > 4) {
+                    parts[0] = parts[0].slice(0, 4);
+                  }
+
+                  // Limit 2 digits after decimal
+                  if (parts[1]) {
+                    parts[1] = parts[1].slice(0, 2);
+                  }
+
+                  value = parts.join(".");
+
+                  e.target.value = value;
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -350,12 +429,23 @@ const GeneratorCreate: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">L1</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">L1</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="l1_level"
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -368,11 +458,22 @@ const GeneratorCreate: React.FC = () => {
             </div>
 
             <div className="">
-              <label htmlFor="">L2</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">L2</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="l2_level"
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -388,11 +489,22 @@ const GeneratorCreate: React.FC = () => {
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">L3</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">L3</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="l3_level"
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -405,12 +517,23 @@ const GeneratorCreate: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor=""> Total KW</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Total KW</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="total_kw_level"
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -425,12 +548,23 @@ const GeneratorCreate: React.FC = () => {
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> VoltageL-L</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">VoltageL-L</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="voltageL_l_level"
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -442,17 +576,28 @@ const GeneratorCreate: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor=""> Load%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Load%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="load_level"
                 required
                 min="0"
-                max="500"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -462,12 +607,23 @@ const GeneratorCreate: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> Running Hour</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Running Hour</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="running_hour"
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -492,15 +648,27 @@ const GeneratorCreate: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> Generator Cleaning%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Generator Cleaning%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 name="generator_cleaning_level"
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 required
                 onWheel={(e) => e.currentTarget.blur()}

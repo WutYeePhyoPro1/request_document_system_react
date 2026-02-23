@@ -96,7 +96,7 @@ const GeneratorDetail: React.FC = () => {
         <div className="">
           <div className="p-4 sm:p-6">
             <div
-              className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
+              className="h-30 w-full bg-cover bg-center rounded-lg shadow-md mb-2"
               style={{ backgroundImage: `url(${dashboardPhoto})` }}
             ></div>
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6">
