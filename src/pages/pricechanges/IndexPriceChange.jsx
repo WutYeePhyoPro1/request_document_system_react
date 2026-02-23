@@ -14,8 +14,10 @@ import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../s
 
 
 export default function IndexPriceChange() {
-    const token = localStorage.getItem('token');
-    
+    // const token = localStorage.getItem('token');
+    const { user, token } = useSelector((state) => state.auth);
+    console.log(user);
+
     const statusOptions = [
         { value: "Ongoing", label: "Ongoing" },
         { value: "Checked", label: "Checked" },
@@ -105,7 +107,7 @@ export default function IndexPriceChange() {
                         ? data.data.data
                         : [];
             list = [...list]
-                    .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.branch_code > b.branch_code ? 1 : -1);
+                    .filter((br)=> br.id == 1).sort((a,b)=>a.branch_code > b.branch_code ? 1 : -1);
 
             setBranches(list);
         } catch (error) {
@@ -140,6 +142,8 @@ export default function IndexPriceChange() {
 
                             <div className="flex justify-between mr-4">
                                 <h2 className="text-xl font-semibold ">Price Change Form</h2>
+
+                                { user.from_branch_id == 1 && user.department_id == 6 &&
                                 <Link to="/price_changes/create" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
                                     style={{
                                         backgroundColor: '#2ea2d1',
@@ -149,6 +153,7 @@ export default function IndexPriceChange() {
                                 >
                                     Add
                                 </Link>
+                                }
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
@@ -276,7 +281,6 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">Effective Date</th>
                                             <th className="py-2 px-4 border-b">Department</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
-                                            <th className="py-2 px-4 border-b">Branch</th>
                                             <th className="py-2 px-4 border-b">Created Date</th>
                                         </tr>
                                     </thead>
@@ -311,9 +315,6 @@ export default function IndexPriceChange() {
                                                         <td className="py-2 px-4 border-b">{data.date}</td>
                                                         <td className="py-2 px-4 border-b">{data.to_category.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
-                                                        <td className="py-2 px-4 border-b">
-                                                            {branches.find(branch => branch.id === data.from_branch)?.branch_name || '—'}
-                                                        </td>
                                                         <td className="py-2 px-4 border-b">{data.created_at}</td>
                                                     </tr>
                                                 ))

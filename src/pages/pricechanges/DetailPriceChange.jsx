@@ -1043,7 +1043,6 @@ export default function () {
             if (result.isConfirmed && !confirmRunRef.current) {
                 confirmRunRef.current = true;
                 runningRef.current = true;
-
             }
         }
         // console.log("Run Success");
@@ -1433,7 +1432,7 @@ export default function () {
                     {/* Branch Sidebar (Left Column) */}
                     <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
                         <div className="flex justify-between items-start p-5 border-b border-gray-100 bg-white/50 ">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 m-0" onClick={() => setShowModal(true)}>Branches</h2>
+                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 m-0" onClick={() => setShowModal(true)}>Branches <span className="text-red-600 text-md">*</span></h2>
                             <span
                                 onClick={() => setShowModal(true)}
                                 className="cursor-pointer text-sky-500 text-lg hover:text-sky-600 flex"
@@ -1500,22 +1499,22 @@ export default function () {
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date <span className="text-red-600 text-md">*</span></label>
                                     <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Effective Date</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase"><span className="text-red-600">Effective Date</span> <span className="text-red-600 text-md">*</span></label>
                                     <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/>
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-6">
                                     <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.urgent_price_change} />
-                                    <span className="text-sm font-bold text-red-600">Urgent Price Change</span>
+                                    <span className="text-sm font-bold text-red-600">Urgent Price Change <span className="text-red-600 text-md">*</span></span>
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Department</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Department <span className="text-red-600 text-md">*</span></label>
                                     <div className="mt-1">
                                         <Select
                                             id="category_id"
@@ -1560,7 +1559,7 @@ export default function () {
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Branch Price</label>
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Branch Price <span className="text-red-600 text-md">*</span></label>
                                     <div className="mt-1">
                                         <Select
                                             id="branch_price"
@@ -1591,13 +1590,13 @@ export default function () {
                                 </div>
 
                                                 
-                                <div className="flex items-end gap-3 md:col-span-2">
+                                <div className="flex flex-col md:flex-row md:items-end gap-3 md:col-span-2">
                                     <div className="flex-1">
                                         <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
                                         <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
                                     </div>
                                     
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
                                         <button
                                             type="button"
                                             className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
@@ -1611,7 +1610,7 @@ export default function () {
                                             type="button"
                                             onClick={() => document.getElementById("excel_import").click()}
                                             title="Excel Import"
-                                            className="inline-flex items-center justify-center h-10 w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
+                                            className="inline-flex items-center justify-center h-10 w-full md:w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
                                             disabled={importing}
                                         >
                                             {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
@@ -1640,7 +1639,7 @@ export default function () {
                         {/* Product Prices Stacked on Bottom */}
                         <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
                             <div className="mb-4">
-                                <h2 className="text-base font-semibold text-slate-800">Product Prices</h2>
+                                <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
                             </div>
                             {/* <div className="overflow-auto max-h-[500px]"> */}
                                 <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable}/>
@@ -1788,7 +1787,7 @@ export default function () {
 
 
                             {
-                                onlineActionable &&
+                                onlineActionable && !(runningRef.current && confirmRunRef.current) &&
                                 <button
                                     className="px-4 py-2 text-sm font-medium rounded-lg
                                         bg-blue-600 text-white 
