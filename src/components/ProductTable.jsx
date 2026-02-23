@@ -9,7 +9,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
         thNumber: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10, textAlign: "right"},
     }
     // console.log(data);
-    // console.log(pricesErrors);
+    console.log(pricesErrors);
 
     return (
         <>
@@ -81,7 +81,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                                     : 'border-cyan-500 focus:border-cyan-500'
                                             }
                                         `} 
-                                        data-priceError = {pricesErrors?.[`Product_${item.product_code}_price1`] || pricesErrors?.[`Product_${item.product_code}_Price 1`]}
+                                        data-priceError = {pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']}
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
                                         value={item.price1}
                                         readOnly={!authorizedEdit}

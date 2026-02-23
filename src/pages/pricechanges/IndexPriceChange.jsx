@@ -34,7 +34,7 @@ export default function IndexPriceChange() {
     
     useEffect(()=>{
         console.log("Filter Empty:",isFiltersEmpty);
-        dispatch(fetchPriceChanges({filters,searchQuery: isSearchMode ? 'all' : ''}));
+        dispatch(fetchPriceChanges({filters}));
     },[dispatch]);
 
 
@@ -63,7 +63,7 @@ export default function IndexPriceChange() {
 
     const handlePageClick = (page) => {
         if (page >= 1 && page <= paginationInfo.last_page) {
-            dispatch(fetchPriceChanges({filters,searchQuery: isSearchMode ? 'all' : '',page}));
+            dispatch(fetchPriceChanges({filters,page}));
         }
     };
 
@@ -85,7 +85,7 @@ export default function IndexPriceChange() {
         }
     };
 
-
+    const excludeBranchIds = [1,18,19,21,22,15];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branchesall', {
@@ -97,13 +97,16 @@ export default function IndexPriceChange() {
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-            const list = Array.isArray(data)
+            let list = Array.isArray(data)
                 ? data
                 : Array.isArray(data?.data)
                     ? data.data
                     : Array.isArray(data?.data?.data)
                         ? data.data.data
                         : [];
+            list = [...list]
+                    .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.branch_code > b.branch_code ? 1 : -1);
+
             setBranches(list);
         } catch (error) {
             console.error('Fetch branches error:', error);
@@ -113,7 +116,7 @@ export default function IndexPriceChange() {
 
     const searchHandler = (e)=>{
         e.preventDefault();
-        dispatch(fetchPriceChanges({filters,searchQuery:"all"}));
+        dispatch(fetchPriceChanges({filters}));
     }
 
     const clearHandler = (e)=>{
