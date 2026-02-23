@@ -144,7 +144,7 @@ const TableDetail: React.FC<Props> = ({
             ? element.generator_service_date
             : "not have ",
           fullNumberFormat(element.generator_cleaning_level),
-          element.remark,
+          element.remark ? element.remark : "no remark",
 
           // 📎 Image
 

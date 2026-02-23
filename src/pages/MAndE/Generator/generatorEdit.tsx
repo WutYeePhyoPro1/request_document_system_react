@@ -13,6 +13,7 @@ import {
 } from "../../../api/ME/Generator/generatos";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
+import { FaStar } from "react-icons/fa";
 
 const GeneratorEdit: React.FC = () => {
   const { id } = useParams();
@@ -300,7 +301,12 @@ const GeneratorEdit: React.FC = () => {
         <div className="flex flex-justify flex-col gap-4">
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">Date</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Date</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 required
                 name="generator_date"
@@ -325,7 +331,12 @@ const GeneratorEdit: React.FC = () => {
             </div>
 
             <div className="">
-              <label htmlFor="">Time</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Time</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="time"
                 onChange={handleChange}
@@ -339,7 +350,12 @@ const GeneratorEdit: React.FC = () => {
           </div>
           <div className="relative grid g                rid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">Engine Oil%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Engine Oil%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="number"
                 onChange={handleChange}
@@ -365,7 +381,12 @@ const GeneratorEdit: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor="">Fule%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Fule%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -393,7 +414,12 @@ const GeneratorEdit: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">Coolant%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Coolant%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -419,8 +445,12 @@ const GeneratorEdit: React.FC = () => {
               />
             </div>
             <div className="">
-              <label>Battery Volt</label>
-
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Battery Volt</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 type="text"
                 name="battery_volt_level"
@@ -471,7 +501,12 @@ const GeneratorEdit: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">L1</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">L1</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -497,7 +532,12 @@ const GeneratorEdit: React.FC = () => {
             </div>
 
             <div className="">
-              <label htmlFor="">L2</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">L2</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -525,7 +565,12 @@ const GeneratorEdit: React.FC = () => {
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor="">L3</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">L3</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -550,7 +595,12 @@ const GeneratorEdit: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor=""> Total KW</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Total KW</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -578,7 +628,12 @@ const GeneratorEdit: React.FC = () => {
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> VoltageL-L</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">VoltageL-L</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -603,7 +658,12 @@ const GeneratorEdit: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor=""> Load%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Load%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -631,7 +691,12 @@ const GeneratorEdit: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> Running Hour</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Running Hour</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
@@ -670,7 +735,12 @@ const GeneratorEdit: React.FC = () => {
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
-              <label htmlFor=""> Generator Cleaning%</label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Generator Cleaning%</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
               <input
                 onChange={handleChange}
                 type="number"
