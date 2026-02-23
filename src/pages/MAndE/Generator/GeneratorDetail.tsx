@@ -96,7 +96,7 @@ const GeneratorDetail: React.FC = () => {
         <div className="">
           <div className="p-4 sm:p-6">
             <div
-              className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
+              className="h-30 w-full bg-cover bg-center rounded-lg shadow-md mb-2"
               style={{ backgroundImage: `url(${dashboardPhoto})` }}
             ></div>
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6">
@@ -122,7 +122,7 @@ const GeneratorDetail: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold">
-                  MAndE Generator Form(
+                  M&E Generator Form(
                   {detailData?.generalForm?.form_doc_no
                     ? detailData?.generalForm?.form_doc_no
                     : ""}

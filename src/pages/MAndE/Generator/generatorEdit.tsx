@@ -177,7 +177,7 @@ const GeneratorEdit: React.FC = () => {
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
-    remark: "Remark is required",
+    // remark: "Remark is required",
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -346,10 +346,17 @@ const GeneratorEdit: React.FC = () => {
                 required
                 name="engine_oil_level"
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 value={form.engine_oil_level}
                 onWheel={(e) => e.currentTarget.blur()}
@@ -366,10 +373,17 @@ const GeneratorEdit: React.FC = () => {
                 value={form.fuel_level}
                 required
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -387,10 +401,17 @@ const GeneratorEdit: React.FC = () => {
                 value={form.coolant_level}
                 required
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -398,21 +419,52 @@ const GeneratorEdit: React.FC = () => {
               />
             </div>
             <div className="">
-              <label htmlFor="">Battery Volt</label>
+              <label>Battery Volt</label>
+
               <input
-                onChange={handleChange}
-                type="number"
+                type="text"
                 name="battery_volt_level"
                 value={form.battery_volt_level}
                 required
-                min="0"
+                inputMode="decimal"
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // Allow only numbers and dot
+                  value = value.replace(/[^0-9.]/g, "");
+
+                  // Split decimal
+                  let parts = value.split(".");
+
+                  // Prevent multiple decimals
+                  if (parts.length > 2) {
+                    parts = [parts[0], parts[1]];
+                  }
+
+                  // Limit 4 digits before decimal
+                  if (parts[0].length > 4) {
+                    parts[0] = parts[0].slice(0, 4);
+                  }
+
+                  // Limit 2 digits after decimal
+                  if (parts[1]) {
+                    parts[1] = parts[1].slice(0, 2);
+                  }
+
+                  const formattedValue = parts.join(".");
+
+                  setForm((prev) => ({
+                    ...prev,
+                    battery_volt_level: formattedValue,
+                  }));
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(213, 216, 221)" }}
               />
             </div>
@@ -427,6 +479,12 @@ const GeneratorEdit: React.FC = () => {
                 value={form.l1_level}
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -447,6 +505,12 @@ const GeneratorEdit: React.FC = () => {
                 value={form.l2_level}
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -469,6 +533,12 @@ const GeneratorEdit: React.FC = () => {
                 value={form.l3_level}
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -488,6 +558,12 @@ const GeneratorEdit: React.FC = () => {
                 value={form.total_kw_level}
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -510,6 +586,12 @@ const GeneratorEdit: React.FC = () => {
                 value={form.voltageL_l_level}
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -529,11 +611,17 @@ const GeneratorEdit: React.FC = () => {
                 value={form.load_level}
                 required
                 min="0"
-                max="500"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -551,6 +639,12 @@ const GeneratorEdit: React.FC = () => {
                 value={form.running_hour}
                 required
                 min="0"
+                max="9999"
+                onInput={(e) => {
+                  if (e.target.value.length > 4) {
+                    e.target.value = e.target.value.slice(0, 4);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
@@ -584,10 +678,17 @@ const GeneratorEdit: React.FC = () => {
                 value={form.generator_cleaning_level}
                 required
                 min="0"
+                max="100"
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
                     e.preventDefault();
                   }
+                }}
+                onInput={(e) => {
+                  let value = e.target.value;
+
+                  if (value > 100) e.target.value = 100;
+                  if (value < 1 && value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"

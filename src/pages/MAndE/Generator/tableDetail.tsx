@@ -131,7 +131,7 @@ const TableDetail: React.FC<Props> = ({
           element.engine_oil_level,
           element.fuel_level,
           element.coolant_level,
-          fullNumberFormat(element.battery_volt_level),
+          numberFormat(element.battery_volt_level),
           fullNumberFormat(element.l1_level),
           fullNumberFormat(element.l2_level),
           fullNumberFormat(element.l3_level),
