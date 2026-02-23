@@ -10,6 +10,7 @@ import { FiCopy } from "react-icons/fi";
 import { AiFillMessage } from "react-icons/ai";
 import {
   dateFormat,
+  dateTimeFormat,
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
 import { Loader } from "lucide-react";
@@ -249,7 +250,7 @@ const Index: React.FC = () => {
             <Table.Td>{element.originators?.name}</Table.Td>
 
             <Table.Td>{dateFormat(element.created_at)}</Table.Td>
-            <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
+            <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
             <Table.Td className="text-blue-600 font-medium underline">
               View
             </Table.Td>
