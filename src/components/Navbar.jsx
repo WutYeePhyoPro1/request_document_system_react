@@ -106,12 +106,6 @@ export default function Navbar({ toggleSidebar }) {
         </span>
       </Link>
 
-    return (
-        <nav className="bg-gradient-to-r from-blue-50 via-cyan-50 to-blue-50 backdrop-blur-sm border-b border-blue-100/50 text-gray-800 py-3 sm:py-4 px-4 sm:px-6 flex items-center gap-2 sm:gap-3 relative shadow-sm z-50">
-            {/* Logo Section */}
-            <Link to="/dashboard" className="flex items-center space-x-2 sm:space-x-3 group flex-shrink-0">
-                <div className="relative">
-                    <img src={finalLogo} alt="homepage" className="h-7 w-auto sm:h-9 md:h-11 object-contain transition-transform duration-300 group-hover:scale-105" />
       {/* Right Side Actions */}
       <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-shrink-0 ml-auto">
         <LanguageSwitcher />
@@ -174,7 +168,7 @@ export default function Navbar({ toggleSidebar }) {
                       </p>
                       {user?.emp_id && (
                         <p className="text-[10px] sm:text-xs text-blue-100 truncate mt-0.5">
-                           {user.emp_id}
+                          ID: {user.emp_id}
                         </p>
                       )}
                     </div>

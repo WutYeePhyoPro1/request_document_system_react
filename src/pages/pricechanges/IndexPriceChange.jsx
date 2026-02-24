@@ -143,7 +143,7 @@ export default function IndexPriceChange() {
                             <div className="flex justify-between mr-4">
                                 <h2 className="text-xl font-semibold ">Price Change Form</h2>
 
-                                { user.from_branch_id == 1 && user.department_id == 6 &&
+                                {/* { user.from_branch_id == 1 && user.department_id == 6 && */}
                                 <Link to="/price_changes/create" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
                                     style={{
                                         backgroundColor: '#2ea2d1',
@@ -153,7 +153,7 @@ export default function IndexPriceChange() {
                                 >
                                     Add
                                 </Link>
-                                }
+                                {/* } */}
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
