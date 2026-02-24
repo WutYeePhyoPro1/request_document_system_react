@@ -128,9 +128,9 @@ const TableDetail: React.FC<Props> = ({
           index + 1,
           element.generator_date,
           element.generator_time_ampm,
-          element.engine_oil_level,
-          element.fuel_level,
-          element.coolant_level,
+          `${element.engine_oil_level}%`,
+          `${element.fuel_level}%`,
+          `${element.coolant_level}%`,
           numberFormat(element.battery_volt_level),
           fullNumberFormat(element.l1_level),
           fullNumberFormat(element.l2_level),
@@ -143,7 +143,7 @@ const TableDetail: React.FC<Props> = ({
           element.generator_service_date
             ? element.generator_service_date
             : "not have ",
-          fullNumberFormat(element.generator_cleaning_level),
+          `${element.generator_cleaning_level}%`,
           element.remark ? element.remark : "no remark",
 
           // 📎 Image
