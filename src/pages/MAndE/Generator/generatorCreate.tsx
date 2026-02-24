@@ -88,16 +88,14 @@ const GeneratorCreate: React.FC = () => {
   const validators = {
     generator_date: "Date is required",
     generator_time: "Time is required",
-    engine_oil_level: "Engine Oil % is required",
-    fuel_level: "Fuel % is required",
     coolant_level: "Coolant % is required",
     battery_volt_level: "Battery Volt is required",
     l1_level: "L1 is required",
     l2_level: "L2 is required",
     l3_level: "L3 is required",
-    total_kw_level: "Total KW is required",
+    // total_kw_level: "Total KW is required",
     voltageL_l_level: "Voltage L-L is required",
-    load_level: "Load % is required",
+    // load_level: "Load % is required",
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
@@ -137,11 +135,9 @@ const GeneratorCreate: React.FC = () => {
       return;
     }
     const percentFields = [
-      "engine_oil_level",
-      "fuel_level",
       "coolant_level",
       "generator_cleaning_level",
-      "load_level",
+      // "load_level",
     ];
 
     const rangeErrors: string[] = [];
@@ -261,7 +257,7 @@ const GeneratorCreate: React.FC = () => {
                 type="date"
                 max={new Date().toISOString().split("T")[0]}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
               <input type="hidden" name="sub_form_id" value={formId} />
               <input
@@ -284,100 +280,81 @@ const GeneratorCreate: React.FC = () => {
                 required
                 name="generator_time"
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
           </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Engine Oil%</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+            {/* Left Side Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              {/* Engine Oil */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>Engine Oil %</label>
+                  {/* <FaStar className="text-red-400" /> */}
+                </div>
+                <input
+                  type="number"
+                  name="engine_oil_level"
+                  required
+                  min="1"
+                  max="100"
+                  value={100}
+                  disabled
+                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(213, 216, 221)" }}
+                />
               </div>
-              <input
-                type="number"
-                required
-                min="0"
-                max="100"
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = e.target.value;
 
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && value !== "") e.target.value = 1;
-                }}
-                name="engine_oil_level"
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Fule%</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
+              {/* Fuel */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>Fuel %</label>
+                  {/* <FaStar className="text-red-400" /> */}
+                </div>
+                <input
+                  type="number"
+                  name="fuel_level"
+                  required
+                  min="1"
+                  max="100"
+                  value={100}
+                  disabled
+                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(213, 216, 221)" }}
+                />
               </div>
-              <input
-                type="number"
-                name="fuel_level"
-                required
-                min="0"
-                max="100"
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = e.target.value;
-
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && value !== "") e.target.value = 1;
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
-              />
             </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
+
+            {/* Coolant */}
+            <div>
               <div className="flex items-center gap-2">
-                <label htmlFor="">Coolant%</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
+                <label>Coolant %</label>
+                <FaStar className="text-red-400" />
               </div>
               <input
                 type="number"
                 name="coolant_level"
                 required
-                min="0"
+                min="1"
                 max="100"
                 onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
+                  if (["-", "e", "+"]?.includes(e.key)) {
                     e.preventDefault();
                   }
                 }}
                 onInput={(e) => {
-                  let value = e.target.value;
-
+                  let value = Number(e.target.value);
                   if (value > 100) e.target.value = 100;
-                  if (value < 1 && value !== "") e.target.value = 1;
+                  if (value < 1 && e.target.value !== "") e.target.value = 1;
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
+          </div>
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">Battery Volt</label>
@@ -423,11 +400,9 @@ const GeneratorCreate: React.FC = () => {
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">L1</label>
@@ -453,10 +428,11 @@ const GeneratorCreate: React.FC = () => {
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
-
+          </div>
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">L2</label>
@@ -482,12 +458,9 @@ const GeneratorCreate: React.FC = () => {
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
-          </div>
-
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">L3</label>
@@ -513,10 +486,13 @@ const GeneratorCreate: React.FC = () => {
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
-            <div className="">
+          </div>
+
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+            {/* <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">Total KW</label>
                 <span>
@@ -541,12 +517,10 @@ const GeneratorCreate: React.FC = () => {
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
-            </div>
-          </div>
+            </div> */}
 
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">VoltageL-L</label>
@@ -572,40 +546,9 @@ const GeneratorCreate: React.FC = () => {
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Load%</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="load_level"
-                required
-                min="0"
-                max="100"
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = e.target.value;
-
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && value !== "") e.target.value = 1;
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
-              />
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">Running Hour</label>
@@ -631,21 +574,11 @@ const GeneratorCreate: React.FC = () => {
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
-              />
-            </div>
-            <div className="">
-              <label htmlFor=""> Generator Service Date</label>
-              <input
-                type="date"
-                name="generator_service_date"
-                required
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
           </div>
+
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <div className="flex items-center gap-2">
@@ -673,9 +606,21 @@ const GeneratorCreate: React.FC = () => {
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
+            <div className="">
+              <label htmlFor=""> Generator Service Date</label>
+              <input
+                type="date"
+                name="generator_service_date"
+                onWheel={(e) => e.currentTarget.blur()}
+                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                style={{ borderColor: "rgb(29, 137, 225)" }}
+              />
+            </div>
+          </div>
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="">
               <label htmlFor=""> Remark</label>
               <textarea
@@ -684,90 +629,91 @@ const GeneratorCreate: React.FC = () => {
                 cols="3"
                 rows="1"
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(213, 216, 221)" }}
+                style={{ borderColor: "rgb(29, 137, 225)" }}
               ></textarea>
             </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2   gap-4 lg:gap-12 md:gap-8 items-end">
-            {invoiceFile.map((fileField, index) => (
-              <div key={fileField.id} className="flex flex-col gap-2 w-full">
-                <label htmlFor="">{index === 0 ? "Upload" : undefined}</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="file"
-                    name="file[]"
-                    required
-                    onChange={(e) =>
-                      updateFile(fileField.id, e.target.files?.[0] || null)
-                    }
-                    className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                    style={{ borderColor: "rgb(213, 216, 221)" }}
-                  />
+            <div className="">
+              {invoiceFile.map((fileField, index) => (
+                <div key={fileField.id} className="flex flex-col gap-2 w-full">
+                  <label htmlFor="">{index === 0 ? "Upload" : undefined}</label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="file"
+                      name="file[]"
+                      required
+                      onChange={(e) =>
+                        updateFile(fileField.id, e.target.files?.[0] || null)
+                      }
+                      className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                      style={{ borderColor: "rgb(29, 137, 225)" }}
+                    />
 
-                  {index === 0 ? (
-                    <Button onClick={addInvoiceFile}>Add</Button>
-                  ) : (
-                    <Button
-                      color="red"
-                      onClick={() => removeInvoiceFile(fileField.id)}
-                    >
-                      <IconX size={16} />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-            <div className="flex flex-wrap gap-3 mt-2">
-              {invoiceFile
-                .filter((f) => f.file)
-                .map((fileField) => (
-                  <div
-                    key={`preview-${fileField.id}`}
-                    className="w-40 p-2 border rounded-md flex items-center justify-center"
-                  >
-                    {/* IMAGE */}
-                    {fileField.type === "image" && (
-                      <a
-                        href={fileField.preview}
-                        target="_blank"
-                        rel="noreferrer"
+                    {index === 0 ? (
+                      <Button onClick={addInvoiceFile}>Add</Button>
+                    ) : (
+                      <Button
+                        color="red"
+                        onClick={() => removeInvoiceFile(fileField.id)}
                       >
-                        <img
-                          src={fileField.preview}
-                          alt="Preview"
-                          className="w-40  object-cover rounded"
-                        />
-                      </a>
-                    )}
-
-                    {/* PDF */}
-                    {fileField.type === "pdf" && (
-                      <a
-                        href={fileField.preview}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex flex-col items-center gap-1"
-                      >
-                        <IconFileText size={32} className="text-red-500" />
-                        <span className="text-xs text-center break-all">
-                          {fileField.name}
-                        </span>
-                      </a>
-                    )}
-
-                    {/* OTHER FILE */}
-                    {fileField.type === "other" && (
-                      <div className="flex flex-col items-center gap-2 text-center">
-                        <IconFile size={32} className="text-gray-500" />
-                        <span className="text-xs break-all">
-                          {fileField.name}
-                        </span>
-                      </div>
+                        <IconX size={16} />
+                      </Button>
                     )}
                   </div>
-                ))}
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-3 mt-2">
+                {invoiceFile
+                  .filter((f) => f.file)
+                  .map((fileField) => (
+                    <div
+                      key={`preview-${fileField.id}`}
+                      className="w-40 p-2 border rounded-md flex items-center justify-center"
+                    >
+                      {/* IMAGE */}
+                      {fileField.type === "image" && (
+                        <a
+                          href={fileField.preview}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <img
+                            src={fileField.preview}
+                            alt="Preview"
+                            className="w-40  object-cover rounded"
+                          />
+                        </a>
+                      )}
+
+                      {/* PDF */}
+                      {fileField.type === "pdf" && (
+                        <a
+                          href={fileField.preview}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex flex-col items-center gap-1"
+                        >
+                          <IconFileText size={32} className="text-red-500" />
+                          <span className="text-xs text-center break-all">
+                            {fileField.name}
+                          </span>
+                        </a>
+                      )}
+
+                      {/* OTHER FILE */}
+                      {fileField.type === "other" && (
+                        <div className="flex flex-col items-center gap-2 text-center">
+                          <IconFile size={32} className="text-gray-500" />
+                          <span className="text-xs break-all">
+                            {fileField.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
             </div>
           </div>
+
           {reAdd == true ? (
             <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
               <Button
