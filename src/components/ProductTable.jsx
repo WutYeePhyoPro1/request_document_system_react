@@ -57,7 +57,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td className="text-right">
                                 {
                                     authorizedEdit ?
-                                        <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                        <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                             ${
                                                 pricesErrors?.[item.product_code]?.['new_cost_price'] || pricesErrors?.[item.product_code]?.['New Cost Price'] || pricesErrors?.[item.id]?.['new_cost_price']
                                                     ? 'border-red-600 focus:border-red-600'
@@ -74,7 +74,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td className="text-right">
                                 {
                                     authorizedEdit ?
-                                        <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                        <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                             ${
                                                 pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']
                                                     ? 'border-red-600 focus:border-red-600'
@@ -94,7 +94,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td className="text-right">
                                 {
                                     authorizedEdit ?
-                                        <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border
+                                        <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                             ${
                                                 pricesErrors?.[item.product_code]?.['price2'] || pricesErrors?.[item.product_code]?.['Price 2'] || pricesErrors?.[item.id]?.['price2']
                                                     ? 'border-red-600 focus:border-red-600'

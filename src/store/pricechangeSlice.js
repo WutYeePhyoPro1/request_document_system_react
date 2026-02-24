@@ -1,5 +1,7 @@
 import {createSlice,createAsyncThunk} from "@reduxjs/toolkit";
 import axios from "axios";
+import {formatDate,formatStrDateTime,formatTo2Decimals,formatLaravelStyleDate} from "../components/Fomatter.jsx";
+
 
 const API_URL =  `https://dummyjson.com/products?limit=`;
 
@@ -56,21 +58,7 @@ const picechangeSlice = createSlice({
          },
      },
      extraReducers: (builder)=>{
-            const formatDate = (dateStr) => {
-                const d = new Date(dateStr);
-                // return `${d.getFullYear()}-${
-                //     String(d.getMonth() + 1).padStart(2, '0')
-                // }-${String(d.getDate()).padStart(2, '0')} 
-                // ${
-                //     String(d.getHours()).padStart(2, '0')
-                // }:${String(d.getMinutes()).padStart(2, '0')}`
 
-                return `
-                    ${d.getFullYear()}
-                    -${String(d.getMonth() + 1).padStart(2, '0')}
-                    -${String(d.getDate()).padStart(2, '0')}
-                `;
-            };
 
           builder
                .addCase(fetchPriceChanges.pending,(state)=>{
@@ -83,8 +71,8 @@ const picechangeSlice = createSlice({
                     // state.datas = result;
                     state.datas = result.map(item => ({
                         ...item,
-                        created_at: formatDate(item.created_at),
-                        date: formatDate(item.date_formatted),
+                        created_at: formatLaravelStyleDate(item.created_at,'m-d-Y'),
+                        date: formatLaravelStyleDate(item.date_formatted,'m-d-Y'),
                     }))
                     console.log(action.payload.data.data)
 
