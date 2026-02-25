@@ -863,6 +863,7 @@ const GeneratorEdit: React.FC = () => {
           <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
             <Button
               type="submit"
+              loading={loading}
               disabled={loading}
               // variant="gradient"
               // gradient={{ from: "green", to: "violet", deg: 90 }}
