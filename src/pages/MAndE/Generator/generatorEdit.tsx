@@ -243,7 +243,7 @@ const GeneratorEdit: React.FC = () => {
         formData.append(`file[${index}]`, fileItem.file);
       }
     });
-
+    setLoading(true);
     try {
       const token = localStorage.getItem("token");
 
@@ -263,6 +263,8 @@ const GeneratorEdit: React.FC = () => {
         title: "Error",
         text: "Something went wrong while saving data",
       });
+    } finally {
+      setLoading(false);
     }
   };
   if (loading) return <>{loading && <FullPageLoader />}</>;
@@ -864,14 +866,13 @@ const GeneratorEdit: React.FC = () => {
             <Button
               type="submit"
               loading={loading}
-              disabled={loading}
               // variant="gradient"
               // gradient={{ from: "green", to: "violet", deg: 90 }}
               color="blue"
               radius="md"
               size="md"
             >
-              {loading ? "Processing..." : "Update"}
+              Update
             </Button>
             <Button
               type="button"
