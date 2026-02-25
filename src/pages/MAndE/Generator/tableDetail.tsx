@@ -15,6 +15,7 @@ import { generatorDelete } from "../../../api/ME/Generator/generatos";
 import Swal from "sweetalert2";
 import { NotificationContext } from "../../../context/NotificationContext";
 import {
+  dateFormat,
   fullNumberFormat,
   numberFormat,
 } from "../../../utils/requestDiscountUtil/helper";
@@ -126,7 +127,7 @@ const TableDetail: React.FC<Props> = ({
     body: generatorList?.length
       ? generatorList.map((element, index) => [
           index + 1,
-          element.generator_date,
+          dateFormat(element.generator_date),
           element.generator_time_ampm,
           `${element.engine_oil_level}%`,
           `${element.fuel_level}%`,
@@ -141,10 +142,10 @@ const TableDetail: React.FC<Props> = ({
           fullNumberFormat(element.gen_kva_level),
           fullNumberFormat(element.running_hour),
           element.generator_service_date
-            ? element.generator_service_date
-            : "not have ",
+            ? dateFormat(element.generator_service_date)
+            : "- ",
           `${element.generator_cleaning_level}%`,
-          element.remark ? element.remark : "no remark",
+          element.remark ? element.remark : "-",
 
           // 📎 Image
 

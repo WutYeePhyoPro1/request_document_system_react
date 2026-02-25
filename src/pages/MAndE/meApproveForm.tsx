@@ -136,17 +136,18 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
         detailData?.generalForm?.status === "Ongoing" && (
           <>
             <h1>Remark</h1>
-            <div className="flex items-center gap-4 w-full">
-              <div className="w-1/2">
+            <div className="grid lg:grid-cols-2   grid-cols-1 gap-6">
+              <div className=" ">
                 <Textarea
                   resize="vertical"
                   name="comment"
+                  className="w-full"
                   placeholder="Your comment"
                   value={comment}
                   onChange={handleCommentChange}
                 />
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3 md:justify-start ">
                 <Button
                   color="green"
                   loading={loading}

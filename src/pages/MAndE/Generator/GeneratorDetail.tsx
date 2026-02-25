@@ -9,6 +9,7 @@ import { FiCopy } from "react-icons/fi";
 import StatusBadge from "../../../components/ui/StatusBadge";
 import {
   dateFormat,
+  dateTimeFormat,
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
 import ApproveForm from "../../requestDiscount/approveForm";
@@ -205,7 +206,7 @@ const GeneratorDetail: React.FC = () => {
                         )
                       </span>
                       <span className="text-blue-500 mt-1">
-                        {dateFormat(detailData?.generalForm?.created_at)}
+                        {dateTimeFormat(detailData?.generalForm?.created_at)}
                       </span>
                     </div>
                     {detailData?.getApprover ? (
@@ -228,7 +229,9 @@ const GeneratorDetail: React.FC = () => {
                             )
                           </div>
                           <div className="text-blue-500 mt-1">
-                            {dateFormat(detailData?.getApprover?.created_at)}
+                            {dateTimeFormat(
+                              detailData?.getApprover?.created_at,
+                            )}
                           </div>
                           {detailData?.getApprover?.comment && (
                             <div className="text-info text-break italic text-blue-500 mt-1">
@@ -244,7 +247,9 @@ const GeneratorDetail: React.FC = () => {
                         <div>Checked By</div>
                         <div>-------------------</div>
                         <div>Operation Analysis</div>
-                        <div>{dateFormat(detailData?.form?.created_at)}</div>
+                        <div>
+                          {dateTimeFormat(detailData?.form?.created_at)}
+                        </div>
                       </div>
                     )}
                   </div>
