@@ -14,6 +14,8 @@ import {
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import { FaStar } from "react-icons/fa";
+import FullPageLoader from "../../../components/FullPageLoader";
+import { Loader } from "lucide-react";
 
 const GeneratorEdit: React.FC = () => {
   const { id } = useParams();
@@ -263,6 +265,7 @@ const GeneratorEdit: React.FC = () => {
       });
     }
   };
+  if (loading) return <>{loading && <FullPageLoader />}</>;
 
   return (
     <div className="p-6 space-y-6">
