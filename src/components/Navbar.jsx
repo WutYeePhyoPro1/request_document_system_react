@@ -34,8 +34,7 @@ export default function Navbar({ toggleSidebar }) {
     }
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey:
-        "BCPKeVfYglhfqpsmmQXv-MP7oihVtZiVzRUXkVxojeQgAlGOWB07YI77J-A8awLcqv4ZKNPHVFQimsrutIIeRhM",
+      applicationServerKey: import.meta.env.VITE_NOTI_APPLICATION_SERVER_KEY,
     });
 
     await fetch("/api/notifications/push/subscribe", {
