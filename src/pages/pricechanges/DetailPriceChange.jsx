@@ -15,7 +15,7 @@ import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
-import {formatDate,formatStrDateTime,formatTo2Decimals} from "../../components/Fomatter.jsx";
+import {formatDate,formatStrDateTime,formatTo2Decimals,formatLaravelStyleDate} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
 import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
@@ -23,6 +23,10 @@ import { m } from "framer-motion";
 
 import StatusBadge from '../../components/ui/StatusBadge';
 
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
+
+import {fetchServerTime} from "./../../store/servertimeSlice";
 
 export default function () {
     const productslimit = 50;
@@ -30,6 +34,10 @@ export default function () {
     const { user, token } = useSelector((state) => state.auth);
 
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+
+    const {loading,error, datas: serverTimeData} = useSelector((state)=>state.servertime)
+
     const { id } = useParams();
     
 
@@ -160,7 +168,7 @@ export default function () {
             };
 
             if (name === "effective_date") {
-                updated.urgent_price_change = value === today();
+                updated.urgent_price_change = (updated.change_price_date == updated.effective_date);
             }
 
             return updated;
@@ -186,6 +194,18 @@ export default function () {
                 };
 
                 if (name === "new_cost_price") {
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(pricesAlerts?.[code]?.['new_cost_price']){
+                        // updatedItem.new_cost_price = '';
+                        updatedItem.new_cost_price = item.new_cost_price;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     const price1 = Number(item.price1);
                     const newCost = Number(value);
 
@@ -193,35 +213,46 @@ export default function () {
 
                     updatedItem.profit = profit;
 
-                    const productMessages = {
-                        new_cost_price: {
-                            required: "New Cost Price is required.",
-                            numeric: "New Cost Price must be numeric value."
-                        }
-                    }
-                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
-                    setPricesErrors(prev => {
-                        const code = updatedItem.id || updatedItem.product_code;
-                        const newFields = pricesAlerts[code] || {};
+                    // const productMessages = {
+                    //     new_cost_price: {
+                    //         required: "New Cost Price is required.",
+                    //         numeric: "New Cost Price must be numeric value."
+                    //     }
+                    // }
+                    // const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
+                    // setPricesErrors(prev => {
+                    //     const code = updatedItem.id || updatedItem.product_code;
+                    //     const newFields = pricesAlerts[code] || {};
 
-                        const merged = {
-                            ...prev[code],
-                            ...newFields
-                        };
+                    //     const merged = {
+                    //         ...prev[code],
+                    //         ...newFields
+                    //     };
 
-                        if (!newFields[name]) {
-                            delete merged[name];
-                        }
+                    //     if (!newFields[name]) {
+                    //         delete merged[name];
+                    //     }
 
-                        return {
-                            ...prev,
-                            [code]: merged
-                        };
-                    });
-                    console.log(pricesAlerts);
+                    //     return {
+                    //         ...prev,
+                    //         [code]: merged
+                    //     };
+                    // });
+                    // console.log(pricesAlerts);
                 }
 
                 if (name === "price1") {
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const price1Alerts = validateArrayField([updatedItem], {'price1': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(price1Alerts?.[code]?.['price1']){
+                        updatedItem.price1 = item.price1;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     const price1 = Number(value);
                     const newCost = Number(item.new_cost_price) || 0;
 
@@ -509,7 +540,7 @@ export default function () {
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
             price2: { required: true, numeric: true, min: 1, max:"price1"},
-            new_cost_price: { required: true, numeric: true, min: 1},
+            // new_cost_price: { required: true, numeric: true, min: 1},
             profit: { required: true, numeric: true},
         };
         const productMessages = {
@@ -637,7 +668,7 @@ export default function () {
                 'Product Code': {required:true},
                 'Price 1': {required:true,numeric: true, min: 1},
                 'Price 2': {required:true,numeric: true, min: 1},
-                'New Cost Price': {required:true,numeric: true, min: 1},
+                // 'New Cost Price': {required:true,numeric: true, min: 1},
             }
             const importMessage = {
                 'Product Code': {required: "Product Code is required."},
@@ -845,8 +876,8 @@ export default function () {
             const price_change_branches = data.price_change_branches;
             const normalizedForm = {
                 ...general_form,
-                change_price_date: general_form.created_at ? formatDate(new Date(general_form.created_at)): '',
-                effective_date: general_form.date_formatted ? formatDate(new Date(general_form.date_formatted)): '',
+                change_price_date: general_form.created_at ? formatLaravelStyleDate(general_form.created_at): '',
+                effective_date: general_form.date_formatted ? formatLaravelStyleDate(general_form.date_formatted): '',
                 branches:  price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id),
                 urgent_price_change: general_form.asset_type == 'on',
                 category_id: general_form.to_department,
@@ -861,7 +892,7 @@ export default function () {
                 price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1)
             }
             // console.log(price_change_branches.length, branchCountRef.current);
-
+            console.log(normalizedForm);
             setFormState(normalizedForm);
             
             setOriginator(data.stakeholders.originator);
@@ -1296,6 +1327,9 @@ export default function () {
             await fetchBranches();
             await fetchProductCategories();
             await fetchPriceChange();
+
+            let getServerTime= await dispatch(fetchServerTime()).unwrap();
+            console.log(getServerTime);
         };
 
         init();
@@ -1499,13 +1533,70 @@ export default function () {
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date <span className="text-red-600 text-md">*</span></label>
-                                    <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date {formState.change_price_date}<span className="text-red-600 text-md">*</span></label>
+                                    {/* <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly /> */}
+                                    <Flatpickr
+                                        value={formState.change_price_date}
+                                        options={{
+                                            dateFormat: "Y-m-d",
+                                            minDate: formatLaravelStyleDate(formState.change_price_date),
+                                        }}
+                                        onChange={(date, dateStr) => {
+                                            if (!changable) {
+                                                // Force React to overwrite Flatpickr after every change:
+                                                setFormState(prev => ({
+                                                    ...prev,
+                                                    change_price_date: prev.change_price_date
+                                                }));
+                                                return;
+                                            }
+                                            changeHandler({
+                                            target: {
+                                                name: "change_price_date",
+                                                value: dateStr,
+                                                type: "date"
+                                            }
+                                            });
+                                        }}
+                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        style={{ borderColor: '#2ea2d1' }}
+                                        disabled={true}
+                                    />
                                 </div>
 
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase"><span className="text-red-600">Effective Date</span> <span className="text-red-600 text-md">*</span></label>
-                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/>
+                                    {/* <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/> */}
+                                    <Flatpickr
+                                    key={changable ? "edit" : "lock"} 
+                                        value={formState.effective_date}
+                                        options={{
+                                            dateFormat: "Y-m-d",
+                                            minDate: formatLaravelStyleDate(formState.change_price_date),
+                                        }}
+                                        onChange={(date, dateStr) => {
+                                            if (!changable) {
+                                                // Force React to overwrite Flatpickr after every change:
+                                                setFormState(prev => ({
+                                                    ...prev,
+                                                    effective_date: prev.effective_date
+                                                }));
+                                                return;
+                                            }
+                                            changeHandler({
+                                            target: {
+                                                name: "effective_date",
+                                                value: dateStr,
+                                                type: "date"
+                                            }
+                                            });
+                                        }}
+                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        style={{ borderColor: '#2ea2d1' }}
+                                        disabled={!changable}
+                                    />
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-6">
@@ -1651,7 +1742,7 @@ export default function () {
  
 
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
 
                     {/* Alert Box */}
                     {formRejected &&
@@ -1969,3 +2060,33 @@ export default function () {
 // 👁 View error log
 
 // 📊 Progress bar
+
+// => Flatpickr va React State
+//     🧩 What actually happens in your code (step-by-step)
+// 1️⃣ User clicks a date in Flatpickr popup
+
+// Flatpickr internally does something like:
+
+// input.value = "2026-03-01";   // direct DOM write
+
+// ⚠️ This is done inside Flatpickr, NOT React.
+
+// 2️⃣ Then your React onChange fires
+// if (!changable) return;
+
+// You block React state update. ✅
+
+// 3️⃣ React does NOT re-render
+
+// Because state did not change:
+
+// setFormState(...) ❌ not called
+
+// So React does not overwrite the DOM.
+
+// Result
+// Layer	Value
+// React state	OLD date
+// DOM input	NEW date (Flatpickr wrote it)
+
+// 👉 UI changes, state does not.

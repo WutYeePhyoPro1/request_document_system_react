@@ -71,8 +71,8 @@ const picechangeSlice = createSlice({
                     // state.datas = result;
                     state.datas = result.map(item => ({
                         ...item,
-                        created_at: formatLaravelStyleDate(item.created_at,'m-d-Y'),
-                        date: formatLaravelStyleDate(item.date_formatted,'m-d-Y'),
+                        created_at: formatLaravelStyleDate(item.created_at,'Y-m-d'),
+                        date: formatLaravelStyleDate(item.date_formatted,'Y-m-d'),
                     }))
                     console.log(action.payload.data.data)
 

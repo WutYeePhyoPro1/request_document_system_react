@@ -19,6 +19,7 @@ export default function IndexPriceChange() {
     console.log(user);
 
     const statusOptions = [
+        { value: "Default", label: "Default" },
         { value: "Ongoing", label: "Ongoing" },
         { value: "Checked", label: "Checked" },
         { value: "Approved", label: "Approved" },

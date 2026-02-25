@@ -131,19 +131,19 @@ const authSlice = createSlice({
         state.token = null;
         state.status = "idle";
       }).addCase(loginWithToken.pending, (state) => {
-  state.status = "loading";
-  state.error = null;
-})
-.addCase(loginWithToken.fulfilled, (state, action) => {
-  state.user = action.payload.user;
-  state.token = action.payload.token;
-  state.status = "succeeded";
-})
-.addCase(loginWithToken.rejected, (state, action) => {
-  state.status = "failed";
-  state.error = action.payload;
-});
-;
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(loginWithToken.fulfilled, (state, action) => {
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.status = "succeeded";
+      })
+      .addCase(loginWithToken.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      });
+      ;
   },
 });
 
