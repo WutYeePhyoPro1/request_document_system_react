@@ -133,6 +133,7 @@ const Dashboard = () => {
             }
           }),
         );
+        // console.log(counts);
 
         // console.log('[MAIN_DASHBOARD_DEBUG] Final formCounts:', counts);
         setFormCounts(counts);
@@ -162,7 +163,8 @@ const Dashboard = () => {
     "CCTV Request Form": "📹",
     "M&E Form": "⚙️",
     "Coupon Voucher": "📑",
-  };
+    "Price Change Form": "💲"
+    }
   const requests = allForm.map((form) => ({
     title: form?.name || "",
     icon: formIcons[form?.name] || "",
