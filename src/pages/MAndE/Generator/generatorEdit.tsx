@@ -724,7 +724,9 @@ const GeneratorEdit: React.FC = () => {
                 rows="1"
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(29, 137, 225)" }}
-              ></textarea>
+              >
+                {form.remark}
+              </textarea>
             </div>
             <div className="">
               {invoiceFile.map((fileField, index) => (

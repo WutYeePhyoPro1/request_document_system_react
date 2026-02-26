@@ -95,12 +95,12 @@ const GeneratorDetail: React.FC = () => {
         </div>
       ) : (
         <div className="">
-          <div className="p-4 sm:p-6">
+          <div className="">
             <div
-              className="h-30 w-full bg-cover bg-center rounded-lg shadow-md mb-2"
+              className="h-30 w-full bg-cover bg-center  rounded-lg shadow-md mb-2 p-4 sm:p-6"
               style={{ backgroundImage: `url(${dashboardPhoto})` }}
             ></div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6">
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 w-full">
               {detailData?.generalForm?.remark && (
                 <h1 className="text-red-700 font-bold">
                   [ {detailData.generalForm.remark}]
