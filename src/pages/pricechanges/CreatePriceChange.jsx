@@ -26,7 +26,7 @@ import {fetchServerTime} from "./../../store/servertimeSlice";
 
 export default function () {
     const { user, token } = useSelector((state) => state.auth);
-    console.log(user.categories);
+    // console.log(user.categories);
 
     const navigate = useNavigate();
     const dispatch = useDispatch();
@@ -57,7 +57,6 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    let totalProductCount = products.length;
 
     // const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -656,22 +655,19 @@ export default function () {
 
             const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
             setPricesErrors(pricesAlerts);
+
+            const existingCodes = new Set(products.map(p => String(p.product_code).trim()));
             for (const [index, row] of jsonData.entries()) {
-                const code = row['Product Code'];
+                const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
                 
                 // Duplicate Product Code
-                const exists = products.some(
-                    p => p.product_code == code
-                );
-                if(exists){
-                    // continue next row 
-                    continue;
-                }
+                if (existingCodes.has(code)) continue;
+                // console.log("Added",existingCodes,code);
 
                 // Exceed Product Rows
                 // console.log(productsExceedLimit(productslimit));
-                if (totalProductCount >= productslimit) {
+                if (existingCodes.size >= productslimit) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Product Rows Exceed Limit',
@@ -680,9 +676,9 @@ export default function () {
                     break;
                 }
 
+                existingCodes.add(code);
                 try {
                     await fetchProduct(code,row);
-                    totalProductCount++;
                 } catch (err) {
                     console.error(err);
                     Swal.fire({
@@ -814,7 +810,7 @@ export default function () {
             fetchProductCategories();
 
             let getServerTime= await dispatch(fetchServerTime()).unwrap();
-            console.log(getServerTime);
+            // console.log(getServerTime);
 
             setFormState(prev => ({
                 ...prev,

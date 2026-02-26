@@ -29,7 +29,7 @@ import "flatpickr/dist/themes/material_blue.css";
 import {fetchServerTime} from "./../../store/servertimeSlice";
 
 export default function () {
-    const productslimit = 50;
+    const productslimit = 10;
     // const token = localStorage.getItem('token');
     const { user, token } = useSelector((state) => state.auth);
 
@@ -95,7 +95,7 @@ export default function () {
     );
     // const allBranchUpdated = true;
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
-    const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
+    const  changable = ((supervisor) && formState?.status != 'Partial') || forwardable;
     const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
     const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
                                 && allBranchUpdated 
@@ -700,22 +700,18 @@ export default function () {
 
             const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
             setPricesErrors(pricesAlerts);
+
+            const existingCodes = new Set(products.map(p => String(p.product_code).trim()));
             for (const [index, row] of jsonData.entries()) {
-                const code = row['Product Code'];
+                const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
                 
                 // Duplicate Product Code
-                const exists = products.some(
-                    p => p.product_code == code
-                );
-                if(exists){
-                    // continue next row 
-                    continue;
-                }
+                if (existingCodes.has(code)) continue;
 
                 // Exceed Product Rows
                 // console.log(productsExceedLimit(productslimit));
-                if (totalProductCount >= productslimit) {
+                if (existingCodes.size >= productslimit) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Product Rows Exceed Limit',
@@ -724,9 +720,9 @@ export default function () {
                     break;
                 }
 
+                existingCodes.add(code);
                 try {
                     await fetchProduct(code,row);
-                    totalProductCount++;
                 } catch (err) {
                     console.error(err);
                     Swal.fire({

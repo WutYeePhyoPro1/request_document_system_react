@@ -9,7 +9,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
         thNumber: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10, textAlign: "right"},
     }
     // console.log(data);
-    console.log(pricesErrors);
+    // console.log(pricesErrors);
 
     return (
         <>
