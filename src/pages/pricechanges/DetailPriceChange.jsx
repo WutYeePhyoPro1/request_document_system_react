@@ -72,6 +72,7 @@ export default function () {
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
     const [updating,setUpdating] = useState(false);
+    const [running,setRunning] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
     const [transfering,setTransfering] = useState(false);
 
@@ -87,23 +88,33 @@ export default function () {
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
 
-    // const allBranchUpdated = formState?.price_change_branches.every(
-    //     branch => branch.status === "Updated"
-    // );
-    const allBranchUpdated = formState?.price_change_branches?.every(
-    branch => branch.status === "Updated"
-    );
-    // const allBranchUpdated = true;
+
+
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
     const  changable = ((supervisor) && formState?.status != 'Partial') || forwardable;
-    const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
-    const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
-                                && allBranchUpdated 
-                                && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() != "Updated")
+    // const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
+    // const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
+    //                             && allBranchUpdated 
+    //                             && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() != "Updated")
+    // const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() == "Updated").length > 0
+    
     const trackable = getApprover?.approval_users?.id == user.id;
-    const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() == "Updated").length > 0
-
-    // (supervisor || approver) && formState?.status != 'Partial';
+    const allBranchUpdated = formState?.price_change_branches?.every(
+        branch => branch.status === "Updated"
+    );
+    const isRunner = getApprover?.approval_users?.id === user.id;
+    const hasPendingBranch = (formState.status == "Approved" || formState.status == "Partial") 
+                            || formState?.price_change_branches?.some(
+                                    branch => branch.status !== "Updated"
+                                );
+    const hasOnlineUpdatePending = generalFormFiles.some(gf=>gf.name.includes("Update Online Price") && gf.file != "Updated");
+    const hasNoGcpDocument = !generalFormFiles?.some(gf =>
+                                gf.name?.startsWith("CPMM") 
+                                // && gf.file
+                            );
+    const runable = isRunner && (hasPendingBranch || hasOnlineUpdatePending || hasNoGcpDocument);
+    // console.log(hasPendingBranch, hasOnlineUpdatePending, hasNoGcpDocument);
+    
     const [copied, setCopied] = useState(false);
     const updateDoc = useRef(false);
  
@@ -870,6 +881,7 @@ export default function () {
 
             const general_form = data.general_form;
             const price_change_branches = data.price_change_branches;
+            const general_form_files = data.general_form_files;
             const normalizedForm = {
                 ...general_form,
                 change_price_date: general_form.created_at ? formatLaravelStyleDate(general_form.created_at): '',
@@ -885,7 +897,8 @@ export default function () {
                 layout_id: 19,
                 route: "price_changes",
 
-                price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1)
+                price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1),
+                general_form_files
             }
             // console.log(price_change_branches.length, branchCountRef.current);
             console.log(normalizedForm);
@@ -1050,30 +1063,11 @@ export default function () {
     }
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    let runningRef = useRef(false);
-    let confirmRunRef = useRef(false);
+
     const runHandler = async (retry = false, latestForm = null) => {
+        setRunning(true);
+
         const data = latestForm || formState;
-
-        if(retry){
-            if (runningRef.current) return;
-            const result = await Swal.fire({
-                icon: "question",
-                text: "Are you sure you want to run the latest updated prices on POS & ERP servers?",
-                showCancelButton: true,
-                confirmButtonText: "OK",
-                cancelButtonText: "Cancel",
-            });
-
-            if (!result.isConfirmed) return;
-
-            if (result.isConfirmed && !confirmRunRef.current) {
-                confirmRunRef.current = true;
-                runningRef.current = true;
-            }
-        }
-        // console.log("Run Success");
-        // return;
 
         setForceLoading(true);
         setIsSubmitting(true);
@@ -1110,7 +1104,7 @@ export default function () {
                         );
                         throw err;
                     });
-                });
+            });
 
             const results = await Promise.all(updateRequests);
 
@@ -1125,8 +1119,8 @@ export default function () {
             // fetchPriceChange();
             // navigate("/price_changes");
 
-
-            onlineHandler();
+            // const latest = await fetchPriceChange();
+            await onlineHandler();
 
         } catch (err) {
             console.error(err,err.message);
@@ -1143,8 +1137,7 @@ export default function () {
 
             fetchPriceChange();
 
-            confirmRunRef.current = false;
-            runningRef.current = false;
+            setRunning(false);
         }
     };
 
@@ -1179,33 +1172,38 @@ export default function () {
                             timestamp
                         }
                     }
-                    console.log(formData);
+                    // console.log(formData);
 
                     updateOnlineStatus("Update Online Price", "Updating");
                     try{
-                        const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
-                            headers: {
-                            Authorization: `Bearer ${token}`,
-                            },
-                        });
+                        console.log('hasOnlineUpdatePending',hasOnlineUpdatePending,formState);
+                        // if(hasOnlineUpdatePending){
+                            const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
+                                headers: {
+                                Authorization: `Bearer ${token}`,
+                                },
+                            });
 
-                        console.log(res);
+                            console.log(res);
 
-                        const data = res.data;
+                            const data = res.data;
 
-                        if(data.success == false){
-                            throw new Error(res?.data?.message);
-                        }
+                            if(data.success == false){
+                                throw new Error(res?.data?.message);
+                            }
 
-                        // const updatedForm = await fetchPriceChange();
-                        // Swal.fire({
-                        //     icon: "success",
-                        //     title: `Update online successfully!`,
-                        //     text: data.message,
-                        // });
+                            // const updatedForm = await fetchPriceChange();
+                            // Swal.fire({
+                            //     icon: "success",
+                            //     title: `Update online successfully!`,
+                            //     text: data.message,
+                            // });
 
-                        updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
-                        transferGCPHandler();
+                            updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
+                        // }
+
+
+                        await transferGCPHandler();
 
                     }catch(err){
                         console.log('There is an error in updating onlilne:',err);
@@ -1232,23 +1230,24 @@ export default function () {
     const transferGCPHandler = async ()=>{
         setTransfering(true);
         try{
-            // //  =Update Online File & Timestamp
-            // //  Start GCP Document API
-            const gcpRes = await axios.get(
-                `/api/price_changes/${id}/gcp_document`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
+            console.log("hasNoGcpDocument",hasNoGcpDocument,formState);
+            if(hasNoGcpDocument){
+                // //  =Update Online File & Timestamp
+                // //  Start GCP Document API
+                const gcpRes = await axios.get(
+                    `/api/price_changes/${id}/gcp_document`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
 
-            if (gcpRes.data?.success === false) {
-                throw new Error("GCP document creation failed");
+                if (gcpRes.data?.success === false) {
+                    throw new Error("GCP document creation failed");
+                }
             }
-
-
-            Swal.fire({
-                icon: "success",
-                title: "Price Change Form Process Finished Successfully!",
-                text: "GCP document created successfully.",
-            });
+                Swal.fire({
+                    icon: "success",
+                    title: "Price Change Form Process Finished Successfully!",
+                    text: "GCP document created successfully.",
+                });
             // // End GCP Document API
         }catch(err){
             Swal.fire({
@@ -1857,7 +1856,7 @@ export default function () {
                 </div>
                 <ul className="p-0.5">
                     {
-                        (runable || onlineActionable || transferable) &&
+                        (runable) &&
                         <li  className="flex items-center justify-start p-2 rounded-lg bg-white border border-gray-200 gap-2">
                             {
                                 runable &&
@@ -1867,13 +1866,14 @@ export default function () {
                                         hover:bg-sky-700 active:bg-sky-800
                                         transition shadow-sm"
                                     onClick={()=>runHandler(true)}
+                                    disabled={running}
                                 >
-                                    Run
+                                {running ? 'Running...' : 'Re-Run'}
                                 </button>
                             }
 
 
-                            {
+                            {/* {
                                 onlineActionable && !(runningRef.current && confirmRunRef.current) &&
                                 <button
                                     className="px-4 py-2 text-sm font-medium rounded-lg
@@ -1884,10 +1884,10 @@ export default function () {
                                 >
                                 {updating ? 'Loading...' : 'Update Price Online'}
                                 </button>
-                            }
+                            } */}
 
 
-                            {
+                            {/* {
                                 // transferGCPHandler
                                 transferable &&
                                 <button
@@ -1899,7 +1899,7 @@ export default function () {
                                 >
                                     {transfering ? 'Loading...' : 'Transfer To GCP'}
                                 </button>
-                            }
+                            } */}
                         </li>
                     }
 
@@ -1999,12 +1999,16 @@ export default function () {
 
             {/* Footer */}
             <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
-                <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100"
-                >
-                Close
-                </button>
+                {
+                    !running &&
+                    <button
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100"
+                    >
+                    Close
+                    </button>
+                }
+
             </div>
 
             </div>
