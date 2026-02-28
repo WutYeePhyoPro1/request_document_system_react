@@ -22,9 +22,8 @@ export default function IndexPriceChange() {
         { value: "Default", label: "Default" },
         { value: "Ongoing", label: "Ongoing" },
         { value: "Checked", label: "Checked" },
-        { value: "Approved", label: "Approved" },
+        // { value: "Approved", label: "Approved" },
         { value: "Partial", label: "Partial" },
-        { value: "Completed", label: "Completed" },
         { value: "Already changed", label: "Already changed" },
         { value: "Cancel", label: "Cancel" },
     ];

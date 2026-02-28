@@ -81,7 +81,6 @@ export default function () {
     const [getSupervisor,setGetSupervisor] = useState(null);
     const [formRejected,setFormRejected] = useState(null);
 
-    const [generalFormFiles,setGeneralFormFiles] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
 
@@ -102,18 +101,28 @@ export default function () {
     const allBranchUpdated = formState?.price_change_branches?.every(
         branch => branch.status === "Updated"
     );
+    
     const isRunner = getApprover?.approval_users?.id === user.id;
-    const hasPendingBranch = (formState.status == "Approved" || formState.status == "Partial") 
-                            || formState?.price_change_branches?.some(
-                                    branch => branch.status !== "Updated"
-                                );
-    const hasOnlineUpdatePending = generalFormFiles.some(gf=>gf.name.includes("Update Online Price") && gf.file != "Updated");
-    const hasNoGcpDocument = !generalFormFiles?.some(gf =>
-                                gf.name?.startsWith("CPMM") 
-                                // && gf.file
-                            );
+    const computeHasPendingBranch = (formState)=> {
+        return (formState.status == "Approved" || formState.status == "Partial") 
+                || formState?.price_change_branches?.some(
+                    branch => branch.status !== "Updated"
+                )
+    }
+    const computeHasOnlineUpdatePending = (formState)=>{
+        return formState?.general_form_files?.some(gf=>gf.name.includes("Update Online Price") && gf.file != "Updated");
+    }
+    const computeHasNoGcpDocument = (formState) =>{
+        return !formState?.general_form_files?.some(gf =>
+                gf.name?.startsWith("CPMM") 
+                // && gf.file
+            );
+    }
+    const hasPendingBranch = computeHasPendingBranch(formState);
+    const hasOnlineUpdatePending = computeHasOnlineUpdatePending(formState);
+    const hasNoGcpDocument = computeHasNoGcpDocument(formState);
     const runable = isRunner && (hasPendingBranch || hasOnlineUpdatePending || hasNoGcpDocument);
-    // console.log(hasPendingBranch, hasOnlineUpdatePending, hasNoGcpDocument);
+    console.log(hasPendingBranch, hasOnlineUpdatePending, hasNoGcpDocument);
     
     const [copied, setCopied] = useState(false);
     const updateDoc = useRef(false);
@@ -909,8 +918,6 @@ export default function () {
             setGetApprover(data.stakeholders.getApprover);
             setFormRejected(data.stakeholders.form_rejected);
 
-            setGeneralFormFiles(data.general_form_files);
-
             setSupervisor(data.authorities.supervisor);
             setApprover(data.authorities.approver);
 
@@ -953,6 +960,8 @@ export default function () {
 
         var btnStatus = e.target.value;
         var btnText = e.target.textContent;
+
+        // console.log(btnStatus);
 
         Swal.fire({
             icon: "question",
@@ -1038,6 +1047,19 @@ export default function () {
         });
     };
 
+    const getBtpValue = ()=>{
+        let btp = '';
+
+        if(approver){
+            btp = "approver_btp";
+        }
+        return btp;
+    } 
+
+    const btpHandler = async (e)=>{
+        // console.log("back");
+    }
+
     const updateBranchStatus = (branchId, status, message = null) => {
         setFormState(prev => ({
             ...prev,
@@ -1049,18 +1071,16 @@ export default function () {
         }));
     };
 
-    const updateOnlineStatus = (name, status, message = null)=>{
-        // generalFormFiles.filter(gf=>gf.name.includes("Update Online Price"))
-
-        setGeneralFormFiles(prev =>
-            prev.map(f =>
+    const updateOnlineStatus = (name, status, message = null) => {
+        setFormState(prev => ({
+            ...prev,
+            general_form_files: prev.general_form_files?.map(f =>
                 f.name === name
-                ? { ...f, file: status }
-                : f
+                    ? { ...f, file: status, message: message ?? f.message }
+                    : f
             )
-        );
-
-    }
+        }));
+    };
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -1119,8 +1139,8 @@ export default function () {
             // fetchPriceChange();
             // navigate("/price_changes");
 
-            // const latest = await fetchPriceChange();
-            await onlineHandler();
+            const latestForm = await fetchPriceChange();
+            await onlineHandler(latestForm);
 
         } catch (err) {
             console.error(err,err.message);
@@ -1142,9 +1162,11 @@ export default function () {
     };
 
 
-    const onlineHandler = async (e)=>{
+    const onlineHandler = async (latestForm = null)=>{
 
         setUpdating(true);
+
+        const data = latestForm || formState;
 
         // var btnText = e.target.textContent;
 
@@ -1153,13 +1175,13 @@ export default function () {
                     setForceLoading(true);
                     setIsSubmitting(true);
 
-                    const branchCodeList = formState.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
+                    const branchCodeList = data.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
                     const productList = products.map(product => ({
                         productCode: product.product_code,
                         itemCode: product.product_code,
                         normalPrice: parseFloat(product.price1),
                         memberPrice: parseFloat(product.price2),
-                        effectiveDate: formState.effective_date
+                        effectiveDate: data.effective_date
                     }));
                     const timestamp = Date.now().toString();
                     // const timestamp = (Date.now() + 2 * 60 * 1000).toString();
@@ -1176,8 +1198,10 @@ export default function () {
 
                     updateOnlineStatus("Update Online Price", "Updating");
                     try{
-                        console.log('hasOnlineUpdatePending',hasOnlineUpdatePending,formState);
-                        // if(hasOnlineUpdatePending){
+                        console.log('hasOnlineUpdatePending',hasOnlineUpdatePending,data);
+
+                        const hasOnlineUpdatePendingFresh = computeHasPendingBranch(data);
+                        if(hasOnlineUpdatePendingFresh){
                             const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
                                 headers: {
                                 Authorization: `Bearer ${token}`,
@@ -1200,7 +1224,7 @@ export default function () {
                             // });
 
                             updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
-                        // }
+                        }
 
 
                         await transferGCPHandler();
@@ -1227,11 +1251,15 @@ export default function () {
             
     }
 
-    const transferGCPHandler = async ()=>{
+    const transferGCPHandler = async (latestForm = null)=>{
         setTransfering(true);
+
+        const data = latestForm || formState;
         try{
-            console.log("hasNoGcpDocument",hasNoGcpDocument,formState);
-            if(hasNoGcpDocument){
+            console.log("hasNoGcpDocument",hasNoGcpDocument,data);
+
+            const hasNoGcpDocumentFresh = computeHasNoGcpDocument(data); 
+            if(hasNoGcpDocumentFresh){
                 // //  =Update Online File & Timestamp
                 // //  Start GCP Document API
                 const gcpRes = await axios.get(
@@ -1334,14 +1362,25 @@ export default function () {
         <>
         {forceLoading && <FullPageLoader />}
         <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
-            <NavPath
-                segments={[
-                    { path: "/dashboard", label: "Home" },
-                    { path: "/dashboard", label: "Dashboard" },
-                    { path: "/price_changes", label: "Price Changes" },
-                    { path: "/price_changes/create", label: "Price Change Form" },
-                ]}
-            />
+
+            <div className="flex justify-between">
+                <NavPath
+                    segments={[
+                        { path: "/dashboard", label: "Home" },
+                        { path: "/dashboard", label: "Dashboard" },
+                        { path: "/price_changes", label: "Price Changes" },
+                        { path: "/price_changes/create", label: "Price Change Form" },
+                    ]}
+                />
+
+                <Link
+                    to="/price_changes"
+                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
+                >
+                    <span className="mr-1 sm:mr-2">←</span> Back
+                </Link>
+            </div>
+
 
             {/* Main Unitary Card */}
             <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
@@ -1365,7 +1404,7 @@ export default function () {
                             <StatusBadge status={formState?.status ? formState?.status : ''} />
                         </h3>
 
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <div className="flex flex-wrap gap-4 sm:justify-end">
                             {
                                 changable && forwardable &&
                                 <button
@@ -1417,6 +1456,20 @@ export default function () {
 
                             }
 
+
+                            {
+                                approver &&
+                                <button
+                                   className="px-4 py-2 text-sm font-medium rounded-lg
+                                        bg-blue-600 text-white 
+                                        hover:bg-blue-700 transition shadow-sm"
+                                    value={getBtpValue()}
+                                    onClick={approveHandler}
+                                    >
+                                    Back To Previous
+                                </button>
+                            }
+
                             {
                                 (trackable) &&
                                 <button
@@ -1444,12 +1497,7 @@ export default function () {
                                 </button> : ''
                             }
 
-                            <Link
-                                to="/price_changes"
-                                className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
-                            >
-                                <span className="mr-1 sm:mr-2">←</span> Back
-                            </Link>
+                       
                             
                         </div>
                     </div>
@@ -1514,12 +1562,12 @@ export default function () {
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
                                 <div className="col-span-1 md:col-span-2 xl:col-span-3">
                                     <div className="flex flex-col md:flex-row gap-4 mb-2">
-                                        {generalFormFiles.filter(gf=>gf.name.includes("CP")).length > 0 &&
+                                        {formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).length > 0 &&
                                             <label className="text-base font-bold text-[#007bff] uppercases">GCP Document No:</label>
                                         }
                                         <div>
                                         {
-                                            generalFormFiles.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
+                                            formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
                                                 <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}</label>
                                             ))
                                         }
@@ -1847,12 +1895,17 @@ export default function () {
                     <h2 className="text-lg font-semibold">
                     Branch Price Update Status
                     </h2>
-                    <button
-                    onClick={() => setShowModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                    >
-                    ✕
-                    </button>
+
+                    {
+                        !running &&
+                        <button
+                        onClick={() => setShowModal(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                        >
+                            ✕
+                        </button>
+                    }
+
                 </div>
                 <ul className="p-0.5">
                     {
@@ -1914,7 +1967,7 @@ export default function () {
                         formState.price_change_branches?.map((branch) => console.log(formState.price_change_branches) )
                     } */}
                     {
-                    generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).map((online,idx)=>(
+                    formState.general_form_files.filter(gf=>gf.name.includes("Update Online Price")).map((online,idx)=>(
                         <li
                             className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-gray-200 font-semibold text-blue-900"
                             key={idx}
@@ -1998,7 +2051,7 @@ export default function () {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
+            {/* <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
                 {
                     !running &&
                     <button
@@ -2009,7 +2062,7 @@ export default function () {
                     </button>
                 }
 
-            </div>
+            </div> */}
 
             </div>
         </div>
