@@ -102,16 +102,17 @@ export default function () {
         branch => branch.status === "Updated"
     );
     
-    const isRunner = getApprover?.approval_users?.id === user.id;
+    const isRunner = (formState.status == "Approved" || formState.status == "Partial" || formState.status == "Pass approval") && getApprover?.approval_users?.id === user.id;
     const computeHasPendingBranch = (formState)=> {
-        return (formState.status == "Approved" || formState.status == "Partial") 
-                || formState?.price_change_branches?.some(
+        return  formState?.price_change_branches?.some(
                     branch => branch.status !== "Updated"
                 )
     }
-    const computeHasOnlineUpdatePending = (formState)=>{
-        return formState?.general_form_files?.some(gf=>gf.name.includes("Update Online Price") && gf.file != "Updated");
-    }
+    const computeHasNotOnlineUpdate= (formState) =>
+        !formState?.general_form_files
+            ?.filter(gf => gf.name?.includes("Update Online Price"))
+            ?.some(gf => gf.file === "Updated");
+    
     const computeHasNoGcpDocument = (formState) =>{
         return !formState?.general_form_files?.some(gf =>
                 gf.name?.startsWith("CPMM") 
@@ -119,10 +120,10 @@ export default function () {
             );
     }
     const hasPendingBranch = computeHasPendingBranch(formState);
-    const hasOnlineUpdatePending = computeHasOnlineUpdatePending(formState);
+    const hasNotOnlineUpdate = computeHasNotOnlineUpdate(formState);
     const hasNoGcpDocument = computeHasNoGcpDocument(formState);
-    const runable = isRunner && (hasPendingBranch || hasOnlineUpdatePending || hasNoGcpDocument);
-    console.log(hasPendingBranch, hasOnlineUpdatePending, hasNoGcpDocument);
+    const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument);
+    console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
     
     const [copied, setCopied] = useState(false);
     const updateDoc = useRef(false);
@@ -1094,40 +1095,47 @@ export default function () {
         setShowModal(true);
         try {
             
-            // console.log(formState.price_change_branches);
-            const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
-            // console.log(runBranches);
-            const updateRequests = runBranches.map(branchId => {
+            const hasPendingBranchFresh = computeHasPendingBranch(data);
+            console.log("hasPendingBranchFresh",hasPendingBranchFresh,data);
 
-                updateBranchStatus(branchId, "Updating");
+            // Start Branch Price Change
+            if(data.urgent_price_change){
 
-                return axios
-                    .get(`/api/price_changes/${id}/${branchId}/update_price`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    })
-                    .then(async (res) => {
-                        if (res.data?.success === false) {
-                            // updateBranchStatus(branchId, "failed", res.data.message);
-                            // throw new Error(`Branch ${branchId} failed`);
-                            throw new Error(res?.data?.message);
-                        }
+                // console.log(formState.price_change_branches);
+                const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
+                // console.log(runBranches);
+                const updateRequests = runBranches.map(branchId => {
 
-                        await sleep(2000);
-                        updateBranchStatus(branchId, res.data.status ,res.data.message);
-                        return res;
-                    })
-                    .catch(err => {
-                        updateBranchStatus(
-                            branchId,
-                            "Failed",
-                            err.response?.data?.message || err.message
-                        );
-                        throw err;
-                    });
-            });
+                    updateBranchStatus(branchId, "Updating");
 
-            const results = await Promise.all(updateRequests);
+                    return axios
+                        .get(`/api/price_changes/${id}/${branchId}/update_price`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        })
+                        .then(async (res) => {
+                            if (res.data?.success === false) {
+                                // updateBranchStatus(branchId, "failed", res.data.message);
+                                // throw new Error(`Branch ${branchId} failed`);
+                                throw new Error(res?.data?.message);
+                            }
 
+                            await sleep(2000);
+                            updateBranchStatus(branchId, res.data.status ,res.data.message);
+                            return res;
+                        })
+                        .catch(err => {
+                            updateBranchStatus(
+                                branchId,
+                                "Failed",
+                                err.response?.data?.message || err.message
+                            );
+                            throw err;
+                        });
+                });
+
+                const results = await Promise.all(updateRequests);
+            }
+            // End Branch Price Change
 
 
             // Swal.fire({
@@ -1198,10 +1206,10 @@ export default function () {
 
                     updateOnlineStatus("Update Online Price", "Updating");
                     try{
-                        console.log('hasOnlineUpdatePending',hasOnlineUpdatePending,data);
 
-                        const hasOnlineUpdatePendingFresh = computeHasPendingBranch(data);
-                        if(hasOnlineUpdatePendingFresh){
+                        const hasNotOnlineUpdateFresh = computeHasNotOnlineUpdate(data);
+                        console.log("hasNotOnlineUpdateFresh",hasNotOnlineUpdateFresh,data);
+                        if(hasNotOnlineUpdateFresh && (data.urgent_price_change || true)){
                             const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
                                 headers: {
                                 Authorization: `Bearer ${token}`,
@@ -1256,9 +1264,9 @@ export default function () {
 
         const data = latestForm || formState;
         try{
-            console.log("hasNoGcpDocument",hasNoGcpDocument,data);
 
             const hasNoGcpDocumentFresh = computeHasNoGcpDocument(data); 
+            console.log("hasNoGcpDocumentFresh",hasNoGcpDocumentFresh,data);
             if(hasNoGcpDocumentFresh){
                 // //  =Update Online File & Timestamp
                 // //  Start GCP Document API
