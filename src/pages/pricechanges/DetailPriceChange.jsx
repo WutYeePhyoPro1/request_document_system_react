@@ -102,7 +102,7 @@ export default function () {
         branch => branch.status === "Updated"
     );
     
-    const isRunner = (formState.status == "Approved" || formState.status == "Partial" || formState.status == "Pass approval") && getApprover?.approval_users?.id === user.id;
+    const isRunner = (formState.status == "Approved" || formState.status == "Partial" || formState.status == "Pass approvalss") && getApprover?.approval_users?.id === user.id;
     const computeHasPendingBranch = (formState)=> {
         return  formState?.price_change_branches?.some(
                     branch => branch.status !== "Updated"
@@ -124,8 +124,11 @@ export default function () {
     const hasNoGcpDocument = computeHasNoGcpDocument(formState);
     const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument);
     console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
+
+    const softwaresupport = user.from_branch_id == 1 && user.department_id == 11;
+    console.log(softwaresupport);
     
-    const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState('');
     const updateDoc = useRef(false);
  
     const changeHandler = (e,actionMeta) => {
@@ -936,19 +939,19 @@ export default function () {
 
 
     
-    const handleCopy = () => {
+    const handleCopy = (text) => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(formState.form_doc_no)
+            navigator.clipboard.writeText(text)
                 .then(() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    setCopied(text);
+                    setTimeout(() => setCopied(''), 2000);
                 })
                 .catch((err) => {
                     console.error("Clipboard copy failed:", err);
                     fallbackCopy(formState.form_doc_no);
                 });
         } else {
-            fallbackCopy(formState.form_doc_no);
+            fallbackCopy(text);
         }
     };
 
@@ -1353,6 +1356,109 @@ export default function () {
     }
 
 
+    const manualUpdateHandler = async ()=>{
+        // console.log("Get Manual Update Files");
+        let pos_update_sql = "";
+        let erp_update_sql = "";
+        let gcp_update_sql = "";
+
+        pos_update_sql = `
+                -- POS Update Price --\n`;
+        erp_update_sql = "-- ERP Update Price --\n";
+        gcp_update_sql = "-- GCP Update Price --\n";
+
+
+        // Backup price_change_branches
+        formState?.price_change_branches?.forEach(pcbranch => {
+
+            products.forEach(product =>{
+                pos_update_sql += 
+                `
+                UPDATE PUBLIC.TEMP_MASTER_PRODUCT   ---update at POS ${pcbranch.branch.branch_name}
+                SET PRODUCT_PRICE1 = ${product.price1},
+                    PRODUCT_PRICE2 = ${product.price2},
+                    PRODUCT_PRICE3 = ${product.price1}
+                WHERE BARCODE_CODE = ${product.product_code}
+                AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
+                `;
+
+                erp_update_sql += 
+                `
+                UPDATE MASTER_DATA.MASTER_PRODUCT_MULTIPRICE---update at pro1 database - ${pcbranch.branch.branch_name}
+                    SET PRODUCT_PRICE1 = ${product.price1},
+                    PRODUCT_PRICE2 = ${product.price2},
+                    PRODUCT_PRICE3 = ${product.price1}
+                WHERE BARCODE_CODE = ${product.product_code}
+                    AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
+                `;
+
+                gcp_update_sql += 
+                `
+                UPDATE MASTERDATA.MASTER_PRODUCT_MULTIPRICE---update at changeprice database - ${pcbranch.branch.branch_name}
+                    SET PRODUCT_PRICE1 = ${product.price1},
+                    PRODUCT_PRICE2 = ${product.price2},
+                    PRODUCT_PRICE3 = ${product.price1}
+                WHERE BARCODE_CODE = ${product.product_code}
+                    AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
+                `;
+            });
+
+        });
+
+        let sql = pos_update_sql + erp_update_sql + gcp_update_sql;
+
+
+
+
+        const blob = new Blob([sql], { type: "text/sql" });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${formState.form_doc_no}_Manual_Update_.sql`;
+        link.click();
+
+        URL.revokeObjectURL(url);
+        
+        // --- Download Online Payload File (JSON) ---
+        const jsonFormat = getOnlineRequest();
+        const onlinePayload = JSON.stringify(jsonFormat.data) + import.meta.env.VITE_SECRETKEY; ;
+        const jsonBlob = new Blob([onlinePayload], { type: "application/json" });
+        const jsonUrl = URL.createObjectURL(jsonBlob);
+
+        const jsonLink = document.createElement("a");
+        jsonLink.href = jsonUrl;
+        jsonLink.download = `${formState.form_doc_no}_Online_Update.json`;
+        jsonLink.click();
+        URL.revokeObjectURL(jsonUrl);
+    }
+
+    const getOnlineRequest = (latestForm = null)=>{
+        const data = latestForm || formState;
+
+        const branchCodeList = data.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
+        const productList = products.map(product => ({
+            productCode: product.product_code,
+            itemCode: product.product_code,
+            normalPrice: parseFloat(product.price1),
+            memberPrice: parseFloat(product.price2),
+            effectiveDate: data.effective_date
+        }));
+        const timestamp = Date.now().toString();
+        // const timestamp = (Date.now() + 2 * 60 * 1000).toString();
+        console.log(timestamp);
+
+        const formData = {
+            data:{
+                branchCodeList,
+                productList,
+                timestamp
+            }
+        }
+
+        return formData;
+    }
+
     useEffect(() => {
         const init = async () => {
             await fetchBranches();
@@ -1399,15 +1505,15 @@ export default function () {
                         <h3 className="text-xl font-bold text-blue-900 flex flex-wrap items-center gap-2">
                             Price Change Form <span className="text-lg">({formState.form_doc_no})</span>
                             <button
-                                onClick={handleCopy}
+                                onClick={()=>handleCopy(formState.form_doc_no)}
                                 className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
                                     ? 'text-green-600 bg-green-50'
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
                                     }`}
-                                title={copied ? "Copied!" : "Copy ID"}
-                                disabled={copied}
+                                title={copied == formState.form_doc_no ? "Copied!" : "Copy ID"}
+                                disabled={copied == formState.form_doc_no}
                             >
-                                {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                {copied == formState.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                             </button>
                             <StatusBadge status={formState?.status ? formState?.status : ''} />
                         </h3>
@@ -1576,7 +1682,19 @@ export default function () {
                                         <div>
                                         {
                                             formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
-                                                <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}</label>
+                                                <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}
+                                                <button
+                                                    onClick={()=>handleCopy(generalFormFile.name)}
+                                                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                                                        ? 'text-green-600 bg-green-50'
+                                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                                        }`}
+                                                    title={copied == generalFormFile.name ? "Copied!" : "Copy ID"}
+                                                    disabled={copied == generalFormFile.name}
+                                                >
+                                                    {copied == generalFormFile.name ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                </button>
+                                                </label>
                                             ))
                                         }
                                         </div>
@@ -1843,6 +1961,14 @@ export default function () {
                             getSupervisor?.length > 0 &&
                                 getSupervisor.map((supervisor,idx)=>(
                                     <div key={idx}>
+                                    {
+                                        supervisor.approval_users.id == formState.modified_user_id &&
+                                        <div className="font-bold text-yellow-400">
+                                            👉 Modified 👈
+                                        </div>
+                                    }
+
+
                                     <div className="font-semibold text-blue-900">
                                     {supervisor.approval_users?.title}{supervisor.approval_users?.name}
                                     </div>
@@ -1917,7 +2043,7 @@ export default function () {
                 </div>
                 <ul className="p-0.5">
                     {
-                        (runable) &&
+                        (runable || softwaresupport) &&
                         <li  className="flex items-center justify-start p-2 rounded-lg bg-white border border-gray-200 gap-2">
                             {
                                 runable &&
@@ -1930,6 +2056,18 @@ export default function () {
                                     disabled={running}
                                 >
                                 {running ? 'Running...' : 'Re-Run'}
+                                </button>
+                            }
+
+                            {
+                                softwaresupport &&
+                                <button
+                                    className="px-4 py-2 text-sm font-medium rounded-lg
+                                        bg-blue-600 text-white 
+                                        hover:bg-blue-700 transition shadow-sm"
+                                    onClick={manualUpdateHandler}
+                                >
+                                Manual Update
                                 </button>
                             }
 

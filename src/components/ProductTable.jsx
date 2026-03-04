@@ -25,7 +25,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                     <th style={tablestyle['th']}>Product Code</th>
                     <th style={tablestyle['th']}>Product Name</th>
                     <th style={tablestyle['th']}>Unit</th>
-                    <th style={tablestyle['thNumber']}>Ref Price</th>
+                    <th style={tablestyle['thNumber']}> <span className="text-gray-500">Ref Price</span></th>
                     <th style={tablestyle['thNumber']}>New Cost Price</th>
                     <th style={tablestyle['thNumber']}>Price 1</th>
                     <th style={tablestyle['thNumber']}>Price 2</th>
@@ -53,7 +53,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td>{item.product_code}</td>
                             <td>{item.product_name}</td>
                             <td>{item.unit}</td>
-                            <td className="text-right">{formatNumber(item.price)}</td>
+                            <td className="text-right text-gray-500">{formatNumber(item.price)}</td>
                             <td className="text-right">
                                 {
                                     authorizedEdit ?

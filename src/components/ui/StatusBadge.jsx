@@ -48,9 +48,11 @@ export default function StatusBadge({ status, count }) {
         // custom-badge-bg-acknowledged: use OP Approved colors bg #e9f9cf, text #2e4702ff
         return "bg-[#e9f9cf] text-[#a3e635]";
       case "already changed":
-         return "bg-[#007bff1a] text-[#007bff]";
+          return "bg-[#14b8a6] text-white font-semibold";
       case "partial":
           return "bg-[#ffb703] text-[#7c2d12] font-bold";
+      case "pass approval":
+          return "bg-[#007bff1a] text-[#007bff]";
       default:
         return "bg-gray-200 text-gray-600";
     }
