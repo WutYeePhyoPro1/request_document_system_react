@@ -211,6 +211,16 @@ const GeneratorEdit: React.FC = () => {
         missingFields.push(message);
       }
     });
+    const serviceDateValue = formData.get("generator_service_date");
+    const remarkValue = formData.get("remark");
+
+    if (
+      serviceDateValue &&
+      serviceDateValue.toString().trim() !== "" &&
+      (!remarkValue || remarkValue.toString().trim() === "")
+    ) {
+      missingFields.push("Remark is required when Service Date is filled");
+    }
 
     if (missingFields.length > 0) {
       Swal.fire({

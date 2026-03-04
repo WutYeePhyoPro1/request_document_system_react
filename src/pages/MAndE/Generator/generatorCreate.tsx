@@ -7,18 +7,21 @@ import {
   TextInput,
   Loader,
   Checkbox,
+  Menu,
 } from "@mantine/core";
 import {
   IconCalendar,
+  IconCamera,
   IconClock,
   IconFile,
   IconFileText,
+  IconPhoto,
   IconX,
 } from "@tabler/icons-react";
 import React, { useRef, useState } from "react";
 import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
-import { Check, FilesIcon } from "lucide-react";
+import { Check, FilesIcon, Text } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
@@ -143,6 +146,16 @@ const GeneratorCreate: React.FC = () => {
     // if (!invoiceFile[0]?.file) {
     //   missingFields.push("Upload file is required");
     // }
+    const serviceDateValue = formData.get("generator_service_date");
+    const remarkValue = formData.get("remark");
+
+    if (
+      serviceDateValue &&
+      serviceDateValue.toString().trim() !== "" &&
+      (!remarkValue || remarkValue.toString().trim() === "")
+    ) {
+      missingFields.push("Remark is required when Service Date is filled");
+    }
 
     if (missingFields.length > 0) {
       Swal.fire({
@@ -218,6 +231,73 @@ const GeneratorCreate: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+  // Add a function to trigger the specific type of upload
+  const handleUploadChoice = (choice, fileFieldId) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+
+    // If user chooses camera, we add the capture attribute
+    if (choice === "camera") {
+      input.setAttribute("capture", "environment"); // 'user' for front cam, 'environment' for back
+    }
+
+    input.onchange = (e) => {
+      updateFile(fileFieldId, e.target.files?.[0] || null);
+    };
+
+    input.click();
+  };
+  const triggerUploadDialog = (id: string) => {
+    Swal.fire({
+      title: "Select Image Source",
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: "Camera",
+      denyButtonText: "Gallery",
+      confirmButtonColor: "#3085d6",
+      denyButtonColor: "#29e129",
+    }).then((result) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+
+      if (result.isConfirmed) {
+        // User chose Camera
+        input.setAttribute("capture", "environment");
+        input.click();
+      } else if (result.isDenied) {
+        // User chose Gallery
+        input.click();
+      }
+
+      input.onchange = (e: any) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          updateFile(id, file);
+        }
+      };
+    });
+  };
+  const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+
+    if (mode === "camera") {
+      // This attribute forces mobile browsers to open the camera app
+      input.setAttribute("capture", "environment");
+    }
+
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        updateFile(id, file);
+      }
+    };
+
+    input.click();
   };
   const FullPageLoader = () => (
     <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
@@ -781,7 +861,7 @@ const GeneratorCreate: React.FC = () => {
                 ></textarea>
               </div>
               <div className="">
-                {invoiceFile.map((fileField, index) => (
+                {/* {invoiceFile.map((fileField, index) => (
                   <div
                     key={fileField.id}
                     className="flex flex-col gap-2 w-full"
@@ -800,6 +880,62 @@ const GeneratorCreate: React.FC = () => {
                         className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                         style={{ borderColor: "rgb(29, 137, 225)" }}
                       />
+
+                      {index === 0 ? (
+                        <Button onClick={addInvoiceFile}>Add</Button>
+                      ) : (
+                        <Button
+                          color="red"
+                          onClick={() => removeInvoiceFile(fileField.id)}
+                        >
+                          <IconX size={16} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))} */}
+
+                {invoiceFile.map((fileField, index) => (
+                  <div
+                    key={fileField.id}
+                    className="flex flex-col gap-2 w-full"
+                  >
+                    <label>{index === 0 ? "Upload" : undefined}</label>
+                    <div className="flex items-center gap-3">
+                      <Menu shadow="md" width={200}>
+                        <Menu.Target>
+                          <div
+                            className="flex-1 border p-2 w-full rounded-md cursor-pointer bg-white flex justify-between items-center text-sm"
+                            style={{ borderColor: "rgb(29, 137, 225)" }}
+                          >
+                            {fileField.name ? (
+                              <Text truncate>{fileField.name}</Text>
+                            ) : (
+                              <Text color="dimmed">Tap to upload...</Text>
+                            )}
+                          </div>
+                        </Menu.Target>
+
+                        <Menu.Dropdown>
+                          <Menu.Label>Choose Source</Menu.Label>
+                          <Menu.Item
+                            icon={<IconCamera size={16} />}
+                            onClick={() =>
+                              handleCaptureChoice(fileField.id, "camera")
+                            }
+                          >
+                            Take Photo (Camera)
+                          </Menu.Item>
+                          <Menu.Item
+                            icon={<IconPhoto size={16} />}
+                            onClick={() =>
+                              handleCaptureChoice(fileField.id, "gallery")
+                            }
+                          >
+                            Choose from Gallery
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
 
                       {index === 0 ? (
                         <Button onClick={addInvoiceFile}>Add</Button>
