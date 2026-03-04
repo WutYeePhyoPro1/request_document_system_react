@@ -115,6 +115,7 @@ const TableDetail: React.FC<Props> = ({
       // "Load",
       "Gen Kva",
       "Running Hour",
+      "Cost",
       "Service Date",
       "Cleaning Level",
       "Remark",
@@ -141,6 +142,7 @@ const TableDetail: React.FC<Props> = ({
           // fullNumberFormat(element.load_level ? element.load_level : ""),
           fullNumberFormat(element.gen_kva_level),
           fullNumberFormat(element.running_hour),
+          fullNumberFormat(element.cost ?? "-"),
           element.generator_service_date
             ? dateFormat(element.generator_service_date)
             : "- ",

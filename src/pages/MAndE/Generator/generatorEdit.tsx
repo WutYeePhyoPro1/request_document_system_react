@@ -45,9 +45,9 @@ const GeneratorEdit: React.FC = () => {
     generator_service_date: "",
     generator_cleaning_level: "",
     remark: "",
+    cost: "",
+    generator_use: "",
   });
-
-  // 🔹 Fetch edit data
 
   useEffect(() => {
     if (!id) return;
@@ -63,6 +63,7 @@ const GeneratorEdit: React.FC = () => {
         setForm({
           ...data,
           generator_time: data.generator_time?.slice(0, 5),
+          generator_use: data.generator_use || "use",
         });
         setExistingFiles(res?.files || []);
       } catch (error) {
@@ -74,13 +75,14 @@ const GeneratorEdit: React.FC = () => {
 
     fetchData();
   }, [id]);
-  console.log("ExistingFile>>>", existingFiles);
+  console.log("ExistingFile>>>", form);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
+
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
@@ -190,11 +192,35 @@ const GeneratorEdit: React.FC = () => {
     const missingFields: string[] = [];
 
     Object.entries(validators).forEach(([key, message]) => {
+      if (
+        form.generator_use === "no_use" &&
+        ["l1_level", "l2_level", "l3_level"].includes(key)
+      ) {
+        return;
+      }
+      if (
+        (!form.generator_service_date ||
+          form.generator_service_date.trim() === "") &&
+        key === "cost"
+      ) {
+        return;
+      }
+
       const value = formData.get(key);
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
       }
     });
+    const serviceDateValue = formData.get("generator_service_date");
+    const remarkValue = formData.get("remark");
+
+    if (
+      serviceDateValue &&
+      serviceDateValue.toString().trim() !== "" &&
+      (!remarkValue || remarkValue.toString().trim() === "")
+    ) {
+      missingFields.push("Remark is required when Service Date is filled");
+    }
 
     if (missingFields.length > 0) {
       Swal.fire({
@@ -284,6 +310,29 @@ const GeneratorEdit: React.FC = () => {
           { path: `/generator_detail/${generalForm?.id}`, label: "Edit" },
         ]}
       />
+      <div className="flex items-center gap-6 p-4 rounded-xl">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="generator_use"
+            value="use"
+            checked={form.generator_use === "use"}
+            onChange={handleChange}
+          />
+          Generator Use
+        </label>
+
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="generator_use"
+            value="no_use"
+            checked={form.generator_use === "no_use"}
+            onChange={handleChange}
+          />
+          Generator Not Use
+        </label>
+      </div>
       <form
         onSubmit={handleSubmit}
         className=" 
@@ -334,6 +383,11 @@ const GeneratorEdit: React.FC = () => {
                 id=""
                 value={generalForm?.id}
               />
+              <input
+                type="hidden"
+                name="generator_use"
+                value={form.generator_use == "use" ? "use" : "no_use"}
+              />
             </div>
 
             <div className="">
@@ -370,9 +424,20 @@ const GeneratorEdit: React.FC = () => {
                   required
                   min="1"
                   max="100"
-                  disabled
+                  onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onInput={(e) => {
+                    let value = e.target.value;
+
+                    if (value > 100) e.target.value = 100;
+                    if (value < 1 && value !== "") e.target.value = 1;
+                  }}
                   className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(213, 216, 221)" }}
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
                 />
               </div>
 
@@ -388,10 +453,21 @@ const GeneratorEdit: React.FC = () => {
                   required
                   min="1"
                   max="100"
+                  onChange={handleChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
                   value={form.fuel_level}
-                  disabled
+                  onInput={(e) => {
+                    let value = e.target.value;
+
+                    if (value > 100) e.target.value = 100;
+                    if (value < 1 && value !== "") e.target.value = 1;
+                  }}
                   className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(213, 216, 221)" }}
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
                 />
               </div>
             </div>
@@ -491,7 +567,8 @@ const GeneratorEdit: React.FC = () => {
               <input
                 type="number"
                 name="l1_level"
-                value={form.l1_level}
+                value={form.generator_use === "no_use" ? 0 : form.l1_level}
+                disabled={form.generator_use === "no_use"}
                 onChange={handleChange}
                 required
                 min="0"
@@ -508,7 +585,12 @@ const GeneratorEdit: React.FC = () => {
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
+                style={{
+                  borderColor:
+                    form.generator_use === "use"
+                      ? "rgb(29, 137, 225)"
+                      : "rgb(207, 209, 197)",
+                }}
               />
             </div>
           </div>
@@ -523,7 +605,8 @@ const GeneratorEdit: React.FC = () => {
               <input
                 type="number"
                 name="l2_level"
-                value={form.l2_level}
+                value={form.generator_use === "no_use" ? 0 : form.l2_level}
+                disabled={form.generator_use === "no_use"}
                 onChange={handleChange}
                 min="0"
                 max="9999"
@@ -540,7 +623,12 @@ const GeneratorEdit: React.FC = () => {
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
+                style={{
+                  borderColor:
+                    form.generator_use === "use"
+                      ? "rgb(29, 137, 225)"
+                      : "rgb(207, 209, 197)",
+                }}
               />
             </div>
             <div className="">
@@ -553,7 +641,8 @@ const GeneratorEdit: React.FC = () => {
               <input
                 type="number"
                 name="l3_level"
-                value={form.l3_level}
+                value={form.generator_use === "no_use" ? 0 : form.l3_level}
+                disabled={form.generator_use === "no_use"}
                 onChange={handleChange}
                 min="0"
                 max="9999"
@@ -570,7 +659,12 @@ const GeneratorEdit: React.FC = () => {
                 required
                 onWheel={(e) => e.currentTarget.blur()}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
+                style={{
+                  borderColor:
+                    form.generator_use === "use"
+                      ? "rgb(29, 137, 225)"
+                      : "rgb(207, 209, 197)",
+                }}
               />
             </div>
           </div>
@@ -699,17 +793,71 @@ const GeneratorEdit: React.FC = () => {
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
-            <div className="">
-              <label htmlFor=""> Generator Service Date</label>
-              <input
-                type="date"
-                name="generator_service_date"
-                onChange={handleChange}
-                value={form.generator_service_date}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
+            <div
+              className={
+                form.generator_service_date
+                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3 items-center"
+                  : ""
+              }
+            >
+              <div className="">
+                <label htmlFor=""> Service Date</label>
+                <input
+                  type="date"
+                  name="generator_service_date"
+                  onChange={handleChange}
+                  value={form.generator_service_date}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
+              {form.generator_service_date && (
+                <div className="">
+                  <label htmlFor=""> Cost</label>
+                  <input
+                    type="text"
+                    name="cost"
+                    required
+                    value={form.cost}
+                    inputMode="decimal"
+                    onChange={(e) => {
+                      let value = e.target.value;
+
+                      // Allow only numbers and dot
+                      value = value.replace(/[^0-9.]/g, "");
+
+                      const parts = value.split(".");
+
+                      // Prevent multiple decimals
+                      if (parts.length > 2) return;
+
+                      // Limit 8 digits before decimal
+                      if (parts[0].length > 8) {
+                        parts[0] = parts[0].slice(0, 8);
+                      }
+
+                      // Limit 2 digits after decimal
+                      if (parts[1]) {
+                        parts[1] = parts[1].slice(0, 2);
+                      }
+
+                      setForm((prev: any) => ({
+                        ...prev,
+                        cost: parts.join("."),
+                      }));
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
