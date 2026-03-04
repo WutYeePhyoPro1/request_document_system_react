@@ -1,5 +1,19 @@
 import { useEffect, useState } from "react";
 
+export const fetchServerTime = async ()=>{
+  try{
+    const response = await fetch("/api/server-time");
+
+    const data = await response.json();
+    // console.log(data);
+
+    return data;
+  }catch(err){
+
+  }
+}
+
+
 export default function ServerTime() {
   const [serverTime, setServerTime] = useState(""); // formatted string
   let serverOffset = 0; // difference in ms between server and local
@@ -9,11 +23,13 @@ export default function ServerTime() {
 
     async function initServerTime() {
       try {
-        const response = await fetch("/api/server-time");
-        console.log(response);
-        const data = await response.json(); // { time: "2026-01-22T11:07:44Z" }
+        // const response = await fetch("/api/server-time");
+        // const data = await response.json(); // {time: '2026-02-25 10:14:19'}
+        // console.log(data);
 
-        const serverDate = new Date(data.time);
+        const getServerTime = await fetchServerTime();
+
+        const serverDate = new Date(getServerTime.time);
         const localDate = new Date();
 
         serverOffset = serverDate.getTime() - localDate.getTime();

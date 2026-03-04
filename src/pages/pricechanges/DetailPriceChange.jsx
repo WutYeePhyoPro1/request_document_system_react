@@ -15,7 +15,7 @@ import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
-import {formatDate,formatStrDateTime,formatTo2Decimals} from "../../components/Fomatter.jsx";
+import {formatDate,formatStrDateTime,formatTo2Decimals,formatLaravelStyleDate} from "../../components/Fomatter.jsx";
 import ServerTime from "../../components/ServerTime";
 import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
@@ -23,13 +23,21 @@ import { m } from "framer-motion";
 
 import StatusBadge from '../../components/ui/StatusBadge';
 
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
+
+import {fetchServerTime} from "./../../store/servertimeSlice";
 
 export default function () {
-    const productslimit = 50;
+    const productslimit = 10;
     // const token = localStorage.getItem('token');
     const { user, token } = useSelector((state) => state.auth);
 
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+
+    const {loading,error, datas: serverTimeData} = useSelector((state)=>state.servertime)
+
     const { id } = useParams();
     
 
@@ -64,6 +72,7 @@ export default function () {
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
     const [updating,setUpdating] = useState(false);
+    const [running,setRunning] = useState(false);
     const [forceLoading, setForceLoading] = useState(false);
     const [transfering,setTransfering] = useState(false);
 
@@ -72,31 +81,54 @@ export default function () {
     const [getSupervisor,setGetSupervisor] = useState(null);
     const [formRejected,setFormRejected] = useState(null);
 
-    const [generalFormFiles,setGeneralFormFiles] = useState([]);
 
     const [showModal, setShowModal] = useState(false);
 
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
 
-    // const allBranchUpdated = formState?.price_change_branches.every(
-    //     branch => branch.status === "Updated"
-    // );
-    const allBranchUpdated = formState?.price_change_branches?.every(
-    branch => branch.status === "Updated"
-    );
-    // const allBranchUpdated = true;
-    const  forwardable = (formState.status == 'Default' && originator.id == user.id)
-    const  changable = ((supervisor || approver) && formState?.status != 'Partial') || forwardable;
-    const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
-    const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
-                                && allBranchUpdated 
-                                && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() != "Updated")
-    const trackable = getApprover?.approval_users?.id == user.id;
-    const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() == "Updated").length > 0
 
-    // (supervisor || approver) && formState?.status != 'Partial';
-    const [copied, setCopied] = useState(false);
+
+    const  forwardable = (formState.status == 'Default' && originator.id == user.id)
+    const  changable = ((supervisor) && formState?.status != 'Partial') || forwardable;
+    // const runable = ((formState.status == "Approved" || formState.status == "Partial") && getApprover?.approval_users?.id == user.id);
+    // const onlineActionable = ((formState.status == "Completed") && getApprover?.approval_users?.id == user.id) 
+    //                             && allBranchUpdated 
+    //                             && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() != "Updated")
+    // const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() == "Updated").length > 0
+    
+    const trackable = getApprover?.approval_users?.id == user.id;
+    const allBranchUpdated = formState?.price_change_branches?.every(
+        branch => branch.status === "Updated"
+    );
+    
+    const isRunner = (formState.status == "Approved" || formState.status == "Partial" || formState.status == "Pass approvalss") && getApprover?.approval_users?.id === user.id;
+    const computeHasPendingBranch = (formState)=> {
+        return  formState?.price_change_branches?.some(
+                    branch => branch.status !== "Updated"
+                )
+    }
+    const computeHasNotOnlineUpdate= (formState) =>
+        !formState?.general_form_files
+            ?.filter(gf => gf.name?.includes("Update Online Price"))
+            ?.some(gf => gf.file === "Updated");
+    
+    const computeHasNoGcpDocument = (formState) =>{
+        return !formState?.general_form_files?.some(gf =>
+                gf.name?.startsWith("CPMM") 
+                // && gf.file
+            );
+    }
+    const hasPendingBranch = computeHasPendingBranch(formState);
+    const hasNotOnlineUpdate = computeHasNotOnlineUpdate(formState);
+    const hasNoGcpDocument = computeHasNoGcpDocument(formState);
+    const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument);
+    console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
+
+    const softwaresupport = user.from_branch_id == 1 && user.department_id == 11;
+    console.log(softwaresupport);
+    
+    const [copied, setCopied] = useState('');
     const updateDoc = useRef(false);
  
     const changeHandler = (e,actionMeta) => {
@@ -160,7 +192,7 @@ export default function () {
             };
 
             if (name === "effective_date") {
-                updated.urgent_price_change = value === today();
+                updated.urgent_price_change = (updated.change_price_date == updated.effective_date);
             }
 
             return updated;
@@ -186,6 +218,18 @@ export default function () {
                 };
 
                 if (name === "new_cost_price") {
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(pricesAlerts?.[code]?.['new_cost_price']){
+                        // updatedItem.new_cost_price = '';
+                        updatedItem.new_cost_price = item.new_cost_price;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     const price1 = Number(item.price1);
                     const newCost = Number(value);
 
@@ -193,35 +237,46 @@ export default function () {
 
                     updatedItem.profit = profit;
 
-                    const productMessages = {
-                        new_cost_price: {
-                            required: "New Cost Price is required.",
-                            numeric: "New Cost Price must be numeric value."
-                        }
-                    }
-                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
-                    setPricesErrors(prev => {
-                        const code = updatedItem.id || updatedItem.product_code;
-                        const newFields = pricesAlerts[code] || {};
+                    // const productMessages = {
+                    //     new_cost_price: {
+                    //         required: "New Cost Price is required.",
+                    //         numeric: "New Cost Price must be numeric value."
+                    //     }
+                    // }
+                    // const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
+                    // setPricesErrors(prev => {
+                    //     const code = updatedItem.id || updatedItem.product_code;
+                    //     const newFields = pricesAlerts[code] || {};
 
-                        const merged = {
-                            ...prev[code],
-                            ...newFields
-                        };
+                    //     const merged = {
+                    //         ...prev[code],
+                    //         ...newFields
+                    //     };
 
-                        if (!newFields[name]) {
-                            delete merged[name];
-                        }
+                    //     if (!newFields[name]) {
+                    //         delete merged[name];
+                    //     }
 
-                        return {
-                            ...prev,
-                            [code]: merged
-                        };
-                    });
-                    console.log(pricesAlerts);
+                    //     return {
+                    //         ...prev,
+                    //         [code]: merged
+                    //     };
+                    // });
+                    // console.log(pricesAlerts);
                 }
 
                 if (name === "price1") {
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const price1Alerts = validateArrayField([updatedItem], {'price1': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(price1Alerts?.[code]?.['price1']){
+                        updatedItem.price1 = item.price1;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     const price1 = Number(value);
                     const newCost = Number(item.new_cost_price) || 0;
 
@@ -509,7 +564,7 @@ export default function () {
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
             price2: { required: true, numeric: true, min: 1, max:"price1"},
-            new_cost_price: { required: true, numeric: true, min: 1},
+            // new_cost_price: { required: true, numeric: true, min: 1},
             profit: { required: true, numeric: true},
         };
         const productMessages = {
@@ -637,7 +692,7 @@ export default function () {
                 'Product Code': {required:true},
                 'Price 1': {required:true,numeric: true, min: 1},
                 'Price 2': {required:true,numeric: true, min: 1},
-                'New Cost Price': {required:true,numeric: true, min: 1},
+                // 'New Cost Price': {required:true,numeric: true, min: 1},
             }
             const importMessage = {
                 'Product Code': {required: "Product Code is required."},
@@ -669,22 +724,18 @@ export default function () {
 
             const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
             setPricesErrors(pricesAlerts);
+
+            const existingCodes = new Set(products.map(p => String(p.product_code).trim()));
             for (const [index, row] of jsonData.entries()) {
-                const code = row['Product Code'];
+                const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
                 
                 // Duplicate Product Code
-                const exists = products.some(
-                    p => p.product_code == code
-                );
-                if(exists){
-                    // continue next row 
-                    continue;
-                }
+                if (existingCodes.has(code)) continue;
 
                 // Exceed Product Rows
                 // console.log(productsExceedLimit(productslimit));
-                if (totalProductCount >= productslimit) {
+                if (existingCodes.size >= productslimit) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Product Rows Exceed Limit',
@@ -693,9 +744,9 @@ export default function () {
                     break;
                 }
 
+                existingCodes.add(code);
                 try {
                     await fetchProduct(code,row);
-                    totalProductCount++;
                 } catch (err) {
                     console.error(err);
                     Swal.fire({
@@ -843,10 +894,11 @@ export default function () {
 
             const general_form = data.general_form;
             const price_change_branches = data.price_change_branches;
+            const general_form_files = data.general_form_files;
             const normalizedForm = {
                 ...general_form,
-                change_price_date: general_form.created_at ? formatDate(new Date(general_form.created_at)): '',
-                effective_date: general_form.date_formatted ? formatDate(new Date(general_form.date_formatted)): '',
+                change_price_date: general_form.created_at ? formatLaravelStyleDate(general_form.created_at): '',
+                effective_date: general_form.date_formatted ? formatLaravelStyleDate(general_form.date_formatted): '',
                 branches:  price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id),
                 urgent_price_change: general_form.asset_type == 'on',
                 category_id: general_form.to_department,
@@ -858,18 +910,17 @@ export default function () {
                 layout_id: 19,
                 route: "price_changes",
 
-                price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1)
+                price_change_branches: price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1),
+                general_form_files
             }
             // console.log(price_change_branches.length, branchCountRef.current);
-
+            console.log(normalizedForm);
             setFormState(normalizedForm);
             
             setOriginator(data.stakeholders.originator);
             setGetSupervisor(data.stakeholders.getSupervisor);
             setGetApprover(data.stakeholders.getApprover);
             setFormRejected(data.stakeholders.form_rejected);
-
-            setGeneralFormFiles(data.general_form_files);
 
             setSupervisor(data.authorities.supervisor);
             setApprover(data.authorities.approver);
@@ -888,19 +939,19 @@ export default function () {
 
 
     
-    const handleCopy = () => {
+    const handleCopy = (text) => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(formState.form_doc_no)
+            navigator.clipboard.writeText(text)
                 .then(() => {
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
+                    setCopied(text);
+                    setTimeout(() => setCopied(''), 2000);
                 })
                 .catch((err) => {
                     console.error("Clipboard copy failed:", err);
                     fallbackCopy(formState.form_doc_no);
                 });
         } else {
-            fallbackCopy(formState.form_doc_no);
+            fallbackCopy(text);
         }
     };
 
@@ -913,6 +964,8 @@ export default function () {
 
         var btnStatus = e.target.value;
         var btnText = e.target.textContent;
+
+        // console.log(btnStatus);
 
         Swal.fire({
             icon: "question",
@@ -998,6 +1051,19 @@ export default function () {
         });
     };
 
+    const getBtpValue = ()=>{
+        let btp = '';
+
+        if(approver){
+            btp = "approver_btp";
+        }
+        return btp;
+    } 
+
+    const btpHandler = async (e)=>{
+        // console.log("back");
+    }
+
     const updateBranchStatus = (branchId, status, message = null) => {
         setFormState(prev => ({
             ...prev,
@@ -1009,84 +1075,70 @@ export default function () {
         }));
     };
 
-    const updateOnlineStatus = (name, status, message = null)=>{
-        // generalFormFiles.filter(gf=>gf.name.includes("Update Online Price"))
-
-        setGeneralFormFiles(prev =>
-            prev.map(f =>
+    const updateOnlineStatus = (name, status, message = null) => {
+        setFormState(prev => ({
+            ...prev,
+            general_form_files: prev.general_form_files?.map(f =>
                 f.name === name
-                ? { ...f, file: status }
-                : f
+                    ? { ...f, file: status, message: message ?? f.message }
+                    : f
             )
-        );
-
-    }
+        }));
+    };
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    let runningRef = useRef(false);
-    let confirmRunRef = useRef(false);
+
     const runHandler = async (retry = false, latestForm = null) => {
+        setRunning(true);
+
         const data = latestForm || formState;
-
-        if(retry){
-            if (runningRef.current) return;
-            const result = await Swal.fire({
-                icon: "question",
-                text: "Are you sure you want to run the latest updated prices on POS & ERP servers?",
-                showCancelButton: true,
-                confirmButtonText: "OK",
-                cancelButtonText: "Cancel",
-            });
-
-            if (!result.isConfirmed) return;
-
-            if (result.isConfirmed && !confirmRunRef.current) {
-                confirmRunRef.current = true;
-                runningRef.current = true;
-            }
-        }
-        // console.log("Run Success");
-        // return;
 
         setForceLoading(true);
         setIsSubmitting(true);
         setShowModal(true);
         try {
             
-            // console.log(formState.price_change_branches);
-            const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
-            // console.log(runBranches);
-            const updateRequests = runBranches.map(branchId => {
+            const hasPendingBranchFresh = computeHasPendingBranch(data);
+            console.log("hasPendingBranchFresh",hasPendingBranchFresh,data);
 
-                updateBranchStatus(branchId, "Updating");
+            // Start Branch Price Change
+            if(data.urgent_price_change){
 
-                return axios
-                    .get(`/api/price_changes/${id}/${branchId}/update_price`, {
-                        headers: { Authorization: `Bearer ${token}` },
-                    })
-                    .then(async (res) => {
-                        if (res.data?.success === false) {
-                            // updateBranchStatus(branchId, "failed", res.data.message);
-                            // throw new Error(`Branch ${branchId} failed`);
-                            throw new Error(res?.data?.message);
-                        }
+                // console.log(formState.price_change_branches);
+                const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
+                // console.log(runBranches);
+                const updateRequests = runBranches.map(branchId => {
 
-                        await sleep(2000);
-                        updateBranchStatus(branchId, res.data.status ,res.data.message);
-                        return res;
-                    })
-                    .catch(err => {
-                        updateBranchStatus(
-                            branchId,
-                            "Failed",
-                            err.response?.data?.message || err.message
-                        );
-                        throw err;
-                    });
+                    updateBranchStatus(branchId, "Updating");
+
+                    return axios
+                        .get(`/api/price_changes/${id}/${branchId}/update_price`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        })
+                        .then(async (res) => {
+                            if (res.data?.success === false) {
+                                // updateBranchStatus(branchId, "failed", res.data.message);
+                                // throw new Error(`Branch ${branchId} failed`);
+                                throw new Error(res?.data?.message);
+                            }
+
+                            await sleep(2000);
+                            updateBranchStatus(branchId, res.data.status ,res.data.message);
+                            return res;
+                        })
+                        .catch(err => {
+                            updateBranchStatus(
+                                branchId,
+                                "Failed",
+                                err.response?.data?.message || err.message
+                            );
+                            throw err;
+                        });
                 });
 
-            const results = await Promise.all(updateRequests);
-
+                const results = await Promise.all(updateRequests);
+            }
+            // End Branch Price Change
 
 
             // Swal.fire({
@@ -1098,8 +1150,8 @@ export default function () {
             // fetchPriceChange();
             // navigate("/price_changes");
 
-
-            onlineHandler();
+            const latestForm = await fetchPriceChange();
+            await onlineHandler(latestForm);
 
         } catch (err) {
             console.error(err,err.message);
@@ -1116,15 +1168,16 @@ export default function () {
 
             fetchPriceChange();
 
-            confirmRunRef.current = false;
-            runningRef.current = false;
+            setRunning(false);
         }
     };
 
 
-    const onlineHandler = async (e)=>{
+    const onlineHandler = async (latestForm = null)=>{
 
         setUpdating(true);
+
+        const data = latestForm || formState;
 
         // var btnText = e.target.textContent;
 
@@ -1133,13 +1186,13 @@ export default function () {
                     setForceLoading(true);
                     setIsSubmitting(true);
 
-                    const branchCodeList = formState.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
+                    const branchCodeList = data.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
                     const productList = products.map(product => ({
                         productCode: product.product_code,
                         itemCode: product.product_code,
                         normalPrice: parseFloat(product.price1),
                         memberPrice: parseFloat(product.price2),
-                        effectiveDate: formState.effective_date
+                        effectiveDate: data.effective_date
                     }));
                     const timestamp = Date.now().toString();
                     // const timestamp = (Date.now() + 2 * 60 * 1000).toString();
@@ -1152,33 +1205,40 @@ export default function () {
                             timestamp
                         }
                     }
-                    console.log(formData);
+                    // console.log(formData);
 
                     updateOnlineStatus("Update Online Price", "Updating");
                     try{
-                        const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
-                            headers: {
-                            Authorization: `Bearer ${token}`,
-                            },
-                        });
 
-                        console.log(res);
+                        const hasNotOnlineUpdateFresh = computeHasNotOnlineUpdate(data);
+                        console.log("hasNotOnlineUpdateFresh",hasNotOnlineUpdateFresh,data);
+                        if(hasNotOnlineUpdateFresh && (data.urgent_price_change || true)){
+                            const res = await axios.post(`/api/price_changes/${id}/update_online`,formData,{
+                                headers: {
+                                Authorization: `Bearer ${token}`,
+                                },
+                            });
 
-                        const data = res.data;
+                            console.log(res);
 
-                        if(data.success == false){
-                            throw new Error(res?.data?.message);
+                            const data = res.data;
+
+                            if(data.success == false){
+                                throw new Error(res?.data?.message);
+                            }
+
+                            // const updatedForm = await fetchPriceChange();
+                            // Swal.fire({
+                            //     icon: "success",
+                            //     title: `Update online successfully!`,
+                            //     text: data.message,
+                            // });
+
+                            updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
                         }
 
-                        // const updatedForm = await fetchPriceChange();
-                        // Swal.fire({
-                        //     icon: "success",
-                        //     title: `Update online successfully!`,
-                        //     text: data.message,
-                        // });
 
-                        updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
-                        transferGCPHandler();
+                        await transferGCPHandler();
 
                     }catch(err){
                         console.log('There is an error in updating onlilne:',err);
@@ -1202,26 +1262,31 @@ export default function () {
             
     }
 
-    const transferGCPHandler = async ()=>{
+    const transferGCPHandler = async (latestForm = null)=>{
         setTransfering(true);
+
+        const data = latestForm || formState;
         try{
-            // //  =Update Online File & Timestamp
-            // //  Start GCP Document API
-            const gcpRes = await axios.get(
-                `/api/price_changes/${id}/gcp_document`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
 
-            if (gcpRes.data?.success === false) {
-                throw new Error("GCP document creation failed");
+            const hasNoGcpDocumentFresh = computeHasNoGcpDocument(data); 
+            console.log("hasNoGcpDocumentFresh",hasNoGcpDocumentFresh,data);
+            if(hasNoGcpDocumentFresh){
+                // //  =Update Online File & Timestamp
+                // //  Start GCP Document API
+                const gcpRes = await axios.get(
+                    `/api/price_changes/${id}/gcp_document`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                if (gcpRes.data?.success === false) {
+                    throw new Error("GCP document creation failed");
+                }
             }
-
-
-            Swal.fire({
-                icon: "success",
-                title: "Price Change Form Process Finished Successfully!",
-                text: "GCP document created successfully.",
-            });
+                Swal.fire({
+                    icon: "success",
+                    title: "Price Change Form Process Finished Successfully!",
+                    text: "GCP document created successfully.",
+                });
             // // End GCP Document API
         }catch(err){
             Swal.fire({
@@ -1291,11 +1356,117 @@ export default function () {
     }
 
 
+    const manualUpdateHandler = async ()=>{
+        // console.log("Get Manual Update Files");
+        let pos_update_sql = "";
+        let erp_update_sql = "";
+        let gcp_update_sql = "";
+
+        pos_update_sql = `
+                -- POS Update Price --\n`;
+        erp_update_sql = "-- ERP Update Price --\n";
+        gcp_update_sql = "-- GCP Update Price --\n";
+
+
+        // Backup price_change_branches
+        formState?.price_change_branches?.forEach(pcbranch => {
+
+            products.forEach(product =>{
+                pos_update_sql += 
+                `
+                UPDATE PUBLIC.TEMP_MASTER_PRODUCT   ---update at POS ${pcbranch.branch.branch_name}
+                SET PRODUCT_PRICE1 = ${product.price1},
+                    PRODUCT_PRICE2 = ${product.price2},
+                    PRODUCT_PRICE3 = ${product.price1}
+                WHERE BARCODE_CODE = ${product.product_code}
+                AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
+                `;
+
+                erp_update_sql += 
+                `
+                UPDATE MASTER_DATA.MASTER_PRODUCT_MULTIPRICE---update at pro1 database - ${pcbranch.branch.branch_name}
+                    SET PRODUCT_PRICE1 = ${product.price1},
+                    PRODUCT_PRICE2 = ${product.price2},
+                    PRODUCT_PRICE3 = ${product.price1}
+                WHERE BARCODE_CODE = ${product.product_code}
+                    AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
+                `;
+
+                gcp_update_sql += 
+                `
+                UPDATE MASTERDATA.MASTER_PRODUCT_MULTIPRICE---update at changeprice database - ${pcbranch.branch.branch_name}
+                    SET PRODUCT_PRICE1 = ${product.price1},
+                    PRODUCT_PRICE2 = ${product.price2},
+                    PRODUCT_PRICE3 = ${product.price1}
+                WHERE BARCODE_CODE = ${product.product_code}
+                    AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
+                `;
+            });
+
+        });
+
+        let sql = pos_update_sql + erp_update_sql + gcp_update_sql;
+
+
+
+
+        const blob = new Blob([sql], { type: "text/sql" });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${formState.form_doc_no}_Manual_Update_.sql`;
+        link.click();
+
+        URL.revokeObjectURL(url);
+        
+        // --- Download Online Payload File (JSON) ---
+        const jsonFormat = getOnlineRequest();
+        const onlinePayload = JSON.stringify(jsonFormat.data) + import.meta.env.VITE_SECRETKEY; ;
+        const jsonBlob = new Blob([onlinePayload], { type: "application/json" });
+        const jsonUrl = URL.createObjectURL(jsonBlob);
+
+        const jsonLink = document.createElement("a");
+        jsonLink.href = jsonUrl;
+        jsonLink.download = `${formState.form_doc_no}_Online_Update.json`;
+        jsonLink.click();
+        URL.revokeObjectURL(jsonUrl);
+    }
+
+    const getOnlineRequest = (latestForm = null)=>{
+        const data = latestForm || formState;
+
+        const branchCodeList = data.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
+        const productList = products.map(product => ({
+            productCode: product.product_code,
+            itemCode: product.product_code,
+            normalPrice: parseFloat(product.price1),
+            memberPrice: parseFloat(product.price2),
+            effectiveDate: data.effective_date
+        }));
+        const timestamp = Date.now().toString();
+        // const timestamp = (Date.now() + 2 * 60 * 1000).toString();
+        console.log(timestamp);
+
+        const formData = {
+            data:{
+                branchCodeList,
+                productList,
+                timestamp
+            }
+        }
+
+        return formData;
+    }
+
     useEffect(() => {
         const init = async () => {
             await fetchBranches();
             await fetchProductCategories();
             await fetchPriceChange();
+
+            let getServerTime= await dispatch(fetchServerTime()).unwrap();
+            console.log(getServerTime);
         };
 
         init();
@@ -1305,14 +1476,25 @@ export default function () {
         <>
         {forceLoading && <FullPageLoader />}
         <div className="p-4 md:p-6 lg:p-8 bg-gray-50 min-h-screen">
-            <NavPath
-                segments={[
-                    { path: "/dashboard", label: "Home" },
-                    { path: "/dashboard", label: "Dashboard" },
-                    { path: "/price_changes", label: "Price Changes" },
-                    { path: "/price_changes/create", label: "Price Change Form" },
-                ]}
-            />
+
+            <div className="flex justify-between">
+                <NavPath
+                    segments={[
+                        { path: "/dashboard", label: "Home" },
+                        { path: "/dashboard", label: "Dashboard" },
+                        { path: "/price_changes", label: "Price Changes" },
+                        { path: "/price_changes/create", label: "Price Change Form" },
+                    ]}
+                />
+
+                <Link
+                    to="/price_changes"
+                    className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
+                >
+                    <span className="mr-1 sm:mr-2">←</span> Back
+                </Link>
+            </div>
+
 
             {/* Main Unitary Card */}
             <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
@@ -1323,20 +1505,20 @@ export default function () {
                         <h3 className="text-xl font-bold text-blue-900 flex flex-wrap items-center gap-2">
                             Price Change Form <span className="text-lg">({formState.form_doc_no})</span>
                             <button
-                                onClick={handleCopy}
+                                onClick={()=>handleCopy(formState.form_doc_no)}
                                 className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
                                     ? 'text-green-600 bg-green-50'
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
                                     }`}
-                                title={copied ? "Copied!" : "Copy ID"}
-                                disabled={copied}
+                                title={copied == formState.form_doc_no ? "Copied!" : "Copy ID"}
+                                disabled={copied == formState.form_doc_no}
                             >
-                                {copied ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                {copied == formState.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                             </button>
                             <StatusBadge status={formState?.status ? formState?.status : ''} />
                         </h3>
 
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <div className="flex flex-wrap gap-4 sm:justify-end">
                             {
                                 changable && forwardable &&
                                 <button
@@ -1388,6 +1570,20 @@ export default function () {
 
                             }
 
+
+                            {
+                                approver &&
+                                <button
+                                   className="px-4 py-2 text-sm font-medium rounded-lg
+                                        bg-blue-600 text-white 
+                                        hover:bg-blue-700 transition shadow-sm"
+                                    value={getBtpValue()}
+                                    onClick={approveHandler}
+                                    >
+                                    Back To Previous
+                                </button>
+                            }
+
                             {
                                 (trackable) &&
                                 <button
@@ -1415,12 +1611,7 @@ export default function () {
                                 </button> : ''
                             }
 
-                            <Link
-                                to="/price_changes"
-                                className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
-                            >
-                                <span className="mr-1 sm:mr-2">←</span> Back
-                            </Link>
+                       
                             
                         </div>
                     </div>
@@ -1484,14 +1675,26 @@ export default function () {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
                                 <div className="col-span-1 md:col-span-2 xl:col-span-3">
-                                    <div className="flex flex-col md:flex-row gap-4 mb-2">
-                                        {generalFormFiles.filter(gf=>gf.name.includes("CP")).length > 0 &&
+                                    <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
+                                        {formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).length > 0 &&
                                             <label className="text-base font-bold text-[#007bff] uppercases">GCP Document No:</label>
                                         }
                                         <div>
                                         {
-                                            generalFormFiles.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
-                                                <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}</label>
+                                            formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
+                                                <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}
+                                                <button
+                                                    onClick={()=>handleCopy(generalFormFile.name)}
+                                                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                                                        ? 'text-green-600 bg-green-50'
+                                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                                        }`}
+                                                    title={copied == generalFormFile.name ? "Copied!" : "Copy ID"}
+                                                    disabled={copied == generalFormFile.name}
+                                                >
+                                                    {copied == generalFormFile.name ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                </button>
+                                                </label>
                                             ))
                                         }
                                         </div>
@@ -1499,13 +1702,70 @@ export default function () {
                                 </div>
 
                                 <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date <span className="text-red-600 text-md">*</span></label>
-                                    <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date {formState.change_price_date}<span className="text-red-600 text-md">*</span></label>
+                                    {/* <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly /> */}
+                                    <Flatpickr
+                                        value={formState.change_price_date}
+                                        options={{
+                                            dateFormat: "Y-m-d",
+                                            minDate: formatLaravelStyleDate(formState.change_price_date),
+                                        }}
+                                        onChange={(date, dateStr) => {
+                                            if (!changable) {
+                                                // Force React to overwrite Flatpickr after every change:
+                                                setFormState(prev => ({
+                                                    ...prev,
+                                                    change_price_date: prev.change_price_date
+                                                }));
+                                                return;
+                                            }
+                                            changeHandler({
+                                            target: {
+                                                name: "change_price_date",
+                                                value: dateStr,
+                                                type: "date"
+                                            }
+                                            });
+                                        }}
+                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        style={{ borderColor: '#2ea2d1' }}
+                                        disabled={true}
+                                    />
                                 </div>
 
                                 <div>
                                     <label className="text-xs font-bold text-slate-500 uppercase"><span className="text-red-600">Effective Date</span> <span className="text-red-600 text-md">*</span></label>
-                                    <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/>
+                                    {/* <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/> */}
+                                    <Flatpickr
+                                    key={changable ? "edit" : "lock"} 
+                                        value={formState.effective_date}
+                                        options={{
+                                            dateFormat: "Y-m-d",
+                                            minDate: formatLaravelStyleDate(formState.change_price_date),
+                                        }}
+                                        onChange={(date, dateStr) => {
+                                            if (!changable) {
+                                                // Force React to overwrite Flatpickr after every change:
+                                                setFormState(prev => ({
+                                                    ...prev,
+                                                    effective_date: prev.effective_date
+                                                }));
+                                                return;
+                                            }
+                                            changeHandler({
+                                            target: {
+                                                name: "effective_date",
+                                                value: dateStr,
+                                                type: "date"
+                                            }
+                                            });
+                                        }}
+                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                        style={{ borderColor: '#2ea2d1' }}
+                                        disabled={!changable}
+                                    />
                                 </div>
 
                                 <div className="flex items-center gap-2 pt-6">
@@ -1651,7 +1911,7 @@ export default function () {
  
 
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
 
                     {/* Alert Box */}
                     {formRejected &&
@@ -1701,6 +1961,14 @@ export default function () {
                             getSupervisor?.length > 0 &&
                                 getSupervisor.map((supervisor,idx)=>(
                                     <div key={idx}>
+                                    {
+                                        supervisor.approval_users.id == formState.modified_user_id &&
+                                        <div className="font-bold text-yellow-400">
+                                            👉 Modified 👈
+                                        </div>
+                                    }
+
+
                                     <div className="font-semibold text-blue-900">
                                     {supervisor.approval_users?.title}{supervisor.approval_users?.name}
                                     </div>
@@ -1761,16 +2029,21 @@ export default function () {
                     <h2 className="text-lg font-semibold">
                     Branch Price Update Status
                     </h2>
-                    <button
-                    onClick={() => setShowModal(false)}
-                    className="text-gray-400 hover:text-gray-600"
-                    >
-                    ✕
-                    </button>
+
+                    {
+                        !running &&
+                        <button
+                        onClick={() => setShowModal(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                        >
+                            ✕
+                        </button>
+                    }
+
                 </div>
                 <ul className="p-0.5">
                     {
-                        (runable || onlineActionable || transferable) &&
+                        (runable || softwaresupport) &&
                         <li  className="flex items-center justify-start p-2 rounded-lg bg-white border border-gray-200 gap-2">
                             {
                                 runable &&
@@ -1780,13 +2053,26 @@ export default function () {
                                         hover:bg-sky-700 active:bg-sky-800
                                         transition shadow-sm"
                                     onClick={()=>runHandler(true)}
+                                    disabled={running}
                                 >
-                                    Run
+                                {running ? 'Running...' : 'Re-Run'}
+                                </button>
+                            }
+
+                            {
+                                softwaresupport &&
+                                <button
+                                    className="px-4 py-2 text-sm font-medium rounded-lg
+                                        bg-blue-600 text-white 
+                                        hover:bg-blue-700 transition shadow-sm"
+                                    onClick={manualUpdateHandler}
+                                >
+                                Manual Update
                                 </button>
                             }
 
 
-                            {
+                            {/* {
                                 onlineActionable && !(runningRef.current && confirmRunRef.current) &&
                                 <button
                                     className="px-4 py-2 text-sm font-medium rounded-lg
@@ -1797,10 +2083,10 @@ export default function () {
                                 >
                                 {updating ? 'Loading...' : 'Update Price Online'}
                                 </button>
-                            }
+                            } */}
 
 
-                            {
+                            {/* {
                                 // transferGCPHandler
                                 transferable &&
                                 <button
@@ -1812,7 +2098,7 @@ export default function () {
                                 >
                                     {transfering ? 'Loading...' : 'Transfer To GCP'}
                                 </button>
-                            }
+                            } */}
                         </li>
                     }
 
@@ -1827,7 +2113,7 @@ export default function () {
                         formState.price_change_branches?.map((branch) => console.log(formState.price_change_branches) )
                     } */}
                     {
-                    generalFormFiles.filter(gf=>gf.name.includes("Update Online Price")).map((online,idx)=>(
+                    formState.general_form_files.filter(gf=>gf.name.includes("Update Online Price")).map((online,idx)=>(
                         <li
                             className="flex items-center justify-between bg-blue-50 p-2 rounded-lg border border-gray-200 font-semibold text-blue-900"
                             key={idx}
@@ -1911,14 +2197,18 @@ export default function () {
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
-                <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100"
-                >
-                Close
-                </button>
-            </div>
+            {/* <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-200">
+                {
+                    !running &&
+                    <button
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 text-sm rounded-lg border hover:bg-gray-100"
+                    >
+                    Close
+                    </button>
+                }
+
+            </div> */}
 
             </div>
         </div>
@@ -1969,3 +2259,33 @@ export default function () {
 // 👁 View error log
 
 // 📊 Progress bar
+
+// => Flatpickr va React State
+//     🧩 What actually happens in your code (step-by-step)
+// 1️⃣ User clicks a date in Flatpickr popup
+
+// Flatpickr internally does something like:
+
+// input.value = "2026-03-01";   // direct DOM write
+
+// ⚠️ This is done inside Flatpickr, NOT React.
+
+// 2️⃣ Then your React onChange fires
+// if (!changable) return;
+
+// You block React state update. ✅
+
+// 3️⃣ React does NOT re-render
+
+// Because state did not change:
+
+// setFormState(...) ❌ not called
+
+// So React does not overwrite the DOM.
+
+// Result
+// Layer	Value
+// React state	OLD date
+// DOM input	NEW date (Flatpickr wrote it)
+
+// 👉 UI changes, state does not.

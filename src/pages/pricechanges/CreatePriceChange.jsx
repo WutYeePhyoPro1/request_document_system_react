@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import {useDispatch,useSelector} from "react-redux"
 import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
@@ -12,15 +13,27 @@ import Swal from "sweetalert2";
 
 import {validateForm} from "../../components/Validator.jsx";
 import {showValidationErrors,validateArrayField} from "../../components/Validator.jsx";
-import {formatDate,formatTo2Decimals} from "../../components/Fomatter.jsx";
-import ServerTime from "../../components/ServerTime";
+import {formatDate,formatLaravelStyleDate,formatTo2Decimals} from "../../components/Fomatter.jsx";
+import ServerTime,{fetchServerTime as SvrTime}  from "../../components/ServerTime";
 import FullPageLoader from "../../components/FullPageLoader";
 import * as XLSX from "xlsx";
 
+import Flatpickr from "react-flatpickr";
+import "flatpickr/dist/themes/material_blue.css";
+
+import {fetchServerTime} from "./../../store/servertimeSlice";
+
+
 export default function () {
-    const productslimit = 50;
+    const { user, token } = useSelector((state) => state.auth);
+    // console.log(user.categories);
 
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+
+    const {loading,error, datas: serverTimeData} = useSelector((state)=>state.servertime)
+
+    const productslimit = 50;
     const today = () => new Date().toISOString().split("T")[0];
     const minDate = today();
     const maxDate = new Date();
@@ -33,7 +46,7 @@ export default function () {
         change_price_date: today(),
         effective_date: today(),
         urgent_price_change: true,
-        category_id: "",
+        category_id: user.categories?.[0]?.id,
         comment: "",
         branch_price: "",
         all_branches: false,
@@ -44,9 +57,8 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    let totalProductCount = products.length;
 
-    const token = localStorage.getItem('token');
+    // const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
     const [importing,setImporting] = useState(false);
@@ -62,6 +74,11 @@ export default function () {
             ...prev,
             [name]: e ? e.value : null,
             }));
+
+            if(name == 'branch_price'){
+                setProducts([]);
+            }
+
             return;
         }
 
@@ -107,9 +124,8 @@ export default function () {
             };
 
             if (name === "effective_date") {
-                updated.urgent_price_change = value === today();
+                updated.urgent_price_change = (updated.change_price_date == updated.effective_date);
             }
-
             return updated;
         });
         console.log(formState)
@@ -128,6 +144,18 @@ export default function () {
                 };
 
                 if (name === "new_cost_price") {
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(pricesAlerts?.[code]?.['new_cost_price']){
+                        // updatedItem.new_cost_price = '';
+                        updatedItem.new_cost_price = item.new_cost_price;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     const price1 = Number(item.price1);
                     const newCost = Number(value);
 
@@ -135,35 +163,48 @@ export default function () {
 
                     updatedItem.profit = profit;
 
-                    const productMessages = {
-                        new_cost_price: {
-                            required: "New Cost Price is required.",
-                            numeric: "New Cost Price must be numeric value."
-                        }
-                    }
-                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
-                    setPricesErrors(prev => {
-                        const code = updatedItem.product_code;
-                        const newFields = pricesAlerts[code] || {};
+                    // const productMessages = {
+                    //     new_cost_price: {
+                    //         required: "New Cost Price is required.",
+                    //         numeric: "New Cost Price must be numeric value."
+                    //     }
+                    // }
+                    // const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {required:true,numeric: true, min: 1}}, 'Product',productMessages);
+                    // setPricesErrors(prev => {
+                    //     const code = updatedItem.product_code;
+                    //     const newFields = pricesAlerts[code] || {};
 
-                        const merged = {
-                            ...prev[code],
-                            ...newFields
-                        };
+                    //     const merged = {
+                    //         ...prev[code],
+                    //         ...newFields
+                    //     };
 
-                        if (!newFields[name]) {
-                            delete merged[name];
-                        }
+                    //     if (!newFields[name]) {
+                    //         delete merged[name];
+                    //     }
 
-                        return {
-                            ...prev,
-                            [code]: merged
-                        };
-                    });
-                    console.log(pricesAlerts);
+                    //     return {
+                    //         ...prev,
+                    //         [code]: merged
+                    //     };
+                    // });
+                    // console.log(pricesAlerts);
+
+                 
                 }
 
                 if (name === "price1") {
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const price1Alerts = validateArrayField([updatedItem], {'price1': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(price1Alerts?.[code]?.['price1']){
+                        updatedItem.price1 = item.price1;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     const price1 = Number(value);
                     const newCost = Number(item.new_cost_price) || 0;
 
@@ -207,6 +248,8 @@ export default function () {
                         };
                     });
                     console.log(pricesAlerts);
+
+
                 }
 
                 if(name === "price2"){
@@ -446,7 +489,7 @@ export default function () {
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
             price2: { required: true, numeric: true, min: 1, max:"price1"},
-            new_cost_price: { required: true, numeric: true, min: 1},
+            // new_cost_price: { required: true, numeric: true, min: 1},
             profit: { required: true, numeric: true},
         };
         const productMessages = {
@@ -580,7 +623,7 @@ export default function () {
                 'Product Code': {required:true},
                 'Price 1': {required:true,numeric: true, min: 1},
                 'Price 2': {required:true,numeric: true, min: 1},
-                'New Cost Price': {required:true,numeric: true, min: 1},
+                // 'New Cost Price': {required:true,numeric: true, min: 1},
             }
             const importMessage = {
                 'Product Code': {required: "Product Code is required."},
@@ -612,22 +655,19 @@ export default function () {
 
             const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
             setPricesErrors(pricesAlerts);
+
+            const existingCodes = new Set(products.map(p => String(p.product_code).trim()));
             for (const [index, row] of jsonData.entries()) {
-                const code = row['Product Code'];
+                const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
                 
                 // Duplicate Product Code
-                const exists = products.some(
-                    p => p.product_code == code
-                );
-                if(exists){
-                    // continue next row 
-                    continue;
-                }
+                if (existingCodes.has(code)) continue;
+                // console.log("Added",existingCodes,code);
 
                 // Exceed Product Rows
                 // console.log(productsExceedLimit(productslimit));
-                if (totalProductCount >= productslimit) {
+                if (existingCodes.size >= productslimit) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Product Rows Exceed Limit',
@@ -636,9 +676,9 @@ export default function () {
                     break;
                 }
 
+                existingCodes.add(code);
                 try {
                     await fetchProduct(code,row);
-                    totalProductCount++;
                 } catch (err) {
                     console.error(err);
                     Swal.fire({
@@ -765,8 +805,20 @@ export default function () {
 
 
     useEffect(() => {
-        fetchBranches();
-        fetchProductCategories();
+        const init = async () => {
+            fetchBranches();
+            fetchProductCategories();
+
+            let getServerTime= await dispatch(fetchServerTime()).unwrap();
+            // console.log(getServerTime);
+
+            setFormState(prev => ({
+                ...prev,
+                change_price_date: formatLaravelStyleDate(getServerTime.time),
+                effective_date: formatLaravelStyleDate(getServerTime.time),
+            }));
+        };
+        init();
     }, []);
 
     const productsExceedLimit = (limit)=>{
@@ -878,12 +930,51 @@ export default function () {
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date <span className="text-red-600 text-md">*</span></label>
-                                        <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly />
+                                        {/* <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly /> */}
+                                        <Flatpickr
+                                            value={formState.change_price_date}
+                                            options={{
+                                                dateFormat: "Y-m-d",
+                                                minDate:  formatLaravelStyleDate(serverTimeData.time),
+                                            }}
+                                            onChange={(date, dateStr) => {
+                                                changeHandler({
+                                                target: {
+                                                    name: "change_price_date",
+                                                    value: dateStr,
+                                                    type: "date"
+                                                }
+                                                });
+                                            }}
+                                            className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            style={{ borderColor: '#2ea2d1' }}
+                                            disabled={true}
+                                        />
                                     </div>
 
                                     <div>
                                         <label className="text-xs font-bold text-slate-500 uppercase"><span className="text-red-600">Effective Date</span> <span className="text-red-600 text-md">*</span></label>
-                                        <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} />
+                                        {/* <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} /> */}
+                                        <Flatpickr
+                                            value={formState.effective_date}
+                                            options={{
+                                                dateFormat: "Y-m-d",
+                                                minDate:  formatLaravelStyleDate(serverTimeData.time),
+                                            }}
+                                            onChange={(date, dateStr) => {
+                                                changeHandler({
+                                                target: {
+                                                    name: "effective_date",
+                                                    value: dateStr,
+                                                    type: "date"
+                                                }
+                                                });
+                                            }}
+                                            className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            style={{ borderColor: '#2ea2d1' }}
+                                        />
                                     </div>
 
                                     <div className="flex items-center gap-2 pt-6">
@@ -942,9 +1033,9 @@ export default function () {
                                                 name="branch_price"
                                                 options={options}
                                                 placeholder="Select Status"
-                                                isSearchable={!formState.branch_price}
-                                                menuIsOpen={formState.branch_price ? false : undefined}
-                                                isClearable={!formState.branch_price}
+                                                isSearchable={!formState.branch_price || true}
+                                                // menuIsOpen={formState.branch_price ? false : undefined}
+                                                isClearable={!formState.branch_price || true}
                                                 onChange={changeHandler}
                                                 value={options.find(opt => opt.value === formState.branch_price) || null}
                                                 styles={{
@@ -1032,3 +1123,4 @@ export default function () {
 
 
 
+// npm install react-flatpickr flatpickr

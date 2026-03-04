@@ -9,7 +9,7 @@ import { fetchData } from '../../api/FetchApi';
 import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
 import { FiCopy } from 'react-icons/fi';
-
+import { FaSpinner } from "react-icons/fa";
 import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
 
 
@@ -19,11 +19,12 @@ export default function IndexPriceChange() {
     console.log(user);
 
     const statusOptions = [
+        { value: "Default", label: "Default" },
         { value: "Ongoing", label: "Ongoing" },
         { value: "Checked", label: "Checked" },
-        { value: "Approved", label: "Approved" },
+        // { value: "Approved", label: "Approved" },
         { value: "Partial", label: "Partial" },
-        { value: "Completed", label: "Completed" },
+        { value: "Pass approval", label: "Pass approval" },
         { value: "Already changed", label: "Already changed" },
         { value: "Cancel", label: "Cancel" },
     ];
@@ -128,149 +129,157 @@ export default function IndexPriceChange() {
 
     return (
         <>
-        {
-            !loading && !error && (
-                <>
-                    < div className="p-6 bg-white shadow-md rounded-lg" >
-                            <NavPath
-                                segments={[
-                                    { path: "/dashboard", label: "Home" },
-                                    { path: "/dashboard", label: "Dashboard" },
-                                    { path: "/price_changes", label: "Price Changes" }
-                                ]}
+            < div className="p-6 bg-white shadow-md rounded-lg" >
+                    <NavPath
+                        segments={[
+                            { path: "/dashboard", label: "Home" },
+                            { path: "/dashboard", label: "Dashboard" },
+                            { path: "/price_changes", label: "Price Changes" }
+                        ]}
+                    />
+
+                    <div className="flex justify-between mr-4">
+                        <h2 className="text-xl font-semibold ">Price Change Form</h2>
+
+                        { user.from_branch_id == 1 && user.department_id == 6 &&
+                        <Link to="/price_changes/create" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
+                            style={{
+                                backgroundColor: '#2ea2d1',
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}
+                        >
+                            Add
+                        </Link>
+                        }
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
+                        <div className="flex flex-col">
+                            <label htmlFor="form_doc_no" className="mb-1 font-medium text-gray-700">
+                                Form Doc No
+                            </label>
+                            <input
+                                id="form_doc_no"
+                                name="form_doc_no"
+                                type="text"
+                                placeholder="Enter Form Doc No"
+                                className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
+                                onFocus={(e) => e.target.style.borderColor = '#6fc3df'}
+                                onBlur={(e) => e.target.style.borderColor = '#2ea2d1'}
+                                style={{ borderColor: '#2ea2d1' }}
+                                value={filters.form_doc_no}
+                                onChange={onChangeHandler}
                             />
+                        </div>
 
-                            <div className="flex justify-between mr-4">
-                                <h2 className="text-xl font-semibold ">Price Change Form</h2>
+                        <div className="flex flex-col">
+                            <label htmlFor="start_date" className="mb-1 font-medium text-gray-700">
+                                From Date
+                            </label>
+                            <input
+                                id="start_date"
+                                name="start_date"
+                                type="date"
+                                className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
+                                style={{ borderColor: '#2ea2d1' }}
+                                value={filters.start_date}
+                                onChange={onChangeHandler}
+                            />
+                        </div>
 
-                                {/* { user.from_branch_id == 1 && user.department_id == 6 && */}
-                                <Link to="/price_changes/create" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
-                                    style={{
-                                        backgroundColor: '#2ea2d1',
-                                    }}
-                                    onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
-                                    onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}
-                                >
-                                    Add
-                                </Link>
-                                {/* } */}
+                        <div className="flex flex-col">
+                            <label htmlFor="end_date" className="mb-1 font-medium text-gray-700">
+                                End Date
+                            </label>
+                            <input
+                                id="end_date"
+                                name="end_date"
+                                type="date"
+                                className="border  focus:outline-none p-2 w-full rounded-md"
+                                value={filters.end_date}
+                                onChange={onChangeHandler}
+                                style={{ borderColor: '#2ea2d1' }}
+                            />
+                        </div>
+
+                        <div className="flex flex-col">
+                            <label htmlFor="status" className="mb-1 font-medium text-gray-700">
+                                Status
+                            </label>
+                            <Select
+                                id="status"
+                                isMulti
+                                name="search_status"
+                                options={statusOptions}
+                                className="basic-multi-select"
+                                classNamePrefix="select"
+                                value={statusOptions.filter(option => filters.search_status.includes(option.value))}
+                                onChange={handleSelectChange('search_status')}
+                                placeholder="Select Status"
+                            />
+                        </div>
+
+                        {/* <div className="flex flex-col">
+                            <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
+                                Branch
+                            </label>
+                            <select
+                                id="branch_id"
+                                name="branch_id"
+                                className="border focus:outline-none p-2 w-full rounded-md"
+                                value={filters.branch}
+                                onChange={onChangeHandler}
+                                style={{ borderColor: '#2ea2d1' }}
+                            >
+                                <option value="">All Branch</option>
+                                {branches.map((branch) => (
+                                    <option key={branch.id} value={branch.id}>
+                                        {branch.branch_name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div> */}
+
+
+                        <div className="flex items-end">
+                            <button className="text-white px-4 py-2 rounded w-full cursor-pointer" 
+                                onClick={(e)=>searchHandler(e)} 
+                                style={{
+                                    backgroundColor: '#2ea2d1',
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}>
+                                Search
+                            </button>
+                        </div>
+
+                        <div className="flex items-end">
+                            <button
+                                className="text-white px-4 py-2 rounded w-full cursor-pointer"
+                                style={{ backgroundColor: '#4b5563' }}
+                                onMouseEnter={(e) => (e.target.style.backgroundColor = '#6b7280')}
+                                onMouseLeave={(e) => (e.target.style.backgroundColor = '#4b5563')}
+                                onClick={()=>clearHandler()}
+                            >
+                            Reset Filters
+                            </button>
+                        </div>
+
+
+                    </div>
+
+                    {
+
+                        loading && (
+                            <div className="flex justify-center items-center text-center py-5">
+                                <FaSpinner className="text-blue-600 text-5xl animate-spin" />
                             </div>
+                        )
+                    }
 
-                            <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
-                                <div className="flex flex-col">
-                                    <label htmlFor="form_doc_no" className="mb-1 font-medium text-gray-700">
-                                        Form Doc No
-                                    </label>
-                                    <input
-                                        id="form_doc_no"
-                                        name="form_doc_no"
-                                        type="text"
-                                        placeholder="Enter Form Doc No"
-                                        className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
-                                        onFocus={(e) => e.target.style.borderColor = '#6fc3df'}
-                                        onBlur={(e) => e.target.style.borderColor = '#2ea2d1'}
-                                        style={{ borderColor: '#2ea2d1' }}
-                                        value={filters.form_doc_no}
-                                        onChange={onChangeHandler}
-                                    />
-                                </div>
-
-                                <div className="flex flex-col">
-                                    <label htmlFor="start_date" className="mb-1 font-medium text-gray-700">
-                                        From Date
-                                    </label>
-                                    <input
-                                        id="start_date"
-                                        name="start_date"
-                                        type="date"
-                                        className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
-                                        style={{ borderColor: '#2ea2d1' }}
-                                        value={filters.start_date}
-                                        onChange={onChangeHandler}
-                                    />
-                                </div>
-
-                                <div className="flex flex-col">
-                                    <label htmlFor="end_date" className="mb-1 font-medium text-gray-700">
-                                        End Date
-                                    </label>
-                                    <input
-                                        id="end_date"
-                                        name="end_date"
-                                        type="date"
-                                        className="border  focus:outline-none p-2 w-full rounded-md"
-                                        value={filters.end_date}
-                                        onChange={onChangeHandler}
-                                        style={{ borderColor: '#2ea2d1' }}
-                                    />
-                                </div>
-
-                                <div className="flex flex-col">
-                                    <label htmlFor="status" className="mb-1 font-medium text-gray-700">
-                                        Status
-                                    </label>
-                                    <Select
-                                        id="status"
-                                        isMulti
-                                        name="search_status"
-                                        options={statusOptions}
-                                        className="basic-multi-select"
-                                        classNamePrefix="select"
-                                        value={statusOptions.filter(option => filters.search_status.includes(option.value))}
-                                        onChange={handleSelectChange('search_status')}
-                                        placeholder="Select Status"
-                                    />
-                                </div>
-
-                                <div className="flex flex-col">
-                                    <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
-                                        Branch
-                                    </label>
-                                    <select
-                                        id="branch_id"
-                                        name="branch_id"
-                                        className="border focus:outline-none p-2 w-full rounded-md"
-                                        value={filters.branch}
-                                        onChange={onChangeHandler}
-                                        style={{ borderColor: '#2ea2d1' }}
-                                    >
-                                        <option value="">All Branch</option>
-                                        {branches.map((branch) => (
-                                            <option key={branch.id} value={branch.id}>
-                                                {branch.branch_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-
-                                <div className="flex items-end">
-                                    <button className="text-white px-4 py-2 rounded w-full cursor-pointer" 
-                                        onClick={(e)=>searchHandler(e)} 
-                                        style={{
-                                            backgroundColor: '#2ea2d1',
-                                        }}
-                                        onMouseEnter={(e) => e.target.style.backgroundColor = '#6fc3df'}
-                                        onMouseLeave={(e) => e.target.style.backgroundColor = '#2ea2d1'}>
-                                        Search
-                                    </button>
-                                </div>
-
-                                <div className="flex items-end">
-                                    <button
-                                        className="text-white px-4 py-2 rounded w-full cursor-pointer"
-                                        style={{ backgroundColor: '#4b5563' }}
-                                        onMouseEnter={(e) => (e.target.style.backgroundColor = '#6b7280')}
-                                        onMouseLeave={(e) => (e.target.style.backgroundColor = '#4b5563')}
-                                        onClick={()=>clearHandler()}
-                                    >
-                                    Reset Filters
-                                    </button>
-                                </div>
-
-
-                            </div>
-
+                    {
+                        !loading && !error && (
                             <div className="overflow-x-auto">
                                 <table className="xl:table min-w-full bg-white border border-gray-200 text-sm">
                                     <thead className="bg-gray-100 text-left">
@@ -355,12 +364,9 @@ export default function IndexPriceChange() {
                                     </div>
                                 )}
                             </div>
-
-                    </div >
-                </>
-            )
-        }
+                        )
+                    }
+            </div>
         </>
     )
-
 }
