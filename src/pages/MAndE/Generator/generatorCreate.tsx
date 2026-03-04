@@ -6,6 +6,7 @@ import {
   NumberInput,
   TextInput,
   Loader,
+  Checkbox,
 } from "@mantine/core";
 import {
   IconCalendar,
@@ -17,7 +18,7 @@ import {
 import React, { useRef, useState } from "react";
 import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
-import { FilesIcon } from "lucide-react";
+import { Check, FilesIcon } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
@@ -28,12 +29,23 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
 
 const GeneratorCreate: React.FC = () => {
+  type LevelType = {
+    l1Value: number | "";
+    l2Value: number | "";
+    l3Value: number | "";
+  };
   const location = useLocation();
   const { formId } = location.state || "";
   const { reAdd } = location.state || "";
   const { generalFormId } = location.state || "";
-  console.log("Sub_form_id>>", reAdd, formId, generalFormId);
-
+  const [generatorUse, setGeneratorUse] = useState<string>("use");
+  const [serviceDate, setServiceDate] = useState<string>("");
+  const [levelValue, setLevelValue] = useState<LevelType>({
+    l1Value: "",
+    l2Value: "",
+    l3Value: "",
+  });
+  console.log("GeneratorUse>>", generatorUse);
   const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
     { id: uuidv4(), file: null },
   ]);
@@ -99,6 +111,7 @@ const GeneratorCreate: React.FC = () => {
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
+    cost: "Cost is required",
     // remark: "Remark is required",
   };
   const navigate = useNavigate();
@@ -112,6 +125,15 @@ const GeneratorCreate: React.FC = () => {
     formData.append("btn_status", btnStatus);
     // validation
     Object.entries(validators).forEach(([key, message]) => {
+      if (
+        generatorUse === "no_use" &&
+        ["l1_level", "l2_level", "l3_level"].includes(key)
+      ) {
+        return;
+      }
+      if ((!serviceDate || serviceDate.trim() === "") && key === "cost") {
+        return;
+      }
       const value = formData.get(key);
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
@@ -137,6 +159,7 @@ const GeneratorCreate: React.FC = () => {
     const percentFields = [
       "coolant_level",
       "generator_cleaning_level",
+
       // "load_level",
     ];
 
@@ -222,6 +245,27 @@ const GeneratorCreate: React.FC = () => {
           ]}
         />
       </div>
+      <div className="flex items-center gap-4 flex-wrap">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            value="use"
+            checked={generatorUse === "use"}
+            onChange={(e) => setGeneratorUse(e.target.value)}
+          />
+          Generator Use
+        </label>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            value="no_use"
+            checked={generatorUse === "no_use"}
+            onChange={(e) => setGeneratorUse(e.target.value)}
+          />
+          Generator Not Use
+        </label>
+      </div>
 
       <form
         onSubmit={handleSubmit}
@@ -236,263 +280,322 @@ const GeneratorCreate: React.FC = () => {
           p-6
         "
       >
-        {/* Liquid light flow */}
-        <div className="absolute -inset-1 animate-liquid bg-gradient-to-r from-white/20 via-blue-200/20 to-purple-200/20 blur-2xl opacity-70" />
+        <fieldset disabled={!generatorUse}>
+          {/* Liquid light flow */}
+          <div className="absolute -inset-1 animate-liquid bg-gradient-to-r from-white/20 via-blue-200/20 to-purple-200/20 blur-2xl opacity-70" />
 
-        {/* Glass noise layer */}
-        <div className="absolute inset-0 rounded-3xl bg-white/5 pointer-events-none" />
+          {/* Glass noise layer */}
+          <div className="absolute inset-0 rounded-3xl bg-white/5 pointer-events-none" />
 
-        <div className="flex flex-justify flex-col gap-4">
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Date</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                required
-                name="generator_date"
-                type="date"
-                max={new Date().toISOString().split("T")[0]}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-              <input type="hidden" name="sub_form_id" value={formId} />
-              <input
-                type="hidden"
-                name="reAdd"
-                value={reAdd == true ? "reAdd" : ""}
-              />
-              <input type="hidden" name="generalFormID" value={generalFormId} />
-            </div>
-
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Time</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="time"
-                required
-                name="generator_time"
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
-            {/* Left Side Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
-              {/* Engine Oil */}
-              <div>
+          <div className="flex flex-justify flex-col gap-4">
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
                 <div className="flex items-center gap-2">
-                  <label>Engine Oil %</label>
-                  {/* <FaStar className="text-red-400" /> */}
+                  <label htmlFor="">Date</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
                 </div>
                 <input
-                  type="number"
-                  name="engine_oil_level"
                   required
-                  min="1"
-                  max="100"
-                  value={100}
-                  disabled
-                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(213, 216, 221)" }}
+                  name="generator_date"
+                  type="date"
+                  max={new Date().toISOString().split("T")[0]}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+                <input type="hidden" name="sub_form_id" value={formId} />
+                <input
+                  type="hidden"
+                  name="reAdd"
+                  value={reAdd == true ? "reAdd" : ""}
+                />
+                <input
+                  type="hidden"
+                  name="generalFormID"
+                  value={generalFormId}
+                />
+                <input
+                  type="hidden"
+                  name="generator_use"
+                  value={generatorUse == "use" ? "use" : "no_use"}
                 />
               </div>
 
-              {/* Fuel */}
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Time</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="time"
+                  required
+                  name="generator_time"
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
+            </div>
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
+              {/* Left Side Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                {/* Engine Oil */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Engine Oil %</label>
+                    {/* <FaStar className="text-red-400" /> */}
+                  </div>
+                  <input
+                    type="number"
+                    name="engine_oil_level"
+                    required
+                    min="1"
+                    max="100"
+                    defaultValue={100}
+                    onInput={(e) => {
+                      let value = e.target.value;
+
+                      if (value > 100) e.target.value = 100;
+                      if (value < 1 && value !== "") e.target.value = 1;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+
+                {/* Fuel */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Fuel %</label>
+                  </div>
+                  <input
+                    type="number"
+                    name="fuel_level"
+                    required
+                    min="1"
+                    max="100"
+                    defaultValue={100}
+                    onInput={(e) => {
+                      let value = e.target.value;
+
+                      if (value > 100) e.target.value = 100;
+                      if (value < 1 && value !== "") e.target.value = 1;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+              </div>
+
+              {/* Coolant */}
               <div>
                 <div className="flex items-center gap-2">
-                  <label>Fuel %</label>
-                  {/* <FaStar className="text-red-400" /> */}
+                  <label>Coolant %</label>
+                  <FaStar className="text-red-400" />
                 </div>
                 <input
                   type="number"
-                  name="fuel_level"
+                  name="coolant_level"
                   required
                   min="1"
                   max="100"
-                  value={100}
-                  disabled
+                  onKeyDown={(e) => {
+                    if (["-", "e", "+"]?.includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onInput={(e) => {
+                    let value = Number(e.target.value);
+                    if (value > 100) e.target.value = 100;
+                    if (value < 1 && e.target.value !== "") e.target.value = 1;
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
                   className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(213, 216, 221)" }}
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
+            </div>
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Battery Volt</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="battery_volt_level"
+                  required
+                  step="0.01"
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    let value = e.target.value;
+
+                    value = value.replace(/[^0-9.]/g, "");
+
+                    const parts = value.split(".");
+                    if (parts.length > 2) {
+                      value = parts[0] + "." + parts[1];
+                    }
+
+                    if (parts[0].length > 4) {
+                      parts[0] = parts[0].slice(0, 4);
+                    }
+
+                    if (parts[1]) {
+                      parts[1] = parts[1].slice(0, 2);
+                    }
+
+                    value = parts.join(".");
+
+                    e.target.value = value;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">L1</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="l1_level"
+                  value={generatorUse === "no_use" ? 0 : levelValue.l1Value}
+                  disabled={generatorUse === "no_use"}
+                  required={generatorUse == "use"}
+                  min={0}
+                  max={9999}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 4) {
+                      setLevelValue((prev) => ({
+                        ...prev,
+                        l1Value: Number(val),
+                      }));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (["-", "e", "E"].includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{
+                    borderColor:
+                      generatorUse === "use"
+                        ? "rgb(29, 137, 225)"
+                        : "rgb(207, 209, 197)",
+                  }}
+                />
+              </div>
+            </div>
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">L2</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="l2_level"
+                  min="0"
+                  max="9999"
+                  value={generatorUse === "no_use" ? 0 : levelValue.l2Value}
+                  disabled={generatorUse === "no_use"}
+                  required={generatorUse == "use"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 4) {
+                      setLevelValue((prev) => ({
+                        ...prev,
+                        l2Value: Number(val),
+                      }));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{
+                    borderColor:
+                      generatorUse === "use"
+                        ? "rgb(29, 137, 225)"
+                        : "rgb(207, 209, 197)",
+                  }}
+                />
+              </div>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">L3</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="l3_level"
+                  min="0"
+                  max="9999"
+                  value={generatorUse === "no_use" ? 0 : levelValue.l3Value}
+                  disabled={generatorUse === "no_use"}
+                  required={generatorUse == "use"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.length <= 4) {
+                      setLevelValue((prev) => ({
+                        ...prev,
+                        l3Value: Number(val),
+                      }));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{
+                    borderColor:
+                      generatorUse === "use"
+                        ? "rgb(29, 137, 225)"
+                        : "rgb(207, 209, 197)",
+                  }}
                 />
               </div>
             </div>
 
-            {/* Coolant */}
-            <div>
-              <div className="flex items-center gap-2">
-                <label>Coolant %</label>
-                <FaStar className="text-red-400" />
-              </div>
-              <input
-                type="number"
-                name="coolant_level"
-                required
-                min="1"
-                max="100"
-                onKeyDown={(e) => {
-                  if (["-", "e", "+"]?.includes(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = Number(e.target.value);
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && e.target.value !== "") e.target.value = 1;
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Battery Volt</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="battery_volt_level"
-                required
-                step="0.01"
-                inputMode="decimal"
-                onChange={(e) => {
-                  let value = e.target.value;
-
-                  value = value.replace(/[^0-9.]/g, "");
-
-                  // Prevent multiple decimals
-                  const parts = value.split(".");
-                  if (parts.length > 2) {
-                    value = parts[0] + "." + parts[1];
-                  }
-
-                  // Limit 4 digits before decimal
-                  if (parts[0].length > 4) {
-                    parts[0] = parts[0].slice(0, 4);
-                  }
-
-                  // Limit 2 digits after decimal
-                  if (parts[1]) {
-                    parts[1] = parts[1].slice(0, 2);
-                  }
-
-                  value = parts.join(".");
-
-                  e.target.value = value;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L1</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l1_level"
-                required
-                min="0"
-                max="9999"
-                onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L2</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l2_level"
-                min="0"
-                max="9999"
-                onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                required
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L3</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l3_level"
-                min="0"
-                max="9999"
-                onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                required
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-          </div>
-
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            {/* <div className="">
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              {/* <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">Total KW</label>
                 <span>
@@ -521,253 +624,304 @@ const GeneratorCreate: React.FC = () => {
               />
             </div> */}
 
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">VoltageL-L</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">VoltageL-L</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="voltageL_l_level"
+                  required
+                  min="0"
+                  max="9999"
+                  onInput={(e) => {
+                    if (e.target.value.length > 4) {
+                      e.target.value = e.target.value.slice(0, 4);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
               </div>
-              <input
-                type="number"
-                name="voltageL_l_level"
-                required
-                min="0"
-                max="9999"
-                onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Running Hour</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Running Hour</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="running_hour"
+                  required
+                  min="0"
+                  max="9999"
+                  onInput={(e) => {
+                    if (e.target.value.length > 4) {
+                      e.target.value = e.target.value.slice(0, 4);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
               </div>
-              <input
-                type="number"
-                name="running_hour"
-                required
-                min="0"
-                max="9999"
-                onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
             </div>
-          </div>
 
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Generator Cleaning%</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="generator_cleaning_level"
-                min="0"
-                max="100"
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = e.target.value;
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Generator Cleaning%</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="generator_cleaning_level"
+                  min="0"
+                  max="100"
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onInput={(e) => {
+                    let value = e.target.value;
 
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && value !== "") e.target.value = 1;
-                }}
-                required
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-            <div className="">
-              <label htmlFor=""> Generator Service Date</label>
-              <input
-                type="date"
-                name="generator_service_date"
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <label htmlFor=""> Remark</label>
-              <textarea
-                name="remark"
-                id=""
-                cols="3"
-                rows="1"
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              ></textarea>
-            </div>
-            <div className="">
-              {invoiceFile.map((fileField, index) => (
-                <div key={fileField.id} className="flex flex-col gap-2 w-full">
-                  <label htmlFor="">{index === 0 ? "Upload" : undefined}</label>
-                  <div className="flex items-center gap-3">
+                    if (value > 100) e.target.value = 100;
+                    if (value < 1 && value !== "") e.target.value = 1;
+                  }}
+                  required
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
+              <div
+                className={
+                  serviceDate
+                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3 items-center"
+                    : ""
+                }
+              >
+                <div className="">
+                  <label htmlFor=""> Service Date</label>
+                  <input
+                    type="date"
+                    name="generator_service_date"
+                    onChange={(e) => setServiceDate(e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+                {serviceDate && (
+                  <div>
+                    <label>Cost</label>
                     <input
-                      type="file"
-                      name="file[]"
+                      type="text"
+                      name="cost"
                       required
-                      onChange={(e) =>
-                        updateFile(fileField.id, e.target.files?.[0] || null)
-                      }
-                      className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                      inputMode="decimal"
+                      onChange={(e) => {
+                        let value = e.target.value;
+
+                        value = value.replace(/[^0-9.]/g, "");
+
+                        const parts = value.split(".");
+                        if (parts.length > 2) {
+                          value = parts[0] + "." + parts[1];
+                        }
+
+                        if (parts[0].length > 8) {
+                          parts[0] = parts[0].slice(0, 8);
+                        }
+
+                        if (parts[1]) {
+                          parts[1] = parts[1].slice(0, 2);
+                        }
+
+                        value = parts.join(".");
+
+                        e.target.value = value;
+                      }}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                       style={{ borderColor: "rgb(29, 137, 225)" }}
                     />
-
-                    {index === 0 ? (
-                      <Button onClick={addInvoiceFile}>Add</Button>
-                    ) : (
-                      <Button
-                        color="red"
-                        onClick={() => removeInvoiceFile(fileField.id)}
-                      >
-                        <IconX size={16} />
-                      </Button>
-                    )}
                   </div>
-                </div>
-              ))}
-              <div className="flex flex-wrap gap-3 mt-2">
-                {invoiceFile
-                  .filter((f) => f.file)
-                  .map((fileField) => (
-                    <div
-                      key={`preview-${fileField.id}`}
-                      className="w-40 p-2 border rounded-md flex items-center justify-center"
-                    >
-                      {/* IMAGE */}
-                      {fileField.type === "image" && (
-                        <a
-                          href={fileField.preview}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <img
-                            src={fileField.preview}
-                            alt="Preview"
-                            className="w-40  object-cover rounded"
-                          />
-                        </a>
-                      )}
-
-                      {/* PDF */}
-                      {fileField.type === "pdf" && (
-                        <a
-                          href={fileField.preview}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex flex-col items-center gap-1"
-                        >
-                          <IconFileText size={32} className="text-red-500" />
-                          <span className="text-xs text-center break-all">
-                            {fileField.name}
-                          </span>
-                        </a>
-                      )}
-
-                      {/* OTHER FILE */}
-                      {fileField.type === "other" && (
-                        <div className="flex flex-col items-center gap-2 text-center">
-                          <IconFile size={32} className="text-gray-500" />
-                          <span className="text-xs break-all">
-                            {fileField.name}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                )}
               </div>
             </div>
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
+                <label htmlFor=""> Remark</label>
+                <textarea
+                  name="remark"
+                  id=""
+                  cols="3"
+                  rows="1"
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                ></textarea>
+              </div>
+              <div className="">
+                {invoiceFile.map((fileField, index) => (
+                  <div
+                    key={fileField.id}
+                    className="flex flex-col gap-2 w-full"
+                  >
+                    <label htmlFor="">
+                      {index === 0 ? "Upload" : undefined}
+                    </label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="file"
+                        name="file[]"
+                        required
+                        onChange={(e) =>
+                          updateFile(fileField.id, e.target.files?.[0] || null)
+                        }
+                        className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                        style={{ borderColor: "rgb(29, 137, 225)" }}
+                      />
+
+                      {index === 0 ? (
+                        <Button onClick={addInvoiceFile}>Add</Button>
+                      ) : (
+                        <Button
+                          color="red"
+                          onClick={() => removeInvoiceFile(fileField.id)}
+                        >
+                          <IconX size={16} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {invoiceFile
+                    .filter((f) => f.file)
+                    .map((fileField) => (
+                      <div
+                        key={`preview-${fileField.id}`}
+                        className="w-40 p-2 border rounded-md flex items-center justify-center"
+                      >
+                        {/* IMAGE */}
+                        {fileField.type === "image" && (
+                          <a
+                            href={fileField.preview}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <img
+                              src={fileField.preview}
+                              alt="Preview"
+                              className="w-40  object-cover rounded"
+                            />
+                          </a>
+                        )}
+
+                        {/* PDF */}
+                        {fileField.type === "pdf" && (
+                          <a
+                            href={fileField.preview}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex flex-col items-center gap-1"
+                          >
+                            <IconFileText size={32} className="text-red-500" />
+                            <span className="text-xs text-center break-all">
+                              {fileField.name}
+                            </span>
+                          </a>
+                        )}
+
+                        {/* OTHER FILE */}
+                        {fileField.type === "other" && (
+                          <div className="flex flex-col items-center gap-2 text-center">
+                            <IconFile size={32} className="text-gray-500" />
+                            <span className="text-xs break-all">
+                              {fileField.name}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+
+            {reAdd == true ? (
+              <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
+                <Button
+                  type="button"
+                  onClick={() => handleSubmit("Default")}
+                  disabled={loading}
+                  color="green"
+                  radius="md"
+                >
+                  {loading ? "Processing..." : "Submit"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  disabled={loading}
+                  color="red"
+                  radius="md"
+                >
+                  {loading ? "Processing..." : "Cancel"}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
+                <Button
+                  type="button"
+                  onClick={() => handleSubmit("Default")}
+                  disabled={loading}
+                  color="green"
+                  radius="md"
+                >
+                  {loading ? "Processing..." : "Save as Draft"}
+                </Button>
+
+                <Button
+                  type="button"
+                  onClick={() => handleSubmit("Ongoing")}
+                  disabled={loading}
+                  color="blue"
+                  radius="md"
+                >
+                  {loading ? "Processing..." : "Send to Manager"}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  disabled={loading}
+                  color="red"
+                  radius="md"
+                >
+                  {loading ? "Processing..." : "Cancel"}
+                </Button>
+              </div>
+            )}
           </div>
-
-          {reAdd == true ? (
-            <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
-              <Button
-                type="button"
-                onClick={() => handleSubmit("Default")}
-                disabled={loading}
-                color="green"
-                radius="md"
-              >
-                {loading ? "Processing..." : "Submit"}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => navigate(-1)}
-                disabled={loading}
-                color="red"
-                radius="md"
-              >
-                {loading ? "Processing..." : "Cancel"}
-              </Button>
-            </div>
-          ) : (
-            <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
-              <Button
-                type="button"
-                onClick={() => handleSubmit("Default")}
-                disabled={loading}
-                color="green"
-                radius="md"
-              >
-                {loading ? "Processing..." : "Save as Draft"}
-              </Button>
-
-              <Button
-                type="button"
-                onClick={() => handleSubmit("Ongoing")}
-                disabled={loading}
-                color="blue"
-                radius="md"
-              >
-                {loading ? "Processing..." : "Send to Manager"}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => navigate(-1)}
-                disabled={loading}
-                color="red"
-                radius="md"
-              >
-                {loading ? "Processing..." : "Cancel"}
-              </Button>
-            </div>
-          )}
-        </div>
+        </fieldset>
       </form>
     </div>
   );
