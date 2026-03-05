@@ -287,7 +287,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">No</th>
                                             <th className="py-2 px-4 border-b">Status</th>
                                             <th className="py-2 px-4 border-b">Document No</th>
-                                            <th className="py-2 px-4 border-b">Effective Date</th>
+                                            <th className="py-2 px-4 border-b"><span className='text-red-600'>Effective Date</span></th>
                                             <th className="py-2 px-4 border-b">Department</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
                                             <th className="py-2 px-4 border-b">Created Date</th>
