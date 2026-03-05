@@ -280,116 +280,24 @@ const GeneratorCreate: React.FC = () => {
       };
     });
   };
-  // const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
-  //   const input = document.createElement("input");
-  //   input.type = "file";
-  //   input.accept = "image/*";
+  const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
 
-  //   if (mode === "camera") {
-  //     // This attribute forces mobile browsers to open the camera app
-  //     input.setAttribute("capture", "environment");
-  //   }
-
-  //   input.onchange = (e: any) => {
-  //     const file = e.target.files?.[0];
-  //     if (file) {
-  //       updateFile(id, file);
-  //     }
-  //   };
-
-  //   input.click();
-  // };
-  const handleCaptureChoice = async (
-    id: string,
-    mode: "camera" | "gallery",
-  ) => {
-    if (mode === "gallery") {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
-
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
-        if (file) updateFile(id, file);
-      };
-
-      input.click();
-      return;
-    }
-
-    // CAMERA MODE
-    if (!isDesktop()) {
-      // 📱 Mobile → open real camera
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = "image/*";
+    if (mode === "camera") {
+      // This attribute forces mobile browsers to open the camera app
       input.setAttribute("capture", "environment");
-
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
-        if (file) updateFile(id, file);
-      };
-
-      input.click();
-    } else {
-      // 💻 Desktop → use webcam
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-        });
-
-        const video = document.createElement("video");
-        video.srcObject = stream;
-        video.play();
-
-        // Create modal container
-        const modal = document.createElement("div");
-        modal.style.position = "fixed";
-        modal.style.inset = "0";
-        modal.style.background = "rgba(0,0,0,0.7)";
-        modal.style.display = "flex";
-        modal.style.alignItems = "center";
-        modal.style.justifyContent = "center";
-        modal.style.zIndex = "9999";
-
-        const captureBtn = document.createElement("button");
-        captureBtn.innerText = "Capture";
-        captureBtn.style.marginTop = "10px";
-
-        const container = document.createElement("div");
-        container.style.background = "#fff";
-        container.style.padding = "20px";
-        container.style.borderRadius = "10px";
-        container.appendChild(video);
-        container.appendChild(captureBtn);
-        modal.appendChild(container);
-        document.body.appendChild(modal);
-
-        captureBtn.onclick = () => {
-          const canvas = document.createElement("canvas");
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(video, 0, 0);
-
-          canvas.toBlob((blob) => {
-            if (blob) {
-              const file = new File([blob], "webcam-photo.jpg", {
-                type: "image/jpeg",
-              });
-              updateFile(id, file);
-            }
-          }, "image/jpeg");
-
-          stream.getTracks().forEach((track) => track.stop());
-          document.body.removeChild(modal);
-        };
-      } catch (err) {
-        console.error("Camera error:", err);
-        Swal.fire("Error", "Cannot access webcam", "error");
-      }
     }
+
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        updateFile(id, file);
+      }
+    };
+
+    input.click();
   };
   const FullPageLoader = () => (
     <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
