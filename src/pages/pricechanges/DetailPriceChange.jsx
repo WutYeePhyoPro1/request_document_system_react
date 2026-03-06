@@ -123,10 +123,10 @@ export default function () {
     const hasNotOnlineUpdate = computeHasNotOnlineUpdate(formState);
     const hasNoGcpDocument = computeHasNoGcpDocument(formState);
     const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument);
-    console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
+    // console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
 
     const softwaresupport = user.from_branch_id == 1 && user.department_id == 11;
-    console.log(softwaresupport);
+    // console.log(softwaresupport);
     
     const [copied, setCopied] = useState('');
     const updateDoc = useRef(false);
@@ -219,9 +219,9 @@ export default function () {
 
                 if (name === "new_cost_price") {
                     // Start Prevent User Typing Error
-                    const code = updatedItem.product_code;
-                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {max: 99999999}}, 'Product',{});
-                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+                    const code = updatedItem.id || updatedItem.product_code;
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {min: 0, max: 99999999}}, 'Product',{});
+                    console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
 
                     if(pricesAlerts?.[code]?.['new_cost_price']){
                         // updatedItem.new_cost_price = '';
@@ -267,7 +267,7 @@ export default function () {
 
                 if (name === "price1") {
                     // Start Prevent User Typing Error
-                    const code = updatedItem.product_code;
+                    const code = updatedItem.id || updatedItem.product_code;
                     const price1Alerts = validateArrayField([updatedItem], {'price1': {max: 99999999}}, 'Product',{});
                     // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
 
@@ -312,6 +312,10 @@ export default function () {
 
                         if (!newFields[name]) {
                             delete merged[name];
+
+                            if(!pricesAlerts[code]?.price2){
+                                delete merged['price2'];
+                            }
                         }
 
                         return {

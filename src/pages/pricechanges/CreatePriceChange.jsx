@@ -146,7 +146,7 @@ export default function () {
                 if (name === "new_cost_price") {
                     // Start Prevent User Typing Error
                     const code = updatedItem.product_code;
-                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {max: 99999999}}, 'Product',{});
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {min: 0,max: 99999999}}, 'Product',{});
                     // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
 
                     if(pricesAlerts?.[code]?.['new_cost_price']){
@@ -240,7 +240,14 @@ export default function () {
 
                         if (!newFields[name]) {
                             delete merged[name];
+
+                            if(!pricesAlerts[code]?.price2){
+                                delete merged['price2'];
+                            }
                         }
+                        // if (!newFields['price2']) {
+                        //     delete merged['price2'];
+                        // }
 
                         return {
                             ...prev,
