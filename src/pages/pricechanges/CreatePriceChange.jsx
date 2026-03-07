@@ -260,6 +260,16 @@ export default function () {
                 }
 
                 if(name === "price2"){
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.product_code;
+                    const price2Alerts = validateArrayField([updatedItem], {'price2': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(price2Alerts?.[code]?.['price2']){
+                        updatedItem.price2 = item.price2;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
 
                     // Show/Hide Red Box
                     const productMessages = {

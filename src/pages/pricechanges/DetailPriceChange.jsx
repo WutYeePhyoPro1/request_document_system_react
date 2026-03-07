@@ -328,6 +328,17 @@ export default function () {
 
                 if(name === "price2"){
 
+                    // Start Prevent User Typing Error
+                    const code = updatedItem.id || updatedItem.product_code;
+                    const price2Alerts = validateArrayField([updatedItem], {'price2': {max: 99999999}}, 'Product',{});
+                    // console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
+
+                    if(price2Alerts?.[code]?.['price2']){
+                        updatedItem.price2 = item.price2;
+                        return updatedItem;
+                    }
+                    // End Prevent User Typing Error
+
                     // Show/Hide Red Box
                     const productMessages = {
                         price2: {
@@ -989,6 +1000,8 @@ export default function () {
                     const submitSuccess = await submitHandler();
                     if (!submitSuccess) {
                         console.log("Submit failed");
+                        confirmApprovedRef.current = false;
+                        approvingRef.current = false;
                         return;
                     }
                     console.log('Success Submit.')
@@ -1919,7 +1932,7 @@ export default function () {
 
                     {/* Alert Box */}
                     {formRejected &&
-                    <div className="flex items-cneter col-span-2 md:col-span-3">
+                    <div className="flex items-cneter col-span-2 md:col-span-5 md:col-span-3">
                         <div className="relative w-full rounded-lg bg-red-100 border border-red-300 px-4 py-3 text-red-800">
                             <p>
                                 This form was canceled by<span className="font-bold"> {formRejected?.approval_users?.title} {formRejected?.approval_users?.name}</span>
