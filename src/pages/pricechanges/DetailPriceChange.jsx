@@ -1119,6 +1119,12 @@ export default function () {
             const hasPendingBranchFresh = computeHasPendingBranch(data);
             console.log("hasPendingBranchFresh",hasPendingBranchFresh,data);
 
+            if(data.urgent_price_change){
+                onlineHandler(latestForm);
+            }else{
+                await onlineHandler(latestForm);
+            }
+
             // Start Branch Price Change
             if(data.urgent_price_change){
 
@@ -1169,7 +1175,7 @@ export default function () {
             // navigate("/price_changes");
 
             const latestForm = await fetchPriceChange();
-            await onlineHandler(latestForm);
+            await transferGCPHandler(latestForm);
 
         } catch (err) {
             console.error(err,err.message);
@@ -1256,7 +1262,7 @@ export default function () {
                         }
 
 
-                        await transferGCPHandler();
+                        // await transferGCPHandler();
 
                     }catch(err){
                         console.log('There is an error in updating onlilne:',err);
