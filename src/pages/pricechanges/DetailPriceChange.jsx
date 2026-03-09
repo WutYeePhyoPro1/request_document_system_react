@@ -37,6 +37,7 @@ export default function () {
     const dispatch = useDispatch();
 
     const {loading,error, datas: serverTimeData} = useSelector((state)=>state.servertime)
+    const [pcLoading,setPcLoading] = useState(true);
 
     const { id } = useParams();
     
@@ -471,7 +472,7 @@ export default function () {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '',
-                price2: formatTo2Decimals(apiProduct.price2) || row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
+                price2: row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
                 new_cost_price: apiProduct.new_cost_price || row["New Cost Price"] || '',
                 profit: calculateProfit(new_cost_price,price1),
                 remark: 0,
@@ -1480,7 +1481,10 @@ export default function () {
         const init = async () => {
             await fetchBranches();
             await fetchProductCategories();
+
+            setPcLoading(true);
             await fetchPriceChange();
+            setPcLoading(false);
 
             let getServerTime= await dispatch(fetchServerTime()).unwrap();
             console.log(getServerTime);
@@ -1512,526 +1516,539 @@ export default function () {
                 </Link>
             </div>
 
-
-            {/* Main Unitary Card */}
-            <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
-                
-                {/* Action Bar as Card Header */}
-                <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <h3 className="text-xl font-bold text-blue-900 flex flex-wrap items-center gap-2">
-                            Price Change Form <span className="text-lg">({formState.form_doc_no})</span>
-                            <button
-                                onClick={()=>handleCopy(formState.form_doc_no)}
-                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
-                                    ? 'text-green-600 bg-green-50'
-                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
-                                    }`}
-                                title={copied == formState.form_doc_no ? "Copied!" : "Copy ID"}
-                                disabled={copied == formState.form_doc_no}
-                            >
-                                {copied == formState.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
-                            </button>
-                            <StatusBadge status={formState?.status ? formState?.status : ''} />
-                        </h3>
-
-                        <div className="flex flex-wrap gap-4 sm:justify-end">
-                            {
-                                changable && forwardable &&
-                                <button
-                                    type="button"
-                                    className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
-                                    onClick={(e) => sendToSupervisorClick(e)}
-                                >
-                                    Send To Supervisor
-                                </button>
-
-                            }
-        
-                            {/* {
-                                changable ?
-                                <button
-                                    type="button"
-                                    className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
-                                    onClick={(e) => submitHandler(e) }
-                                >
-                                    Update
-                                </button> : ''
-                            } */}
-
-
-                            {
-                                supervisor &&        
-                                <button
-                                    className="px-4 py-2 text-sm rounded-lg
-                                        bg-amber-500 text-white
-                                        hover:bg-amber-600 transition"
-                                    value="Checked"
-                                    onClick={approveHandler}
-                                        >
-                                    Check
-                                </button>
-                            }
-                     
-                            {
-                                approver &&
-                                <button
-                                    className="px-4 py-2 text-sm rounded-lg
-                                        bg-green-600 text-white
-                                        hover:bg-green-700 transition"
-                                    value="Approved"
-                                    onClick={approveHandler}
-                                    >
-                                    Approve
-                                </button>
-
-                            }
-
-
-                            {
-                                approver &&
-                                <button
-                                   className="px-4 py-2 text-sm font-medium rounded-lg
-                                        bg-blue-600 text-white 
-                                        hover:bg-blue-700 transition shadow-sm"
-                                    value={getBtpValue()}
-                                    onClick={approveHandler}
-                                    >
-                                    Back To Previous
-                                </button>
-                            }
-
-                            {
-                                (trackable) &&
-                                <button
-                                    className="px-4 py-2 text-sm rounded-lg
-                                        bg-green-600 text-white
-                                        hover:bg-green-700 transition"
-                                    value="Approved"
-                                    onClick={() => setShowModal(true)}
-                                    >
-                                    Apply Branch
-                                </button>
-
-                            }
-
-                            {
-                                (supervisor || approver) ?
-                                <button
-                                    className="px-4 py-2 text-sm rounded-lg
-                                        bg-red-600 text-white
-                                        hover:bg-red-700 transition"
-                                    value="Cancel"
-                                    onClick={approveHandler}
-                                    >
-                                    Cancel
-                                </button> : ''
-                            }
-
-                       
-                            
-                        </div>
+            {
+                pcLoading &&
+                <div className="flex justify-center items-center text-center py-5 text-center">
+                    <div>
+                        <FaSpinner className="text-blue-600 text-5xl animate-spin m-auto" />
+                        Loading Price Change....
                     </div>
-                </header>
+                </div>
+            }
 
-                {/* Card Body Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+
+            {
+                !pcLoading &&
+                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
                     
-                    {/* Branch Sidebar (Left Column) */}
-                    <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
-                        <div className="flex justify-between items-start p-5 border-b border-gray-100 bg-white/50 ">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 m-0" onClick={() => setShowModal(true)}>Branches <span className="text-red-600 text-md">*</span></h2>
-                            <span
-                                onClick={() => setShowModal(true)}
-                                className="cursor-pointer text-sky-500 text-lg hover:text-sky-600 flex"
-                                role="button"
-                                aria-label="Remove product"
-                            ><FaInfoCircle className="text-sky-500" /></span>
-                        </div>
+                    {/* Action Bar as Card Header */}
+                    <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <h3 className="text-xl font-bold text-blue-900 flex flex-wrap items-center gap-2">
+                                Price Change Form <span className="text-lg">({formState.form_doc_no})</span>
+                                <button
+                                    onClick={()=>handleCopy(formState.form_doc_no)}
+                                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                                        ? 'text-green-600 bg-green-50'
+                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                        }`}
+                                    title={copied == formState.form_doc_no ? "Copied!" : "Copy ID"}
+                                    disabled={copied == formState.form_doc_no}
+                                >
+                                    {copied == formState.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                </button>
+                                <StatusBadge status={formState?.status ? formState?.status : ''} />
+                            </h3>
 
-                        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-                            <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
-                                <input 
-                                    type="checkbox" 
-                                    id="all_branches" 
-                                    name="all_branches" 
-                                    className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
-                                    onChange={(e) => changable && changeHandler(e)} 
-                                    checked={formState.all_branches} 
-                                />
-                                All Branches
-                            </label>
-                            <div className="space-y-2 pt-1">
-                                {branches.map((branch, idx) => (
-                                    <label key={idx} className="flex items-center gap-3 text-sm text-slate-600 hover:text-blue-700 cursor-pointer transition ml-1">
-                                        <input 
-                                            id="branches" 
-                                            name="branches" 
-                                            type="checkbox" 
-                                            className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
-                                            value={branch.id} 
-                                            onChange={(e) => changable && changeHandler(e)} 
-                                            checked={formState.branches.includes(branch.id)} 
-                                        /> 
-                                        {branch.branch_name}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-                    </aside>
+                            <div className="flex flex-wrap gap-4 sm:justify-end">
+                                {
+                                    changable && forwardable &&
+                                    <button
+                                        type="button"
+                                        className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-100 transition shadow-sm"
+                                        onClick={(e) => sendToSupervisorClick(e)}
+                                    >
+                                        Send To Supervisor
+                                    </button>
 
-                    {/* Main Content Area (Right Column) */}
-                    <main className="lg:col-span-10 flex flex-col h-full overflow-hidden">
+                                }
+            
+                                {/* {
+                                    changable ?
+                                    <button
+                                        type="button"
+                                        className="px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
+                                        onClick={(e) => submitHandler(e) }
+                                    >
+                                        Update
+                                    </button> : ''
+                                } */}
+
+
+                                {
+                                    supervisor &&        
+                                    <button
+                                        className="px-4 py-2 text-sm rounded-lg
+                                            bg-amber-500 text-white
+                                            hover:bg-amber-600 transition"
+                                        value="Checked"
+                                        onClick={approveHandler}
+                                            >
+                                        Check
+                                    </button>
+                                }
                         
-                        {/* Document Information Stacked on top */}
-                        <section className="p-6 border-b border-gray-100 bg-white">
-                            <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
-                                <h2 className="text-md font-semibold text-slate-800 uppercase">Document Information</h2>
-                                {/* <ServerTime /> */}
+                                {
+                                    approver &&
+                                    <button
+                                        className="px-4 py-2 text-sm rounded-lg
+                                            bg-green-600 text-white
+                                            hover:bg-green-700 transition"
+                                        value="Approved"
+                                        onClick={approveHandler}
+                                        >
+                                        Approve
+                                    </button>
+
+                                }
+
+
+                                {
+                                    approver &&
+                                    <button
+                                    className="px-4 py-2 text-sm font-medium rounded-lg
+                                            bg-blue-600 text-white 
+                                            hover:bg-blue-700 transition shadow-sm"
+                                        value={getBtpValue()}
+                                        onClick={approveHandler}
+                                        >
+                                        Back To Previous
+                                    </button>
+                                }
+
+                                {
+                                    (trackable) &&
+                                    <button
+                                        className="px-4 py-2 text-sm rounded-lg
+                                            bg-green-600 text-white
+                                            hover:bg-green-700 transition"
+                                        value="Approved"
+                                        onClick={() => setShowModal(true)}
+                                        >
+                                        Apply Branch
+                                    </button>
+
+                                }
+
+                                {
+                                    (supervisor || approver) ?
+                                    <button
+                                        className="px-4 py-2 text-sm rounded-lg
+                                            bg-red-600 text-white
+                                            hover:bg-red-700 transition"
+                                        value="Cancel"
+                                        onClick={approveHandler}
+                                        >
+                                        Cancel
+                                    </button> : ''
+                                }
+
+                        
+                                
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Card Body Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                        
+                        {/* Branch Sidebar (Left Column) */}
+                        <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
+                            <div className="flex justify-between items-start p-5 border-b border-gray-100 bg-white/50 ">
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-600 m-0" onClick={() => setShowModal(true)}>Branches <span className="text-red-600 text-md">*</span></h2>
+                                <span
+                                    onClick={() => setShowModal(true)}
+                                    className="cursor-pointer text-sky-500 text-lg hover:text-sky-600 flex"
+                                    role="button"
+                                    aria-label="Remove product"
+                                ><FaInfoCircle className="text-sky-500" /></span>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
-                                <div className="col-span-1 md:col-span-2 xl:col-span-3">
-                                    <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
-                                        {formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).length > 0 &&
-                                            <label className="text-base font-bold text-[#007bff] uppercases">GCP Document No:</label>
-                                        }
-                                        <div>
+                            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+                                <label className="flex items-center gap-3 text-sm font-semibold text-slate-700 cursor-pointer">
+                                    <input 
+                                        type="checkbox" 
+                                        id="all_branches" 
+                                        name="all_branches" 
+                                        className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500" 
+                                        onChange={(e) => changable && changeHandler(e)} 
+                                        checked={formState.all_branches} 
+                                    />
+                                    All Branches
+                                </label>
+                                <div className="space-y-2 pt-1">
+                                    {branches.map((branch, idx) => (
+                                        <label key={idx} className="flex items-center gap-3 text-sm text-slate-600 hover:text-blue-700 cursor-pointer transition ml-1">
+                                            <input 
+                                                id="branches" 
+                                                name="branches" 
+                                                type="checkbox" 
+                                                className="w-4 h-4 rounded text-blue-500 border-gray-300 focus:ring-blue-500"
+                                                value={branch.id} 
+                                                onChange={(e) => changable && changeHandler(e)} 
+                                                checked={formState.branches.includes(branch.id)} 
+                                            /> 
+                                            {branch.branch_name}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </aside>
+
+                        {/* Main Content Area (Right Column) */}
+                        <main className="lg:col-span-10 flex flex-col h-full overflow-hidden">
+                            
+                            {/* Document Information Stacked on top */}
+                            <section className="p-6 border-b border-gray-100 bg-white">
+                                <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
+                                    <h2 className="text-md font-semibold text-slate-800 uppercase">Document Information</h2>
+                                    {/* <ServerTime /> */}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
+                                    <div className="col-span-1 md:col-span-2 xl:col-span-3">
+                                        <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
+                                            {formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).length > 0 &&
+                                                <label className="text-base font-bold text-[#007bff] uppercases">GCP Document No:</label>
+                                            }
+                                            <div>
+                                            {
+                                                formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
+                                                    <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}
+                                                    <button
+                                                        onClick={()=>handleCopy(generalFormFile.name)}
+                                                        className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
+                                                            ? 'text-green-600 bg-green-50'
+                                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                                            }`}
+                                                        title={copied == generalFormFile.name ? "Copied!" : "Copy ID"}
+                                                        disabled={copied == generalFormFile.name}
+                                                    >
+                                                        {copied == generalFormFile.name ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                    </button>
+                                                    </label>
+                                                ))
+                                            }
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date {formState.change_price_date}<span className="text-red-600 text-md">*</span></label>
+                                        {/* <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly /> */}
+                                        <Flatpickr
+                                            value={formState.change_price_date}
+                                            options={{
+                                                dateFormat: "Y-m-d",
+                                                minDate: formatLaravelStyleDate(formState.change_price_date),
+                                            }}
+                                            onChange={(date, dateStr) => {
+                                                if (!changable) {
+                                                    // Force React to overwrite Flatpickr after every change:
+                                                    setFormState(prev => ({
+                                                        ...prev,
+                                                        change_price_date: prev.change_price_date
+                                                    }));
+                                                    return;
+                                                }
+                                                changeHandler({
+                                                target: {
+                                                    name: "change_price_date",
+                                                    value: dateStr,
+                                                    type: "date"
+                                                }
+                                                });
+                                            }}
+                                            className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            style={{ borderColor: '#2ea2d1' }}
+                                            disabled={true}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase"><span className="text-red-600">Effective Date</span> <span className="text-red-600 text-md">*</span></label>
+                                        {/* <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/> */}
+                                        <Flatpickr
+                                        key={changable ? "edit" : "lock"} 
+                                            value={formState.effective_date}
+                                            options={{
+                                                dateFormat: "Y-m-d",
+                                                minDate: formatLaravelStyleDate(formState.change_price_date),
+                                            }}
+                                            onChange={(date, dateStr) => {
+                                                if (!changable) {
+                                                    // Force React to overwrite Flatpickr after every change:
+                                                    setFormState(prev => ({
+                                                        ...prev,
+                                                        effective_date: prev.effective_date
+                                                    }));
+                                                    return;
+                                                }
+                                                changeHandler({
+                                                target: {
+                                                    name: "effective_date",
+                                                    value: dateStr,
+                                                    type: "date"
+                                                }
+                                                });
+                                            }}
+                                            className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            style={{ borderColor: '#2ea2d1' }}
+                                            disabled={!changable}
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-2 pt-6">
+                                        <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.urgent_price_change} />
+                                        <span className="text-sm font-bold text-red-600">Urgent Price Change <span className="text-red-600 text-md">*</span></span>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Department <span className="text-red-600 text-md">*</span></label>
+                                        <div className="mt-1">
+                                            <Select
+                                                id="category_id"
+                                                name="category_id"
+                                                options={catOptions}
+                                                placeholder="Sele"
+                                                isSearchable={changable}ct Category
+                                                menuIsOpen={!changable ? false : undefined}
+                                                isClearable={changable}
+                                                onChange={changeHandler}
+                                                value={catOptions.find(opt => opt.value === formState.category_id) || null}
+                                                styles={{
+                                                    control: (provided) => ({
+                                                        ...provided,
+                                                        minHeight: "2.5rem",
+                                                        borderColor: "#2ea2d1",
+                                                        borderRadius: "0.5rem",
+                                                        zIndex: 5,
+                                                    }),
+                                                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                    menu: (provided) => ({
+                                                        ...provided,
+                                                        zIndex: 9999,
+                                                    }),
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="xl:col-span-2">
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Remark</label>
+                                        <textarea
+                                            id="comment"
+                                            name="comment"
+                                            className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
+                                            rows="1"
+                                            style={{ borderColor: '#2ea2d1' }}
+                                            onChange={changeHandler}
+                                            value={formState.comment}
+                                            readOnly={!changable}
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Branch Price <span className="text-red-600 text-md">*</span></label>
+                                        <div className="mt-1">
+                                            <Select
+                                                id="branch_price"
+                                                name="branch_price"
+                                                options={options}
+                                                placeholder="Select Status"
+                                                isSearchable={!formState.branch_price}
+                                                menuIsOpen={formState.branch_price ? false : undefined}
+                                                isClearable={!formState.branch_price}
+                                                onChange={changeHandler}
+                                                value={options.find(opt => opt.value === formState.branch_price) || null}
+                                                styles={{
+                                                    control: (provided) => ({
+                                                        ...provided,
+                                                        minHeight: "2.5rem",
+                                                        borderColor: "#2ea2d1",
+                                                        borderRadius: "0.5rem",
+                                                        zIndex: 5,
+                                                    }),
+                                                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                                    menu: (provided) => ({
+                                                        ...provided,
+                                                        zIndex: 9999,
+                                                    }),
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                                    
+                                    <div className="flex flex-col md:flex-row md:items-end gap-3 md:col-span-2">
+                                        <div className="flex-1">
+                                            <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
+                                            <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
+                                        </div>
+                                        
+                                        <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
+                                                onClick={searchHandler}
+                                                disabled={searching}
+                                            >
+                                                {searching ? 'Loading...' : 'Search'}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => document.getElementById("excel_import").click()}
+                                                title="Excel Import"
+                                                className="inline-flex items-center justify-center h-10 w-full md:w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
+                                                disabled={importing}
+                                            >
+                                                {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
+                                                onClick={downloadHandler}
+                                            >
+                                                Sample
+                                            </button>
+
+                                            <input
+                                                type="file"
+                                                id="excel_import"
+                                                accept=".xlsx,.xls,.ods"
+                                                className="hidden"
+                                                onChange={excelImportHandler}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                            
+                            {/* Product Prices Stacked on Bottom */}
+                            <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
+                                <div className="mb-4">
+                                    <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
+                                </div>
+                                {/* <div className="overflow-auto max-h-[500px]"> */}
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable}/>
+                                {/* </div> */}
+                            </div>
+                        </main>
+                    </div>
+
+    
+
+
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
+
+                        {/* Alert Box */}
+                        {formRejected &&
+                        <div className="flex items-cneter col-span-2 md:col-span-5 md:col-span-3">
+                            <div className="relative w-full rounded-lg bg-red-100 border border-red-300 px-4 py-3 text-red-800">
+                                <p>
+                                    This form was canceled by<span className="font-bold"> {formRejected?.approval_users?.title} {formRejected?.approval_users?.name}</span>
+                                </p>
+
+                                {/* Close button */}
+                                <button
+                                    onClick={''}
+                                    className="absolute top-2 right-2 text-red-700 hover:text-red-900"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        }
+
+                        {/* Prepared By */}
+                        <div className="">
+                            <div className="text-gray-600">
+                            Prepared By
+                            </div>
+
+                            <div className="font-semibold text-blue-900">
+                            {originator?.title}{originator?.name}
+                            </div>
+
+                            <div className="font-semibold text-blue-900">
+                            ({originator?.departments?.name})
+                            </div>
+
+                            <div className="font-semibold text-blue-900">
+                            {formatStrDateTime(formState?.created_at)}
+                            </div>
+                        </div>
+
+
+                        {/* Audit By */}
+                        <div className={`${!getSupervisor?.[0] ? 'opacity-25' : ''}`}>
+                            <div className="text-gray-600">
+                            Checked By Category Supervisor
+                            </div>
+                            {
+                                getSupervisor?.length > 0 &&
+                                    getSupervisor.map((supervisor,idx)=>(
+                                        <div key={idx}>
                                         {
-                                            formState?.general_form_files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
-                                                <label key={idx} className="text-base font-bold text-[#007bff] uppercase">{generalFormFile.name}
-                                                <button
-                                                    onClick={()=>handleCopy(generalFormFile.name)}
-                                                    className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied
-                                                        ? 'text-green-600 bg-green-50'
-                                                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
-                                                        }`}
-                                                    title={copied == generalFormFile.name ? "Copied!" : "Copy ID"}
-                                                    disabled={copied == generalFormFile.name}
-                                                >
-                                                    {copied == generalFormFile.name ? 'Copied!' : <FiCopy className="w-4 h-4" />}
-                                                </button>
-                                                </label>
-                                            ))
+                                            supervisor.approval_users.id == formState.modified_user_id &&
+                                            <div className="font-bold text-yellow-400">
+                                                👉 Modified 👈
+                                            </div>
                                         }
+
+
+                                        <div className="font-semibold text-blue-900">
+                                        {supervisor.approval_users?.title}{supervisor.approval_users?.name}
                                         </div>
-                                    </div>
-                                </div>
 
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date {formState.change_price_date}<span className="text-red-600 text-md">*</span></label>
-                                    {/* <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly /> */}
-                                    <Flatpickr
-                                        value={formState.change_price_date}
-                                        options={{
-                                            dateFormat: "Y-m-d",
-                                            minDate: formatLaravelStyleDate(formState.change_price_date),
-                                        }}
-                                        onChange={(date, dateStr) => {
-                                            if (!changable) {
-                                                // Force React to overwrite Flatpickr after every change:
-                                                setFormState(prev => ({
-                                                    ...prev,
-                                                    change_price_date: prev.change_price_date
-                                                }));
-                                                return;
-                                            }
-                                            changeHandler({
-                                            target: {
-                                                name: "change_price_date",
-                                                value: dateStr,
-                                                type: "date"
-                                            }
-                                            });
-                                        }}
-                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                        inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                        style={{ borderColor: '#2ea2d1' }}
-                                        disabled={true}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase"><span className="text-red-600">Effective Date</span> <span className="text-red-600 text-md">*</span></label>
-                                    {/* <input type="date" id="effective_date" name="effective_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.effective_date} min={today()} readOnly={!changable}/> */}
-                                    <Flatpickr
-                                    key={changable ? "edit" : "lock"} 
-                                        value={formState.effective_date}
-                                        options={{
-                                            dateFormat: "Y-m-d",
-                                            minDate: formatLaravelStyleDate(formState.change_price_date),
-                                        }}
-                                        onChange={(date, dateStr) => {
-                                            if (!changable) {
-                                                // Force React to overwrite Flatpickr after every change:
-                                                setFormState(prev => ({
-                                                    ...prev,
-                                                    effective_date: prev.effective_date
-                                                }));
-                                                return;
-                                            }
-                                            changeHandler({
-                                            target: {
-                                                name: "effective_date",
-                                                value: dateStr,
-                                                type: "date"
-                                            }
-                                            });
-                                        }}
-                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                        inputClass="border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                        style={{ borderColor: '#2ea2d1' }}
-                                        disabled={!changable}
-                                    />
-                                </div>
-
-                                <div className="flex items-center gap-2 pt-6">
-                                    <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500" onChange={changeHandler} value={formState.urgent_price_change} checked={formState.urgent_price_change} />
-                                    <span className="text-sm font-bold text-red-600">Urgent Price Change <span className="text-red-600 text-md">*</span></span>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Department <span className="text-red-600 text-md">*</span></label>
-                                    <div className="mt-1">
-                                        <Select
-                                            id="category_id"
-                                            name="category_id"
-                                            options={catOptions}
-                                            placeholder="Sele"
-                                            isSearchable={changable}ct Category
-                                            menuIsOpen={!changable ? false : undefined}
-                                            isClearable={changable}
-                                            onChange={changeHandler}
-                                            value={catOptions.find(opt => opt.value === formState.category_id) || null}
-                                            styles={{
-                                                control: (provided) => ({
-                                                    ...provided,
-                                                    minHeight: "2.5rem",
-                                                    borderColor: "#2ea2d1",
-                                                    borderRadius: "0.5rem",
-                                                    zIndex: 5,
-                                                }),
-                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                                menu: (provided) => ({
-                                                    ...provided,
-                                                    zIndex: 9999,
-                                                }),
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="xl:col-span-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Remark</label>
-                                    <textarea
-                                        id="comment"
-                                        name="comment"
-                                        className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white"
-                                        rows="1"
-                                        style={{ borderColor: '#2ea2d1' }}
-                                        onChange={changeHandler}
-                                        value={formState.comment}
-                                        readOnly={!changable}
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Branch Price <span className="text-red-600 text-md">*</span></label>
-                                    <div className="mt-1">
-                                        <Select
-                                            id="branch_price"
-                                            name="branch_price"
-                                            options={options}
-                                            placeholder="Select Status"
-                                            isSearchable={!formState.branch_price}
-                                            menuIsOpen={formState.branch_price ? false : undefined}
-                                            isClearable={!formState.branch_price}
-                                            onChange={changeHandler}
-                                            value={options.find(opt => opt.value === formState.branch_price) || null}
-                                            styles={{
-                                                control: (provided) => ({
-                                                    ...provided,
-                                                    minHeight: "2.5rem",
-                                                    borderColor: "#2ea2d1",
-                                                    borderRadius: "0.5rem",
-                                                    zIndex: 5,
-                                                }),
-                                                menuPortal: (base) => ({ ...base, zIndex: 9999 }),
-                                                menu: (provided) => ({
-                                                    ...provided,
-                                                    zIndex: 9999,
-                                                }),
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-
-                                                
-                                <div className="flex flex-col md:flex-row md:items-end gap-3 md:col-span-2">
-                                    <div className="flex-1">
-                                        <label className="text-xs font-bold text-slate-500 uppercase">Product Code</label>
-                                        <input type="text" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-white" style={{ borderColor: '#2ea2d1' }} onChange={(e) => setProductCode(e.target.value)} value={productCode} />
-                                    </div>
-                                    
-                                    <div className="flex flex-col md:flex-row gap-2 w-full md:w-auto">
-                                        <button
-                                            type="button"
-                                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition focus:ring-4 focus:ring-cyan-300 shadow-sm"
-                                            onClick={searchHandler}
-                                            disabled={searching}
-                                        >
-                                            {searching ? 'Loading...' : 'Search'}
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => document.getElementById("excel_import").click()}
-                                            title="Excel Import"
-                                            className="inline-flex items-center justify-center h-10 w-full md:w-10 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition shadow-sm"
-                                            disabled={importing}
-                                        >
-                                            {importing ? <FaSpinner className="animate-spin" /> : <FaFileImport />}
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            className="inline-flex items-center justify-center px-4 py-2 text-sm font-semibold bg-sky-100 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-200 transition"
-                                            onClick={downloadHandler}
-                                        >
-                                            Sample
-                                        </button>
-
-                                        <input
-                                            type="file"
-                                            id="excel_import"
-                                            accept=".xlsx,.xls,.ods"
-                                            className="hidden"
-                                            onChange={excelImportHandler}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-                        
-                        {/* Product Prices Stacked on Bottom */}
-                        <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
-                            <div className="mb-4">
-                                <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
-                            </div>
-                            {/* <div className="overflow-auto max-h-[500px]"> */}
-                                <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable}/>
-                            {/* </div> */}
-                        </div>
-                    </main>
-                </div>
-
- 
-
-
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-6 text-sm p-5 bg-neutral-50s border-t border-gray-50 leading-8">
-
-                    {/* Alert Box */}
-                    {formRejected &&
-                    <div className="flex items-cneter col-span-2 md:col-span-5 md:col-span-3">
-                        <div className="relative w-full rounded-lg bg-red-100 border border-red-300 px-4 py-3 text-red-800">
-                            <p>
-                                This form was canceled by<span className="font-bold"> {formRejected?.approval_users?.title} {formRejected?.approval_users?.name}</span>
-                            </p>
-
-                            {/* Close button */}
-                            <button
-                                onClick={''}
-                                className="absolute top-2 right-2 text-red-700 hover:text-red-900"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                    </div>
-                    }
-
-                    {/* Prepared By */}
-                    <div className="">
-                        <div className="text-gray-600">
-                        Prepared By
-                        </div>
-
-                        <div className="font-semibold text-blue-900">
-                        {originator?.title}{originator?.name}
-                        </div>
-
-                        <div className="font-semibold text-blue-900">
-                        ({originator?.departments?.name})
-                        </div>
-
-                        <div className="font-semibold text-blue-900">
-                        {formatStrDateTime(formState?.created_at)}
-                        </div>
-                    </div>
-
-
-                    {/* Audit By */}
-                    <div className={`${!getSupervisor?.[0] ? 'opacity-25' : ''}`}>
-                        <div className="text-gray-600">
-                        Checked By Category Supervisor
-                        </div>
-                        {
-                            getSupervisor?.length > 0 &&
-                                getSupervisor.map((supervisor,idx)=>(
-                                    <div key={idx}>
-                                    {
-                                        supervisor.approval_users.id == formState.modified_user_id &&
-                                        <div className="font-bold text-yellow-400">
-                                            👉 Modified 👈
+                                        <div className="font-semibold text-blue-900">
+                                        ({supervisor.approval_users?.department?.name})
                                         </div>
-                                    }
 
-
-                                    <div className="font-semibold text-blue-900">
-                                    {supervisor.approval_users?.title}{supervisor.approval_users?.name}
-                                    </div>
-
-                                    <div className="font-semibold text-blue-900">
-                                    ({supervisor.approval_users?.department?.name})
-                                    </div>
-
-                                    <div className="font-semibold text-blue-900">
-                                    {formatStrDateTime(supervisor?.created_at)}
-                                    </div>
-                                    </div>
-                                ))
-                        }
-                    </div>
-
-                    {/* Approved By */}
-                    <div className={`${!getApprover?.approval_users || (Array.isArray(getApprover?.approval_users) && !getApprover?.approval_users?.[0]) ? 'opacity-25' : ''}`}>
-                        <div className="text-gray-600">
-                        Approved By Merchandising Manager
+                                        <div className="font-semibold text-blue-900">
+                                        {formatStrDateTime(supervisor?.created_at)}
+                                        </div>
+                                        </div>
+                                    ))
+                            }
                         </div>
-                        {
-                            getApprover &&
-                            getApprover.approval_users &&
-                            !(Array.isArray(getApprover.approval_users) && getApprover.approval_users.length === 0) &&
-                            (!formRejected || formRejected.user_type === "A1") &&
-                                <>
-                                <div className="font-semibold text-blue-900">
-                                {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
-                                </div>
 
-                                <div className="font-semibold text-blue-900">
-                                ({getApprover?.approval_users?.department?.name})
-                                </div>
+                        {/* Approved By */}
+                        <div className={`${!getApprover?.approval_users || (Array.isArray(getApprover?.approval_users) && !getApprover?.approval_users?.[0]) ? 'opacity-25' : ''}`}>
+                            <div className="text-gray-600">
+                            Approved By Merchandising Manager
+                            </div>
+                            {
+                                getApprover &&
+                                getApprover.approval_users &&
+                                !(Array.isArray(getApprover.approval_users) && getApprover.approval_users.length === 0) &&
+                                (!formRejected || formRejected.user_type === "A1") &&
+                                    <>
+                                    <div className="font-semibold text-blue-900">
+                                    {getApprover?.approval_users?.title}{getApprover?.approval_users?.name}
+                                    </div>
 
-                                <div className="font-semibold text-blue-900">
-                                {formatStrDateTime(getApprover?.created_at)}
-                                </div>
-                                </>
-                        }
+                                    <div className="font-semibold text-blue-900">
+                                    ({getApprover?.approval_users?.department?.name})
+                                    </div>
+
+                                    <div className="font-semibold text-blue-900">
+                                    {formatStrDateTime(getApprover?.created_at)}
+                                    </div>
+                                    </>
+                            }
+                        </div>
+
+
+                    
                     </div>
-
-
-                   
                 </div>
-            </div>
+            }
+
 
     
         </div>
