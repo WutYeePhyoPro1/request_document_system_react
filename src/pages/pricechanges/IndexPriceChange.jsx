@@ -8,8 +8,8 @@ import StatusBadge from '../../components/ui/StatusBadge';
 import { fetchData } from '../../api/FetchApi';
 import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
-import { FiCopy } from 'react-icons/fi';
-import { FaSpinner } from "react-icons/fa";
+import { FiCopy,FiExternalLink } from 'react-icons/fi';
+import { FaSpinner,FaEye } from "react-icons/fa";
 import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
 
 
@@ -284,10 +284,12 @@ export default function IndexPriceChange() {
                                 <table className="xl:table min-w-full bg-white border border-gray-200 text-sm">
                                     <thead className="bg-gray-100 text-left">
                                         <tr>
+                                            {/* <th className="py-2 px-4 border-b">Action</th> */}
                                             <th className="py-2 px-4 border-b">No</th>
                                             <th className="py-2 px-4 border-b">Status</th>
                                             <th className="py-2 px-4 border-b">Document No</th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Effective Date</span></th>
+                                            <th className="py-2 px-4 border-b"><span className='text-red-600'>Urgent</span></th>
                                             <th className="py-2 px-4 border-b">Department</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
                                             <th className="py-2 px-4 border-b">Created Date</th>
@@ -297,14 +299,20 @@ export default function IndexPriceChange() {
                                             {
                                                 datas.map((data,idx)=>(
                                                     <tr key={idx}
-                                                        onClick={() =>navigate(`/price_changes_detail/${data.id}`)}
+                                                    onClick={() =>navigate(`/price_changes_detail/${data.id}`)}
+                                                    // onClick={() => window.open(`/price_changes_detail/${data.id}`, "_blank")}
                                                     className="cursor-pointer hover:bg-[#efefef] transition"
                                                     >
+                                                        {/* <td className="py-2 px-4 border-b">
+                                                            <button className={`ml-2 px-2 py-1 text-xs rounded transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer`}>
+                                                                <FaEye className="w-4 h-4" />
+                                                            </button>
+                                                        </td> */}
                                                         <td className="py-2 px-4 border-b">{paginationInfo.from + idx}</td>
                                                         <td className="py-2 px-4 border-b">
                                                             <StatusBadge status={data.status} />
                                                         </td>
-                                                        <td className="py-2 px-4 border-b">
+                                                        <td className="py-2 px-4 border-b group">
                                                             {data.form_doc_no}
                                                             <button
                                                                 onClick={(e)=>{
@@ -320,8 +328,22 @@ export default function IndexPriceChange() {
                                                             >
                                                                 {copied == data.id ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                                                             </button>
+
+                                                            <button
+                                                                onClick={(e)=>{
+                                                                    e.stopPropagation();
+                                                                    window.open(`/price_changes_detail/${data.id}`, "_blank");
+                                                                }}
+                                                                className="opacity-0 group-hover:opacity-100 transition text-green-600 hover:text-green-700"
+                                                                title="Open in new tab"
+                                                            >
+                                                                <FiExternalLink className="w-4 h-4"/>
+                                                            </button>
                                                         </td>
                                                         <td className="py-2 px-4 border-b">{data.date}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500"  value={data.asset_type == 'on'} checked={data.asset_type == 'on'} />
+                                                        </td>
                                                         <td className="py-2 px-4 border-b">{data.to_category.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.created_at}</td>

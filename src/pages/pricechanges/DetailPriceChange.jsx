@@ -1119,19 +1119,14 @@ export default function () {
             const hasPendingBranchFresh = computeHasPendingBranch(data);
             console.log("hasPendingBranchFresh",hasPendingBranchFresh,data);
 
-            if(data.urgent_price_change){
-                onlineHandler(latestForm);
-            }else{
-                await onlineHandler(latestForm);
-            }
-
             // Start Branch Price Change
+            let updateRequests = [];
             if(data.urgent_price_change){
 
                 // console.log(formState.price_change_branches);
                 const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
                 // console.log(runBranches);
-                const updateRequests = runBranches.map(branchId => {
+                updateRequests = runBranches.map(branchId => {
 
                     updateBranchStatus(branchId, "Updating");
 
@@ -1146,11 +1141,12 @@ export default function () {
                                 throw new Error(res?.data?.message);
                             }
 
-                            await sleep(2000);
+                            // await sleep(2000);
                             updateBranchStatus(branchId, res.data.status ,res.data.message);
                             return res;
                         })
                         .catch(err => {
+                            console.log('There is an error in updating branch price:',err);
                             updateBranchStatus(
                                 branchId,
                                 "Failed",
@@ -1159,9 +1155,44 @@ export default function () {
                             throw err;
                         });
                 });
-
-                const results = await Promise.all(updateRequests);
             }
+
+                // Start Online Request
+                const hasNotOnlineUpdateFresh = computeHasNotOnlineUpdate(data);
+                console.log("hasNotOnlineUpdateFresh",hasNotOnlineUpdateFresh,data);
+                if(hasNotOnlineUpdateFresh){
+                    updateOnlineStatus("Update Online Price", "Updating");
+                    let formData = getOnlinePayload(data);
+                    let onlineRequest = axios.post(`/api/price_changes/${id}/update_online`,formData,{
+                                            headers: {
+                                                Authorization: `Bearer ${token}`,
+                                                },
+                                            })
+                                            .then(async (res)=>{
+                                                if(res.data?.success == false){
+                                                    throw new Error(res?.data?.message);
+                                                }
+                                                updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
+                                                return res;
+                                            })
+                                            .catch(err => {
+                                                console.log('There is an error in updating onlilne:',err);
+
+                                                // Swal.fire({
+                                                //     icon: "error",
+                                                //     title: "Update Online Error",
+                                                //     text: "Something went wrong while updating online.",
+                                                // });
+
+                                                updateOnlineStatus("Update Online Price", "Failed");
+                                                throw err;
+                                            });
+
+                    updateRequests.push(onlineRequest);
+                }
+                // End Online Request
+
+            const results = await Promise.all(updateRequests);
             // End Branch Price Change
 
 
@@ -1445,7 +1476,7 @@ export default function () {
         URL.revokeObjectURL(url);
         
         // --- Download Online Payload File (JSON) ---
-        const jsonFormat = getOnlineRequest();
+        const jsonFormat = getOnlinePayload();
         const onlinePayload = JSON.stringify(jsonFormat.data) + import.meta.env.VITE_SECRETKEY; ;
         const jsonBlob = new Blob([onlinePayload], { type: "application/json" });
         const jsonUrl = URL.createObjectURL(jsonBlob);
@@ -1457,7 +1488,7 @@ export default function () {
         URL.revokeObjectURL(jsonUrl);
     }
 
-    const getOnlineRequest = (latestForm = null)=>{
+    const getOnlinePayload = (latestForm = null)=>{
         const data = latestForm || formState;
 
         const branchCodeList = data.price_change_branches.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch.branch_code);
@@ -2071,7 +2102,7 @@ export default function () {
                     </h2>
 
                     {
-                        !running &&
+                        (!running) &&
                         <button
                         onClick={() => setShowModal(false)}
                         className="text-gray-400 hover:text-gray-600"
