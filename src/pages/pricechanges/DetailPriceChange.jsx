@@ -221,7 +221,7 @@ export default function () {
                 if (name === "new_cost_price") {
                     // Start Prevent User Typing Error
                     const code = updatedItem.id || updatedItem.product_code;
-                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {min: 0, max: 99999999}}, 'Product',{});
+                    const pricesAlerts = validateArrayField([updatedItem], {'new_cost_price': {min: 0, max: "price1"}}, 'Product',{});
                     console.log(pricesAlerts,pricesAlerts?.[code]?.['new_cost_price']);
 
                     if(pricesAlerts?.[code]?.['new_cost_price']){
@@ -296,7 +296,8 @@ export default function () {
                         [updatedItem]
                         ,{
                             'price1': {required:true,numeric: true, min: 1},
-                            'price2': {required:true,numeric: true, min: 1, max:"price1"}
+                            'price2': {required:true,numeric: true, min: 1, max:"price1"},
+                            'new_cost_price': {min: 0,max: "price1"}
                         }
                         , 'Product'
                         ,productMessages
@@ -316,6 +317,7 @@ export default function () {
 
                             if(!pricesAlerts[code]?.price2){
                                 delete merged['price2'];
+                                delete merged['new_cost_price'];
                             }
                         }
 
@@ -473,7 +475,7 @@ export default function () {
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '',
                 price2: row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
-                new_cost_price: apiProduct.new_cost_price || row["New Cost Price"] || '',
+                new_cost_price: row["New Cost Price"] || formatTo2Decimals(apiProduct.new_cost_price) || '',
                 profit: calculateProfit(new_cost_price,price1),
                 remark: 0,
                 id: apiProduct.barcode,
@@ -1367,6 +1369,13 @@ export default function () {
             cancelButtonText: "Cancel",
         }).then(async (result) => {
             if (result.isConfirmed) {
+                const submitSuccess = await submitHandler();
+                if (!submitSuccess) {
+                    console.log("Submit failed");
+                    return;
+                }
+
+
                 setForceLoading(true);
                 setIsSubmitting(true);
 
