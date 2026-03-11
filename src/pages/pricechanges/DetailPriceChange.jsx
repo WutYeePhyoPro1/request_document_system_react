@@ -582,7 +582,7 @@ export default function () {
         const productSchema = {
             price1: { required: true, numeric: true, min: 1},
             price2: { required: true, numeric: true, min: 1, max:"price1"},
-            // new_cost_price: { required: true, numeric: true, min: 1},
+            new_cost_price: {min: 0, max: "price1"}, // { required: true, numeric: true, min: 1},
             profit: { required: true, numeric: true},
         };
         const productMessages = {
@@ -740,10 +740,14 @@ export default function () {
                 row.id = row['product_code'] || row['Product Code'];
             });
 
-            const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"}}, 'Product',importMessage);
+            const pricesAlerts = validateArrayField(jsonData, {'Price 2': {required:true,numeric: true, min: 1, max:"Price 1"},'New Cost Price': {min: 0, max: "Price 1"}}, 'Product',importMessage);
             setPricesErrors(pricesAlerts);
 
-            const existingCodes = new Set(products.map(p => String(p.product_code).trim()));
+            // const existingCodes = new Set(products.map(p => String(p.product_code).trim()));
+            setProducts([]);
+            let existingCodes = [];
+            existingCodes = new Set(existingCodes.map(p => String(p.product_code).trim()));
+
             for (const [index, row] of jsonData.entries()) {
                 const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
