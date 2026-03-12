@@ -2520,6 +2520,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
       }
       
+      // Branch Account or allowed emp_id (000-000046, 000-000498): enable Cancel when form is Completed
+      const allowedEmpIdsForCancelWhenCompleted = ['000-000046', '000-000498'];
+      const currentEmpIdForActions = (currentUser?.emp_id || currentUser?.employee_number || '').toString().trim();
+      const isAllowedEmpIdForCancelWhenCompletedInActions = allowedEmpIdsForCancelWhenCompleted.includes(currentEmpIdForActions);
+      if ((isBranchAccountUser || isAllowedEmpIdForCancelWhenCompletedInActions) && normalizedStatus === 'Completed') {
+        act.cancel = true;
+      }
+      
       // Operation Manager should NOT see BackToPrevious / Cancel when viewing OPApproved form
       // (They can only see these buttons when form is BM Approved and awaiting their acknowledgment)
       // The buttons will be hidden later in the code for OPApproved status
@@ -2622,6 +2630,11 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                                 formData.status === 'OPApproved' ||
                                 formData.status === 'OP Approved');
   
+  // Emp IDs allowed to see Cancel button when form status is Completed (matches Laravel big_damage_issue detail)
+  const ALLOWED_EMP_IDS_CANCEL_WHEN_COMPLETED = ['000-000046', '000-000498'];
+  const currentEmpId = (currentUser?.emp_id || currentUser?.employee_number || initialData?.current_user?.emp_id || initialData?.current_user?.employee_number || '').toString().trim();
+  const isAllowedEmpIdForCancelWhenCompleted = ALLOWED_EMP_IDS_CANCEL_WHEN_COMPLETED.includes(currentEmpId);
+  
   // Check if user is Branch Manager and form status is Ongoing
   // Hide buttons for Branch Manager when status is Ongoing (BM should only act after Checker has checked)
   // Use case-insensitive comparison to be safe
@@ -2684,8 +2697,8 @@ let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && 
                             true :
                             // Existing logic for other cases - hide if BM Approved
                             (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
-// Also allow OP to see Cancel when appropriate, but hide for Branch Account users
-let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForButtons)) && !isBranchAccount;
+// Also allow OP to see Cancel when appropriate; allow Branch Account or allowed emp_id to see Cancel when form is Completed
+let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForButtons)) && !isBranchAccount) || (resolvedStatusLower === 'completed' && (isBranchAccount || isAllowedEmpIdForCancelWhenCompleted));
                           // Also allow Operation Manager to see Cancel on OP stages
                           const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
 
@@ -3080,9 +3093,9 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
       return;
     }
     
-    // Validate cancel action - require reason/remark
+    // Validate cancel action - require reason/remark (skip for allowed emp_ids 000-000046, 000-000498)
     if (action === 'Cancel' || action === 'cancel') {
-      if (!formData.reason || formData.reason.trim() === '') {
+      if (!isAllowedEmpIdForCancelWhenCompleted && (!formData.reason || formData.reason.trim() === '')) {
         const errorMessage = t('messages.cancelReasonRequired', { 
           defaultValue: 'Please provide a reason for canceling the form. The remark field in Supporting Info is required.' 
         });
@@ -4391,6 +4404,18 @@ let shouldShowCancelFinal = (shouldShowCancel || (isOpManager && isOpStageForBut
         // Explicitly ensure reason is sent for Cancel action
         if ((action === 'Cancel' || action === 'cancel') && formData.reason) {
           formDataToSend.append('reason', formData.reason);
+        }
+        // For Cancel: send doc_id (ISS number) so backend can cancel inv_issuestockhd and related records like Laravel Blade
+        if (action === 'Cancel' || action === 'cancel') {
+          const issNumbers = formData.iss_numbers || initialData?.general_form?.iss_numbers;
+          const docIdFromIss = Array.isArray(issNumbers) && issNumbers.length > 0 && issNumbers[0] ? String(issNumbers[0]).trim() : null;
+          const files = formData.general_form_files || initialData?.general_form?.general_form_files;
+          const issFile = Array.isArray(files) ? files.find(f => f && (f.file === 'ISS_DOCUMENT' || f.file_type === 'ISS_DOCUMENT')) : null;
+          const docIdFromFile = issFile && issFile.name ? String(issFile.name).trim() : null;
+          const docIdForCancel = docIdFromIss || docIdFromFile;
+          if (docIdForCancel) {
+            formDataToSend.append('doc_id', docIdForCancel);
+          }
         }
 
         const user = currentUser || getCurrentUser() || {};
@@ -6026,6 +6051,7 @@ const resolveApproveAction = () => {
         }}
         onSystemQtyStatusChange={async (updated) => {
           if (!updated) return;
+          console.log('[Update System Qty] onSystemQtyStatusChange called, initialData.generalFormId=', initialData?.generalFormId);
           setFormData((prev) => ({
             ...prev,
             systemQtyUpdated: true,
@@ -6044,25 +6070,29 @@ const resolveApproveAction = () => {
               // Use the correct endpoint that returns all items for the form
               // Add cache-busting timestamp to ensure we get fresh data
               const timestamp = new Date().getTime();
-              const response = await apiRequest(`/api/general-forms/${initialData.generalFormId}/big-damage-issues?per_page=100&_t=${timestamp}`);
+              const refetchUrl = `/api/general-forms/${initialData.generalFormId}/big-damage-issues?per_page=100&_t=${timestamp}`;
+              console.log('[Update System Qty] Refetching items:', refetchUrl);
+              // apiRequest returns parsed JSON, not a Response object
+              const updatedData = await apiRequest(refetchUrl);
+              console.log('[Update System Qty] Refetch response keys:', updatedData ? Object.keys(updatedData) : 'null', 'has data array:', Array.isArray(updatedData?.data), 'data length:', updatedData?.data?.length);
               
-              if (response.ok) {
-                const updatedData = await response.json();
-                
-                // The API returns paginated data with items in data array
-                let updatedItems = [];
-                
-                if (Array.isArray(updatedData?.data)) {
-                  updatedItems = updatedData.data;
-                } else if (Array.isArray(updatedData)) {
-                  updatedItems = updatedData;
-                } else if (updatedData?.big_damage_issue) {
-                  updatedItems = Array.isArray(updatedData.big_damage_issue) 
-                    ? updatedData.big_damage_issue 
-                    : [updatedData.big_damage_issue];
-                }
-                
-                if (updatedItems.length > 0) {
+              // The API returns paginated data with items in data array
+              let updatedItems = [];
+              
+              if (Array.isArray(updatedData?.data)) {
+                updatedItems = updatedData.data;
+              } else if (Array.isArray(updatedData)) {
+                updatedItems = updatedData;
+              } else if (updatedData?.big_damage_issue) {
+                updatedItems = Array.isArray(updatedData.big_damage_issue) 
+                  ? updatedData.big_damage_issue 
+                  : [updatedData.big_damage_issue];
+              }
+              
+              if (updatedItems.length > 0) {
+                  // Log first item's system_qty from API
+                  const first = updatedItems[0];
+                  console.log('[Update System Qty] First item from API id=', first?.id, 'product_code=', first?.product_code, 'system_qty=', first?.system_qty);
                   // First, filter out soft-deleted items (where deleted_at is not null)
                   const activeItems = updatedItems.filter(item => {
                     const isDeleted = item.deleted_at !== null && item.deleted_at !== undefined;
@@ -6180,9 +6210,10 @@ const resolveApproveAction = () => {
                       items: uniqueItems,
                     };
                   });
+                  console.log('[Update System Qty] setFormData items count=', uniqueItems.length, 'sample system_qty=', uniqueItems.slice(0, 3).map(i => ({ id: i.id, system_qty: i.system_qty })));
                 }
-              }
             } catch (error) {
+              console.error('[Update System Qty] Refetch error:', error?.message, error);
               // Silently handle error
             }
           }
@@ -6221,6 +6252,12 @@ const resolveApproveAction = () => {
 
         // Hide ISS Remark Type and ISS Number for operation manager viewing OP approved forms
         if (isOperationManager && isOPApprovedStatus) {
+          return null;
+        }
+
+        // When form is Cancelled, do not show ISS number or ISS remark (cancelled in backend)
+        const resolvedStatus = (formData.status || '').toString().trim().toLowerCase();
+        if (resolvedStatus === 'cancelled' || resolvedStatus === 'cancel') {
           return null;
         }
 
@@ -6341,6 +6378,8 @@ const resolveApproveAction = () => {
         return null;
       })()}
 
+      {/* Hide entire Supporting Info (remark + attachments) when form is Cancelled */}
+      {resolvedStatusLower !== 'cancelled' && resolvedStatusLower !== 'cancel' && (
       <SupportingInfo
         status={resolvedStatus || formData.status}
         reason={formData.reason}
@@ -6377,6 +6416,7 @@ const resolveApproveAction = () => {
         systemQtyUpdated={Boolean(formData.systemQtyUpdated)}
         totalAmount={totalAmount}
       />
+      )}
 
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-start gap-3 mt-6 sm:mt-8">
         {mode !== 'add' && (

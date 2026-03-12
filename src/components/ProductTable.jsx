@@ -9,7 +9,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
         thNumber: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10, textAlign: "right"},
     }
     // console.log(data);
-    console.log(pricesErrors);
+    // console.log(pricesErrors);
 
     return (
         <>
@@ -25,7 +25,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                     <th style={tablestyle['th']}>Product Code</th>
                     <th style={tablestyle['th']}>Product Name</th>
                     <th style={tablestyle['th']}>Unit</th>
-                    <th style={tablestyle['thNumber']}>Price</th>
+                    <th style={tablestyle['thNumber']}> <span className="text-gray-500">Ref Price</span></th>
                     <th style={tablestyle['thNumber']}>New Cost Price</th>
                     <th style={tablestyle['thNumber']}>Price 1</th>
                     <th style={tablestyle['thNumber']}>Price 2</th>
@@ -53,7 +53,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             <td>{item.product_code}</td>
                             <td>{item.product_name}</td>
                             <td>{item.unit}</td>
-                            <td className="text-right">{formatNumber(item.price)}</td>
+                            <td className="text-right text-gray-500">{formatNumber(item.price)}</td>
                             <td className="text-right">
                                 {
                                     authorizedEdit ?
@@ -65,6 +65,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             }
                                         `} 
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        onFocus={(e) => e.target.select()} 
                                         value={item.new_cost_price}
                                         readOnly={!authorizedEdit}
                                         />
@@ -83,12 +84,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                         `} 
                                         data-priceError = {pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']}
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        onFocus={(e) => e.target.select()} 
                                         value={item.price1}
                                         readOnly={!authorizedEdit}
                                         />
                                     : formatNumber(item.price1)
                                 }
-
                             
                             </td>
                             <td className="text-right">
@@ -102,6 +103,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             }
                                         `} 
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        onFocus={(e) => e.target.select()} 
                                         value={item.price2}
                                         readOnly={!authorizedEdit}
                                         />
@@ -109,7 +111,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                 }
 
                             </td>
-                            <td className={`text-right ${formatTo2Decimals(item.profit * 100) <= 0 ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`} style={{ whiteSpace: "nowrap"}}>
+                            <td className={`text-right ${formatTo2Decimals(item.profit * 100) <= 0 ? 'bg-red-500 text-white' : ( formatTo2Decimals(item.profit * 100) < 100 ? 'bg-green-600 text-white' : 'bg-green-800 text-white')}`} style={{ whiteSpace: "nowrap"}}>
                                 {formatTo2Decimals(item.profit * 100)} %
                             </td>
                             {/* <td>
