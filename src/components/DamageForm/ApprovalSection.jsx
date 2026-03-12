@@ -360,11 +360,16 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
 
     // Check for cancelled status early
     const isCancelledStatus = (status || '').toString().toLowerCase().includes('cancel');
-    const shouldShowAcknowledged = !isCancelledStatus && (
-      requiresOpManagerApproval ||
-      isOPApprovedStatus ||
-      (hasOpApproval && requiresOpManagerApproval) || // Only show if OP approval exists AND amount still > 500k
-      (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet))
+    const shouldShowAcknowledged = (
+      !isCancelledStatus && (
+        requiresOpManagerApproval ||
+        isOPApprovedStatus ||
+        (hasOpApproval && requiresOpManagerApproval) || // Only show if OP approval exists AND amount still > 500k
+        (hasAcAcknowledgedApproval && requiresOpManagerApproval && (statusMatches || cancelConditionMet))
+      )
+    ) || (
+      // When cancelled, still show "Operation Manager Approved by" if form had reached that stage (same as Completed)
+      isCancelledStatus && requiresOpManagerApproval && (hasOpApproval || hasAcAcknowledgedApproval)
     );
 
     
@@ -436,9 +441,9 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
       }
 
       // For "BM Approved by", mark as acted based on cancellation logic:
-      // 1. Form status is "BM Approved" or higher = show as acted
-      // 2. Form is cancelled by Operation Manager = show as acted (BM approval is still valid)
-      // 3. Form is cancelled by Branch Manager = show as pending (BM didn't actually approve)
+      // 1. Form status is "BM Approved" or higher = show as acted (show name)
+      // 2. Form is cancelled by someone after BM approved (OP/Account/etc.) = show as acted (show BM name)
+      // 3. Form is cancelled by BM (BM cancelled before or instead of approving) = do NOT show BM name (show Pending)
       if (label === 'BM Approved by') {
         const isBmApprovedStatus = status === 'BM Approved' ||
                                   status === 'BMApproved' ||
@@ -455,36 +460,17 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         if (isBmApprovedStatus) {
           // Form has been BM Approved or higher - always show as acted
           hasActed = true;
-        } else if (isCancelled && matchingApproval && (matchingApproval.acted || matchingApproval.status === 'BM Approved')) {
-          // Form is cancelled and has BM approval record - check who cancelled
-          // Look for cancel_user in the approvals array
+        } else if (isCancelled && matchingApproval && (matchingApproval.acted || matchingApproval.status === 'BM Approved' || matchingApproval.actual_user_id)) {
+          // Form is cancelled - only show BM name if cancelled by someone other than BM (e.g. OP, Account)
           const cancelUserApproval = safeApprovals.find(a => a?.user_type === 'cancel_user');
-          const cancelledByName = cancelUserApproval?.actual_user_name ||
-                                 cancelUserApproval?.name ||
-                                 formData?.cancelled_by_name ||
-                                 formData?.cancel_by_name ||
-                                 formData?.cancelled_by_user?.name ||
-                                 formData?.cancel_by_user?.name || '';
-
-          // Check if cancelled by operation manager (contains keywords)
-          // Expanded list to include common operation manager identifiers
-          const cancelledByOpManager = cancelledByName.toLowerCase().includes('operation') ||
-                                      cancelledByName.toLowerCase().includes('op') ||
-                                      cancelledByName.toLowerCase().includes('manager') ||
-                                      cancelledByName.toLowerCase().includes('account') ||
-                                      cancelledByName.toLowerCase().includes('accountant') ||
-                                      cancelledByName.toLowerCase().includes('p-too') || // Known operation manager
-                                      cancelledByName.toLowerCase().includes('too') ||
-                                      // Add more patterns as needed
-                                      false; // Placeholder for additional logic
-
-          if (cancelledByOpManager) {
-            // Operation Manager cancelled - BM approval is still valid
-            hasActed = true;
-          } else {
-            // Branch Manager or other cancelled - BM approval should not show as completed
-            hasActed = false;
-          }
+          const cancelledByName = (cancelUserApproval?.actual_user_name || cancelUserApproval?.name || formData?.cancelled_by_name || formData?.cancel_by_name || formData?.cancelled_by_user?.name || formData?.cancel_by_user?.name || '').toString().trim().toLowerCase();
+          const cancelledByUserId = cancelUserApproval?.actual_user_id || cancelUserApproval?.admin_id || cancelUserApproval?.user_id || formData?.cancelled_by_user?.id || formData?.cancel_by_user?.id;
+          const bmApprovalUserId = matchingApproval?.actual_user_id || matchingApproval?.admin_id || matchingApproval?.user_id || matchingApproval?.user?.id;
+          const bmApprovalName = (matchingApproval?.actual_user_name || matchingApproval?.name || '').toString().trim().toLowerCase();
+          // BM cancelled if cancel_user is the same as BM approver (by id or by name match)
+          const cancelledByBm = (cancelledByUserId && bmApprovalUserId && Number(cancelledByUserId) === Number(bmApprovalUserId)) ||
+            (cancelledByName && bmApprovalName && (cancelledByName === bmApprovalName || bmApprovalName.includes(cancelledByName) || cancelledByName.includes(bmApprovalName)));
+          hasActed = !cancelledByBm;
         } else {
           // Form is still "Checked" or lower, or cancelled without BM approval - don't show as acted
           hasActed = false;
@@ -514,11 +500,14 @@ export default function ApprovalSection({ approvals = [], status, formData = {},
         }
       }
       
-      // For "Operation Manager Approved by", if status is Ac_Acknowledged/Acknowledged/OPApproved, it should be marked as acted
+      // For "Operation Manager Approved by", if status is Ac_Acknowledged/Acknowledged/OPApproved, or Cancelled (after OP had approved), mark as acted
       if (label === 'Operation Manager Approved by') {
         const originalHasActed = hasActed;
         const isAcknowledgedStatus = status === 'Ac_Acknowledged' || status === 'Acknowledged' || status === 'OPApproved' || status === 'OP Approved';
-        if (isAcknowledgedStatus) {
+        const isCancelledStatusHere = (status || '').toString().toLowerCase().includes('cancel');
+        // When cancelled, still show as acted if form had OP/AC approval (same as Completed)
+        const isCancelledWithOpApproval = isCancelledStatusHere && matchingApproval && (matchingApproval.acted || matchingApproval.actual_user_id || (matchingApproval.status && matchingApproval.status !== 'Pending' && matchingApproval.status !== 'Cancel'));
+        if (isAcknowledgedStatus || isCancelledWithOpApproval) {
           hasActed = true;
           // If matching approval exists but doesn't have name, try to extract from approval object
           if (matchingApproval && !matchingApproval.actual_user_name && !matchingApproval.name) {
