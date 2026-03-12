@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Button } from "@mantine/core";
-import { IconFileText, IconFile, IconX } from "@tabler/icons-react";
+import { Button, Menu } from "@mantine/core";
+import {
+  IconFileText,
+  IconFile,
+  IconX,
+  IconPhoto,
+  IconCamera,
+} from "@tabler/icons-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import cctvPhoto from "../../../assets/images/ban1.png";
@@ -15,7 +21,7 @@ import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import { FaStar } from "react-icons/fa";
 import FullPageLoader from "../../../components/FullPageLoader";
-import { Loader } from "lucide-react";
+import { Check, FilesIcon, Text, Loader } from "lucide-react";
 
 const GeneratorEdit: React.FC = () => {
   const { id } = useParams();
@@ -129,6 +135,25 @@ const GeneratorEdit: React.FC = () => {
         };
       }),
     );
+  };
+  const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+
+    if (mode === "camera") {
+      // This attribute forces mobile browsers to open the camera app
+      input.setAttribute("capture", "environment");
+    }
+
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        updateFile(id, file);
+      }
+    };
+
+    input.click();
   };
   const deleteExistingFile = async (fileId: number) => {
     const confirm = await Swal.fire({
@@ -879,18 +904,61 @@ const GeneratorEdit: React.FC = () => {
             <div className="">
               {invoiceFile.map((fileField, index) => (
                 <div key={fileField.id} className="flex flex-col gap-2 w-full">
-                  <label htmlFor="">{index === 0 ? "Upload" : undefined}</label>
+                  <label>{index === 0 ? "Upload" : undefined}</label>
+
                   <div className="flex items-center gap-3">
+                    {/* MD + LG INPUT */}
                     <input
                       type="file"
                       name="file[]"
                       onChange={(e) =>
                         updateFile(fileField.id, e.target.files?.[0] || null)
                       }
-                      className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                      className="hidden md:block flex-1 border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                       style={{ borderColor: "rgb(213, 216, 221)" }}
                     />
 
+                    {/* SM MENU SELECTOR */}
+                    <div className="flex-1 md:hidden">
+                      <Menu shadow="md" width={200}>
+                        <Menu.Target>
+                          <div
+                            className="border p-2 w-full rounded-md cursor-pointer bg-white flex justify-between items-center text-sm"
+                            style={{ borderColor: "rgb(213, 216, 221)" }}
+                          >
+                            {fileField.name ? (
+                              <Text truncate>{fileField.name}</Text>
+                            ) : (
+                              <Text color="dimmed">Tap to upload...</Text>
+                            )}
+                          </div>
+                        </Menu.Target>
+
+                        <Menu.Dropdown>
+                          <Menu.Label>Choose Source</Menu.Label>
+
+                          <Menu.Item
+                            icon={<IconCamera size={16} />}
+                            onClick={() =>
+                              handleCaptureChoice(fileField.id, "camera")
+                            }
+                          >
+                            Take Photo (Camera)
+                          </Menu.Item>
+
+                          <Menu.Item
+                            icon={<IconPhoto size={16} />}
+                            onClick={() =>
+                              handleCaptureChoice(fileField.id, "gallery")
+                            }
+                          >
+                            Choose from Gallery
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </div>
+
+                    {/* ADD / REMOVE BUTTON */}
                     {index === 0 ? (
                       <Button onClick={addInvoiceFile}>Add</Button>
                     ) : (
