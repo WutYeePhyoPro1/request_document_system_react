@@ -895,7 +895,7 @@ const GeneratorCreate: React.FC = () => {
                   </div>
                 ))} */}
 
-                {invoiceFile.map((fileField, index) => (
+                {/* {invoiceFile.map((fileField, index) => (
                   <div
                     key={fileField.id}
                     className="flex flex-col gap-2 w-full"
@@ -936,6 +936,79 @@ const GeneratorCreate: React.FC = () => {
                           </Menu.Item>
                         </Menu.Dropdown>
                       </Menu>
+
+                      {index === 0 ? (
+                        <Button onClick={addInvoiceFile}>Add</Button>
+                      ) : (
+                        <Button
+                          color="red"
+                          onClick={() => removeInvoiceFile(fileField.id)}
+                        >
+                          <IconX size={16} />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))} */}
+                {invoiceFile.map((fileField, index) => (
+                  <div
+                    key={fileField.id}
+                    className="flex flex-col gap-2 w-full"
+                  >
+                    <label>{index === 0 ? "Upload" : undefined}</label>
+
+                    <div className="flex items-center gap-3">
+                      {/* MD + LG FILE INPUT */}
+                      <input
+                        type="file"
+                        name="file[]"
+                        required
+                        onChange={(e) =>
+                          updateFile(fileField.id, e.target.files?.[0] || null)
+                        }
+                        className="hidden sm:hidden md:block flex-1 border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                        style={{ borderColor: "rgb(29, 137, 225)" }}
+                      />
+
+                      {/* SM MENU UPLOAD */}
+                      <div className="flex-1 block md:hidden">
+                        <Menu shadow="md" width={200}>
+                          <Menu.Target>
+                            <div
+                              className="border p-2 w-full rounded-md cursor-pointer bg-white flex justify-between items-center text-sm"
+                              style={{ borderColor: "rgb(29, 137, 225)" }}
+                            >
+                              {fileField.name ? (
+                                <Text truncate>{fileField.name}</Text>
+                              ) : (
+                                <Text color="dimmed">Tap to upload...</Text>
+                              )}
+                            </div>
+                          </Menu.Target>
+
+                          <Menu.Dropdown>
+                            <Menu.Label>Choose Source</Menu.Label>
+
+                            <Menu.Item
+                              icon={<IconCamera size={16} />}
+                              onClick={() =>
+                                handleCaptureChoice(fileField.id, "camera")
+                              }
+                            >
+                              Take Photo (Camera)
+                            </Menu.Item>
+
+                            <Menu.Item
+                              icon={<IconPhoto size={16} />}
+                              onClick={() =>
+                                handleCaptureChoice(fileField.id, "gallery")
+                              }
+                            >
+                              Choose from Gallery
+                            </Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      </div>
 
                       {index === 0 ? (
                         <Button onClick={addInvoiceFile}>Add</Button>

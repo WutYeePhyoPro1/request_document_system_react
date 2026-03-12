@@ -33,6 +33,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     }
     setComment(e.target.value);
   };
+  console.log("DetailData>>", detailData);
 
   const handleSubmit = async (statusValue: string) => {
     const token = localStorage.getItem("token");
@@ -48,7 +49,8 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       return;
     }
 
-    const isBack = statusValue === "back_to_previous";
+    const isBack =
+      statusValue === "back_to_previous" || "back_to_previous_checked";
     const isCancel = statusValue === "Cancel";
     const isSendManager = statusValue === "Ongoing";
 
@@ -56,7 +58,13 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     const hasComment = comment?.trim().length > 0;
     const isDefaultStatus = detailData?.generalForm?.status === "Default";
 
-    if (needsRemark && !hasComment && !isDefaultStatus) {
+    if (
+      needsRemark &&
+      !hasComment &&
+      !isDefaultStatus &&
+      statusValue !== "checked" &&
+      statusValue !== "completed"
+    ) {
       Swal.fire({
         icon: "warning",
         title: "Remark required",
@@ -84,6 +92,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       const successMap: Record<string, string> = {
         Ongoing: "Form sent to manager successfully",
         back_to_previous: "Form sent back successfully",
+        back_to_previous_checked: "Form sent back successfully",
         Cancel: "Form cancelled successfully",
       };
 
@@ -102,6 +111,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       setLoading(false);
     }
   };
+  console.log("DetailData>>", detailData);
 
   return (
     <div className="mb-6">
@@ -132,7 +142,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
           </>
         )}
 
-      {detailData?.approver === true &&
+      {detailData?.checker === true &&
         detailData?.generalForm?.status === "Ongoing" && (
           <>
             <h1>Remark</h1>
@@ -152,7 +162,50 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
                   color="green"
                   loading={loading}
                   disabled={loading}
-                  onClick={() => handleSubmit("BM Approved")}
+                  onClick={() => handleSubmit("checked")}
+                >
+                  Check
+                </Button>
+                <Button
+                  color="yellow"
+                  disabled={loading}
+                  onClick={() => handleSubmit("back_to_previous_checked")}
+                >
+                  Back To Previous
+                </Button>
+                <Button
+                  color="red"
+                  disabled={loading}
+                  onClick={() => handleSubmit("Cancel")}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+      {detailData?.approver === true &&
+        detailData?.generalForm?.status === "checked" && (
+          <>
+            <h1>Remark</h1>
+            <div className="grid lg:grid-cols-2   grid-cols-1 gap-6">
+              <div className=" ">
+                <Textarea
+                  resize="vertical"
+                  name="comment"
+                  className="w-full"
+                  placeholder="Your comment"
+                  value={comment}
+                  onChange={handleCommentChange}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 md:justify-start ">
+                <Button
+                  color="green"
+                  loading={loading}
+                  disabled={loading}
+                  onClick={() => handleSubmit("completed")}
                 >
                   Complete
                 </Button>

@@ -209,13 +209,55 @@ const GeneratorDetail: React.FC = () => {
                         {dateTimeFormat(detailData?.generalForm?.created_at)}
                       </span>
                     </div>
+                    {detailData?.getChecker ? (
+                      ["checked", "Completed", "Cancel"].includes(
+                        detailData?.generalForm?.status,
+                      ) ? (
+                        <div>
+                          {/* sdfnmdnsfm */}
+                          <div className="font-medium ">Checked By</div>
+                          <div className="font-semibold text-blue-400 mt-1">
+                            {detailData?.getChecker?.assigned_user?.title}{" "}
+                            {detailData?.getChecker?.assigned_user?.name}
+                          </div>
+                          <div className="text-blue-500 mt-1">
+                            (
+                            {
+                              detailData?.getChecker?.assigned_user?.department
+                                ?.name
+                            }
+                            )
+                          </div>
+                          <div className="text-blue-500 mt-1">
+                            {dateTimeFormat(detailData?.getChecker?.created_at)}
+                          </div>
+                          {detailData?.getChecker?.comment && (
+                            <div className="text-info text-break italic text-blue-500 mt-1">
+                              “{detailData?.getChecker?.comment}”
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="opacity-40">Checked By</div>
+                      )
+                    ) : (
+                      <div className="opacity-40">
+                        <div>Checked By</div>
+                        <div>-------------------</div>
+                        <div>Operation Analysis</div>
+                        <div>
+                          {dateTimeFormat(detailData?.form?.created_at)}
+                        </div>
+                      </div>
+                    )}
+
                     {detailData?.getApprover ? (
                       ["Completed", "Cancel"].includes(
                         detailData?.generalForm?.status,
                       ) ? (
                         <div>
                           {/* sdfnmdnsfm */}
-                          <div className="font-medium ">Checked By</div>
+                          <div className="font-medium ">Completed By</div>
                           <div className="font-semibold text-blue-400 mt-1">
                             {detailData?.getApprover?.approval_users?.title}{" "}
                             {detailData?.getApprover?.approval_users?.name}
@@ -240,11 +282,11 @@ const GeneratorDetail: React.FC = () => {
                           )}
                         </div>
                       ) : (
-                        <div className="opacity-40">Checked By</div>
+                        <div className="opacity-40">Completed By</div>
                       )
                     ) : (
                       <div className="opacity-40">
-                        <div>Checked By</div>
+                        <div>Completed By</div>
                         <div>-------------------</div>
                         <div>Operation Analysis</div>
                         <div>
