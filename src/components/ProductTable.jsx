@@ -1,3 +1,4 @@
+import React, { useEffect, useState} from "react";
 import { FaMinusCircle } from "react-icons/fa";
 import {formatNumber,formattDecimalNumber,formatTo2Decimals} from "./Fomatter.jsx";
 
@@ -8,6 +9,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
         th: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10},
         thNumber: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10, textAlign: "right"},
     }
+    const [focusedProduct, setFocusedProduct] = useState(null);
     // console.log(data);
     // console.log(pricesErrors);
 
@@ -72,25 +74,37 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                     : formatNumber(item.new_cost_price)
                                 }
                             </td>
-                            <td className="text-right">
+                            <td className={`text-right ${
+                                focusedProduct === item.product_code
+                                        ? 'bg-gray-200'
+                                        : Number(item.price1) > Number(item.price)
+                                        ? 'bg-green-600 text-white'
+                                        : Number(item.price1) === Number(item.price)
+                                        ? 'bg-yellow-400 text-black'
+                                        : 'bg-red-500 text-white'
+                                }`}>
+                                {/* { item.price1 }, {item.price} */}
                                 {
                                     authorizedEdit ?
                                         <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                             ${
-                                                pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']
+                                                ((pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']) && focusedProduct === item.product_code)
                                                     ? 'border-red-600 focus:border-red-600'
-                                                    : 'border-cyan-500 focus:border-cyan-500'
+                                                    : 'border-gray-600 focus:border-gray-600'
                                             }
                                         `} 
                                         data-priceError = {pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']}
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
-                                        onFocus={(e) => e.target.select()} 
+                                        onFocus={(e)=>{
+                                            setFocusedProduct(item.product_code);
+                                            e.target.select();
+                                        }}
+                                        onBlur={() => setFocusedProduct(null)}
                                         value={item.price1}
                                         readOnly={!authorizedEdit}
                                         />
                                     : formatNumber(item.price1)
                                 }
-                            
                             </td>
                             <td className="text-right">
                                 {

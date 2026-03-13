@@ -1019,39 +1019,49 @@ export default function () {
                 setForceLoading(true);
                 setIsSubmitting(true);
 
-                const formData = {
-                    status: btnStatus
+                let passApprove = true;
+                if (btnStatus == 'Approved') {
+                    passApprove = await checkApproval();
                 }
+
+                const formData = {
+                    status: btnStatus,
+                }
+
+                let updatedForm = null;
                 try{
-                    const res = await axios.post(`/api/price_changes/${id}/approve`,formData,{
-                        headers: {
-                        Authorization: `Bearer ${token}`,
-                        },
-                    });
-                    console.log(res.data);
 
-                    const data = res.data;
-
-                    if(data.success == false){
-                      return;
-                    }
-
-                    if(btnStatus == 'Approved'){
-                        console.log(`Form ${btnText} successfully!`);
-                    }else{
-                        Swal.fire({
-                            icon: "success",
-                            title: `Form ${btnText} successfully!`,
-                            text: data.message,
-                            // text: "hay"
+                    if(passApprove){
+                        const res = await axios.post(`/api/price_changes/${id}/approve`,formData,{
+                            headers: {
+                            Authorization: `Bearer ${token}`,
+                            },
                         });
-                    }
+                        console.log(res.data);
 
-                    const updatedForm = await fetchPriceChange();
+                        const data = res.data;
+
+                        if(data.success == false){
+                        return;
+                        }
+
+                        if(btnStatus == 'Approved'){
+                            console.log(`Form ${btnText} successfully!`);
+                        }else{
+                            Swal.fire({
+                                icon: "success",
+                                title: `Form ${btnText} successfully!`,
+                                text: data.message,
+                                // text: "hay"
+                            });
+                        }
+
+                        updatedForm = await fetchPriceChange();
+                    }
                     // navigate(0);
                     // navigate("/price_changes");
 
-                    if(btnStatus == 'Approved'){
+                    if(btnStatus == 'Approved' && passApprove){
                         runHandler(false,updatedForm);
                     }
 
@@ -1084,8 +1094,37 @@ export default function () {
         return btp;
     } 
 
-    const btpHandler = async (e)=>{
-        // console.log("back");
+    const checkApproval = async (latestForm = null)=>{
+        const data = latestForm || formState;
+
+        let getServerTime= await dispatch(fetchServerTime()).unwrap();
+
+        let serverDateTime = getServerTime.time;
+        console.log(serverDateTime);                // 2026-03-13 11:54:26
+
+        let currentDate = new Date(serverDateTime); // operation print tomorrow changed price tags  at 4 pm. So approver must approve before 4pm  
+        let after4PM = currentDate.getHours() >= 16;
+
+        let tomorrow = new Date(currentDate);
+        tomorrow.setDate(tomorrow.getDate() + 1); 
+
+        let effectiveDate = new Date(data.effective_date);
+        let isTomorrowAffect =  effectiveDate.getFullYear() === tomorrow.getFullYear() &&
+                                effectiveDate.getMonth() === tomorrow.getMonth() &&
+                                effectiveDate.getDate() === tomorrow.getDate();
+
+        let denyApprove = after4PM && !data.urgent_price_change && isTomorrowAffect;
+        
+        console.log(after4PM, !data.urgent_price_change, isTomorrowAffect);
+        if(denyApprove){
+            Swal.fire({
+                icon: "warning",
+                title: `သတ်မှတ်ချိန် (၄) နာရီ ကျော်လွန်သွားပါပြီ`,
+                text: `${data.effective_date} အတွက် ပုံမှန်စျေးနှုန်းပြောင်းလဲမှုများအား အတည်ပြုပေး၍ မရနိုင်တော့ကြောင်း အသိပေးအပ်ပါသည်။`,
+            });
+            return false;
+        }
+        return true;
     }
 
     const updateBranchStatus = (branchId, status, message = null) => {
@@ -1752,7 +1791,7 @@ export default function () {
                             <section className="p-6 border-b border-gray-100 bg-white">
                                 <div className="flex flex-col md:flex-row md:justify-between gap-4 mb-2">
                                     <h2 className="text-md font-semibold text-slate-800 uppercase">Document Information</h2>
-                                    {/* <ServerTime /> */}
+                                    <ServerTime />
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-2">
