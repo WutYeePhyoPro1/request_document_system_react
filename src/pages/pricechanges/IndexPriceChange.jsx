@@ -71,12 +71,27 @@ export default function IndexPriceChange() {
     };
 
     const [copied, setCopied] = useState(false);
-    const handleCopy = (e,id) => {
-        const data = datas.find(data=>data.id == id);
+    // const handleCopy = (e,id) => {
+    //     const data = datas.find(data=>data.id == id);
+    //     if (navigator.clipboard && navigator.clipboard.writeText) {
+    //         navigator.clipboard.writeText(data.form_doc_no)
+    //             .then(() => {
+    //                 setCopied(data.id);
+    //                 setTimeout(() => setCopied(false), 2000);
+    //             })
+    //             .catch((err) => {
+    //                 console.error("Clipboard copy failed:", err);
+    //                 fallbackCopy(formState.form_doc_no);
+    //             });
+    //     } else {
+    //         fallbackCopy(formState.form_doc_no);
+    //     }
+    // };
+    const handleCopy = (text) => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(data.form_doc_no)
+            navigator.clipboard.writeText(text)
                 .then(() => {
-                    setCopied(data.id);
+                    setCopied(text);
                     setTimeout(() => setCopied(false), 2000);
                 })
                 .catch((err) => {
@@ -84,7 +99,7 @@ export default function IndexPriceChange() {
                     fallbackCopy(formState.form_doc_no);
                 });
         } else {
-            fallbackCopy(formState.form_doc_no);
+            fallbackCopy(text);
         }
     };
 
@@ -288,6 +303,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">No</th>
                                             <th className="py-2 px-4 border-b">Status</th>
                                             <th className="py-2 px-4 border-b">Document No</th>
+                                            <th className="py-2 px-4 border-b">GCP No</th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Effective Date</span></th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Urgent</span></th>
                                             <th className="py-2 px-4 border-b">Department</th>
@@ -299,16 +315,26 @@ export default function IndexPriceChange() {
                                             {
                                                 datas.map((data,idx)=>(
                                                     <tr key={idx}
-                                                    onClick={() =>navigate(`/price_changes_detail/${data.id}`)}
-                                                    // onClick={() => window.open(`/price_changes_detail/${data.id}`, "_blank")}
-                                                    className="cursor-pointer hover:bg-[#efefef] transition"
+                                                    onClick={() => user.from_branch_id === 1 && navigate(`/price_changes_detail/${data.id}`)}
+                                                    className="group relative cursor-pointer hover:bg-[#efefef] transition"
+                                                    // title={user.from_branch_id !== 1 && 'Insufficient Permissions:'}
                                                     >
                                                         {/* <td className="py-2 px-4 border-b">
                                                             <button className={`ml-2 px-2 py-1 text-xs rounded transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer`}>
                                                                 <FaEye className="w-4 h-4" />
                                                             </button>
                                                         </td> */}
-                                                        <td className="py-2 px-4 border-b">{paginationInfo.from + idx}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {paginationInfo.from + idx}
+                                                            {user.from_branch_id !== 1 && (
+                                                            <div className="absolute left-8 -top-8 hidden group-hover:block -translate-x-1/2s z-50">
+                                                                <div className="bg-red-600 text-white text-xs py-1 px-3 rounded shadow-lg whitespace-nowrap">
+                                                                Insufficient Permissions: Access Denied
+                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-red-600"></div>
+                                                                </div>
+                                                            </div>
+                                                            )}
+                                                        </td>
                                                         <td className="py-2 px-4 border-b">
                                                             <StatusBadge status={data.status} />
                                                         </td>
@@ -317,28 +343,60 @@ export default function IndexPriceChange() {
                                                             <button
                                                                 onClick={(e)=>{
                                                                     e.stopPropagation(); 
-                                                                    handleCopy(e,data.id)
+                                                                    handleCopy(data.form_doc_no)
                                                                 }}
-                                                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == data.id
+                                                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == data.form_doc_no
                                                                     ? 'text-green-600 bg-green-50'
                                                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
                                                                     }`}
-                                                                title={copied == data.id ? "Copied!" : "Copy ID"}
-                                                                disabled={copied == data.id}
+                                                                title={copied == data.form_doc_no ? "Copied!" : "Copy ID"}
+                                                                disabled={copied == data.form_doc_no}
                                                             >
-                                                                {copied == data.id ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                                {copied == data.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                                                             </button>
 
-                                                            <button
-                                                                onClick={(e)=>{
-                                                                    e.stopPropagation();
-                                                                    window.open(`/price_changes_detail/${data.id}`, "_blank");
-                                                                }}
-                                                                className="opacity-0 group-hover:opacity-100 transition text-green-600 hover:text-green-700"
-                                                                title="Open in new tab"
-                                                            >
-                                                                <FiExternalLink className="w-4 h-4"/>
-                                                            </button>
+                                                            {
+                                                                user.from_branch_id == 1 &&
+                                                                <button
+                                                                    onClick={(e)=>{
+                                                                        e.stopPropagation();
+                                                                        window.open(`/price_changes_detail/${data.id}`, "_blank");
+                                                                    }}
+                                                                    className="opacity-0 group-hover:opacity-100 transition text-green-600 hover:text-green-700"
+                                                                    title="Open in new tab"
+                                                                >
+                                                                    <FiExternalLink className="w-4 h-4"/>
+                                                                </button>
+                                                            }
+                                                        </td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {
+                                                                data?.files?.filter(gf=>gf.name.includes("CP")).length == 0 && (
+                                                                <>
+                                                                -
+                                                                </>)
+                                                                
+                                                            }
+                                                            {
+                                                                data?.files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
+                                                                    <label key={idx} className="">{generalFormFile.name}
+                                                                    <button
+                                                                        onClick={(e)=>{
+                                                                            e.stopPropagation(); 
+                                                                            handleCopy(generalFormFile.name)
+                                                                        }}
+                                                                        className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == generalFormFile.name
+                                                                            ? 'text-green-600 bg-green-50'
+                                                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                                                            }`}
+                                                                        title={copied == generalFormFile.name ? "Copied!" : "Copy ID"}
+                                                                        disabled={copied == generalFormFile.name}
+                                                                    >
+                                                                        {copied == generalFormFile.name ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                                    </button>
+                                                                    </label>
+                                                                ))
+                                                            }
                                                         </td>
                                                         <td className="py-2 px-4 border-b">{data.date}</td>
                                                         <td className="py-2 px-4 border-b">
