@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { meDataDetail } from "../../../api/ME/meData";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Button, Loader } from "@mantine/core";
@@ -9,10 +9,12 @@ import { FiCopy } from "react-icons/fi";
 import StatusBadge from "../../../components/ui/StatusBadge";
 import {
   dateFormat,
+  dateTimeFormat,
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
 import ApproveForm from "../../requestDiscount/approveForm";
 import TableDetail from "./tableDetail";
+import MeApproveForm from "../meApproveForm";
 
 const GeneratorDetail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -22,27 +24,26 @@ const GeneratorDetail: React.FC = () => {
   const [copied, setCopied] = useState<boolean>(false);
 
   const { id } = useParams<{ id: string }>();
-  console.log("ID>>", id, typeof id);
   useEffect(() => {
     if (!id) return;
-
-    const fetchData = async (id: string) => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      setLoading(true);
-      try {
-        const data = await meDataDetail(token, id);
-        setDetailData(data);
-      } catch (error) {
-        console.error("GeneratorDetail error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData(Number(id));
+    fetchData(id);
   }, [id]);
+
+  const fetchData = async (id: string | number) => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    setLoading(true);
+    try {
+      const data = await meDataDetail(token, id);
+      setDetailData(data);
+    } catch (error) {
+      console.error("GeneratorDetail error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onCopyClick = () => {
     handleCopy(
       detailData?.generalForm?.form_doc_no,
@@ -60,8 +61,26 @@ const GeneratorDetail: React.FC = () => {
     navigate(-1);
     // detailData(null);
   };
-  if (loading) return <div>Loading...</div>;
-  if (!detailData) return <div>No Data Found</div>;
+  const FullPageLoader = () => (
+    <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
+      <Loader size="xl" color="blue" />
+    </div>
+  );
+
+  if (loading)
+    return (
+      <>
+        {loading && <FullPageLoader />}
+
+        {!detailData ? (
+          <div className="flex justify-center items-center min-h-screen">
+            <Loader size="xl" />
+          </div>
+        ) : (
+          <div>{/* your existing content */}</div>
+        )}
+      </>
+    );
 
   return (
     <>
@@ -76,16 +95,25 @@ const GeneratorDetail: React.FC = () => {
         </div>
       ) : (
         <div className="">
-          <div className="p-4 sm:p-6">
+          <div className="">
             <div
-              className="h-48 w-full bg-cover bg-center rounded-lg shadow-md mb-6"
+              className="h-30 w-full bg-cover bg-center  rounded-lg shadow-md mb-2 p-4 sm:p-6"
               style={{ backgroundImage: `url(${dashboardPhoto})` }}
             ></div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6">
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 w-full">
+              {detailData?.generalForm?.remark && (
+                <h1 className="text-red-700 font-bold">
+                  [ {detailData.generalForm.remark}]
+                </h1>
+              )}
+
               <NavPath
                 segments={[
                   { path: "/dashboard", label: "Dashboard" },
-                  { path: "/generator", label: "generaor" },
+                  {
+                    path: `/generator/${detailData?.subForm?.sub_form_id}`,
+                    label: "generaor",
+                  },
                   {
                     path: `/generator_detail/${id}`,
                     label: "Generator Detail",
@@ -95,7 +123,7 @@ const GeneratorDetail: React.FC = () => {
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold">
-                  Request Discount Form(
+                  M&E Generator Form(
                   {detailData?.generalForm?.form_doc_no
                     ? detailData?.generalForm?.form_doc_no
                     : ""}
@@ -126,19 +154,41 @@ const GeneratorDetail: React.FC = () => {
                     ? dateFormat(detailData?.generalForm?.created_at)
                     : ""}
                 </div>
+                <div className="">
+                  {detailData?.generalForm?.status === "Default" && (
+                    <Button
+                      component={Link}
+                      state={{
+                        reAdd: true,
+                        formId: detailData?.subForm?.sub_form_id,
+                        generalFormId: detailData?.generalForm?.id,
+                      }}
+                      to="/generator_create"
+                    >
+                      Add More
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <div className="mb-6">
-                {/* <div className="font-medium mb-2">
-                  Request Manual Discount Detail
-                </div> */}
                 <div className="bodyData">
                   <div className="tableData">
-                    <TableDetail detailData={detailData} />
+                    <TableDetail
+                      detailData={detailData}
+                      onRefresh={() => fetchData(id!)}
+                      loading={loading}
+                      setLoading={setLoading}
+                    />
                   </div>
                   <hr className="mt-8 mb-6" />
                   <div className="approve">
-                    <ApproveForm />
+                    <MeApproveForm
+                      detailData={detailData}
+                      onRefresh={() => fetchData(id!)}
+                      loading={loading}
+                      setLoading={setLoading}
+                    />
                   </div>
                   <div className="userData grid lg:grid-cols-6 md:grid-cols-6 grid-cols-3 items-start text-sm">
                     {/* Prepared By */}
@@ -156,12 +206,55 @@ const GeneratorDetail: React.FC = () => {
                         )
                       </span>
                       <span className="text-blue-500 mt-1">
-                        {dateFormat(detailData?.generalForm?.created_at)}
+                        {dateTimeFormat(detailData?.generalForm?.created_at)}
                       </span>
                     </div>
+                    {detailData?.getApprover ? (
+                      ["Completed", "Cancel"].includes(
+                        detailData?.generalForm?.status,
+                      ) ? (
+                        <div>
+                          {/* sdfnmdnsfm */}
+                          <div className="font-medium ">Checked By</div>
+                          <div className="font-semibold text-blue-400 mt-1">
+                            {detailData?.getApprover?.approval_users?.title}{" "}
+                            {detailData?.getApprover?.approval_users?.name}
+                          </div>
+                          <div className="text-blue-500 mt-1">
+                            (
+                            {
+                              detailData?.getApprover?.approval_users
+                                ?.department?.name
+                            }
+                            )
+                          </div>
+                          <div className="text-blue-500 mt-1">
+                            {dateTimeFormat(
+                              detailData?.getApprover?.created_at,
+                            )}
+                          </div>
+                          {detailData?.getApprover?.comment && (
+                            <div className="text-info text-break italic text-blue-500 mt-1">
+                              “{detailData?.getApprover?.comment}”
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="opacity-40">Checked By</div>
+                      )
+                    ) : (
+                      <div className="opacity-40">
+                        <div>Checked By</div>
+                        <div>-------------------</div>
+                        <div>Operation Analysis</div>
+                        <div>
+                          {dateTimeFormat(detailData?.form?.created_at)}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div className="mt-6">
-                    {detailData?.form?.status === "Cancel" && (
+                    {detailData?.generalForm?.status === "Cancel" && (
                       <div className="col-12">
                         <div className="bg-red-300 p-4 rounded-lg" role="alert">
                           This form was rejected by{" "}
@@ -178,6 +271,7 @@ const GeneratorDetail: React.FC = () => {
                         </div>
                       </div>
                     )}
+                    <div></div>
                   </div>
                 </div>
               </div>

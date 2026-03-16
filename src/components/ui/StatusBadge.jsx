@@ -12,8 +12,9 @@ export default function StatusBadge({ status, count }) {
     
     // Match Laravel blade badge colors exactly from custom.css
     switch (normalized) {
+      case "default":
+        return "bg-[#3c7cc1] text-[#fff]";
       case "ongoing":
-        // custom-badge-bg-ongoing: bg #fbb193, text #e1341e
         return "bg-[#fbb193] text-[#e1341e]";
       case "checked":
         // custom-badge-bg-checked: bg #fedec3, text #fb923c
@@ -46,6 +47,12 @@ export default function StatusBadge({ status, count }) {
       case "ac_acknowledged":
         // custom-badge-bg-acknowledged: use OP Approved colors bg #e9f9cf, text #2e4702ff
         return "bg-[#e9f9cf] text-[#a3e635]";
+      case "already changed":
+          return "bg-[#14b8a6] text-white font-semibold";
+      case "partial":
+          return "bg-[#ffb703] text-[#7c2d12] font-bold";
+      case "pass approval":
+          return "bg-[#007bff1a] text-[#007bff]";
       default:
         return "bg-gray-200 text-gray-600";
     }

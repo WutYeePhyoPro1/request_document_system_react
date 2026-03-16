@@ -51,3 +51,28 @@ export const meDataDetail = async(token:string , id:string) : Promise<meGenerato
     return null;
   }
 }
+
+// export const meApproveForm = async(token:string | formData:meGeneratorDataType | general_form_id:string | sub_form_id:string) => {
+//   return API.post(`/meForm/approve/${general_form_id}/${sub_form_id}` , formData , {
+//     headers:{
+//       Authorization: `Bearer ${token}` 
+//     }
+//   });
+// }
+export const approveFormME = async (
+  token: string,
+  formData: meGeneratorDataType,
+  form_id:string | number ,
+  general_form_id: string | number,
+  sub_form_id: string | number
+) => {
+  return API.post(
+    `/meForm/approve/${form_id}/${general_form_id}/${sub_form_id}`,
+    formData,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+};

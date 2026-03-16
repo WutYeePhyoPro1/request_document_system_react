@@ -58,3 +58,18 @@ export const generatorFileDelete = async(token:string , id:string) : Promise<meG
     return null;
   }
 }
+
+export const generatorDelete = async (
+  token: string,
+  generalFormId: string | number,
+  formId: string | number,
+) => {
+  const response = await API.get(
+    `/me/generator/delete/${generalFormId}/${formId}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+
+  return response.data;
+};

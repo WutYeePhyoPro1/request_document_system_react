@@ -10,15 +10,17 @@ import { FiCopy } from "react-icons/fi";
 import { AiFillMessage } from "react-icons/ai";
 import {
   dateFormat,
+  dateTimeFormat,
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
 import { Loader } from "lucide-react";
 import Swal from "sweetalert2";
 import { searchMeData } from "../../../api/ME/meData";
+import "../../../../src/assets/css/style.css";
+// src/assets/css/style.css
 
 const Index: React.FC = () => {
-  const location = useLocation();
-  const { formId } = location.state || {};
+  const formId = 1;
   console.log("FormID>>", formId);
   const [generalData, setGeneralData] = useState<IndexData[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
@@ -32,7 +34,11 @@ const Index: React.FC = () => {
     status: [] as string[],
     branch_id: null as string | null,
   });
-  console.log("SearchTerm>>", searchTerm);
+  const formatDisplay = (val: string | null) => {
+    if (!val) return "DD-MM-YYYY";
+    const [y, m, d] = val.split("-");
+    return `${d}-${m}-${y}`;
+  };
   useEffect(() => {
     const cached = sessionStorage.getItem("generator_cache");
     if (cached) {
@@ -56,6 +62,7 @@ const Index: React.FC = () => {
               user_branches: data?.user_branches,
               noti_data: data?.noti_data,
               authBranch: data?.authBranch,
+              createdUser: data?.createdUser,
             },
             data: parsed.data,
           });
@@ -68,6 +75,7 @@ const Index: React.FC = () => {
       fetchData();
     }
   }, []);
+
   const fetchData = async () => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -81,6 +89,7 @@ const Index: React.FC = () => {
           user_branches: data?.user_branches,
           noti_data: data?.noti_data,
           authBranch: data?.authBranch,
+          createdUser: data?.createdUser,
         },
         data: data?.data,
       });
@@ -91,6 +100,8 @@ const Index: React.FC = () => {
       setLoading(false);
     }
   };
+  console.log("SearchTerm>>", generalData);
+  console.log("createdUser>>", generalData?.meta?.createdUser);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
@@ -152,7 +163,7 @@ const Index: React.FC = () => {
       );
 
       setGeneralData((prev) => ({ ...prev, data: results.data }));
-      console.log("Search Data>>", generalData);
+
       setActivePage(1);
     } catch (error) {
       console.error(error);
@@ -177,7 +188,7 @@ const Index: React.FC = () => {
     setLoading(true);
     await fetchData();
 
-    navigate("/generator", { replace: true });
+    navigate(`/generator/${formId}`, { replace: true });
   };
   const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
@@ -246,7 +257,7 @@ const Index: React.FC = () => {
             <Table.Td>{element.originators?.name}</Table.Td>
 
             <Table.Td>{dateFormat(element.created_at)}</Table.Td>
-            <Table.Td>{dateFormat(element.updated_at)}</Table.Td>
+            <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
             <Table.Td className="text-blue-600 font-medium underline">
               View
             </Table.Td>
@@ -280,20 +291,22 @@ const Index: React.FC = () => {
         />
         <div className="flex justify-between mr-4">
           <h2 className="text-xl font-semibold">Generator Form</h2>
-          <Link
-            to="/generator_create"
-            state={{ formId: formId }}
-            className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
-            style={{ background: "#2ea2d1" }}
-            onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#2ea2d1";
-            }}
-          >
-            Add
-          </Link>
+          {generalData?.meta?.createdUser === true && (
+            <Link
+              to="/generator_create"
+              state={{ formId: formId }}
+              className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
+              style={{ background: "#2ea2d1" }}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = "#2ea2d1";
+              }}
+            >
+              Add
+            </Link>
+          )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-8 gap-4 mb-6 text-sm mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6 text-sm mt-4 items-center">
           <div className="flex flex-col">
             <label
               htmlFor="formDocNo"
@@ -312,7 +325,7 @@ const Index: React.FC = () => {
               onChange={handleInputChange}
             />
           </div>
-          <div className="flex flex-col">
+          {/* <div className="flex flex-col">
             <label
               htmlFor="formDocNo"
               className="mb-1 font-medium text-gray-700"
@@ -328,16 +341,44 @@ const Index: React.FC = () => {
               value={searchTerm.from_date}
               onChange={handleInputChange}
             />
-            {/* <DatePickerInput
-                     className="border border-blue-500 focus:outline-none w-full rounded-md"
-                     placeholder="Pick date"
-                     name="from_date"
-                     value={searchTerm.from_date}
-                     onChange={(value) => handleDateChange("from_date", value)} 
-                     
-                   /> */}
-          </div>
+          </div> */}
           <div className="flex flex-col">
+            <label
+              htmlFor="from_date"
+              className="mb-1 font-medium text-gray-700"
+            >
+              From Date
+            </label>
+            <div className="date-container" style={{ position: "relative" }}>
+              {/* This layer shows the user the DD-MM-YYYY format */}
+              <div
+                className="date-overlay"
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  backgroundColor: "white",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                  fontSize: "14px",
+                }}
+              >
+                {formatDisplay(searchTerm.from_date)}
+              </div>
+
+              <input
+                id="from_date"
+                type="date"
+                name="from_date"
+                /* IMPORTANT: Value MUST be yyyy-MM-dd (searchTerm.from_date) */
+                value={searchTerm.from_date || ""}
+                onChange={handleInputChange}
+                className="native-date-input border border-blue-500 focus:outline-none p-2 w-full rounded-md"
+              />
+            </div>
+          </div>
+          {/* <div className="flex flex-col">
             <label
               htmlFor="formDocNo"
               className="mb-1 font-medium text-gray-700"
@@ -353,14 +394,44 @@ const Index: React.FC = () => {
               value={searchTerm.to_date}
               onChange={handleInputChange}
             />
-            {/* <DatePickerInput
-                     placeholder="Pick date"
-                     className="border border-blue-500 focus:outline-none w-full rounded-md"
-                     name="to_date"
-                     value={searchTerm.to_date}
-                     onChange={(value) => handleDateChange("to_date", value)}
-                   /> */}
+          </div> */}
+          <div className="flex flex-col">
+            <label
+              htmlFor="from_date"
+              className="mb-1 font-medium text-gray-700"
+            >
+              To Date
+            </label>
+            <div className="date-container" style={{ position: "relative" }}>
+              {/* This layer shows the user the DD-MM-YYYY format */}
+              <div
+                className="date-overlay"
+                style={{
+                  position: "absolute",
+                  left: "12px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  backgroundColor: "white",
+                  pointerEvents: "none",
+                  zIndex: 1,
+                  fontSize: "14px",
+                }}
+              >
+                {formatDisplay(searchTerm.to_date)}
+              </div>
+
+              <input
+                id="formDocNo"
+                type="date"
+                placeholder="Enter Date"
+                className="native-date-input border border-blue-500 focus:outline-none p-2 w-full rounded-md"
+                name="to_date"
+                value={searchTerm.to_date || ""}
+                onChange={handleInputChange}
+              />
+            </div>
           </div>
+
           <div className="flex flex-col">
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
               Status
@@ -368,14 +439,7 @@ const Index: React.FC = () => {
             <MultiSelect
               id="status"
               placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
-              data={[
-                "All",
-                "Ongoing",
-                "BM Approved",
-                "Approved",
-                "Acknowledged",
-                "Completed",
-              ]}
+              data={["All", "Default", "Ongoing", "Completed", "Cancel"]}
               className="border border-blue-500 focus:outline-none w-full rounded-md"
               value={searchTerm.status}
               onChange={handleStatusChange}
@@ -418,7 +482,7 @@ const Index: React.FC = () => {
               />
             )}
           </div>
-          <div className="flex items-end">
+          <div className="flex items-center mt-3">
             <button
               className="text-white px-4 py-2 rounded w-full cursor-pointer"
               style={{
@@ -429,7 +493,7 @@ const Index: React.FC = () => {
               Search
             </button>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-center mt-3">
             <button
               className="text-white px-4 py-2 rounded w-full cursor-pointer"
               style={{
@@ -437,7 +501,7 @@ const Index: React.FC = () => {
               }}
               onClick={handleRestart}
             >
-              Clear Search
+              Clear
             </button>
           </div>
         </div>

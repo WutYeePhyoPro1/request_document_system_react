@@ -10,6 +10,7 @@ export const badgeNoti = async(token) => {
         const response = await API.get("/badgeNoti" , {
             headers: {Authorization: `Bearer ${token}`} ,
         });
+        console.log(response.data);
         return response.data ;
     }catch(error) {
         console.log("Error a badgeError>>" , error) ;
