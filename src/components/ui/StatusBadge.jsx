@@ -53,6 +53,8 @@ export default function StatusBadge({ status, count }) {
           return "bg-[#ffb703] text-[#7c2d12] font-bold";
       case "pass approval":
           return "bg-[#007bff1a] text-[#007bff]";
+      case "failed":
+             return "bg-[#fecaca] text-[#991b1b]";
       default:
         return "bg-gray-200 text-gray-600";
     }
