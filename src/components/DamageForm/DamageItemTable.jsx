@@ -2397,13 +2397,15 @@ const normalizeImageEntries = (list) => {
             {paginatedItems.length > 0 ? (
               paginatedItems.map((item, idx) => {
                 const matchId = item.id ?? item.specific_form_id;
-                
+                const systemQtyZero = (parseFloat(item.system_qty) || 0) === 0;
+
                 return (
                 <tr
                   key={item.id}
                   className={`border-b border-gray-200 hover:bg-gray-50 transition-all ${
                     selectedIds.includes(item.id) ? "bg-emerald-50" : ""
-                  }`}
+                  } ${systemQtyZero ? "text-red-600 line-through" : ""}`}
+                  title={systemQtyZero ? t('table.struckThroughNoStockReason', { defaultValue: 'Struck through: System quantity is 0 (no stock available)' }) : undefined}
                 >
                   <td
                     className="px-2 py-2 text-center text-[13px]"
