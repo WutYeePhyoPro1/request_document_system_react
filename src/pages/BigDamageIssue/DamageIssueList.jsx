@@ -69,7 +69,8 @@ function DamageIssueList({
   const navigateToDetail = (detailId, bigDamageId, generalFormId) => {
     const currentUrl = window.location.pathname + window.location.search;
     sessionStorage.setItem('bigDamageIssueReturnUrl', currentUrl);
-    navigate(`/big-damage-issue-add/${detailId}`, { 
+    const detailPath = `/big-damage-issue-add/${detailId}?lookup=general_form`;
+    navigate(detailPath, { 
       state: { bigDamageId, generalFormId, returnPage: currentPage, returnUrl: currentUrl } 
     });
   };
@@ -257,7 +258,8 @@ function DamageIssueList({
 
   const renderRow = (row, idx) => {
     const gf = row || {};
-                    const detailId = row.id;
+    const detailId = gf?.id || row?.general_form_id || gf?.general_form_id || row?.id;
+    const generalFormId = gf?.id || row?.general_form_id || gf?.general_form_id || null;
     const displayNo = (safeCurrentPage - 1) * PAGE_SIZE + idx + 1;
     
                     const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
@@ -280,7 +282,7 @@ function DamageIssueList({
                       <tr
                         key={row.id}
                         className="border-b border-gray-200 bg-gray-100 hover:bg-gray-200 transition duration-150 ease-in-out cursor-pointer"
-                        onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
+                        onClick={() => navigateToDetail(detailId, row.id, generalFormId)}
                       >
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 w-12">
                           {displayNo}
@@ -328,7 +330,8 @@ function DamageIssueList({
 
   const renderMobileCard = (row, idx) => {
     const gf = row.general_form || row || {};
-            const detailId = row.id;
+    const detailId = gf?.id || row?.general_form_id || gf?.general_form_id || row?.id;
+    const generalFormId = gf?.id || row?.general_form_id || gf?.general_form_id || null;
     const displayNo = (safeCurrentPage - 1) * PAGE_SIZE + idx + 1;
     
             const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
@@ -352,11 +355,11 @@ function DamageIssueList({
                 key={`mobile-card-${row.id}`}
                 role="button"
                 tabIndex={0}
-                onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
+                onClick={() => navigateToDetail(detailId, row.id, generalFormId)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    navigateToDetail(detailId, row.id, gf.id || null);
+                    navigateToDetail(detailId, row.id, generalFormId);
                   }
                 }}
                 className="bg-gray-100 rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"

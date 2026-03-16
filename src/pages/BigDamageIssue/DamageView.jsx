@@ -398,6 +398,10 @@ const attachImagesToItems = (items = [], files = []) => {
 export default function DamageView() {
   const { id } = useParams();
   const location = useLocation();
+  const lookupType = useMemo(() => {
+    const params = new URLSearchParams(location?.search || '');
+    return params.get('lookup');
+  }, [location?.search]);
   const { setNotifications } = useContext(NotificationContext);
   const hasMarkedNotificationRef = useRef(false);
   const token = useMemo(() => localStorage.getItem("token"), []);
@@ -456,14 +460,19 @@ export default function DamageView() {
   };
 
   const { data: viewData, error, isLoading, mutate } = useSWR(
-    token && id ? ['damage-view', id, location?.state?.generalFormId || null] : null,
-    async ([, idKey, generalFormId]) => {
+    token && id ? ['damage-view', id, location?.state?.generalFormId || null, lookupType || null] : null,
+    async ([, idKey, generalFormId, requestedLookupType]) => {
       if (!token) throw new Error('NO_TOKEN');
 
       // Primary detail
       let payload;
       try {
-        const json = await fetchJsonWithBackoff(`/api/big-damage-issues/${idKey}`);
+        const forceGeneralLookup = requestedLookupType === 'general_form'
+          || (generalFormId != null && String(generalFormId) === String(idKey));
+        const detailUrl = forceGeneralLookup
+          ? `/api/big-damage-issues/${idKey}?lookup=general_form`
+          : `/api/big-damage-issues/${idKey}`;
+        const json = await fetchJsonWithBackoff(detailUrl);
         payload = json && typeof json === 'object' && !Array.isArray(json)
           ? (json.data && typeof json.data === 'object' ? json.data : json)
           : {};
