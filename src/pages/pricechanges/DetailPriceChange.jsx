@@ -4,7 +4,7 @@ import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,useParams,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
-import { FaFileImport,FaSpinner,FaInfoCircle,FaLock } from "react-icons/fa";
+import { FaFileImport,FaSpinner,FaInfoCircle,FaLock, FaPen, FaEye  } from "react-icons/fa";
 import { BsCartCheck } from "react-icons/bs";
 import { FiCopy } from 'react-icons/fi';
 
@@ -1824,7 +1824,7 @@ export default function () {
                                     </div>
 
                                     <div>
-                                        <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date {formState.change_price_date}<span className="text-red-600 text-md">*</span></label>
+                                        <label className="text-xs font-bold text-slate-500 uppercase">Change Price Date <span className="text-red-600 text-md">*</span></label>
                                         {/* <input type="date" id="change_price_date" name="change_price_date" className="mt-1 border focus:ring-2 focus:ring-blue-400 focus:outline-none p-2 w-full rounded-md bg-gray-50" style={{ borderColor: '#2ea2d1' }} onChange={changeHandler} value={formState.change_price_date} readOnly /> */}
                                         <Flatpickr
                                             value={formState.change_price_date}
@@ -2022,17 +2022,16 @@ export default function () {
                             <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
                                 <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
-                                    <button
-                                    onClick={() => setProductsLock(!productsLock)}
-                                    className={`flex items-center justify-center p-2 rounded-md border transition
-                                        ${productsLock 
-                                        ? "bg-blue-600 text-white border-blue-600" 
-                                        : "bg-transparent text-blue-600 border-blue-600 hover:bg-blue-50"}
-                                    `}
-                                    title={productsLock ? "Edit Mode" : "View Mode"}
-                                    >
-                                    <FaLock />
-                                    </button>
+                                    {
+                                        changable &&
+                                            <button
+                                            onClick={() => setProductsLock(!productsLock)}
+                                            className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
+                                            title={productsLock ? "Edit Mode" : "View Mode"}
+                                            >
+                                                {productsLock ? <FaPen /> : <FaEye />}
+                                            </button>
+                                    }
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
                                     <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock}/>

@@ -4,7 +4,7 @@ import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
-import { FaFileImport,FaSpinner,FaLock } from "react-icons/fa";
+import { FaFileImport,FaSpinner,FaLock, FaPen, FaEye } from "react-icons/fa";
 
 // import $ from "jquery";
 import Select from 'react-select'
@@ -1134,14 +1134,10 @@ export default function () {
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
                                     <button
                                     onClick={() => setProductsLock(!productsLock)}
-                                    className={`flex items-center justify-center p-2 rounded-md border transition
-                                        ${productsLock 
-                                        ? "bg-blue-600 text-white border-blue-600" 
-                                        : "bg-transparent text-blue-600 border-blue-600 hover:bg-blue-50"}
-                                    `}
+                                    className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
                                     title={productsLock ? "Edit Mode" : "View Mode"}
                                     >
-                                    <FaLock />
+                                     {productsLock ? <FaPen /> : <FaEye />}
                                     </button>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
