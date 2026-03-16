@@ -4,6 +4,7 @@ import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Button, Textarea } from "@mantine/core";
 import Swal from "sweetalert2";
 import { NotificationContext } from "../../context/NotificationContext";
+import { useNavigate } from "react-router-dom";
 
 type MeApproveFormProps = {
   detailData: meGeneratorDataType;
@@ -34,8 +35,26 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     setComment(e.target.value);
   };
   console.log("DetailData>>", detailData);
-
+  const navigate = useNavigate();
+  const handleBack = () => {
+    navigate(-1);
+  };
   const handleSubmit = async (statusValue: string) => {
+    if (statusValue === "Cancel") {
+      const confirmBox = await Swal.fire({
+        title: "Are you sure?",
+        text: "Want to cancel.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "rgb(29, 95, 219)",
+        confirmButtonText: "Yes",
+        cancelButtonText: "No",
+      });
+
+      if (!confirmBox.isConfirmed) return;
+    }
+
     const token = localStorage.getItem("token");
     if (!token) return;
     console.log("StatusValue>>", statusValue);
@@ -130,11 +149,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
                   Send to manager
                 </Button>
 
-                <Button
-                  color="red"
-                  disabled={loading}
-                  onClick={() => handleSubmit("Cancel")}
-                >
+                <Button color="red" disabled={loading} onClick={handleBack}>
                   Cancel
                 </Button>
               </div>
