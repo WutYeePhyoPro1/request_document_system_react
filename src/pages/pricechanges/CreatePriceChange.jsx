@@ -57,7 +57,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    const [productsLock, setProductsLock] = useState([]);
+    const [productsLock, setProductsLock] = useState(false);
 
     // const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1132,10 +1132,20 @@ export default function () {
                             <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
                                 <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
-                                    {/* <button className=""><FaLock /></button> */}
+                                    <button
+                                    onClick={() => setProductsLock(!productsLock)}
+                                    className={`flex items-center justify-center p-2 rounded-md border transition
+                                        ${productsLock 
+                                        ? "bg-blue-600 text-white border-blue-600" 
+                                        : "bg-transparent text-blue-600 border-blue-600 hover:bg-blue-50"}
+                                    `}
+                                    title={productsLock ? "Edit Mode" : "View Mode"}
+                                    >
+                                    <FaLock />
+                                    </button>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={!productsLock}/>
                                 {/* </div> */}
                             </div>
                         </main>
