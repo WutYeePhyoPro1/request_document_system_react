@@ -4,7 +4,7 @@ import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,useParams,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
-import { FaFileImport,FaSpinner,FaInfoCircle } from "react-icons/fa";
+import { FaFileImport,FaSpinner,FaInfoCircle,FaLock } from "react-icons/fa";
 import { BsCartCheck } from "react-icons/bs";
 import { FiCopy } from 'react-icons/fi';
 
@@ -67,6 +67,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
+    const [productsLock, setProductsLock] = useState(false);
     let totalProductCount = products.length;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2019,11 +2020,22 @@ export default function () {
                             
                             {/* Product Prices Stacked on Bottom */}
                             <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
-                                <div className="mb-4">
+                                <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
+                                    <button
+                                    onClick={() => setProductsLock(!productsLock)}
+                                    className={`flex items-center justify-center p-2 rounded-md border transition
+                                        ${productsLock 
+                                        ? "bg-blue-600 text-white border-blue-600" 
+                                        : "bg-transparent text-blue-600 border-blue-600 hover:bg-blue-50"}
+                                    `}
+                                    title={productsLock ? "Edit Mode" : "View Mode"}
+                                    >
+                                    <FaLock />
+                                    </button>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable}/>
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock}/>
                                 {/* </div> */}
                             </div>
                         </main>
