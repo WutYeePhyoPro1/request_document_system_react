@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MultiSelect, Pagination, Select, Table } from "@mantine/core";
+import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
 import type { IndexData } from "../../../utils/requestDiscountUtil";
 import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
 import { parse } from "uuid";
@@ -13,7 +13,6 @@ import {
   dateTimeFormat,
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
-import { Loader } from "lucide-react";
 import Swal from "sweetalert2";
 import { searchMeData } from "../../../api/ME/meData";
 import "../../../../src/assets/css/style.css";

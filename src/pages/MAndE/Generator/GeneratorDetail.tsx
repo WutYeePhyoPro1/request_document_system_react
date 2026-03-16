@@ -86,12 +86,12 @@ const GeneratorDetail: React.FC = () => {
     <>
       {detailData == null ? (
         <div className="flex justify-center items-center min-h-screen">
-          <div className="flex flex-col items-center gap-4">
+          {/* <div className="flex flex-col items-center gap-4">
             <Loader size="xl" color="blue" />
             <div className="text-lg font-semibold  text-gray-700 animate-pulse">
               Loading Detail Data...
             </div>
-          </div>
+          </div> */}
         </div>
       ) : (
         <div className="">
@@ -209,7 +209,10 @@ const GeneratorDetail: React.FC = () => {
                         {dateTimeFormat(detailData?.generalForm?.created_at)}
                       </span>
                     </div>
-                    {detailData?.getChecker ? (
+                    {detailData?.getChecker &&
+                    (detailData?.form_rejected == null ||
+                      detailData?.form_rejected?.can_cel_u_ser?.name !==
+                        "Yan Naing Soe") ? (
                       ["checked", "Completed", "Cancel"].includes(
                         detailData?.generalForm?.status,
                       ) ? (
@@ -246,12 +249,13 @@ const GeneratorDetail: React.FC = () => {
                         <div>-------------------</div>
                         <div>Operation Analysis</div>
                         <div>
-                          {dateTimeFormat(detailData?.form?.created_at)}
+                          {/* {dateTimeFormat(detailData?.getChecker?.created_at)} */}
                         </div>
                       </div>
                     )}
 
-                    {detailData?.getApprover ? (
+                    {detailData?.getApprover &&
+                    detailData?.form_rejected == null ? (
                       ["Completed", "Cancel"].includes(
                         detailData?.generalForm?.status,
                       ) ? (
@@ -301,8 +305,7 @@ const GeneratorDetail: React.FC = () => {
                         <div className="bg-red-300 p-4 rounded-lg" role="alert">
                           This form was rejected by{" "}
                           <span className="fw-bold">
-                            {detailData?.form_rejected?.approval_users?.title}{" "}
-                            {detailData?.form_rejected?.approval_users?.name}
+                            {detailData?.form_rejected?.can_cel_u_ser?.name}
                           </span>
                           <button
                             type="button"

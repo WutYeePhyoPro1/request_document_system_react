@@ -89,6 +89,24 @@ const GeneratorEdit: React.FC = () => {
     setForm((prev: any) => ({ ...prev, [name]: value }));
   };
 
+  const handleLLevelChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+
+    let newValue = value;
+
+    // remove leading zeros (but allow single 0)
+    if (value.length > 1 && value.startsWith("0")) {
+      newValue = value.replace(/^0+/, "");
+    }
+
+    setForm((prev: any) => ({
+      ...prev,
+      [name]: newValue,
+    }));
+  };
+
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
@@ -594,7 +612,7 @@ const GeneratorEdit: React.FC = () => {
                 name="l1_level"
                 value={form.generator_use === "no_use" ? 0 : form.l1_level}
                 disabled={form.generator_use === "no_use"}
-                onChange={handleChange}
+                onChange={handleLLevelChange}
                 required
                 min="0"
                 max="9999"
@@ -632,7 +650,7 @@ const GeneratorEdit: React.FC = () => {
                 name="l2_level"
                 value={form.generator_use === "no_use" ? 0 : form.l2_level}
                 disabled={form.generator_use === "no_use"}
-                onChange={handleChange}
+                onChange={handleLLevelChange}
                 min="0"
                 max="9999"
                 onInput={(e) => {
@@ -668,7 +686,7 @@ const GeneratorEdit: React.FC = () => {
                 name="l3_level"
                 value={form.generator_use === "no_use" ? 0 : form.l3_level}
                 disabled={form.generator_use === "no_use"}
-                onChange={handleChange}
+                onChange={handleLLevelChange}
                 min="0"
                 max="9999"
                 onInput={(e) => {
