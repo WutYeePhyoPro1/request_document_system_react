@@ -1637,7 +1637,7 @@ export default function () {
                                 >
                                     {copied == formState.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                                 </button>
-                                <StatusBadge status={formState?.status ? formState?.status : ''} />
+                                <StatusBadge status={formState?.status ? (formState?.status != 'Approved' ? formState?.status : 'Failed') : ''} />
                             </h3>
 
                             <div className="flex flex-wrap gap-4 sm:justify-end">
