@@ -336,7 +336,7 @@ export default function IndexPriceChange() {
                                                             )}
                                                         </td>
                                                         <td className="py-2 px-4 border-b">
-                                                            <StatusBadge status={data.status} />
+                                                            <StatusBadge status={data?.status ? (data?.status != 'Approved' ? data?.status : 'Failed') : ''} />
                                                         </td>
                                                         <td className="py-2 px-4 border-b group">
                                                             {data.form_doc_no}
