@@ -27,8 +27,10 @@ export default function IndexPriceChange() {
         { value: "Pass approval", label: "Pass approval" },
         { value: "Already changed", label: "Already changed" },
         { value: "Cancel", label: "Cancel" },
+        { value: "Approved", label: "Failed" },
     ];
     const [branches, setBranches] = useState([]);
+    const [categories, setCategories] = useState([]);
 
     const {loading,error,datas,filters,isSearchMode,paginationInfo} = useSelector((state)=>state.pricechanges)
 
@@ -43,6 +45,7 @@ export default function IndexPriceChange() {
 
     useEffect(() => {
         fetchBranches();
+        fetchProductCategories();
     }, []);
     
     const onChangeHandler = (e)=>{
@@ -71,12 +74,27 @@ export default function IndexPriceChange() {
     };
 
     const [copied, setCopied] = useState(false);
-    const handleCopy = (e,id) => {
-        const data = datas.find(data=>data.id == id);
+    // const handleCopy = (e,id) => {
+    //     const data = datas.find(data=>data.id == id);
+    //     if (navigator.clipboard && navigator.clipboard.writeText) {
+    //         navigator.clipboard.writeText(data.form_doc_no)
+    //             .then(() => {
+    //                 setCopied(data.id);
+    //                 setTimeout(() => setCopied(false), 2000);
+    //             })
+    //             .catch((err) => {
+    //                 console.error("Clipboard copy failed:", err);
+    //                 fallbackCopy(formState.form_doc_no);
+    //             });
+    //     } else {
+    //         fallbackCopy(formState.form_doc_no);
+    //     }
+    // };
+    const handleCopy = (text) => {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(data.form_doc_no)
+            navigator.clipboard.writeText(text)
                 .then(() => {
-                    setCopied(data.id);
+                    setCopied(text);
                     setTimeout(() => setCopied(false), 2000);
                 })
                 .catch((err) => {
@@ -84,7 +102,7 @@ export default function IndexPriceChange() {
                     fallbackCopy(formState.form_doc_no);
                 });
         } else {
-            fallbackCopy(formState.form_doc_no);
+            fallbackCopy(text);
         }
     };
 
@@ -116,6 +134,43 @@ export default function IndexPriceChange() {
             setBranches([]);
         }
     }
+
+    const excludeCategoryIds = [14];
+    const fetchProductCategories = async () => {
+        try {
+            const response = await fetch('/api/product-categories', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+            });
+ 
+            // if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            console.log(data);
+            let list = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.data)
+                    ? data.data
+                    : Array.isArray(data?.data?.data)
+                        ? data.data.data
+                        : [];
+
+            list = [...list]
+                    .filter((br)=>!excludeCategoryIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
+            console.log(list);
+            setCategories(list);
+        } catch (error) {
+            console.error('Fetch branches error:', error);
+            setCategories([]);
+        }
+    }
+
+    const catOptions = categories.map(category => ({
+        value: category.id,      
+        label: category.name
+    }));
 
     const searchHandler = (e)=>{
         e.preventDefault();
@@ -241,6 +296,36 @@ export default function IndexPriceChange() {
                             </select>
                         </div> */}
 
+                        <div className="flex flex-col">
+                            <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
+                                Department
+                            </label>
+                            <Select
+                                id="category_id"
+                                name="category_id"
+                                options={catOptions}
+                                placeholder="Select Category"
+                                isSearchable={true}
+                                isClearable
+                                onChange={handleSelectChange('category_id')}
+                                value={catOptions.find(opt => opt.value === filters.category_id) || null}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        minHeight: "2.5rem",
+                                        borderColor: "#2ea2d1",
+                                        borderRadius: "0.5rem",
+                                        zIndex: 5,
+                                    }),
+                                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999,
+                                    }),
+                                }}
+                            />
+                        </div>
+
 
                         <div className="flex items-end">
                             <button className="text-white px-4 py-2 rounded w-full cursor-pointer" 
@@ -288,6 +373,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">No</th>
                                             <th className="py-2 px-4 border-b">Status</th>
                                             <th className="py-2 px-4 border-b">Document No</th>
+                                            <th className="py-2 px-4 border-b">GCP No</th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Effective Date</span></th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Urgent</span></th>
                                             <th className="py-2 px-4 border-b">Department</th>
@@ -299,46 +385,88 @@ export default function IndexPriceChange() {
                                             {
                                                 datas.map((data,idx)=>(
                                                     <tr key={idx}
-                                                    onClick={() =>navigate(`/price_changes_detail/${data.id}`)}
-                                                    // onClick={() => window.open(`/price_changes_detail/${data.id}`, "_blank")}
-                                                    className="cursor-pointer hover:bg-[#efefef] transition"
+                                                    onClick={() => user.from_branch_id === 1 && navigate(`/price_changes_detail/${data.id}`)}
+                                                    className="group relative cursor-pointer hover:bg-[#efefef] transition"
+                                                    // title={user.from_branch_id !== 1 && 'Insufficient Permissions:'}
                                                     >
                                                         {/* <td className="py-2 px-4 border-b">
                                                             <button className={`ml-2 px-2 py-1 text-xs rounded transition-all text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer`}>
                                                                 <FaEye className="w-4 h-4" />
                                                             </button>
                                                         </td> */}
-                                                        <td className="py-2 px-4 border-b">{paginationInfo.from + idx}</td>
                                                         <td className="py-2 px-4 border-b">
-                                                            <StatusBadge status={data.status} />
+                                                            {paginationInfo.from + idx}
+                                                            {user.from_branch_id !== 1 && (
+                                                            <div className="absolute left-8 -top-8 hidden group-hover:block -translate-x-1/2s z-50">
+                                                                <div className="bg-red-600 text-white text-xs py-1 px-3 rounded shadow-lg whitespace-nowrap">
+                                                                Insufficient Permissions: Access Denied
+                                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-red-600"></div>
+                                                                </div>
+                                                            </div>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            <StatusBadge status={data?.status ? (data?.status != 'Approved' ? data?.status : 'Failed') : ''} />
                                                         </td>
                                                         <td className="py-2 px-4 border-b group">
                                                             {data.form_doc_no}
                                                             <button
                                                                 onClick={(e)=>{
                                                                     e.stopPropagation(); 
-                                                                    handleCopy(e,data.id)
+                                                                    handleCopy(data.form_doc_no)
                                                                 }}
-                                                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == data.id
+                                                                className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == data.form_doc_no
                                                                     ? 'text-green-600 bg-green-50'
                                                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
                                                                     }`}
-                                                                title={copied == data.id ? "Copied!" : "Copy ID"}
-                                                                disabled={copied == data.id}
+                                                                title={copied == data.form_doc_no ? "Copied!" : "Copy ID"}
+                                                                disabled={copied == data.form_doc_no}
                                                             >
-                                                                {copied == data.id ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                                {copied == data.form_doc_no ? 'Copied!' : <FiCopy className="w-4 h-4" />}
                                                             </button>
 
-                                                            <button
-                                                                onClick={(e)=>{
-                                                                    e.stopPropagation();
-                                                                    window.open(`/price_changes_detail/${data.id}`, "_blank");
-                                                                }}
-                                                                className="opacity-0 group-hover:opacity-100 transition text-green-600 hover:text-green-700"
-                                                                title="Open in new tab"
-                                                            >
-                                                                <FiExternalLink className="w-4 h-4"/>
-                                                            </button>
+                                                            {
+                                                                user.from_branch_id == 1 &&
+                                                                <button
+                                                                    onClick={(e)=>{
+                                                                        e.stopPropagation();
+                                                                        window.open(`/price_changes_detail/${data.id}`, "_blank");
+                                                                    }}
+                                                                    className="opacity-0 group-hover:opacity-100 transition text-green-600 hover:text-green-700"
+                                                                    title="Open in new tab"
+                                                                >
+                                                                    <FiExternalLink className="w-4 h-4"/>
+                                                                </button>
+                                                            }
+                                                        </td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {
+                                                                data?.files?.filter(gf=>gf.name.includes("CP")).length == 0 && (
+                                                                <>
+                                                                -
+                                                                </>)
+                                                                
+                                                            }
+                                                            {
+                                                                data?.files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(
+                                                                    <label key={idx} className="">{generalFormFile.name}
+                                                                    <button
+                                                                        onClick={(e)=>{
+                                                                            e.stopPropagation(); 
+                                                                            handleCopy(generalFormFile.name)
+                                                                        }}
+                                                                        className={`ml-2 px-2 py-1 text-xs rounded transition-all ${copied == generalFormFile.name
+                                                                            ? 'text-green-600 bg-green-50'
+                                                                            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 cursor-pointer'
+                                                                            }`}
+                                                                        title={copied == generalFormFile.name ? "Copied!" : "Copy ID"}
+                                                                        disabled={copied == generalFormFile.name}
+                                                                    >
+                                                                        {copied == generalFormFile.name ? 'Copied!' : <FiCopy className="w-4 h-4" />}
+                                                                    </button>
+                                                                    </label>
+                                                                ))
+                                                            }
                                                         </td>
                                                         <td className="py-2 px-4 border-b">{data.date}</td>
                                                         <td className="py-2 px-4 border-b">

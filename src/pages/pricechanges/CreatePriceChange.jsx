@@ -4,7 +4,7 @@ import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import ProductTable from "../../components/ProductTable"
-import { FaFileImport,FaSpinner } from "react-icons/fa";
+import { FaFileImport,FaSpinner,FaLock, FaPen, FaEye } from "react-icons/fa";
 
 // import $ from "jquery";
 import Select from 'react-select'
@@ -57,6 +57,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
+    const [productsLock, setProductsLock] = useState(false);
 
     // const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1129,11 +1130,18 @@ export default function () {
                             
                             {/* Product Prices Stacked on Bottom */}
                             <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
-                                <div className="mb-4">
-                                    <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
+                                <div className="flex justify-between mb-4">
+                                    <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
+                                    <button
+                                    onClick={() => setProductsLock(!productsLock)}
+                                    className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
+                                    title={productsLock ? "Edit Mode" : "View Mode"}
+                                    >
+                                     {productsLock ? <FaPen /> : <FaEye />}
+                                    </button>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} />
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={!productsLock}/>
                                 {/* </div> */}
                             </div>
                         </main>
