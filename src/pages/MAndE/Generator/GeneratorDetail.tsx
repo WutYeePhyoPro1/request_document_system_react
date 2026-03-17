@@ -70,9 +70,9 @@ const GeneratorDetail: React.FC = () => {
   if (loading)
     return (
       <>
-        {loading && <FullPageLoader />}
+        {/* {loading && <FullPageLoader />} */}
 
-        {!detailData ? (
+        {!detailData || loading ? (
           <div className="flex justify-center items-center min-h-screen">
             <Loader size="xl" />
           </div>

@@ -40,10 +40,29 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     navigate(-1);
   };
   const handleSubmit = async (statusValue: string) => {
-    if (statusValue === "Cancel") {
+    console.log("StatusValue>>", statusValue);
+    let confirmText;
+    if (statusValue == "Ongoing") {
+      confirmText = "Send To Manager?";
+    } else if (statusValue == "checked") {
+      confirmText = "Want to check?";
+    } else if (statusValue == "completed") {
+      confirmText = "Want to complete?";
+    } else if (statusValue == "Cancel") {
+      confirmText = "Want to cancel ?";
+    } else {
+      confirmText = "Want to do this?";
+    }
+
+    if (
+      statusValue == "Ongoing" ||
+      statusValue == "checked" ||
+      statusValue == "completed" ||
+      statusValue === "Cancel"
+    ) {
       const confirmBox = await Swal.fire({
-        title: "Are you sure?",
-        text: "Want to cancel.",
+        title: "Are you sure",
+        text: confirmText,
         icon: "warning",
         showCancelButton: true,
         confirmButtonColor: "#d33",
@@ -57,7 +76,6 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
 
     const token = localStorage.getItem("token");
     if (!token) return;
-    console.log("StatusValue>>", statusValue);
 
     const generalFormId = detailData?.generalForm?.id;
     const subFormId = detailData?.subForm?.sub_form_id;
@@ -91,9 +109,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       });
       return;
     }
-
     setLoading(true);
-
     try {
       await approveFormME(
         token,
@@ -149,9 +165,9 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
                   Send to manager
                 </Button>
 
-                <Button color="red" disabled={loading} onClick={handleBack}>
+                {/* <Button color="red" disabled={loading} onClick={handleBack}>
                   Cancel
-                </Button>
+                </Button> */}
               </div>
             </div>
           </>
