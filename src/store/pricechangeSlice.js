@@ -35,7 +35,8 @@ const picechangeSlice = createSlice({
                start_date: "",
                end_date: "",
                search_status: [],
-               branch_id: ""
+               branch_id: "",
+               category_id: ""
           },
           isSearchMode: false,
           paginationInfo: null
@@ -51,7 +52,8 @@ const picechangeSlice = createSlice({
                     start_date: "",
                     end_date: "",
                     search_status: [],
-                    branch_id: ""
+                    branch_id: "",
+                    category_id: ""
                };
                state.isSearchMode = false;
                state.paginationInfo = null;
