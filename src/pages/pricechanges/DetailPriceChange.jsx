@@ -2021,7 +2021,7 @@ export default function () {
                             {/* Product Prices Stacked on Bottom */}
                             <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
                                 <div className="flex justify-between mb-4">
-                                    <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span></h2>
+                                    <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
                                     {
                                         changable &&
                                             <button

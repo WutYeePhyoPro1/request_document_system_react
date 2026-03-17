@@ -27,8 +27,10 @@ export default function IndexPriceChange() {
         { value: "Pass approval", label: "Pass approval" },
         { value: "Already changed", label: "Already changed" },
         { value: "Cancel", label: "Cancel" },
+        { value: "Approved", label: "Failed" },
     ];
     const [branches, setBranches] = useState([]);
+    const [categories, setCategories] = useState([]);
 
     const {loading,error,datas,filters,isSearchMode,paginationInfo} = useSelector((state)=>state.pricechanges)
 
@@ -43,6 +45,7 @@ export default function IndexPriceChange() {
 
     useEffect(() => {
         fetchBranches();
+        fetchProductCategories();
     }, []);
     
     const onChangeHandler = (e)=>{
@@ -131,6 +134,43 @@ export default function IndexPriceChange() {
             setBranches([]);
         }
     }
+
+    const excludeCategoryIds = [14];
+    const fetchProductCategories = async () => {
+        try {
+            const response = await fetch('/api/product-categories', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                },
+            });
+ 
+            // if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            console.log(data);
+            let list = Array.isArray(data)
+                ? data
+                : Array.isArray(data?.data)
+                    ? data.data
+                    : Array.isArray(data?.data?.data)
+                        ? data.data.data
+                        : [];
+
+            list = [...list]
+                    .filter((br)=>!excludeCategoryIds.includes(br.id)).sort((a,b)=>a.id > b.id ? 1 : -1);
+            console.log(list);
+            setCategories(list);
+        } catch (error) {
+            console.error('Fetch branches error:', error);
+            setCategories([]);
+        }
+    }
+
+    const catOptions = categories.map(category => ({
+        value: category.id,      
+        label: category.name
+    }));
 
     const searchHandler = (e)=>{
         e.preventDefault();
@@ -255,6 +295,36 @@ export default function IndexPriceChange() {
                                 ))}
                             </select>
                         </div> */}
+
+                        <div className="flex flex-col">
+                            <label htmlFor="branch" className="mb-1 font-medium text-gray-700">
+                                Department
+                            </label>
+                            <Select
+                                id="category_id"
+                                name="category_id"
+                                options={catOptions}
+                                placeholder="Select Category"
+                                isSearchable={true}
+                                isClearable
+                                onChange={handleSelectChange('category_id')}
+                                value={catOptions.find(opt => opt.value === filters.category_id) || null}
+                                styles={{
+                                    control: (provided) => ({
+                                        ...provided,
+                                        minHeight: "2.5rem",
+                                        borderColor: "#2ea2d1",
+                                        borderRadius: "0.5rem",
+                                        zIndex: 5,
+                                    }),
+                                    menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+                                    menu: (provided) => ({
+                                        ...provided,
+                                        zIndex: 9999,
+                                    }),
+                                }}
+                            />
+                        </div>
 
 
                         <div className="flex items-end">
