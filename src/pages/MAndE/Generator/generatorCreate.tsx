@@ -115,6 +115,9 @@ const GeneratorCreate: React.FC = () => {
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
     cost: "Cost is required",
+    gen_kva_level: "KVA Level is required",
+    generator_size: "Generator size is required",
+    engine_oil_level: "Engine Oil Level is required",
     // remark: "Remark is required",
   };
   const navigate = useNavigate();
@@ -122,6 +125,19 @@ const GeneratorCreate: React.FC = () => {
     navigate(-1);
   };
   const handleSubmit = async (btnStatus: string) => {
+    if (btnStatus == "Ongoing") {
+      const confirmBox = await Swal.fire({
+        title: "Are you sure",
+        text: "Sent To Manager?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "rgb(29, 95, 219)",
+        confirmButtonText: "Yes",
+        cancelButtonText: "No",
+      });
+      if (!confirmBox.isConfirmed) return;
+    }
     const formElement = document.querySelector("form") as HTMLFormElement;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
@@ -142,6 +158,13 @@ const GeneratorCreate: React.FC = () => {
         missingFields.push(message);
       }
     });
+    const files = formData.getAll("file[]");
+
+    const hasFile = files.some((file) => file instanceof File && file.size > 0);
+
+    if (!hasFile) {
+      missingFields.push("At least one file is required");
+    }
 
     // if (!invoiceFile[0]?.file) {
     //   missingFields.push("Upload file is required");
@@ -333,7 +356,7 @@ const GeneratorCreate: React.FC = () => {
             checked={generatorUse === "use"}
             onChange={(e) => setGeneratorUse(e.target.value)}
           />
-          Generator Use
+          Generator Run
         </label>
 
         <label className="flex items-center gap-2">
@@ -343,7 +366,7 @@ const GeneratorCreate: React.FC = () => {
             checked={generatorUse === "no_use"}
             onChange={(e) => setGeneratorUse(e.target.value)}
           />
-          Generator Not Use
+          Generator Not Run
         </label>
       </div>
 
@@ -419,35 +442,25 @@ const GeneratorCreate: React.FC = () => {
               </div>
             </div>
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 md:gap-6 lg:gap-8">
-              {/* Left Side Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
-                {/* Engine Oil */}
                 <div>
                   <div className="flex items-center gap-2">
-                    <label>Engine Oil %</label>
-                    {/* <FaStar className="text-red-400" /> */}
+                    <label>Engine Oil Level</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
                   </div>
-                  <input
-                    type="number"
+                  <select
                     name="engine_oil_level"
-                    required
-                    min="1"
-                    max="100"
-                    defaultValue={100}
-                    onInput={(e) => {
-                      let value = e.target.value;
-
-                      if (value > 100) e.target.value = 100;
-                      if (value < 1 && value !== "") e.target.value = 1;
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "-" || e.key === "e") {
-                        e.preventDefault();
-                      }
-                    }}
-                    className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    id=""
+                    className="border py-3 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                     style={{ borderColor: "rgb(29, 137, 225)" }}
-                  />
+                  >
+                    <option value="">Choose Level</option>
+                    <option value="Good">Good</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Low">Low</option>
+                  </select>
                 </div>
 
                 {/* Fuel */}
@@ -478,81 +491,123 @@ const GeneratorCreate: React.FC = () => {
                   />
                 </div>
               </div>
-
-              {/* Coolant */}
-              <div>
-                <div className="flex items-center gap-2">
-                  <label>Coolant %</label>
-                  <FaStar className="text-red-400" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                {/* Coolant */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Coolant %</label>
+                    <FaStar className="text-red-400" />
+                  </div>
+                  <input
+                    type="number"
+                    name="coolant_level"
+                    required
+                    min="1"
+                    max="100"
+                    onKeyDown={(e) => {
+                      if (["-", "e", "+"]?.includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onInput={(e) => {
+                      let value = Number(e.target.value);
+                      if (value > 100) e.target.value = 100;
+                      if (value < 1 && e.target.value !== "")
+                        e.target.value = 1;
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
                 </div>
-                <input
-                  type="number"
-                  name="coolant_level"
-                  required
-                  min="1"
-                  max="100"
-                  onKeyDown={(e) => {
-                    if (["-", "e", "+"]?.includes(e.key)) {
-                      e.preventDefault();
-                    }
-                  }}
-                  onInput={(e) => {
-                    let value = Number(e.target.value);
-                    if (value > 100) e.target.value = 100;
-                    if (value < 1 && e.target.value !== "") e.target.value = 1;
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
+
+                {/* Coolant */}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Generator Size</label>
+                    <FaStar className="text-red-400" />
+                  </div>
+                  <select
+                    name="generator_size"
+                    id=""
+                    className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Size</option>
+                    <option value="Big">Big</option>
+                    <option value="Small">Small</option>
+                  </select>
+                </div>
               </div>
             </div>
+
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Battery Volt</label>
-                  <span>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>KVA Level</label>
                     <FaStar className="text-red-400" />
-                  </span>
+                  </div>
+                  <select
+                    name="gen_kva_level"
+                    id=""
+                    className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Kva</option>
+                    <option value="550">550</option>
+                    <option value="400">400</option>
+                    <option value="100">100</option>
+                    <option value="60">60</option>
+                  </select>
                 </div>
-                <input
-                  type="number"
-                  name="battery_volt_level"
-                  required
-                  step="0.01"
-                  inputMode="decimal"
-                  onChange={(e) => {
-                    let value = e.target.value;
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Battery Volt</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="battery_volt_level"
+                    required
+                    step="0.01"
+                    inputMode="decimal"
+                    onChange={(e) => {
+                      let value = e.target.value;
 
-                    value = value.replace(/[^0-9.]/g, "");
+                      value = value.replace(/[^0-9.]/g, "");
 
-                    const parts = value.split(".");
-                    if (parts.length > 2) {
-                      value = parts[0] + "." + parts[1];
-                    }
+                      const parts = value.split(".");
+                      if (parts.length > 2) {
+                        value = parts[0] + "." + parts[1];
+                      }
 
-                    if (parts[0].length > 4) {
-                      parts[0] = parts[0].slice(0, 4);
-                    }
+                      if (parts[0].length > 4) {
+                        parts[0] = parts[0].slice(0, 4);
+                      }
 
-                    if (parts[1]) {
-                      parts[1] = parts[1].slice(0, 2);
-                    }
+                      if (parts[1]) {
+                        parts[1] = parts[1].slice(0, 2);
+                      }
 
-                    value = parts.join(".");
+                      value = parts.join(".");
 
-                    e.target.value = value;
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
+                      e.target.value = value;
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
               </div>
+
               <div className="">
                 <div className="flex items-center gap-2">
                   <label htmlFor="">L1</label>
