@@ -158,17 +158,11 @@ const GeneratorCreate: React.FC = () => {
         missingFields.push(message);
       }
     });
-    const files = formData.getAll("file[]");
 
-    const hasFile = files.some((file) => file instanceof File && file.size > 0);
 
-    if (!hasFile) {
-      missingFields.push("At least one file is required");
+    if (!invoiceFile[0]?.file) {
+      missingFields.push("Upload file is required");
     }
-
-    // if (!invoiceFile[0]?.file) {
-    //   missingFields.push("Upload file is required");
-    // }
     const serviceDateValue = formData.get("generator_service_date");
     const remarkValue = formData.get("remark");
 
