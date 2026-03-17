@@ -225,6 +225,9 @@ const GeneratorEdit: React.FC = () => {
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
+    gen_kva_level: "KVA Level is required",
+    generator_size: "Generator size is required",
+    engine_oil_level: "Engine Oil Level is required",
     // remark: "Remark is required",
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -362,7 +365,7 @@ const GeneratorEdit: React.FC = () => {
             checked={form.generator_use === "use"}
             onChange={handleChange}
           />
-          Generator Use
+          Generator Run
         </label>
 
         <label className="flex items-center gap-2 cursor-pointer">
@@ -373,7 +376,7 @@ const GeneratorEdit: React.FC = () => {
             checked={form.generator_use === "no_use"}
             onChange={handleChange}
           />
-          Generator Not Use
+          Generator Not Run
         </label>
       </div>
       <form
@@ -457,31 +460,22 @@ const GeneratorEdit: React.FC = () => {
               {/* Engine Oil */}
               <div>
                 <div className="flex items-center gap-2">
-                  <label>Engine Oil %</label>
-                  {/* <FaStar className="text-red-400" /> */}
+                  <label>Engine Oil Level</label>
+                  <FaStar className="text-red-400" />
                 </div>
-                <input
-                  type="number"
+                <select
                   name="engine_oil_level"
+                  id=""
                   value={form.engine_oil_level}
-                  required
-                  min="1"
-                  max="100"
                   onChange={handleChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onInput={(e) => {
-                    let value = e.target.value;
-
-                    if (value > 100) e.target.value = 100;
-                    if (value < 1 && value !== "") e.target.value = 1;
-                  }}
-                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  className="border py-3 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
+                >
+                  <option value="">Choose Level</option>
+                  <option value="Good">Good</option>
+                  <option value="Normal">Normal</option>
+                  <option value="Low">Low</option>
+                </select>
               </div>
 
               {/* Fuel */}
@@ -514,92 +508,135 @@ const GeneratorEdit: React.FC = () => {
                 />
               </div>
             </div>
-
-            {/* Coolant */}
-            <div>
-              <div className="flex items-center gap-2">
-                <label>Coolant %</label>
-                <FaStar className="text-red-400" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              {/* Coolant */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>Coolant %</label>
+                  <FaStar className="text-red-400" />
+                </div>
+                <input
+                  type="number"
+                  name="coolant_level"
+                  value={form.coolant_level}
+                  onChange={handleChange}
+                  required
+                  min="1"
+                  max="100"
+                  onKeyDown={(e) => {
+                    if (["-", "e", "+"]?.includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onInput={(e) => {
+                    let value = Number(e.target.value);
+                    if (value > 100) e.target.value = 100;
+                    if (value < 1 && e.target.value !== "") e.target.value = 1;
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
               </div>
-              <input
-                type="number"
-                name="coolant_level"
-                value={form.coolant_level}
-                onChange={handleChange}
-                required
-                min="1"
-                max="100"
-                onKeyDown={(e) => {
-                  if (["-", "e", "+"]?.includes(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = Number(e.target.value);
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && e.target.value !== "") e.target.value = 1;
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>Generator Size</label>
+                  <FaStar className="text-red-400" />
+                </div>
+                <select
+                  name="generator_size"
+                  id=""
+                  value={form.generator_size}
+                  onChange={handleChange}
+                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Size</option>
+                  <option value="Big">Big</option>
+                  <option value="Small">Small</option>
+                </select>
+              </div>
             </div>
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Battery Volt</label>
-                <span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>KVA Level</label>
                   <FaStar className="text-red-400" />
-                </span>
+                </div>
+                <select
+                  name="gen_kva_level"
+                  id=""
+                  value={form.gen_kva_level}
+                  onChange={handleChange}
+                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Kva</option>
+                  <option value="550">550</option>
+                  <option value="400">400</option>
+                  <option value="100">100</option>
+                  <option value="60">60</option>
+                </select>
               </div>
-              <input
-                type="text"
-                name="battery_volt_level"
-                value={form.battery_volt_level}
-                required
-                inputMode="decimal"
-                onChange={(e) => {
-                  let value = e.target.value;
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Battery Volt</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  name="battery_volt_level"
+                  value={form.battery_volt_level}
+                  required
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    let value = e.target.value;
 
-                  // Allow only numbers and dot
-                  value = value.replace(/[^0-9.]/g, "");
+                    // Allow only numbers and dot
+                    value = value.replace(/[^0-9.]/g, "");
 
-                  // Split decimal
-                  let parts = value.split(".");
+                    // Split decimal
+                    let parts = value.split(".");
 
-                  // Prevent multiple decimals
-                  if (parts.length > 2) {
-                    parts = [parts[0], parts[1]];
-                  }
+                    // Prevent multiple decimals
+                    if (parts.length > 2) {
+                      parts = [parts[0], parts[1]];
+                    }
 
-                  // Limit 4 digits before decimal
-                  if (parts[0].length > 4) {
-                    parts[0] = parts[0].slice(0, 4);
-                  }
+                    // Limit 4 digits before decimal
+                    if (parts[0].length > 4) {
+                      parts[0] = parts[0].slice(0, 4);
+                    }
 
-                  // Limit 2 digits after decimal
-                  if (parts[1]) {
-                    parts[1] = parts[1].slice(0, 2);
-                  }
+                    // Limit 2 digits after decimal
+                    if (parts[1]) {
+                      parts[1] = parts[1].slice(0, 2);
+                    }
 
-                  const formattedValue = parts.join(".");
+                    const formattedValue = parts.join(".");
 
-                  setForm((prev) => ({
-                    ...prev,
-                    battery_volt_level: formattedValue,
-                  }));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
+                    setForm((prev) => ({
+                      ...prev,
+                      battery_volt_level: formattedValue,
+                    }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
             </div>
+
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">L1</label>
