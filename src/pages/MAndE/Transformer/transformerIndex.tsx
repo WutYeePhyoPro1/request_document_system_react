@@ -39,6 +39,7 @@ const Index: React.FC = () => {
     const [y, m, d] = val.split("-");
     return `${d}-${m}-${y}`;
   };
+  console.log("GeneralData", generalData);
   useEffect(() => {
     const cached = sessionStorage.getItem("transformer_cache");
     if (cached) {
