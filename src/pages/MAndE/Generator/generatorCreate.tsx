@@ -582,8 +582,8 @@ const GeneratorCreate: React.FC = () => {
                         value = parts[0] + "." + parts[1];
                       }
 
-                      if (parts[0].length > 4) {
-                        parts[0] = parts[0].slice(0, 4);
+                      if (parts[0].length > 6) {
+                        parts[0] = parts[0].slice(0, 6);
                       }
 
                       if (parts[1]) {
@@ -620,10 +620,10 @@ const GeneratorCreate: React.FC = () => {
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   min={0}
-                  max={9999}
+                  max={9999999}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val.length <= 4) {
+                    if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
                         l1Value: Number(val),
@@ -658,13 +658,13 @@ const GeneratorCreate: React.FC = () => {
                   type="number"
                   name="l2_level"
                   min="0"
-                  max="9999"
+                  max="9999999"
                   value={generatorUse === "no_use" ? 0 : levelValue.l2Value}
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val.length <= 4) {
+                    if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
                         l2Value: Number(val),
@@ -697,13 +697,13 @@ const GeneratorCreate: React.FC = () => {
                   type="number"
                   name="l3_level"
                   min="0"
-                  max="9999"
+                  max="9999999"
                   value={generatorUse === "no_use" ? 0 : levelValue.l3Value}
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val.length <= 4) {
+                    if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
                         l3Value: Number(val),
@@ -769,10 +769,10 @@ const GeneratorCreate: React.FC = () => {
                   name="voltageL_l_level"
                   required
                   min="0"
-                  max="9999"
+                  max="9999999"
                   onInput={(e) => {
-                    if (e.target.value.length > 4) {
-                      e.target.value = e.target.value.slice(0, 4);
+                    if (e.target.value.length > 6) {
+                      e.target.value = e.target.value.slice(0, 6);
                     }
                   }}
                   onKeyDown={(e) => {
@@ -797,10 +797,10 @@ const GeneratorCreate: React.FC = () => {
                   name="running_hour"
                   required
                   min="0"
-                  max="9999"
+                  max="9999999"
                   onInput={(e) => {
-                    if (e.target.value.length > 4) {
-                      e.target.value = e.target.value.slice(0, 4);
+                    if (e.target.value.length > 6) {
+                      e.target.value = e.target.value.slice(0, 6);
                     }
                   }}
                   onKeyDown={(e) => {

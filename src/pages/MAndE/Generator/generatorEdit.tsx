@@ -576,14 +576,14 @@ const GeneratorEdit: React.FC = () => {
                 >
                   <option value="">Choose Kva</option>
                   <option value="550">550</option>
-                    <option value="400">400</option>
-                    <option value="375">375</option>
-                    <option value="150">150</option>
-                    <option value="100">100</option>
-                    <option value="80">80</option>
-                    <option value="60">60</option>
-                    <option value="30">30</option>
-                    <option value="25">25</option>
+                  <option value="400">400</option>
+                  <option value="375">375</option>
+                  <option value="150">150</option>
+                  <option value="100">100</option>
+                  <option value="80">80</option>
+                  <option value="60">60</option>
+                  <option value="30">30</option>
+                  <option value="25">25</option>
                 </select>
               </div>
               <div className="">
@@ -614,8 +614,8 @@ const GeneratorEdit: React.FC = () => {
                     }
 
                     // Limit 4 digits before decimal
-                    if (parts[0].length > 4) {
-                      parts[0] = parts[0].slice(0, 4);
+                    if (parts[0].length > 6) {
+                      parts[0] = parts[0].slice(0, 6);
                     }
 
                     // Limit 2 digits after decimal
@@ -657,10 +657,10 @@ const GeneratorEdit: React.FC = () => {
                 onChange={handleLLevelChange}
                 required
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -694,10 +694,10 @@ const GeneratorEdit: React.FC = () => {
                 disabled={form.generator_use === "no_use"}
                 onChange={handleLLevelChange}
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -730,10 +730,10 @@ const GeneratorEdit: React.FC = () => {
                 disabled={form.generator_use === "no_use"}
                 onChange={handleLLevelChange}
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -798,10 +798,10 @@ const GeneratorEdit: React.FC = () => {
                 onChange={handleChange}
                 required
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -828,10 +828,10 @@ const GeneratorEdit: React.FC = () => {
                 onChange={handleChange}
                 required
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
