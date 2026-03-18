@@ -75,7 +75,7 @@ const MAndE: React.FC = () => {
           </Link>
         ))} */}
         {subForms.map((form) => {
-          const isDisabled = ![1, 2].includes(form.id);
+          const isDisabled = ![1].includes(form.id);
           return (
             <Link
               key={form.id}
