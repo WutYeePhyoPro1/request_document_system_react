@@ -50,10 +50,12 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       confirmText = "Want to complete?";
     } else if (statusValue == "Cancel") {
       confirmText = "Want to cancel ?";
-    } else if(statusValue == 'back_to_previous_checked' || statusValue == 'back_to_previous'){
-      confirmText = 'Want to previous back?'
-    }
-    else {
+    } else if (
+      statusValue == "back_to_previous_checked" ||
+      statusValue == "back_to_previous"
+    ) {
+      confirmText = "Want to previous back?";
+    } else {
       confirmText = "Want to do this?";
     }
 
@@ -61,17 +63,17 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       statusValue == "Ongoing" ||
       statusValue == "checked" ||
       statusValue == "completed" ||
-      statusValue === "Cancel" || 
-      statusValue == 'back_to_previous_checked' || statusValue == 'back_to_previous'
-      
+      statusValue === "Cancel" ||
+      statusValue == "back_to_previous_checked" ||
+      statusValue == "back_to_previous"
     ) {
       const confirmBox = await Swal.fire({
         title: "Are you sure",
         text: confirmText,
         icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: "#d33",
-        cancelButtonColor: "rgb(29, 95, 219)",
+        confirmButtonColor: "rgb(29, 95, 219)",
+        cancelButtonColor: "#d33",
         confirmButtonText: "Yes",
         cancelButtonText: "No",
       });
