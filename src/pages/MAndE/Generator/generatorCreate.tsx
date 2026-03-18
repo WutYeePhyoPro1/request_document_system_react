@@ -131,8 +131,8 @@ const GeneratorCreate: React.FC = () => {
         text: "Sent To Manager?",
         icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: "#d33",
-        cancelButtonColor: "rgb(29, 95, 219)",
+        confirmButtonColor: "rgb(29, 95, 219)",
+        cancelButtonColor: "#d33",
         confirmButtonText: "Yes",
         cancelButtonText: "No",
       });
@@ -158,7 +158,6 @@ const GeneratorCreate: React.FC = () => {
         missingFields.push(message);
       }
     });
-
 
     if (!invoiceFile[0]?.file) {
       missingFields.push("Upload file is required");
@@ -861,7 +860,12 @@ const GeneratorCreate: React.FC = () => {
                 </div>
                 {serviceDate && (
                   <div>
-                    <label>Cost</label>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor=""> Cost</label>
+                      <span>
+                        <FaStar className="text-red-400" />
+                      </span>
+                    </div>
                     <input
                       type="text"
                       name="cost"
@@ -899,7 +903,17 @@ const GeneratorCreate: React.FC = () => {
             </div>
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
               <div className="">
-                <label htmlFor=""> Remark</label>
+                {serviceDate ? (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor=""> Remark</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                ) : (
+                  <label htmlFor=""> Remark</label>
+                )}
+
                 <textarea
                   name="remark"
                   id=""
@@ -910,101 +924,17 @@ const GeneratorCreate: React.FC = () => {
                 ></textarea>
               </div>
               <div className="">
-                {/* {invoiceFile.map((fileField, index) => (
-                  <div
-                    key={fileField.id}
-                    className="flex flex-col gap-2 w-full"
-                  >
-                    <label htmlFor="">
-                      {index === 0 ? "Upload" : undefined}
-                    </label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="file"
-                        name="file[]"
-                        required
-                        onChange={(e) =>
-                          updateFile(fileField.id, e.target.files?.[0] || null)
-                        }
-                        className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                        style={{ borderColor: "rgb(29, 137, 225)" }}
-                      />
-
-                      {index === 0 ? (
-                        <Button onClick={addInvoiceFile}>Add</Button>
-                      ) : (
-                        <Button
-                          color="red"
-                          onClick={() => removeInvoiceFile(fileField.id)}
-                        >
-                          <IconX size={16} />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))} */}
-
-                {/* {invoiceFile.map((fileField, index) => (
-                  <div
-                    key={fileField.id}
-                    className="flex flex-col gap-2 w-full"
-                  >
-                    <label>{index === 0 ? "Upload" : undefined}</label>
-                    <div className="flex items-center gap-3">
-                      <Menu shadow="md" width={200}>
-                        <Menu.Target>
-                          <div
-                            className="flex-1 border p-2 w-full rounded-md cursor-pointer bg-white flex justify-between items-center text-sm"
-                            style={{ borderColor: "rgb(29, 137, 225)" }}
-                          >
-                            {fileField.name ? (
-                              <Text truncate>{fileField.name}</Text>
-                            ) : (
-                              <Text color="dimmed">Tap to upload...</Text>
-                            )}
-                          </div>
-                        </Menu.Target>
-
-                        <Menu.Dropdown>
-                          <Menu.Label>Choose Source</Menu.Label>
-                          <Menu.Item
-                            icon={<IconCamera size={16} />}
-                            onClick={() =>
-                              handleCaptureChoice(fileField.id, "camera")
-                            }
-                          >
-                            Take Photo (Camera)
-                          </Menu.Item>
-                          <Menu.Item
-                            icon={<IconPhoto size={16} />}
-                            onClick={() =>
-                              handleCaptureChoice(fileField.id, "gallery")
-                            }
-                          >
-                            Choose from Gallery
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-
-                      {index === 0 ? (
-                        <Button onClick={addInvoiceFile}>Add</Button>
-                      ) : (
-                        <Button
-                          color="red"
-                          onClick={() => removeInvoiceFile(fileField.id)}
-                        >
-                          <IconX size={16} />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))} */}
                 {invoiceFile.map((fileField, index) => (
                   <div
                     key={fileField.id}
                     className="flex flex-col gap-2 w-full"
                   >
-                    <label>{index === 0 ? "Upload" : undefined}</label>
+                    <div className="flex items-center gap-2">
+                      <label>{index === 0 ? "Upload" : undefined}</label>
+                      <span>
+                        <FaStar className="text-red-400" />
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-3">
                       {/* MD + LG FILE INPUT */}
