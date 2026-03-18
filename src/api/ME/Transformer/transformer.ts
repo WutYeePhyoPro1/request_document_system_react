@@ -9,7 +9,7 @@ const API = axios.create({
 export const generalTransformerData = async(token:string) => {
     try {
         const response = await API.get('/me/transformer/' , {
-            headers: {Authorization: `BEarer ${token}`} ,
+            headers: {Authorization: `Bearer ${token}`} ,
         });
         return response.data ;
     } catch (error) {
