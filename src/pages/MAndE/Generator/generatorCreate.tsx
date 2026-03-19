@@ -48,7 +48,8 @@ const GeneratorCreate: React.FC = () => {
     l2Value: "",
     l3Value: "",
   });
-  console.log("GeneratorUse>>", generatorUse);
+  const [remark, setRemark] = useState<string>("");
+
   const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
     { id: uuidv4(), file: null },
   ]);
@@ -315,6 +316,14 @@ const GeneratorCreate: React.FC = () => {
 
     input.click();
   };
+
+  const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // setRemark(e.target.value);
+    if (e.target.value.length <= 225) {
+      setRemark(e.target.value);
+    }
+  };
+  const isAtLimit = remark.length === 225;
   const FullPageLoader = () => (
     <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
       <Loader size="xl" color="blue" />
@@ -793,16 +802,34 @@ const GeneratorCreate: React.FC = () => {
                   </span>
                 </div>
                 <input
-                  type="number"
+                  type="text"
                   name="running_hour"
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    let value = e.target.value;
+
+                    value = value.replace(/[^0-9.]/g, "");
+
+                    const parts = value.split(".");
+                    if (parts.length > 2) {
+                      value = parts[0] + "." + parts[1];
+                    }
+
+                    if (parts[0].length > 6) {
+                      parts[0] = parts[0].slice(0, 6);
+                    }
+
+                    if (parts[1]) {
+                      parts[1] = parts[1].slice(0, 2);
+                    }
+
+                    value = parts.join(".");
+
+                    e.target.value = value;
+                  }}
                   required
                   min="0"
                   max="9999999"
-                  onInput={(e) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
                   onKeyDown={(e) => {
                     if (e.key === "-" || e.key === "e") {
                       e.preventDefault();
@@ -921,12 +948,34 @@ const GeneratorCreate: React.FC = () => {
 
                 <textarea
                   name="remark"
-                  id=""
-                  cols="3"
-                  rows="1"
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                  value={remark}
+                  onChange={handleRemarkChange}
+                  maxLength={225}
+                  rows={2}
+                  className={`border p-2 w-full rounded-md outline-none transition-all 
+          ${
+            isAtLimit
+              ? "border-orange-500 focus:ring-1 focus:ring-orange-500"
+              : "border-[rgb(29,137,225)] focus:ring-2 focus:ring-blue-400"
+          }`}
                 ></textarea>
+                <div className="flex justify-between mt-1 px-1">
+                  <div className="h-4">
+                    {" "}
+                    {/* Fixed height prevents layout jump */}
+                    {isAtLimit && (
+                      <span className="text-orange-600 text-xs font-semibold">
+                        Maximum limit of {225} characters reached.
+                      </span>
+                    )}
+                  </div>
+
+                  <span
+                    className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                  >
+                    {remark.length}/{225}
+                  </span>
+                </div>
               </div>
               <div className="">
                 {invoiceFile.map((fileField, index) => (

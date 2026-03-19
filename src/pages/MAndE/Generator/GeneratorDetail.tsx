@@ -154,7 +154,13 @@ const GeneratorDetail: React.FC = () => {
                     ? dateFormat(detailData?.generalForm?.created_at)
                     : ""}
                 </div>
-                <div className="">
+                <div
+                  className={
+                    detailData?.generalForm?.status === "Default"
+                      ? "block"
+                      : "hidden"
+                  }
+                >
                   {detailData?.generalForm?.status === "Default" && (
                     <Button
                       component={Link}
