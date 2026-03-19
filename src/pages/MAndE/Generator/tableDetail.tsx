@@ -113,7 +113,7 @@ const TableDetail: React.FC<Props> = ({
       "L1",
       "L2",
       "L3",
-      "Total KW",
+      <div className="whitespace-nowrap">Total KW</div>,
       <div className="whitespace-nowrap">Voltage L-L</div>,
       <div className="whitespace-nowrap">Running Hour</div>,
       "Cost",
