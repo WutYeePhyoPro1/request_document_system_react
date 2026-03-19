@@ -54,6 +54,7 @@ const GeneratorEdit: React.FC = () => {
     cost: "",
     generator_use: "",
   });
+  const [remark, setRemark] = useState<string>("");
 
   useEffect(() => {
     if (!id) return;
@@ -71,6 +72,7 @@ const GeneratorEdit: React.FC = () => {
           generator_time: data.generator_time?.slice(0, 5),
           generator_use: data.generator_use || "use",
         });
+        setRemark(data.remark || "");
         setExistingFiles(res?.files || []);
       } catch (error) {
         console.error("GeneratorDetail error:", error);
@@ -81,7 +83,7 @@ const GeneratorEdit: React.FC = () => {
 
     fetchData();
   }, [id]);
-  console.log("ExistingFile>>>", form);
+  console.log("ExistingFile>>>", remark.length);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -337,6 +339,16 @@ const GeneratorEdit: React.FC = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+  const isAtLimit = remark.length === 225;
+
+  const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    // setRemark(e.target.value);
+    if (e.target.value.length <= 225) {
+      setRemark(value);
+      setForm((prev: any) => ({ ...prev, remark: value }));
     }
   };
   if (loading) return <>{loading && <FullPageLoader />}</>;
@@ -822,17 +834,36 @@ const GeneratorEdit: React.FC = () => {
                 </span>
               </div>
               <input
-                type="number"
+                type="text"
                 name="running_hour"
-                value={form.running_hour}
-                onChange={handleChange}
                 required
-                min="0"
-                max="9999999"
-                onInput={(e) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
+                value={form.running_hour}
+                inputMode="decimal"
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // Allow only numbers and dot
+                  value = value.replace(/[^0-9.]/g, "");
+
+                  const parts = value.split(".");
+
+                  // Prevent multiple decimals
+                  if (parts.length > 2) return;
+
+                  // Limit 8 digits before decimal
+                  if (parts[0].length > 6) {
+                    parts[0] = parts[0].slice(0, 6);
                   }
+
+                  // Limit 2 digits after decimal
+                  if (parts[1]) {
+                    parts[1] = parts[1].slice(0, 2);
+                  }
+
+                  setForm((prev: any) => ({
+                    ...prev,
+                    running_hour: parts.join("."),
+                  }));
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
@@ -840,7 +871,7 @@ const GeneratorEdit: React.FC = () => {
                   }
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
@@ -951,15 +982,36 @@ const GeneratorEdit: React.FC = () => {
               <textarea
                 name="remark"
                 value={form.value}
-                onChange={handleChange}
+                onChange={handleRemarkChange}
                 id=""
                 cols="3"
-                rows="1"
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                rows="2"
+                maxLength={225}
+                className={`border p-2 w-full rounded-md outline-none transition-all 
+      ${
+        isAtLimit
+          ? "border-orange-500 focus:ring-1 focus:ring-orange-500"
+          : "border-[rgb(29,137,225)] focus:ring-2 focus:ring-blue-400"
+      }`}
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               >
                 {form.remark}
               </textarea>
+              <div className="flex justify-between mt-1 px-1">
+                <div className="h-4">
+                  {isAtLimit && (
+                    <span className="text-orange-600 text-xs font-semibold animate-pulse">
+                      Maximum limit of 225 characters reached.
+                    </span>
+                  )}
+                </div>
+
+                <span
+                  className={`text-xs font-mono ${remark?.length === 225 ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                >
+                  {remark?.length}/225
+                </span>
+              </div>
             </div>
             <div className="">
               {invoiceFile.map((fileField, index) => (
