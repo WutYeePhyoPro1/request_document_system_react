@@ -45,7 +45,7 @@ const GeneratorEdit: React.FC = () => {
     l2_level: "",
     l3_level: "",
     // total_kw_level: "",
-    voltageL_l_level: "",
+    voltagel_l_level: "",
     // load_level: "",
     running_hour: "",
     generator_service_date: "",
@@ -222,7 +222,7 @@ const GeneratorEdit: React.FC = () => {
     l2_level: "L2 is required",
     l3_level: "L3 is required",
     // total_kw_level: "Total KW is required",
-    voltageL_l_level: "Voltage L-L is required",
+    voltagel_l_level: "Voltagel-L is required",
     // load_level: "Load % is required",
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
@@ -805,8 +805,8 @@ const GeneratorEdit: React.FC = () => {
               </div>
               <input
                 type="number"
-                name="voltageL_l_level"
-                value={form.voltageL_l_level}
+                name="voltagel_l_level"
+                value={form.voltagel_l_level}
                 onChange={handleChange}
                 required
                 min="0"
