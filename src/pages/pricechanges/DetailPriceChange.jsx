@@ -1486,7 +1486,7 @@ export default function () {
                 SET PRODUCT_PRICE1 = ${product.price1},
                     PRODUCT_PRICE2 = ${product.price2},
                     PRODUCT_PRICE3 = ${product.price1}
-                WHERE BARCODE_CODE = ${product.product_code}
+                WHERE BARCODE_CODE = '${product.product_code}'
                 AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
                 `;
 
@@ -1496,7 +1496,7 @@ export default function () {
                     SET PRODUCT_PRICE1 = ${product.price1},
                     PRODUCT_PRICE2 = ${product.price2},
                     PRODUCT_PRICE3 = ${product.price1}
-                WHERE BARCODE_CODE = ${product.product_code}
+                WHERE BARCODE_CODE = '${product.product_code}'
                     AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
                 `;
 
@@ -1506,7 +1506,7 @@ export default function () {
                     SET PRODUCT_PRICE1 = ${product.price1},
                     PRODUCT_PRICE2 = ${product.price2},
                     PRODUCT_PRICE3 = ${product.price1}
-                WHERE BARCODE_CODE = ${product.product_code}
+                WHERE BARCODE_CODE = '${product.product_code}'
                     AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
                 `;
             });
