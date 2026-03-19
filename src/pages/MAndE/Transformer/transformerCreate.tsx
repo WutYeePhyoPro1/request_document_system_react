@@ -105,7 +105,7 @@ const TransformerCreate: React.FC = () => {
     l1_level: "L1 is required",
     l2_level: "L2 is required",
     l3_level: "L3 is required",
-    voltageL_l_level: "Voltage L-L is required",
+    voltagel_l_level: "Voltage L-L is required",
     // tran_kva_level: "Transformer KVA Level is required",
     oltc_tapping: "OLTC Tapping is required",
     cost: "Cost is required",
@@ -536,7 +536,7 @@ const TransformerCreate: React.FC = () => {
                 </div>
                 <input
                   type="number"
-                  name="voltageL_l_level"
+                  name="voltagel_l_level"
                   required
                   min="0"
                   max="9999"
