@@ -110,7 +110,7 @@ const GeneratorCreate: React.FC = () => {
     l2_level: "L2 is required",
     l3_level: "L3 is required",
     // total_kw_level: "Total KW is required",
-    voltageL_l_level: "Voltage L-L is required",
+    voltagel_l_level: "Voltage L-L is required",
     // load_level: "Load % is required",
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
@@ -775,7 +775,7 @@ const GeneratorCreate: React.FC = () => {
                 </div>
                 <input
                   type="number"
-                  name="voltageL_l_level"
+                  name="voltagel_l_level"
                   required
                   min="0"
                   max="9999999"

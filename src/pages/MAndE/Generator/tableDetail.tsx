@@ -168,7 +168,7 @@ const TableDetail: React.FC<Props> = ({
           fullNumberFormat(element.l2_level),
           fullNumberFormat(element.l3_level),
           fullNumberFormat(element.total_kw_level),
-          fullNumberFormat(element.voltageL_l_level),
+          fullNumberFormat(element.voltagel_l_level),
           numberFormat(element.running_hour),
           numberFormat(element.cost ?? "-"),
           <div className="whitespace-nowrap">
