@@ -29,7 +29,6 @@ type Props = {
     loading: (value: boolean) => void;
     setLoading: (value: boolean) => void;
   };
-  // onDeleted: (generalFormDeleted: boolean) => void;
 };
 
 const TableDetail: React.FC<Props> = ({
@@ -85,12 +84,10 @@ const TableDetail: React.FC<Props> = ({
       });
       if (generatorList.length <= 1) {
         await refreshNotifications();
-        navigate(`/generator/${formId}`); // or wherever your list page is
+        navigate(`/generator/${formId}`);
       } else {
         onRefresh();
       }
-
-      // onDeleted(res.general_form_deleted);
     } catch {
       Swal.fire("Error", "Delete failed", "error");
     } finally {
@@ -101,81 +98,38 @@ const TableDetail: React.FC<Props> = ({
   const tableData: TableData = {
     head: [
       "No",
+      generalForm?.status == "Default" &&
+        authUserId == generalForm?.user_id && (
+          <div className="items-center">Action</div>
+        ),
       "Date",
       "Time",
-      "Engine Oil",
+      <div className="whitespace-nowrap">Oil Level</div>,
       "Fuel",
       "Coolant",
-      "Battery Volt",
+      <div className="whitespace-nowrap">Gen Size</div>,
+      <div className="whitespace-nowrap">Gen Kva</div>,
+      <div className="whitespace-nowrap">Battery Volt</div>,
       "L1",
       "L2",
       "L3",
-      "Total KW",
-      "Voltage L-L",
-      // "Load",
-      "Gen Kva",
-      "Running Hour",
+      <div className="whitespace-nowrap">Total KW</div>,
+      <div className="whitespace-nowrap">Voltage L-L</div>,
+      <div className="whitespace-nowrap">Running Hour</div>,
       "Cost",
-      "Service Date",
-      "Cleaning Level",
+      <div className="whitespace-nowrap">Service Date</div>,
+      <div className="whitespace-nowrap">Cleaning Level</div>,
       "Remark",
       "Image",
-      generalForm?.status == "Default" &&
-        authUserId == generalForm?.user_id &&
-        "Action",
     ],
 
     body: generatorList?.length
       ? generatorList.map((element, index) => [
           index + 1,
-          dateFormat(element.generator_date),
-          element.generator_time_ampm,
-          `${element.engine_oil_level}%`,
-          `${element.fuel_level}%`,
-          `${element.coolant_level}%`,
-          numberFormat(element.battery_volt_level),
-          fullNumberFormat(element.l1_level),
-          fullNumberFormat(element.l2_level),
-          fullNumberFormat(element.l3_level),
-          fullNumberFormat(element.total_kw_level),
-          fullNumberFormat(element.voltageL_l_level),
-          // fullNumberFormat(element.load_level ? element.load_level : ""),
-          fullNumberFormat(element.gen_kva_level),
-          fullNumberFormat(element.running_hour),
-          fullNumberFormat(element.cost ?? "-"),
-          element.generator_service_date
-            ? dateFormat(element.generator_service_date)
-            : "- ",
-          `${element.generator_cleaning_level}%`,
-          element.remark ? element.remark : "-",
-
-          // 📎 Image
-
-          <span
-            key={`file-${element.id}`}
-            className="inline-flex items-center justify-center text-blue-700"
-          >
-            {files?.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveGeneratorId(element.id);
-                  openFileModal();
-                }}
-                className="hover:text-blue-900 transition"
-              >
-                <IconFile size={18} />
-              </button>
-            ) : (
-              <span className="text-sm text-gray-400">No file</span>
-            )}
-          </span>,
-
-          // ⚙ Action
           <Group gap="xs" key={`action-${element.id}`}>
             {generalForm?.status == "Default" &&
               authUserId == generalForm?.user_id && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-nowrap">
                   <Link
                     to={`/generator_edit/${element.id}`}
                     state={{ generalForm }}
@@ -198,6 +152,64 @@ const TableDetail: React.FC<Props> = ({
                 </div>
               )}
           </Group>,
+          <div className="whitespace-nowrap">
+            {dateFormat(element.generator_date)}
+          </div>,
+          <div className=" whitespace-nowrap">
+            {element.generator_time_ampm}
+          </div>,
+          element.engine_oil_level,
+          `${element.fuel_level}%`,
+          `${element.coolant_level}%`,
+          element.generator_size,
+          fullNumberFormat(element.gen_kva_level),
+          numberFormat(element.battery_volt_level),
+          fullNumberFormat(element.l1_level),
+          fullNumberFormat(element.l2_level),
+          fullNumberFormat(element.l3_level),
+          fullNumberFormat(element.total_kw_level),
+          fullNumberFormat(element.voltagel_l_level),
+          numberFormat(element.running_hour),
+          numberFormat(element.cost ?? "-"),
+          <div className="whitespace-nowrap">
+            {element.generator_service_date
+              ? dateFormat(element.generator_service_date)
+              : "- "}
+          </div>,
+          `${element.generator_cleaning_level}%`,
+          <div
+            className={`
+  ${
+    (element.remark?.length ?? 0) > 120
+      ? "min-w-[500px]"
+      : (element.remark?.length ?? 0) > 13
+        ? "min-w-[300px]"
+        : "min-w-[80px]"
+  } 
+  max-w-[600px] whitespace-normal break-words
+`}
+          >
+            {element.remark ? element.remark : "-"}
+          </div>,
+          <span
+            key={`file-${element.id}`}
+            className="inline-flex items-center justify-center text-blue-700"
+          >
+            {files?.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveGeneratorId(element.id);
+                  openFileModal();
+                }}
+                className="hover:text-blue-900 transition"
+              >
+                <IconFile size={18} />
+              </button>
+            ) : (
+              <span className="text-sm text-gray-400">No file</span>
+            )}
+          </span>,
         ])
       : [],
   };
@@ -207,11 +219,6 @@ const TableDetail: React.FC<Props> = ({
 
   return (
     <div className="relative mt-6 overflow-x-auto">
-      {/* {loading && (
-        <div className="absolute inset-0 z-50 bg-white/60 flex items-center justify-center">
-          <Loader />
-        </div>
-      )} */}
       <Table
         data={tableData}
         styles={{

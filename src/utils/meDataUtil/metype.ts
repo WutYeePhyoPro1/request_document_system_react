@@ -31,7 +31,7 @@ export interface meGeneratorDataType {
     l2_level ?:number ,
     l3_level ?: number ,
     total_kw_level ?: number ,
-    voltageL_l_level?: number ,
+    voltagel_l_level?: number ,
     gen_kva_level?:number,
     running_hour?:number,
     generator_service_date?:string,

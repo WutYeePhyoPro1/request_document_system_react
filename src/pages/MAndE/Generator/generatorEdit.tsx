@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Button } from "@mantine/core";
-import { IconFileText, IconFile, IconX } from "@tabler/icons-react";
+import { Button, Menu } from "@mantine/core";
+import {
+  IconFileText,
+  IconFile,
+  IconX,
+  IconPhoto,
+  IconCamera,
+} from "@tabler/icons-react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Swal from "sweetalert2";
 import cctvPhoto from "../../../assets/images/ban1.png";
@@ -15,7 +21,7 @@ import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import { FaStar } from "react-icons/fa";
 import FullPageLoader from "../../../components/FullPageLoader";
-import { Loader } from "lucide-react";
+import { Check, FilesIcon, Text, Loader } from "lucide-react";
 
 const GeneratorEdit: React.FC = () => {
   const { id } = useParams();
@@ -39,7 +45,7 @@ const GeneratorEdit: React.FC = () => {
     l2_level: "",
     l3_level: "",
     // total_kw_level: "",
-    voltageL_l_level: "",
+    voltagel_l_level: "",
     // load_level: "",
     running_hour: "",
     generator_service_date: "",
@@ -48,6 +54,7 @@ const GeneratorEdit: React.FC = () => {
     cost: "",
     generator_use: "",
   });
+  const [remark, setRemark] = useState<string>("");
 
   useEffect(() => {
     if (!id) return;
@@ -65,6 +72,7 @@ const GeneratorEdit: React.FC = () => {
           generator_time: data.generator_time?.slice(0, 5),
           generator_use: data.generator_use || "use",
         });
+        setRemark(data.remark || "");
         setExistingFiles(res?.files || []);
       } catch (error) {
         console.error("GeneratorDetail error:", error);
@@ -75,12 +83,30 @@ const GeneratorEdit: React.FC = () => {
 
     fetchData();
   }, [id]);
-  console.log("ExistingFile>>>", form);
+  console.log("ExistingFile>>>", remark.length);
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setForm((prev: any) => ({ ...prev, [name]: value }));
+  };
+
+  const handleLLevelChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+
+    let newValue = value;
+
+    // remove leading zeros (but allow single 0)
+    if (value.length > 1 && value.startsWith("0")) {
+      newValue = value.replace(/^0+/, "");
+    }
+
+    setForm((prev: any) => ({
+      ...prev,
+      [name]: newValue,
+    }));
   };
 
   const addInvoiceFile = () => {
@@ -130,6 +156,25 @@ const GeneratorEdit: React.FC = () => {
       }),
     );
   };
+  const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+
+    if (mode === "camera") {
+      // This attribute forces mobile browsers to open the camera app
+      input.setAttribute("capture", "environment");
+    }
+
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        updateFile(id, file);
+      }
+    };
+
+    input.click();
+  };
   const deleteExistingFile = async (fileId: number) => {
     const confirm = await Swal.fire({
       title: "Delete file?",
@@ -177,11 +222,14 @@ const GeneratorEdit: React.FC = () => {
     l2_level: "L2 is required",
     l3_level: "L3 is required",
     // total_kw_level: "Total KW is required",
-    voltageL_l_level: "Voltage L-L is required",
+    voltagel_l_level: "Voltagel-L is required",
     // load_level: "Load % is required",
     running_hour: "Running Hour is required",
     // generator_service_date: "Service Date is required",
     generator_cleaning_level: "Cleaning Level is required",
+    gen_kva_level: "KVA Level is required",
+    generator_size: "Generator size is required",
+    engine_oil_level: "Engine Oil Level is required",
     // remark: "Remark is required",
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -293,6 +341,16 @@ const GeneratorEdit: React.FC = () => {
       setLoading(false);
     }
   };
+  const isAtLimit = remark.length === 225;
+
+  const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    // setRemark(e.target.value);
+    if (e.target.value.length <= 225) {
+      setRemark(value);
+      setForm((prev: any) => ({ ...prev, remark: value }));
+    }
+  };
   if (loading) return <>{loading && <FullPageLoader />}</>;
 
   return (
@@ -319,7 +377,7 @@ const GeneratorEdit: React.FC = () => {
             checked={form.generator_use === "use"}
             onChange={handleChange}
           />
-          Generator Use
+          Generator Run
         </label>
 
         <label className="flex items-center gap-2 cursor-pointer">
@@ -330,7 +388,7 @@ const GeneratorEdit: React.FC = () => {
             checked={form.generator_use === "no_use"}
             onChange={handleChange}
           />
-          Generator Not Use
+          Generator Not Run
         </label>
       </div>
       <form
@@ -414,31 +472,22 @@ const GeneratorEdit: React.FC = () => {
               {/* Engine Oil */}
               <div>
                 <div className="flex items-center gap-2">
-                  <label>Engine Oil %</label>
-                  {/* <FaStar className="text-red-400" /> */}
+                  <label>Engine Oil Level</label>
+                  <FaStar className="text-red-400" />
                 </div>
-                <input
-                  type="number"
+                <select
                   name="engine_oil_level"
+                  id=""
                   value={form.engine_oil_level}
-                  required
-                  min="1"
-                  max="100"
                   onChange={handleChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onInput={(e) => {
-                    let value = e.target.value;
-
-                    if (value > 100) e.target.value = 100;
-                    if (value < 1 && value !== "") e.target.value = 1;
-                  }}
-                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  className="border py-3 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
+                >
+                  <option value="">Choose Level</option>
+                  <option value="Good">Good</option>
+                  <option value="Normal">Normal</option>
+                  <option value="Low">Low</option>
+                </select>
               </div>
 
               {/* Fuel */}
@@ -471,92 +520,140 @@ const GeneratorEdit: React.FC = () => {
                 />
               </div>
             </div>
-
-            {/* Coolant */}
-            <div>
-              <div className="flex items-center gap-2">
-                <label>Coolant %</label>
-                <FaStar className="text-red-400" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              {/* Coolant */}
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>Coolant %</label>
+                  <FaStar className="text-red-400" />
+                </div>
+                <input
+                  type="number"
+                  name="coolant_level"
+                  value={form.coolant_level}
+                  onChange={handleChange}
+                  required
+                  min="1"
+                  max="100"
+                  onKeyDown={(e) => {
+                    if (["-", "e", "+"]?.includes(e.key)) {
+                      e.preventDefault();
+                    }
+                  }}
+                  onInput={(e) => {
+                    let value = Number(e.target.value);
+                    if (value > 100) e.target.value = 100;
+                    if (value < 1 && e.target.value !== "") e.target.value = 1;
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
               </div>
-              <input
-                type="number"
-                name="coolant_level"
-                value={form.coolant_level}
-                onChange={handleChange}
-                required
-                min="1"
-                max="100"
-                onKeyDown={(e) => {
-                  if (["-", "e", "+"]?.includes(e.key)) {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e) => {
-                  let value = Number(e.target.value);
-                  if (value > 100) e.target.value = 100;
-                  if (value < 1 && e.target.value !== "") e.target.value = 1;
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>Generator Size</label>
+                  <FaStar className="text-red-400" />
+                </div>
+                <select
+                  name="generator_size"
+                  id=""
+                  value={form.generator_size}
+                  onChange={handleChange}
+                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Size</option>
+                  <option value="Big">Big</option>
+                  <option value="Small">Small</option>
+                </select>
+              </div>
             </div>
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">Battery Volt</label>
-                <span>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <label>KVA Level</label>
                   <FaStar className="text-red-400" />
-                </span>
+                </div>
+                <select
+                  name="gen_kva_level"
+                  id=""
+                  value={form.gen_kva_level}
+                  onChange={handleChange}
+                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Kva</option>
+                  <option value="550">550</option>
+                  <option value="400">400</option>
+                  <option value="375">375</option>
+                  <option value="150">150</option>
+                  <option value="100">100</option>
+                  <option value="80">80</option>
+                  <option value="60">60</option>
+                  <option value="30">30</option>
+                  <option value="25">25</option>
+                </select>
               </div>
-              <input
-                type="text"
-                name="battery_volt_level"
-                value={form.battery_volt_level}
-                required
-                inputMode="decimal"
-                onChange={(e) => {
-                  let value = e.target.value;
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Battery Volt</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  name="battery_volt_level"
+                  value={form.battery_volt_level}
+                  required
+                  inputMode="decimal"
+                  onChange={(e) => {
+                    let value = e.target.value;
 
-                  // Allow only numbers and dot
-                  value = value.replace(/[^0-9.]/g, "");
+                    // Allow only numbers and dot
+                    value = value.replace(/[^0-9.]/g, "");
 
-                  // Split decimal
-                  let parts = value.split(".");
+                    // Split decimal
+                    let parts = value.split(".");
 
-                  // Prevent multiple decimals
-                  if (parts.length > 2) {
-                    parts = [parts[0], parts[1]];
-                  }
+                    // Prevent multiple decimals
+                    if (parts.length > 2) {
+                      parts = [parts[0], parts[1]];
+                    }
 
-                  // Limit 4 digits before decimal
-                  if (parts[0].length > 4) {
-                    parts[0] = parts[0].slice(0, 4);
-                  }
+                    // Limit 4 digits before decimal
+                    if (parts[0].length > 6) {
+                      parts[0] = parts[0].slice(0, 6);
+                    }
 
-                  // Limit 2 digits after decimal
-                  if (parts[1]) {
-                    parts[1] = parts[1].slice(0, 2);
-                  }
+                    // Limit 2 digits after decimal
+                    if (parts[1]) {
+                      parts[1] = parts[1].slice(0, 2);
+                    }
 
-                  const formattedValue = parts.join(".");
+                    const formattedValue = parts.join(".");
 
-                  setForm((prev) => ({
-                    ...prev,
-                    battery_volt_level: formattedValue,
-                  }));
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
+                    setForm((prev) => ({
+                      ...prev,
+                      battery_volt_level: formattedValue,
+                    }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
             </div>
+
             <div className="">
               <div className="flex items-center gap-2">
                 <label htmlFor="">L1</label>
@@ -569,13 +666,13 @@ const GeneratorEdit: React.FC = () => {
                 name="l1_level"
                 value={form.generator_use === "no_use" ? 0 : form.l1_level}
                 disabled={form.generator_use === "no_use"}
-                onChange={handleChange}
+                onChange={handleLLevelChange}
                 required
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -607,12 +704,12 @@ const GeneratorEdit: React.FC = () => {
                 name="l2_level"
                 value={form.generator_use === "no_use" ? 0 : form.l2_level}
                 disabled={form.generator_use === "no_use"}
-                onChange={handleChange}
+                onChange={handleLLevelChange}
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -643,12 +740,12 @@ const GeneratorEdit: React.FC = () => {
                 name="l3_level"
                 value={form.generator_use === "no_use" ? 0 : form.l3_level}
                 disabled={form.generator_use === "no_use"}
-                onChange={handleChange}
+                onChange={handleLLevelChange}
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -708,15 +805,15 @@ const GeneratorEdit: React.FC = () => {
               </div>
               <input
                 type="number"
-                name="voltageL_l_level"
-                value={form.voltageL_l_level}
+                name="voltagel_l_level"
+                value={form.voltagel_l_level}
                 onChange={handleChange}
                 required
                 min="0"
-                max="9999"
+                max="9999999"
                 onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                  if (e.target.value.length > 6) {
+                    e.target.value = e.target.value.slice(0, 6);
                   }
                 }}
                 onKeyDown={(e) => {
@@ -737,17 +834,36 @@ const GeneratorEdit: React.FC = () => {
                 </span>
               </div>
               <input
-                type="number"
+                type="text"
                 name="running_hour"
-                value={form.running_hour}
-                onChange={handleChange}
                 required
-                min="0"
-                max="9999"
-                onInput={(e) => {
-                  if (e.target.value.length > 4) {
-                    e.target.value = e.target.value.slice(0, 4);
+                value={form.running_hour}
+                inputMode="decimal"
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // Allow only numbers and dot
+                  value = value.replace(/[^0-9.]/g, "");
+
+                  const parts = value.split(".");
+
+                  // Prevent multiple decimals
+                  if (parts.length > 2) return;
+
+                  // Limit 8 digits before decimal
+                  if (parts[0].length > 6) {
+                    parts[0] = parts[0].slice(0, 6);
                   }
+
+                  // Limit 2 digits after decimal
+                  if (parts[1]) {
+                    parts[1] = parts[1].slice(0, 2);
+                  }
+
+                  setForm((prev: any) => ({
+                    ...prev,
+                    running_hour: parts.join("."),
+                  }));
                 }}
                 onKeyDown={(e) => {
                   if (e.key === "-" || e.key === "e") {
@@ -755,7 +871,7 @@ const GeneratorEdit: React.FC = () => {
                   }
                 }}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
@@ -866,31 +982,95 @@ const GeneratorEdit: React.FC = () => {
               <textarea
                 name="remark"
                 value={form.value}
-                onChange={handleChange}
+                onChange={handleRemarkChange}
                 id=""
                 cols="3"
-                rows="1"
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                rows="2"
+                maxLength={225}
+                className={`border p-2 w-full rounded-md outline-none transition-all 
+      ${
+        isAtLimit
+          ? "border-orange-500 focus:ring-1 focus:ring-orange-500"
+          : "border-[rgb(29,137,225)] focus:ring-2 focus:ring-blue-400"
+      }`}
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               >
                 {form.remark}
               </textarea>
+              <div className="flex justify-between mt-1 px-1">
+                <div className="h-4">
+                  {isAtLimit && (
+                    <span className="text-orange-600 text-xs font-semibold animate-pulse">
+                      Maximum limit of 225 characters reached.
+                    </span>
+                  )}
+                </div>
+
+                <span
+                  className={`text-xs font-mono ${remark?.length === 225 ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                >
+                  {remark?.length}/225
+                </span>
+              </div>
             </div>
             <div className="">
               {invoiceFile.map((fileField, index) => (
                 <div key={fileField.id} className="flex flex-col gap-2 w-full">
-                  <label htmlFor="">{index === 0 ? "Upload" : undefined}</label>
+                  <label>{index === 0 ? "Upload" : undefined}</label>
+
                   <div className="flex items-center gap-3">
+                    {/* MD + LG INPUT */}
                     <input
                       type="file"
                       name="file[]"
                       onChange={(e) =>
                         updateFile(fileField.id, e.target.files?.[0] || null)
                       }
-                      className="flex-1 border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                      className="hidden md:block flex-1 border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                       style={{ borderColor: "rgb(213, 216, 221)" }}
                     />
 
+                    {/* SM MENU SELECTOR */}
+                    <div className="flex-1 md:hidden">
+                      <Menu shadow="md" width={200}>
+                        <Menu.Target>
+                          <div
+                            className="border p-2 w-full rounded-md cursor-pointer bg-white flex justify-between items-center text-sm"
+                            style={{ borderColor: "rgb(213, 216, 221)" }}
+                          >
+                            {fileField.name ? (
+                              <Text truncate>{fileField.name}</Text>
+                            ) : (
+                              <Text color="dimmed">Tap to upload...</Text>
+                            )}
+                          </div>
+                        </Menu.Target>
+
+                        <Menu.Dropdown>
+                          <Menu.Label>Choose Source</Menu.Label>
+
+                          <Menu.Item
+                            icon={<IconCamera size={16} />}
+                            onClick={() =>
+                              handleCaptureChoice(fileField.id, "camera")
+                            }
+                          >
+                            Take Photo (Camera)
+                          </Menu.Item>
+
+                          <Menu.Item
+                            icon={<IconPhoto size={16} />}
+                            onClick={() =>
+                              handleCaptureChoice(fileField.id, "gallery")
+                            }
+                          >
+                            Choose from Gallery
+                          </Menu.Item>
+                        </Menu.Dropdown>
+                      </Menu>
+                    </div>
+
+                    {/* ADD / REMOVE BUTTON */}
                     {index === 0 ? (
                       <Button onClick={addInvoiceFile}>Add</Button>
                     ) : (

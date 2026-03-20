@@ -1,9 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
+import { MultiSelect, Pagination, Select, Table } from "@mantine/core";
 import type { IndexData } from "../../../utils/requestDiscountUtil";
-import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
 import { parse } from "uuid";
 import StatusBadge from "../../../components/ui/StatusBadge";
 import { FiCopy } from "react-icons/fi";
@@ -13,9 +12,11 @@ import {
   dateTimeFormat,
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
+import { Loader } from "lucide-react";
 import Swal from "sweetalert2";
 import { searchMeData } from "../../../api/ME/meData";
 import "../../../../src/assets/css/style.css";
+import { generalTransformerData } from "../../../api/ME/Transformer/transformer";
 // src/assets/css/style.css
 
 const Index: React.FC = () => {
@@ -38,21 +39,22 @@ const Index: React.FC = () => {
     const [y, m, d] = val.split("-");
     return `${d}-${m}-${y}`;
   };
+  console.log("GeneralData", generalData);
   useEffect(() => {
-    const cached = sessionStorage.getItem("generator_cache");
+    const cached = sessionStorage.getItem("transformer_cache");
     if (cached) {
       const parsed = JSON.parse(cached);
       parsed.activePage = activePage;
-      sessionStorage.setItem("generator_cache", JSON.stringify(parsed));
+      sessionStorage.setItem("transformer_cache", JSON.stringify(parsed));
     }
   }, [activePage]);
   useEffect(() => {
-    const cached = sessionStorage.getItem("generator_cache");
+    const cached = sessionStorage.getItem("transformer_cache");
     const token = localStorage.getItem("token");
     if (!token) return;
     if (cached) {
       const parsed = JSON.parse(cached);
-      generalGeneratorData(token)
+      generalTransformerData(token)
         .then((data) => {
           setGeneralData({
             meta: {
@@ -80,7 +82,7 @@ const Index: React.FC = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const data = await generalGeneratorData(token);
+      const data = await generalTransformerData(token);
       setGeneralData({
         meta: {
           authenticatedUser: data?.authenticatedUser,
@@ -153,7 +155,7 @@ const Index: React.FC = () => {
 
       // Store cache only when user searches
       sessionStorage.setItem(
-        "generator_cache",
+        "transformer_cache",
         JSON.stringify({
           data: results.data,
           searchTerm,
@@ -171,7 +173,7 @@ const Index: React.FC = () => {
     }
   };
   const handleRestart = async () => {
-    sessionStorage.removeItem("generator_cache");
+    sessionStorage.removeItem("transformer_cache");
 
     setSearchTerm({
       form_doc_no: "",
@@ -187,7 +189,7 @@ const Index: React.FC = () => {
     setLoading(true);
     await fetchData();
 
-    navigate(`/generator/${formId}`, { replace: true });
+    navigate(`/transformer/${formId}`, { replace: true });
   };
   const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
@@ -222,7 +224,7 @@ const Index: React.FC = () => {
             <StatusBadge status={element.status} />
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
-            <Link to={`/generator_detail/${element.id}`} className="contents">
+            <Link to={`/transformer_detail/${element.id}`} className="contents">
               {element.form_doc_no}
             </Link>
 
@@ -251,7 +253,7 @@ const Index: React.FC = () => {
               <AiFillMessage className="text-red-400 w-4 h-4" />
             )}
           </Table.Td>
-          <Link to={`/generator_detail/${element.id}`} className="contents">
+          <Link to={`/transformer_detail/${element.id}`} className="contents">
             <Table.Td>{element.from_branches?.branch_name}</Table.Td>
             <Table.Td>{element.originators?.name}</Table.Td>
 
@@ -285,14 +287,14 @@ const Index: React.FC = () => {
           segments={[
             { path: "/dashboard", label: "Home" },
             { path: "/dashboard", label: "Dashboard" },
-            { path: `/generator/${formId}`, label: "Generator" },
+            { path: `/transformer/${formId}`, label: "Transformer" },
           ]}
         />
         <div className="flex justify-between mr-4">
-          <h2 className="text-xl font-semibold">Generator Form</h2>
+          <h2 className="text-xl font-semibold">Transformer Form</h2>
           {generalData?.meta?.createdUser === true && (
             <Link
-              to="/generator_create"
+              to="/transformer_create"
               state={{ formId: formId }}
               className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
               style={{ background: "#2ea2d1" }}

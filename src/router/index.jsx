@@ -30,6 +30,8 @@ import GeneratorEdit from "../pages/MAndE/Generator/generatorEdit.js";
 import IndexPriceChange from "../pages/pricechanges/IndexPriceChange.jsx";
 import CreatePriceChange from "../pages/pricechanges/CreatePriceChange.jsx";
 import DetailPriceChange from "../pages/pricechanges/DetailPriceChange.jsx";
+import TransformerIndex from "../pages/MAndE/Transformer/transformerIndex.js";
+import TransformerCreate from "../pages/MAndE/Transformer/transformerCreate.js";
 
 const LoginRoute = () => {
   const token = localStorage.getItem("token");
@@ -157,6 +159,15 @@ const router = createBrowserRouter([
       {
         path: "generator_edit/:id",
         element: <GeneratorEdit />,
+      },
+
+      {
+        path: "transformer/:id",
+        element: <TransformerIndex />,
+      },
+      {
+        path: "transformer_create",
+        element: <TransformerCreate />,
       },
       {
         path: "price_changes",

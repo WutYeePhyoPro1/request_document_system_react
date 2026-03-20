@@ -4,6 +4,7 @@ import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Button, Textarea } from "@mantine/core";
 import Swal from "sweetalert2";
 import { NotificationContext } from "../../context/NotificationContext";
+import { useNavigate } from "react-router-dom";
 
 type MeApproveFormProps = {
   detailData: meGeneratorDataType;
@@ -33,11 +34,55 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     }
     setComment(e.target.value);
   };
-
+  console.log("DetailData>>", detailData);
+  const navigate = useNavigate();
+  const handleBack = () => {
+    navigate(-1);
+  };
   const handleSubmit = async (statusValue: string) => {
+    console.log("StatusValue>>", statusValue);
+    let confirmText;
+    if (statusValue == "Ongoing") {
+      confirmText = "Send To Manager?";
+    } else if (statusValue == "checked") {
+      confirmText = "Want to check?";
+    } else if (statusValue == "completed") {
+      confirmText = "Want to complete?";
+    } else if (statusValue == "Cancel") {
+      confirmText = "Want to cancel ?";
+    } else if (
+      statusValue == "back_to_previous_checked" ||
+      statusValue == "back_to_previous"
+    ) {
+      confirmText = "Want to previous back?";
+    } else {
+      confirmText = "Want to do this?";
+    }
+
+    if (
+      statusValue == "Ongoing" ||
+      statusValue == "checked" ||
+      statusValue == "completed" ||
+      statusValue === "Cancel" ||
+      statusValue == "back_to_previous_checked" ||
+      statusValue == "back_to_previous"
+    ) {
+      const confirmBox = await Swal.fire({
+        title: "Are you sure",
+        text: confirmText,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "rgb(29, 95, 219)",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes",
+        cancelButtonText: "No",
+      });
+
+      if (!confirmBox.isConfirmed) return;
+    }
+
     const token = localStorage.getItem("token");
     if (!token) return;
-    console.log("StatusValue>>", statusValue);
 
     const generalFormId = detailData?.generalForm?.id;
     const subFormId = detailData?.subForm?.sub_form_id;
@@ -48,7 +93,8 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       return;
     }
 
-    const isBack = statusValue === "back_to_previous";
+    const isBack =
+      statusValue === "back_to_previous" || "back_to_previous_checked";
     const isCancel = statusValue === "Cancel";
     const isSendManager = statusValue === "Ongoing";
 
@@ -56,7 +102,13 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
     const hasComment = comment?.trim().length > 0;
     const isDefaultStatus = detailData?.generalForm?.status === "Default";
 
-    if (needsRemark && !hasComment && !isDefaultStatus) {
+    if (
+      needsRemark &&
+      !hasComment &&
+      !isDefaultStatus &&
+      statusValue !== "checked" &&
+      statusValue !== "completed"
+    ) {
       Swal.fire({
         icon: "warning",
         title: "Remark required",
@@ -64,9 +116,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       });
       return;
     }
-
     setLoading(true);
-
     try {
       await approveFormME(
         token,
@@ -84,6 +134,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       const successMap: Record<string, string> = {
         Ongoing: "Form sent to manager successfully",
         back_to_previous: "Form sent back successfully",
+        back_to_previous_checked: "Form sent back successfully",
         Cancel: "Form cancelled successfully",
       };
 
@@ -102,6 +153,7 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
       setLoading(false);
     }
   };
+  console.log("DetailData>>", detailData);
 
   return (
     <div className="mb-6">
@@ -120,19 +172,15 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
                   Send to manager
                 </Button>
 
-                <Button
-                  color="red"
-                  disabled={loading}
-                  onClick={() => handleSubmit("Cancel")}
-                >
+                {/* <Button color="red" disabled={loading} onClick={handleBack}>
                   Cancel
-                </Button>
+                </Button> */}
               </div>
             </div>
           </>
         )}
 
-      {detailData?.approver === true &&
+      {detailData?.checker === true &&
         detailData?.generalForm?.status === "Ongoing" && (
           <>
             <h1>Remark</h1>
@@ -152,7 +200,50 @@ const MeApproveForm: React.FC<MeApproveFormProps> = ({
                   color="green"
                   loading={loading}
                   disabled={loading}
-                  onClick={() => handleSubmit("BM Approved")}
+                  onClick={() => handleSubmit("checked")}
+                >
+                  Check
+                </Button>
+                <Button
+                  color="yellow"
+                  disabled={loading}
+                  onClick={() => handleSubmit("back_to_previous_checked")}
+                >
+                  Back To Previous
+                </Button>
+                <Button
+                  color="red"
+                  disabled={loading}
+                  onClick={() => handleSubmit("Cancel")}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+      {detailData?.approver === true &&
+        detailData?.generalForm?.status === "checked" && (
+          <>
+            <h1>Remark</h1>
+            <div className="grid lg:grid-cols-2   grid-cols-1 gap-6">
+              <div className=" ">
+                <Textarea
+                  resize="vertical"
+                  name="comment"
+                  className="w-full"
+                  placeholder="Your comment"
+                  value={comment}
+                  onChange={handleCommentChange}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-3 md:justify-start ">
+                <Button
+                  color="green"
+                  loading={loading}
+                  disabled={loading}
+                  onClick={() => handleSubmit("completed")}
                 >
                   Complete
                 </Button>
