@@ -9,7 +9,7 @@ import { fetchData } from '../../api/FetchApi';
 import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
 import { FiCopy,FiExternalLink } from 'react-icons/fi';
-import { FaSpinner,FaEye } from "react-icons/fa";
+import { FaSpinner,FaEye,FaSync } from "react-icons/fa";
 import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
 
 
@@ -181,6 +181,127 @@ export default function IndexPriceChange() {
         dispatch(clearFilters())
         dispatch(fetchPriceChanges());
     }
+
+    const runHandler = async (retry = false, latestForm = null) => {
+        setRunning(true);
+
+        const data = latestForm;
+
+        // setForceLoading(true);
+        // setIsSubmitting(true);
+        // setShowModal(true);
+        try {
+            
+            const hasPendingBranchFresh = computeHasPendingBranch(data);
+            console.log("hasPendingBranchFresh",hasPendingBranchFresh,data);
+
+            // Start Branch Price Change
+            let updateRequests = [];
+            if(data.urgent_price_change){
+
+                // console.log(formState.price_change_branches);
+                const runBranches = data.price_change_branches.filter(pcbranch=>pcbranch.status != 'Updated').sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1).map(brch=>brch.branch_id)
+                // console.log(runBranches);
+                updateRequests = runBranches.map(branchId => {
+
+                    updateBranchStatus(branchId, "Updating");
+
+                    return axios
+                        .get(`/api/price_changes/${id}/${branchId}/update_price`, {
+                            headers: { Authorization: `Bearer ${token}` },
+                        })
+                        .then(async (res) => {
+                            if (res.data?.success === false) {
+                                // updateBranchStatus(branchId, "failed", res.data.message);
+                                // throw new Error(`Branch ${branchId} failed`);
+                                throw new Error(res?.data?.message);
+                            }
+
+                            // await sleep(2000);
+                            updateBranchStatus(branchId, res.data.status ,res.data.message);
+                            return res;
+                        })
+                        .catch(err => {
+                            console.log('There is an error in updating branch price:',err);
+                            updateBranchStatus(
+                                branchId,
+                                "Failed",
+                                err.response?.data?.message || err.message
+                            );
+                            throw err;
+                        });
+                });
+            }
+
+                // Start Online Request
+                const hasNotOnlineUpdateFresh = computeHasNotOnlineUpdate(data);
+                console.log("hasNotOnlineUpdateFresh",hasNotOnlineUpdateFresh,data);
+                if(hasNotOnlineUpdateFresh){
+                    updateOnlineStatus("Update Online Price", "Updating");
+                    let formData = getOnlinePayload(data);
+                    let onlineRequest = axios.post(`/api/price_changes/${id}/update_online`,formData,{
+                                            headers: {
+                                                Authorization: `Bearer ${token}`,
+                                                },
+                                            })
+                                            .then(async (res)=>{
+                                                if(res.data?.success == false){
+                                                    throw new Error(res?.data?.message);
+                                                }
+                                                updateOnlineStatus("Update Online Price", "Updated" ,res.data.message);
+                                                return res;
+                                            })
+                                            .catch(err => {
+                                                console.log('There is an error in updating onlilne:',err);
+
+                                                // Swal.fire({
+                                                //     icon: "error",
+                                                //     title: "Update Online Error",
+                                                //     text: "Something went wrong while updating online.",
+                                                // });
+
+                                                updateOnlineStatus("Update Online Price", "Failed");
+                                                throw err;
+                                            });
+
+                    updateRequests.push(onlineRequest);
+                }
+                // End Online Request
+
+            const results = await Promise.all(updateRequests);
+            // End Branch Price Change
+
+
+            // Swal.fire({
+            //     icon: "success",
+            //     title: "POS and ERP Prices Updated",
+            //     text: "All branches are now live with the updated pricing.",
+            // });
+
+            // fetchPriceChange();
+            // navigate("/price_changes");
+
+            const latestForm = await fetchPriceChange();
+            await transferGCPHandler(latestForm);
+
+        } catch (err) {
+            console.error(err,err.message);
+
+            // Swal.fire({
+            //     icon: "error",
+            //     title: "Prices Run Error",
+            //     text: err.message || "Some branches failed to update.",
+            // });
+        } finally {
+            // setForceLoading(false);
+            // setIsSubmitting(false);
+            // setShowModal(false);
+
+            fetchPriceChange();
+
+            setRunning(false);
+        }
+    };
 
     return (
         <>
@@ -441,11 +562,26 @@ export default function IndexPriceChange() {
                                                         </td>
                                                         <td className="py-2 px-4 border-b">
                                                             {
-                                                                data?.files?.filter(gf=>gf.name.includes("CP")).length == 0 && (
+                                                                (data?.files?.filter(gf=>gf.name.includes("CP")).length == 0 && data?.status != "Approved")&& (
                                                                 <>
                                                                 -
                                                                 </>)
-                                                                
+                                                            }
+                                                            {
+                                                                // (data?.files?.filter(gf=>gf.name.includes("CP")).length == 0 && data?.status == "Approved")&& (
+                                                                // <>
+                                                                //     <button
+                                                                //     className={`flex items-center justify-center p-2 rounded-md border transition bg-sky-600 text-white`}
+                                                                //     title='Re-Run'
+                                                                //     onClick={(e)=> {
+                                                                //         e.stopPropagation();
+                                                                //         runHandler(false,data)
+                                                                //     }}
+                                                                //     >
+                                                                //     <FaSync />
+                                                                //     </button>
+                                                                // </>
+                                                                // )
                                                             }
                                                             {
                                                                 data?.files?.filter(gf=>gf.name.includes("CP")).map((generalFormFile,idx)=>(

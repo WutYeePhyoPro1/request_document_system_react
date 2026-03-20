@@ -470,7 +470,7 @@ export default function () {
             const apiProduct = data.data;
 
             const new_cost_price = apiProduct.new_cost_price || row["New Cost Price"] || '';
-            const price1 = apiProduct.price1 || row["Price 1"] || '';
+            const price1 = apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '';
             const result = {
                 ...apiProduct,
                 product_code: apiProduct.barcode,
@@ -1486,7 +1486,7 @@ export default function () {
                 SET PRODUCT_PRICE1 = ${product.price1},
                     PRODUCT_PRICE2 = ${product.price2},
                     PRODUCT_PRICE3 = ${product.price1}
-                WHERE BARCODE_CODE = ${product.product_code}
+                WHERE BARCODE_CODE = '${product.product_code}'
                 AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
                 `;
 
@@ -1496,7 +1496,7 @@ export default function () {
                     SET PRODUCT_PRICE1 = ${product.price1},
                     PRODUCT_PRICE2 = ${product.price2},
                     PRODUCT_PRICE3 = ${product.price1}
-                WHERE BARCODE_CODE = ${product.product_code}
+                WHERE BARCODE_CODE = '${product.product_code}'
                     AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
                 `;
 
@@ -1506,7 +1506,7 @@ export default function () {
                     SET PRODUCT_PRICE1 = ${product.price1},
                     PRODUCT_PRICE2 = ${product.price2},
                     PRODUCT_PRICE3 = ${product.price1}
-                WHERE BARCODE_CODE = ${product.product_code}
+                WHERE BARCODE_CODE = '${product.product_code}'
                     AND BRANCH_ID = ${pcbranch.branch.erp_branch_id}; \n\n
                 `;
             });
