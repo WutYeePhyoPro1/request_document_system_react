@@ -37,6 +37,11 @@ export default function () {
     const dispatch = useDispatch();
 
     const {loading,error, datas: serverTimeData} = useSelector((state)=>state.servertime)
+    // console.log(serverTimeData.time);
+    const svrDateObj = new Date(serverTimeData.time);
+    // console.log(svrDateObj);
+
+
     const [pcLoading,setPcLoading] = useState(true);
 
     const { id } = useParams();
@@ -104,6 +109,17 @@ export default function () {
         branch => branch.status === "Updated"
     );
     
+    const checkOverdueForm = (currentDateObj, effectiveDateObj) => { 
+        console.log(effectiveDateObj, currentDateObj);
+        if (effectiveDateObj < currentDateObj) {
+            return true;    // overdue
+        } else {
+            return false;   // not overdue
+        }
+    } 
+    const isOverdueForm = checkOverdueForm(svrDateObj, new Date(formState.effective_date))
+    // console.log(checkOverdueForm(svrDateObj, new Date(formState.effectiveDateObj)))
+    // console.log(isOverdueForm);
     const isRunner = (formState.status == "Approved" || formState.status == "Partial" || formState.status == "Pass approvalss") && getApprover?.approval_users?.id === user.id;
     const computeHasPendingBranch = (formState)=> {
         return  formState?.price_change_branches?.some(
@@ -124,11 +140,14 @@ export default function () {
     const hasPendingBranch = computeHasPendingBranch(formState);
     const hasNotOnlineUpdate = computeHasNotOnlineUpdate(formState);
     const hasNoGcpDocument = computeHasNoGcpDocument(formState);
-    const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument);
+    const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument) && !isOverdueForm;
     // console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
 
     const softwaresupport = user.from_branch_id == 1 && user.department_id == 11;
     // console.log(softwaresupport);
+
+
+
     
     const [copied, setCopied] = useState('');
     const updateDoc = useRef(false);
@@ -1679,7 +1698,7 @@ export default function () {
                                 }
                         
                                 {
-                                    approver &&
+                                    (approver && !isOverdueForm) &&
                                     <button
                                         className="px-4 py-2 text-sm rounded-lg
                                             bg-green-600 text-white
