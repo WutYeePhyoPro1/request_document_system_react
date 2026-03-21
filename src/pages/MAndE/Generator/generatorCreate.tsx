@@ -50,15 +50,27 @@ const GeneratorCreate: React.FC = () => {
   });
   const [remark, setRemark] = useState<string>("");
 
-  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
-    { id: uuidv4(), file: null },
+  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile[]>([
+    { id: uuidv4(), file: null, preview: null, type: null, name: null },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
+  // const addInvoiceFile = () => {
+  //   setInvoiceFile((prev) => [
+  //     ...prev,
+  //     {
+  //       id: Date.now(),
+  //       file: null,
+  //       preview: null,
+  //       type: null,
+  //       name: null,
+  //     },
+  //   ]);
+  // };
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: uuidv4(),
         file: null,
         preview: null,
         type: null,
@@ -66,7 +78,7 @@ const GeneratorCreate: React.FC = () => {
       },
     ]);
   };
-  const removeInvoiceFile = (id) => {
+  const removeInvoiceFile = (id: string | number) => {
     setInvoiceFile((prev) =>
       prev.filter((item) => {
         if (item.id === id && item.preview) {
@@ -76,7 +88,7 @@ const GeneratorCreate: React.FC = () => {
       }),
     );
   };
-  const updateFile = (id, file) => {
+  const updateFile = (id: string | number, file: File | null) => {
     setInvoiceFile((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -250,18 +262,39 @@ const GeneratorCreate: React.FC = () => {
     }
   };
   // Add a function to trigger the specific type of upload
-  const handleUploadChoice = (choice, fileFieldId) => {
+  // const handleUploadChoice = (choice, fileFieldId) => {
+  //   const input = document.createElement("input");
+  //   input.type = "file";
+  //   input.accept = "image/*";
+
+  //   // If user chooses camera, we add the capture attribute
+  //   if (choice === "camera") {
+  //     input.setAttribute("capture", "environment"); // 'user' for front cam, 'environment' for back
+  //   }
+
+  //   input.onchange = (e) => {
+  //     updateFile(fileFieldId, e.target.files?.[0] || null);
+  //   };
+
+  //   input.click();
+  // };
+  const handleUploadChoice = (
+    choice: "camera" | "gallery",
+    fileFieldId: string,
+  ) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
 
-    // If user chooses camera, we add the capture attribute
     if (choice === "camera") {
-      input.setAttribute("capture", "environment"); // 'user' for front cam, 'environment' for back
+      input.setAttribute("capture", "environment");
     }
 
-    input.onchange = (e) => {
-      updateFile(fileFieldId, e.target.files?.[0] || null);
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0] || null;
+
+      updateFile(fileFieldId, file);
     };
 
     input.click();
@@ -477,7 +510,7 @@ const GeneratorCreate: React.FC = () => {
                     min="1"
                     max="100"
                     defaultValue={100}
-                    onInput={(e) => {
+                    onInput={(e: any) => {
                       let value = e.target.value;
 
                       if (value > 100) e.target.value = 100;
@@ -511,7 +544,7 @@ const GeneratorCreate: React.FC = () => {
                         e.preventDefault();
                       }
                     }}
-                    onInput={(e) => {
+                    onInput={(e: any) => {
                       let value = Number(e.target.value);
                       if (value > 100) e.target.value = 100;
                       if (value < 1 && e.target.value !== "")
@@ -581,7 +614,7 @@ const GeneratorCreate: React.FC = () => {
                     required
                     step="0.01"
                     inputMode="decimal"
-                    onChange={(e) => {
+                    onChange={(e: any) => {
                       let value = e.target.value;
 
                       value = value.replace(/[^0-9.]/g, "");
@@ -779,7 +812,7 @@ const GeneratorCreate: React.FC = () => {
                   required
                   min="0"
                   max="9999999"
-                  onInput={(e) => {
+                  onInput={(e: any) => {
                     if (e.target.value.length > 6) {
                       e.target.value = e.target.value.slice(0, 6);
                     }
@@ -805,7 +838,7 @@ const GeneratorCreate: React.FC = () => {
                   type="text"
                   name="running_hour"
                   inputMode="decimal"
-                  onChange={(e) => {
+                  onChange={(e: any) => {
                     let value = e.target.value;
 
                     value = value.replace(/[^0-9.]/g, "");
@@ -860,7 +893,7 @@ const GeneratorCreate: React.FC = () => {
                       e.preventDefault();
                     }
                   }}
-                  onInput={(e) => {
+                  onInput={(e: any) => {
                     let value = e.target.value;
 
                     if (value > 100) e.target.value = 100;
@@ -903,7 +936,7 @@ const GeneratorCreate: React.FC = () => {
                       name="cost"
                       required
                       inputMode="decimal"
-                      onChange={(e) => {
+                      onChange={(e: any) => {
                         let value = e.target.value;
 
                         value = value.replace(/[^0-9.]/g, "");
@@ -1012,7 +1045,7 @@ const GeneratorCreate: React.FC = () => {
                               style={{ borderColor: "rgb(29, 137, 225)" }}
                             >
                               {fileField.name ? (
-                                <Text truncate>{fileField.name}</Text>
+                                <Text>{fileField.name}</Text>
                               ) : (
                                 <Text color="dimmed">Tap to upload...</Text>
                               )}
@@ -1023,7 +1056,7 @@ const GeneratorCreate: React.FC = () => {
                             <Menu.Label>Choose Source</Menu.Label>
 
                             <Menu.Item
-                              icon={<IconCamera size={16} />}
+                              // icon={<IconCamera size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "camera")
                               }
@@ -1032,7 +1065,7 @@ const GeneratorCreate: React.FC = () => {
                             </Menu.Item>
 
                             <Menu.Item
-                              icon={<IconPhoto size={16} />}
+                              // icon={<IconPhoto size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "gallery")
                               }

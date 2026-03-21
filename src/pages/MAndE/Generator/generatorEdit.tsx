@@ -38,7 +38,7 @@ const GeneratorEdit: React.FC = () => {
     generator_date: "",
     generator_time: "",
     // engine_oil_level: "",
-    // fuel_level: "",
+    fuel_level: "",
     coolant_level: "",
     battery_volt_level: "",
     l1_level: "",

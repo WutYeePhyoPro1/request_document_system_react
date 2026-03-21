@@ -15,6 +15,7 @@ import {
 import ApproveForm from "../../requestDiscount/approveForm";
 import TableDetail from "./tableDetail";
 import MeApproveForm from "../meApproveForm";
+import TsStatusBadge from "../../../components/ui/TsStatusBadge";
 
 const GeneratorDetail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -46,7 +47,7 @@ const GeneratorDetail: React.FC = () => {
 
   const onCopyClick = () => {
     handleCopy(
-      detailData?.generalForm?.form_doc_no,
+      detailData?.generalForm?.form_doc_no || "",
       () => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -85,14 +86,7 @@ const GeneratorDetail: React.FC = () => {
   return (
     <>
       {detailData == null ? (
-        <div className="flex justify-center items-center min-h-screen">
-          {/* <div className="flex flex-col items-center gap-4">
-            <Loader size="xl" color="blue" />
-            <div className="text-lg font-semibold  text-gray-700 animate-pulse">
-              Loading Detail Data...
-            </div>
-          </div> */}
-        </div>
+        <div className="flex justify-center items-center min-h-screen"></div>
       ) : (
         <div className="">
           <div className="">
@@ -140,7 +134,7 @@ const GeneratorDetail: React.FC = () => {
                   >
                     {copied ? "Copied!" : <FiCopy className="w-4 h-4" />}
                   </button>
-                  <StatusBadge
+                  <TsStatusBadge
                     status={
                       detailData?.generalForm?.status
                         ? detailData?.generalForm?.status
@@ -192,7 +186,7 @@ const GeneratorDetail: React.FC = () => {
                     <MeApproveForm
                       detailData={detailData}
                       onRefresh={() => fetchData(id!)}
-                      loading={loading}
+                      loading={loading ?? false}
                       setLoading={setLoading}
                     />
                   </div>
@@ -220,7 +214,7 @@ const GeneratorDetail: React.FC = () => {
                       detailData?.form_rejected?.can_cel_u_ser?.name !==
                         "Yan Naing Soe") ? (
                       ["checked", "Completed", "Cancel"].includes(
-                        detailData?.generalForm?.status,
+                        detailData?.generalForm?.status ?? "",
                       ) ? (
                         <div>
                           {/* sdfnmdnsfm */}
@@ -263,7 +257,7 @@ const GeneratorDetail: React.FC = () => {
                     {detailData?.getApprover &&
                     detailData?.form_rejected == null ? (
                       ["Completed", "Cancel"].includes(
-                        detailData?.generalForm?.status,
+                        detailData?.generalForm?.status ?? "",
                       ) ? (
                         <div>
                           {/* sdfnmdnsfm */}

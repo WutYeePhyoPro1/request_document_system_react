@@ -32,6 +32,7 @@ import CreatePriceChange from "../pages/pricechanges/CreatePriceChange.jsx";
 import DetailPriceChange from "../pages/pricechanges/DetailPriceChange.jsx";
 import TransformerIndex from "../pages/MAndE/Transformer/transformerIndex.js";
 import TransformerCreate from "../pages/MAndE/Transformer/transformerCreate.js";
+import TransformerDetail from "../pages/MAndE/Transformer/TransformerDetail.js";
 
 const LoginRoute = () => {
   const token = localStorage.getItem("token");
@@ -168,6 +169,10 @@ const router = createBrowserRouter([
       {
         path: "transformer_create",
         element: <TransformerCreate />,
+      },
+      {
+        path: "transformer_detail/:id",
+        element: <TransformerDetail />,
       },
       {
         path: "price_changes",

@@ -18,7 +18,7 @@ export const generalGeneratorData = async(token:string) => {
     }
 }
 
-export const getStoreGeneratorData = async (token:string | null , formData:meGeneratorDataType)=>{
+export const getStoreGeneratorData = async (token:string | null , formData:FormData)=>{
   return API.post(`/me/generator/store` , formData , {
     headers: {
       Authorization: `Bearer ${token}` ,
@@ -43,7 +43,7 @@ export const generatorDataDetail = async(token:string , id:string) : Promise<meG
     return response.data;
   } catch (error) {
     console.error("meDataDetail error:", error);
-    return null;
+    throw error;
   }
 }
 export const generatorFileDelete = async(token:string , id:string) : Promise<meGeneratorDataType >=> {
@@ -55,7 +55,7 @@ export const generatorFileDelete = async(token:string , id:string) : Promise<meG
     return response.data;
   } catch (error) {
     console.error("generator delete error:", error);
-    return null;
+    throw error;
   }
 }
 

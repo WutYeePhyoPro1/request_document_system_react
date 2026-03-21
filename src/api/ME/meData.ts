@@ -39,7 +39,7 @@ export const searchMeData = async (
   }
 };
 
-export const meDataDetail = async(token:string , id:string) : Promise<meGeneratorDataType >=> {
+export const meDataDetail = async(token:string , id:string | number) : Promise<meGeneratorDataType >=> {
   try {
     const response = await API.get(`/meForm/detail/${id}` , {
       headers : {Authorization: `Bearer ${token}`} ,
@@ -48,7 +48,7 @@ export const meDataDetail = async(token:string , id:string) : Promise<meGenerato
     return response.data;
   } catch (error) {
     console.error("meDataDetail error:", error);
-    return null;
+    throw error ;
   }
 }
 
@@ -59,9 +59,13 @@ export const meDataDetail = async(token:string , id:string) : Promise<meGenerato
 //     }
 //   });
 // }
+type ApproveFormData = {
+  status: string;
+  comment: string;
+} & Partial<meGeneratorDataType>; 
 export const approveFormME = async (
   token: string,
-  formData: meGeneratorDataType,
+  formData: ApproveFormData,
   form_id:string | number ,
   general_form_id: string | number,
   sub_form_id: string | number

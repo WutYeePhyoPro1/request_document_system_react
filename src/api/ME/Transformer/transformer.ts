@@ -30,4 +30,17 @@ export const getStoreTransformerData = async(token:string , formData:meGenerator
         console.log("Error at store transformer data:" , error);
         throw error ;
     }
+} 
+
+export const transformerDetailData = async(token:string , id:string | number) : Promise<meGeneratorDataType> => {
+    try {
+        const response = await API.get(`/me/transformer/detail/${id}` , {
+            headers: {Authorization: `Bearer ${token}`},
+        });
+        console.log("REsponse Transformr:" , response.data) ;
+        return response.data ;
+    } catch (error) {
+        console.error("transformerDetail error:" , error);
+        throw error ;
+    }
 }

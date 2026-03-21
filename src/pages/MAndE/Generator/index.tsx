@@ -20,7 +20,6 @@ import "../../../../src/assets/css/style.css";
 
 const Index: React.FC = () => {
   const formId = 1;
-  console.log("FormID>>", formId);
   const [generalData, setGeneralData] = useState<IndexData[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
@@ -99,8 +98,6 @@ const Index: React.FC = () => {
       setLoading(false);
     }
   };
-  console.log("SearchTerm>>", generalData);
-  console.log("createdUser>>", generalData?.meta?.createdUser);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
@@ -147,7 +144,7 @@ const Index: React.FC = () => {
       return;
     }
     setLoading(true);
-    // console.log("SeaarchTerm>>", searchTerm) ;
+
     try {
       const results = await searchMeData(token, searchTerm);
 

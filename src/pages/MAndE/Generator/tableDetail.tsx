@@ -1,5 +1,8 @@
 import React, { useContext, useState } from "react";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
+import type {
+  FileItem,
+  meGeneratorDataType,
+} from "../../../utils/meDataUtil/metype";
 import {
   Modal,
   Table,
@@ -20,18 +23,13 @@ import {
   numberFormat,
 } from "../../../utils/requestDiscountUtil/helper";
 
-type Props = {
-  detailData: {
-    detailData: meGeneratorDataType[];
-    files: any[];
-    generalForm: any;
-    onRefresh: () => void;
-    loading: (value: boolean) => void;
-    setLoading: (value: boolean) => void;
-  };
-};
-
-const TableDetail: React.FC<Props> = ({
+interface TableDetailProps {
+  detailData?: meGeneratorDataType; // make optional
+  onRefresh: () => void;
+  loading: boolean;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+}
+const TableDetail: React.FC<TableDetailProps> = ({
   detailData,
   onRefresh,
   loading,
@@ -39,14 +37,12 @@ const TableDetail: React.FC<Props> = ({
 }) => {
   const { refreshNotifications } = useContext(NotificationContext);
   const [activeGeneratorId, setActiveGeneratorId] = React.useState<
-    number | null
-  >(null);
-  const {
-    detailData: generatorList,
-    files,
-    generalForm,
-    authUserId,
-  } = detailData;
+    number | string | null
+  >();
+  const generatorList = detailData?.detailData;
+  const files = detailData?.files;
+  const generalForm = detailData?.generalForm;
+  const authUserId = detailData?.authUserId;
   console.log("as>", authUserId, generalForm);
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);
@@ -82,7 +78,7 @@ const TableDetail: React.FC<Props> = ({
         timer: 1200,
         showConfirmButton: false,
       });
-      if (generatorList.length <= 1) {
+      if ((generatorList as number[]).length <= 1) {
         await refreshNotifications();
         navigate(`/generator/${formId}`);
       } else {
@@ -123,8 +119,8 @@ const TableDetail: React.FC<Props> = ({
       "Image",
     ],
 
-    body: generatorList?.length
-      ? generatorList.map((element, index) => [
+    body: (generatorList as meGeneratorDataType[]).length
+      ? (generatorList as meGeneratorDataType[]).map((element, index) => [
           index + 1,
           <Group gap="xs" key={`action-${element.id}`}>
             {generalForm?.status == "Default" &&
@@ -195,11 +191,11 @@ const TableDetail: React.FC<Props> = ({
             key={`file-${element.id}`}
             className="inline-flex items-center justify-center text-blue-700"
           >
-            {files?.length > 0 ? (
+            {(files as FileItem[])?.length > 0 ? (
               <button
                 type="button"
                 onClick={() => {
-                  setActiveGeneratorId(element.id);
+                  setActiveGeneratorId(element?.id);
                   openFileModal();
                 }}
                 className="hover:text-blue-900 transition"
@@ -213,7 +209,7 @@ const TableDetail: React.FC<Props> = ({
         ])
       : [],
   };
-  const filteredFiles = files?.filter(
+  const filteredFiles = (files as FileItem[])?.filter(
     (file) => file.generator_id === activeGeneratorId,
   );
 
@@ -237,7 +233,7 @@ const TableDetail: React.FC<Props> = ({
         size="lg"
         centered
       >
-        {filteredFiles?.length ? (
+        {(filteredFiles as FileItem[])?.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             {filteredFiles.map((file, i) => (
               <div
