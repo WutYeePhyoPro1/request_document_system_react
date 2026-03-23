@@ -22,6 +22,7 @@ import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/material_blue.css";
 
 import {fetchServerTime} from "./../../store/servertimeSlice";
+import ColumnToggleDropdown from "../../components/ColumnToggleDropdown.jsx";
 
 
 export default function () {
@@ -1132,13 +1133,21 @@ export default function () {
                             <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
                                 <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
-                                    <button
-                                    onClick={() => setProductsLock(!productsLock)}
-                                    className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
-                                    title={productsLock ? "Edit Mode" : "View Mode"}
-                                    >
-                                     {productsLock ? <FaPen /> : <FaEye />}
-                                    </button>
+                                    
+                                    <div className="flex gap-4">
+
+                                        <button
+                                        onClick={() => setProductsLock(!productsLock)}
+                                        className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
+                                        title={productsLock ? "Edit Mode" : "View Mode"}
+                                        >
+                                        {productsLock ? <FaPen /> : <FaEye />}
+                                        </button>
+
+                                        {/* <ColumnToggleDropdown /> */}
+
+                                    </div>
+
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
                                     <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={!productsLock}/>
