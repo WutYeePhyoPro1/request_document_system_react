@@ -394,8 +394,8 @@ export default function () {
                 },
             }
             );
-            console.log(data);
             const apiProduct = data.data;
+            // console.log(row["New Cost Price"] || formatTo2Decimals(apiProduct.new_cost_price)  || 0);
 
             const new_cost_price = row["New Cost Price"] || apiProduct.new_cost_price || '';
             const price1 = apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '';
@@ -404,7 +404,7 @@ export default function () {
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '',
                 price2: row["Price 2"] || formatTo2Decimals(apiProduct.price2) || formatTo2Decimals(apiProduct.price) || '',
-                new_cost_price: row["New Cost Price"] || formatTo2Decimals(apiProduct.new_cost_price)  || '',
+                new_cost_price: row["New Cost Price"] || formatTo2Decimals(apiProduct.new_cost_price || 0)  || '',
                 profit: calculateProfit(new_cost_price,price1),
                 remark: 0,
                 id: apiProduct.barcode,
