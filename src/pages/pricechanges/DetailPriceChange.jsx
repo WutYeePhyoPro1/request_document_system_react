@@ -29,7 +29,7 @@ import "flatpickr/dist/themes/material_blue.css";
 import {fetchServerTime} from "./../../store/servertimeSlice";
 
 export default function () {
-    const productslimit = 10;
+    const productslimit = 50;
     // const token = localStorage.getItem('token');
     const { user, token } = useSelector((state) => state.auth);
 
