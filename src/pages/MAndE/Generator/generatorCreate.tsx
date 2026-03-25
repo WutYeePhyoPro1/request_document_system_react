@@ -137,7 +137,11 @@ const GeneratorCreate: React.FC = () => {
   const handleBack = () => {
     navigate(-1);
   };
-  const handleSubmit = async (btnStatus: string) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    btnStatus: string,
+  ) => {
+    e.preventDefault();
     if (btnStatus == "Ongoing") {
       const confirmBox = await Swal.fire({
         title: "Are you sure",
@@ -406,7 +410,7 @@ const GeneratorCreate: React.FC = () => {
       </div>
 
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => handleSubmit(e, "Default")}
         className=" 
           relative
           overflow-hidden
@@ -1100,12 +1104,12 @@ const GeneratorCreate: React.FC = () => {
                         {/* IMAGE */}
                         {fileField.type === "image" && (
                           <a
-                            href={fileField.preview}
+                            href={fileField.preview ?? ""}
                             target="_blank"
                             rel="noreferrer"
                           >
                             <img
-                              src={fileField.preview}
+                              src={fileField.preview ?? ""}
                               alt="Preview"
                               className="w-40  object-cover rounded"
                             />
@@ -1115,7 +1119,7 @@ const GeneratorCreate: React.FC = () => {
                         {/* PDF */}
                         {fileField.type === "pdf" && (
                           <a
-                            href={fileField.preview}
+                            href={fileField.preview ?? ""}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex flex-col items-center gap-1"
@@ -1146,7 +1150,7 @@ const GeneratorCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -1167,7 +1171,7 @@ const GeneratorCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -1177,7 +1181,7 @@ const GeneratorCreate: React.FC = () => {
 
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Ongoing")}
+                  onClick={(e: any) => handleSubmit(e, "Ongoing")}
                   disabled={loading}
                   color="blue"
                   radius="md"

@@ -7,9 +7,7 @@ import NavPath from "../../components/NavPath";
 
 const MAndE: React.FC = () => {
   const [subForms, setSubForms] = useState<{ id: number; name: string }[]>([]);
-  const [subFormCounts, setSubFormCounts] = useState<Record<string, number>>(
-    {},
-  );
+  const [subFormCounts, setSubFormCounts] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -26,7 +24,7 @@ const MAndE: React.FC = () => {
         const counts: Record<string, number> = {};
 
         await Promise.all(
-          items.map(async (form) => {
+          items.map(async (form: any) => {
             const count = await subFormCountNoti(token, 20, form.id);
             counts[`20_${form.id}`] = count;
           }),

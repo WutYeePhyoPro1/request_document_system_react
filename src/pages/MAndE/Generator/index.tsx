@@ -5,7 +5,6 @@ import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
 import type { IndexData } from "../../../utils/requestDiscountUtil";
 import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
 import { parse } from "uuid";
-import StatusBadge from "../../../components/ui/StatusBadge";
 import { FiCopy } from "react-icons/fi";
 import { AiFillMessage } from "react-icons/ai";
 import {
@@ -15,8 +14,7 @@ import {
 } from "../../../utils/requestDiscountUtil/helper";
 import Swal from "sweetalert2";
 import { searchMeData } from "../../../api/ME/meData";
-import "../../../../src/assets/css/style.css";
-// src/assets/css/style.css
+import TsStatusBadge from "../../../components/ui/TsStatusBadge";
 
 const Index: React.FC = () => {
   const formId = 1;
@@ -216,7 +214,7 @@ const Index: React.FC = () => {
         >
           <Table.Td>{start + index + 1}</Table.Td>
           <Table.Td>
-            <StatusBadge status={element.status} />
+            <TsStatusBadge status={element.status} />
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
             <Link to={`/generator_detail/${element.id}`} className="contents">
@@ -282,6 +280,7 @@ const Index: React.FC = () => {
           segments={[
             { path: "/dashboard", label: "Home" },
             { path: "/dashboard", label: "Dashboard" },
+            { path: "/m_and_e", label: "M And E" },
             { path: `/generator/${formId}`, label: "Generator" },
           ]}
         />

@@ -2,6 +2,7 @@ import React, { useContext, useState } from "react";
 import type {
   FileItem,
   meGeneratorDataType,
+  TableDetailProps,
 } from "../../../utils/meDataUtil/metype";
 import {
   Modal,
@@ -23,12 +24,6 @@ import {
   numberFormat,
 } from "../../../utils/requestDiscountUtil/helper";
 
-interface TableDetailProps {
-  detailData?: meGeneratorDataType; // make optional
-  onRefresh: () => void;
-  loading: boolean;
-  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
-}
 const TableDetail: React.FC<TableDetailProps> = ({
   detailData,
   onRefresh,
@@ -90,6 +85,8 @@ const TableDetail: React.FC<TableDetailProps> = ({
       setLoading(false);
     }
   };
+
+  console.log("generatorList>>", generatorList);
 
   const tableData: TableData = {
     head: [
@@ -233,9 +230,9 @@ const TableDetail: React.FC<TableDetailProps> = ({
         size="lg"
         centered
       >
-        {(filteredFiles as FileItem[])?.length ? (
+        {filteredFiles?.length ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            {filteredFiles.map((file, i) => (
+            {(filteredFiles as FileItem[]).map((file, i) => (
               <div
                 key={i}
                 className="flex flex-col items-center gap-2 border rounded-lg p-2"

@@ -24,7 +24,10 @@ import NavPath from "../../../components/NavPath";
 import { Check, FilesIcon, Text } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
+import type {
+  FileItem,
+  meGeneratorDataType,
+} from "../../../utils/meDataUtil/metype";
 import Swal from "sweetalert2";
 import { m } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -49,7 +52,7 @@ const TransformerCreate: React.FC = () => {
     l3Value: "",
   });
   const [remark, setRemark] = useState<string>("");
-  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
+  const [invoiceFile, setInvoiceFile] = useState<FileItem[]>([
     { id: uuidv4(), file: null },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -65,7 +68,7 @@ const TransformerCreate: React.FC = () => {
       },
     ]);
   };
-  const removeInvoiceFile = (id) => {
+  const removeInvoiceFile = (id: any) => {
     setInvoiceFile((prev) =>
       prev.filter((item) => {
         if (item.id === id && item.preview) {
@@ -75,8 +78,8 @@ const TransformerCreate: React.FC = () => {
       }),
     );
   };
-  const updateFile = (id, file) => {
-    setInvoiceFile((prev) =>
+  const updateFile = (id: any, file: File | null): void => {
+    setInvoiceFile((prev: FileItem[]) =>
       prev.map((item) => {
         if (item.id !== id) return item;
 
@@ -100,6 +103,7 @@ const TransformerCreate: React.FC = () => {
       }),
     );
   };
+  console.log("transformerFormId>>", transformerFormId);
   const validators = {
     trans_date: "Date is required",
     trans_time: "Time is required",
@@ -113,8 +117,6 @@ const TransformerCreate: React.FC = () => {
 
     oltc_tapping: "OLTC Tapping is required",
     cost: "Cost is required",
-
-    // remark: "Remark is required",
   };
   const navigate = useNavigate();
   const handleBack = () => {
@@ -127,7 +129,11 @@ const TransformerCreate: React.FC = () => {
       setRemark(e.target.value);
     }
   };
-  const handleSubmit = async (btnStatus: string) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    btnStatus: string,
+  ) => {
+    e.preventDefault();
     const formElement = document.querySelector("form") as HTMLFormElement;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
@@ -222,7 +228,7 @@ const TransformerCreate: React.FC = () => {
     }
   };
 
-  const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
+  const handleCaptureChoice = (id: any, mode: "camera" | "gallery") => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -290,7 +296,7 @@ const TransformerCreate: React.FC = () => {
       </div>
 
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => handleSubmit(e, "Default")}
         className=" 
           relative
           overflow-hidden
@@ -376,7 +382,7 @@ const TransformerCreate: React.FC = () => {
                     required
                     min="0"
                     max="9999"
-                    onInput={(e) => {
+                    onInput={(e: any) => {
                       if (e.target.value.length > 6) {
                         e.target.value = e.target.value.slice(0, 6);
                       }
@@ -429,7 +435,7 @@ const TransformerCreate: React.FC = () => {
                     required
                     min="0"
                     max="9999"
-                    onInput={(e) => {
+                    onInput={(e: any) => {
                       if (e.target.value.length > 6) {
                         e.target.value = e.target.value.slice(0, 6);
                       }
@@ -597,7 +603,7 @@ const TransformerCreate: React.FC = () => {
                   required
                   min="0"
                   max="9999"
-                  onInput={(e) => {
+                  onInput={(e: any) => {
                     if (e.target.value.length > 6) {
                       e.target.value = e.target.value.slice(0, 6);
                     }
@@ -646,7 +652,7 @@ const TransformerCreate: React.FC = () => {
                       name="cost"
                       required
                       inputMode="decimal"
-                      onChange={(e) => {
+                      onChange={(e: any) => {
                         let value = e.target.value;
 
                         value = value.replace(/[^0-9.]/g, "");
@@ -736,7 +742,7 @@ const TransformerCreate: React.FC = () => {
             </div>
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
               <div className="">
-                {invoiceFile.map((fileField, index) => (
+                {invoiceFile.map((fileField: FileItem, index: number) => (
                   <div
                     key={fileField.id}
                     className="flex flex-col gap-2 w-full"
@@ -749,7 +755,7 @@ const TransformerCreate: React.FC = () => {
                         type="file"
                         name="file[]"
                         required
-                        onChange={(e) =>
+                        onChange={(e: any) =>
                           updateFile(fileField.id, e.target.files?.[0] || null)
                         }
                         className="hidden sm:hidden md:block flex-1 border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
@@ -765,7 +771,7 @@ const TransformerCreate: React.FC = () => {
                               style={{ borderColor: "rgb(29, 137, 225)" }}
                             >
                               {fileField.name ? (
-                                <Text truncate>{fileField.name}</Text>
+                                <Text>{fileField.name}</Text>
                               ) : (
                                 <Text color="dimmed">Tap to upload...</Text>
                               )}
@@ -776,7 +782,7 @@ const TransformerCreate: React.FC = () => {
                             <Menu.Label>Choose Source</Menu.Label>
 
                             <Menu.Item
-                              icon={<IconCamera size={16} />}
+                              // icon={<IconCamera size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "camera")
                               }
@@ -785,7 +791,7 @@ const TransformerCreate: React.FC = () => {
                             </Menu.Item>
 
                             <Menu.Item
-                              icon={<IconPhoto size={16} />}
+                              // icon={<IconPhoto size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "gallery")
                               }
@@ -812,7 +818,7 @@ const TransformerCreate: React.FC = () => {
                 <div className="flex flex-wrap gap-3 mt-2">
                   {invoiceFile
                     .filter((f) => f.file)
-                    .map((fileField) => (
+                    .map((fileField: any) => (
                       <div
                         key={`preview-${fileField.id}`}
                         className="w-40 p-2 border rounded-md flex items-center justify-center"
@@ -866,7 +872,7 @@ const TransformerCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -887,7 +893,7 @@ const TransformerCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -897,7 +903,7 @@ const TransformerCreate: React.FC = () => {
 
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Ongoing")}
+                  onClick={(e: any) => handleSubmit(e, "Ongoing")}
                   disabled={loading}
                   color="blue"
                   radius="md"
