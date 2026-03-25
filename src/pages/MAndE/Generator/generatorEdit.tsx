@@ -372,7 +372,7 @@ const GeneratorEdit: React.FC = () => {
         segments={[
           { path: "/dashboard", label: "Home" },
           { path: "/generator", label: "Generator" },
-          { path: `/generator_detail/${generalForm?.id}`, label: "Edit" },
+          { path: `/me_generator_detail/${generalForm?.id}`, label: "Edit" },
         ]}
       />
       <div className="flex items-center gap-6 p-4 rounded-xl">

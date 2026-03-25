@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
-import type { IndexData } from "../../../utils/requestDiscountUtil";
+import type { indexData } from "../../../utils/requestDiscountUtil";
 import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
 import { parse } from "uuid";
 import { FiCopy } from "react-icons/fi";
@@ -18,7 +18,7 @@ import TsStatusBadge from "../../../components/ui/TsStatusBadge";
 
 const Index: React.FC = () => {
   const formId = 1;
-  const [generalData, setGeneralData] = useState<IndexData[]>([]);
+  const [generalData, setGeneralData] = useState<indexData[]>([]);
   const [copied, setCopied] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<number>(1);
@@ -217,7 +217,10 @@ const Index: React.FC = () => {
             <TsStatusBadge status={element.status} />
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
-            <Link to={`/generator_detail/${element.id}`} className="contents">
+            <Link
+              to={`/me_generator_detail/${element.id}`}
+              className="contents"
+            >
               {element.form_doc_no}
             </Link>
 
@@ -246,7 +249,7 @@ const Index: React.FC = () => {
               <AiFillMessage className="text-red-400 w-4 h-4" />
             )}
           </Table.Td>
-          <Link to={`/generator_detail/${element.id}`} className="contents">
+          <Link to={`/me_generator_detail/${element.id}`} className="contents">
             <Table.Td>{element.from_branches?.branch_name}</Table.Td>
             <Table.Td>{element.originators?.name}</Table.Td>
 

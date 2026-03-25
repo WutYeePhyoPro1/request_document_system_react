@@ -155,7 +155,7 @@ const router = createBrowserRouter([
         element: <GeneratorCreate />,
       },
       {
-        path: "generator_detail/:id",
+        path: "me_generator_detail/:id",
         element: <GeneratorDetail />,
       },
       {

@@ -109,7 +109,7 @@ const GeneratorDetail: React.FC = () => {
                     label: "generaor",
                   },
                   {
-                    path: `/generator_detail/${id}`,
+                    path: `/me_generator_detail/${id}`,
                     label: "Generator Detail",
                   },
                 ]}
