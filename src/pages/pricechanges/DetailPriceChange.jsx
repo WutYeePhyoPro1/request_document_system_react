@@ -27,9 +27,10 @@ import Flatpickr from "react-flatpickr";
 import "flatpickr/dist/themes/material_blue.css";
 
 import {fetchServerTime} from "./../../store/servertimeSlice";
+import ColumnToggleDropdown from "../../components/ColumnToggleDropdown.jsx";
 
 export default function () {
-    const productslimit = 10;
+    const productslimit = 50;
     // const token = localStorage.getItem('token');
     const { user, token } = useSelector((state) => state.auth);
 
@@ -37,6 +38,13 @@ export default function () {
     const dispatch = useDispatch();
 
     const {loading,error, datas: serverTimeData} = useSelector((state)=>state.servertime)
+    // console.log(serverTimeData.time);
+    const svrDateObj = new Date(serverTimeData.time);
+    // console.log(svrDateObj);
+
+    const {columns} = useSelector((state)=>state.pricechanges)
+
+
     const [pcLoading,setPcLoading] = useState(true);
 
     const { id } = useParams();
@@ -88,7 +96,7 @@ export default function () {
 
     const [approver,setApprover] = useState(null);
     const [supervisor,setSupervisor] = useState(null);
-
+    const [pcMonitor,setPcMonitor] = useState(null);
 
 
     const  forwardable = (formState.status == 'Default' && originator.id == user.id)
@@ -99,12 +107,27 @@ export default function () {
     //                             && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() != "Updated")
     // const transferable = (formState.status == "Completed") && generalFormFiles.filter(gf=>gf.name.includes("Update Online Price") && String(gf.file).toLowerCase() == "Updated").length > 0
     
-    const trackable = getApprover?.approval_users?.id == user.id;
+    
+    const trackable = getApprover?.approval_users?.id && pcMonitor; // const trackable = getApprover?.approval_users?.id == user.id;
     const allBranchUpdated = formState?.price_change_branches?.every(
         branch => branch.status === "Updated"
     );
     
-    const isRunner = (formState.status == "Approved" || formState.status == "Partial" || formState.status == "Pass approvalss") && getApprover?.approval_users?.id === user.id;
+    const checkOverdueForm = (currentDateObj, effectiveDateObj) => { 
+        currentDateObj.setHours(0, 0, 0, 0);
+        effectiveDateObj.setHours(0, 0, 0, 0);
+
+        // console.log(effectiveDateObj, currentDateObj);
+        if (effectiveDateObj < currentDateObj) {
+            return true;    // overdue
+        } else {
+            return false;   // not overdue
+        }
+    } 
+    const isOverdueForm = checkOverdueForm(svrDateObj, new Date(formState.effective_date))
+    // console.log(checkOverdueForm(svrDateObj, new Date(formState.effectiveDateObj)))
+    // console.log(isOverdueForm);
+    const isRunner = (formState.status == "Approved" || formState.status == "Partial") && (getApprover?.approval_users?.id === user.id || pcMonitor);
     const computeHasPendingBranch = (formState)=> {
         return  formState?.price_change_branches?.some(
                     branch => branch.status !== "Updated"
@@ -124,11 +147,14 @@ export default function () {
     const hasPendingBranch = computeHasPendingBranch(formState);
     const hasNotOnlineUpdate = computeHasNotOnlineUpdate(formState);
     const hasNoGcpDocument = computeHasNoGcpDocument(formState);
-    const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument);
+    const runable = isRunner && (hasPendingBranch || hasNotOnlineUpdate || hasNoGcpDocument) && !isOverdueForm;
     // console.log(hasPendingBranch, hasNotOnlineUpdate, hasNoGcpDocument,formState);
 
     const softwaresupport = user.from_branch_id == 1 && user.department_id == 11;
     // console.log(softwaresupport);
+
+
+
     
     const [copied, setCopied] = useState('');
     const updateDoc = useRef(false);
@@ -476,7 +502,7 @@ export default function () {
                 product_code: apiProduct.barcode,
                 price1: apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '',
                 price2: row["Price 2"] || formatTo2Decimals(apiProduct.price) || '',
-                new_cost_price: row["New Cost Price"] || formatTo2Decimals(apiProduct.new_cost_price) || '',
+                new_cost_price: row["New Cost Price"] || formatTo2Decimals(apiProduct.new_cost_price || 0) || '',
                 profit: calculateProfit(new_cost_price,price1),
                 remark: 0,
                 id: apiProduct.barcode,
@@ -789,7 +815,7 @@ export default function () {
             e.target.value = "";
         }
     };
-    const excludeBranchIds = [1,16,18,19,21,22,15];
+    const excludeBranchIds = [1,16,18,19,21,22,14,15];
     const fetchBranches = useCallback(async () => {
         try {
             const response = await fetch('/api/branchesall', {
@@ -802,7 +828,7 @@ export default function () {
  
             // if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
-            console.log(data);
+            // console.log(data);
             let list = Array.isArray(data)
                 ? data
                 : Array.isArray(data?.data)
@@ -814,7 +840,7 @@ export default function () {
                             .filter((br)=>!excludeBranchIds.includes(br.id)).sort((a,b)=>a.branch_code > b.branch_code ? 1 : -1);
 
             setBranches(list);
-            console.log(list.length);
+            // console.log(list.length);
             
             setBranchCount(list.length);
             branchCountRef.current = list.length; 
@@ -947,6 +973,8 @@ export default function () {
 
             setSupervisor(data.authorities.supervisor);
             setApprover(data.authorities.approver);
+            setPcMonitor(data.authorities.pc_monitor);
+
 
             return normalizedForm;
         } catch(error){
@@ -1577,7 +1605,7 @@ export default function () {
             setPcLoading(false);
 
             let getServerTime= await dispatch(fetchServerTime()).unwrap();
-            console.log(getServerTime);
+            // console.log(getServerTime);
         };
 
         init();
@@ -1679,7 +1707,7 @@ export default function () {
                                 }
                         
                                 {
-                                    approver &&
+                                    (approver && !isOverdueForm) &&
                                     <button
                                         className="px-4 py-2 text-sm rounded-lg
                                             bg-green-600 text-white
@@ -2019,11 +2047,12 @@ export default function () {
                             </section>
                             
                             {/* Product Prices Stacked on Bottom */}
-                            <div className="p-6 bg-white overflow-hidden flex flex-col flex-1">
+                            <div className="p-6 bg-white overflow-hiddens flex flex-col flex-1">
                                 <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
-                                    {
-                                        changable &&
+                                    <div className="flex gap-4">
+                                        {
+                                            changable &&
                                             <button
                                             onClick={() => setProductsLock(!productsLock)}
                                             className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
@@ -2031,7 +2060,9 @@ export default function () {
                                             >
                                                 {productsLock ? <FaPen /> : <FaEye />}
                                             </button>
-                                    }
+                                        }
+                                        <ColumnToggleDropdown columns={columns}/>
+                                    </div>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
                                     <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock}/>

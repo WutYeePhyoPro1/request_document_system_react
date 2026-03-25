@@ -597,6 +597,7 @@ const GeneratorEdit: React.FC = () => {
                   <option value="550">550</option>
                   <option value="400">400</option>
                   <option value="375">375</option>
+                   <option value="165">165</option>
                   <option value="150">150</option>
                   <option value="100">100</option>
                   <option value="80">80</option>
