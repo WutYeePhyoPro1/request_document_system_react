@@ -146,7 +146,7 @@ export interface meTransDataType {
     trans_date ?: string ,
     trans_time?:string ,
     transformer_time_ampm?: string ,
-    meter_unit?:number | string | float ,
+    meter_unit?:number | string  ,
     tran_kva_level?:number ,
     voltagel_l_level?:number ,
     tran_size?:string,
