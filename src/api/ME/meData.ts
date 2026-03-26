@@ -1,10 +1,11 @@
 import axios from "axios";
-import type { meGeneratorDataType } from "../../utils/meDataUtil/metype";
+import type { kvaData, meGeneratorDataType } from "../../utils/meDataUtil/metype";
 
 const API = axios.create({
     baseURL: "/api" ,
     withCredentials: true ,
 })
+
 
 export const getCheckItems = async(token:string) => {
     try {
@@ -52,6 +53,21 @@ export const meDataDetail = async(token:string , id:string | number) : Promise<m
   }
 }
 
+
+
+export const getCommonData = async (token: string) => {
+  try {
+    const response = await API.get('/meForm/commonData', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+// console.log("Response>>" , response.data) ;
+    return response?.data?.data;
+  } catch (error) {
+    console.error("meDataDetail error:", error);
+    throw error;
+  }
+};
+
 // export const meApproveForm = async(token:string | formData:meGeneratorDataType | general_form_id:string | sub_form_id:string) => {
 //   return API.post(`/meForm/approve/${general_form_id}/${sub_form_id}` , formData , {
 //     headers:{
@@ -59,6 +75,7 @@ export const meDataDetail = async(token:string , id:string | number) : Promise<m
 //     }
 //   });
 // }
+
 type ApproveFormData = {
   status: string;
   comment: string;

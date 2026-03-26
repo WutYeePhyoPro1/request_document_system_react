@@ -146,7 +146,7 @@ export interface meTransDataType {
     trans_date ?: string ,
     trans_time?:string ,
     transformer_time_ampm?: string ,
-    meter_unit?:number | string ,
+    meter_unit?:number | string | float ,
     tran_kva_level?:number ,
     voltagel_l_level?:number ,
     tran_size?:string,
@@ -170,6 +170,7 @@ export interface kvaData {
 export interface editDataResponse {
   editData: meGeneratorDataType; // Or just meTransDataType if it's a single object
   files: FileItem[] ;
+  kvaData:kvaData ;
  
 }
 

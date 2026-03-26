@@ -92,6 +92,7 @@ const TableDetail: React.FC<TableDetailProps> = ({
       "L1",
       "L2",
       "L3",
+      <div className="whitespace-nowrap">Total KW</div>,
       <div className="whitespace-nowrap">OLTC Tipping</div>,
       <div className="whitespace-nowrap">Cost</div>,
       <div className="whitespace-nowrap">Service Date</div>,
@@ -134,14 +135,15 @@ const TableDetail: React.FC<TableDetailProps> = ({
             {element.transformer_time_ampm}
           </div>,
           <div className=" whitespace-nowrap">
-            {fullNumberFormat(element.meter_unit)}
+            {numberFormat(element.meter_unit)}
           </div>,
           <div className=" whitespace-nowrap">{element.tran_kva_level}</div>,
-          fullNumberFormat(element.voltagel_l_level),
+          numberFormat(element.voltagel_l_level),
           <div className=" whitespace-nowrap">{element.tran_size}</div>,
           fullNumberFormat(element.l1_level),
           fullNumberFormat(element.l2_level),
           fullNumberFormat(element.l3_level),
+          numberFormat(element.total_kw_level),
 
           <div className=" whitespace-nowrap">
             {fullNumberFormat(element.oltc_tapping)}

@@ -18,18 +18,22 @@ import {
   IconPhoto,
   IconX,
 } from "@tabler/icons-react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
 import { Check, FilesIcon, Text } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
+import type {
+  kvaData,
+  meGeneratorDataType,
+} from "../../../utils/meDataUtil/metype";
 import Swal from "sweetalert2";
 import { m } from "framer-motion";
 import { getStoreGeneratorData } from "../../../api/ME/Generator/generatos";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
+import { getCommonData } from "../../../api/ME/meData";
 
 const GeneratorCreate: React.FC = () => {
   type LevelType = {
@@ -54,18 +58,33 @@ const GeneratorCreate: React.FC = () => {
     { id: uuidv4(), file: null, preview: null, type: null, name: null },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
-  // const addInvoiceFile = () => {
-  //   setInvoiceFile((prev) => [
-  //     ...prev,
-  //     {
-  //       id: Date.now(),
-  //       file: null,
-  //       preview: null,
-  //       type: null,
-  //       name: null,
-  //     },
-  //   ]);
-  // };
+  const [kva, setKva] = useState<kvaData[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      setLoading(true);
+
+      try {
+        const commonData = await getCommonData(token);
+        setKva(commonData);
+      } catch (error) {
+        console.error("Error fetching check item data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const kvaOptions = kva.map((item) => ({
+    value: String(item.kva),
+    label: String(item.kva),
+  }));
+
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
@@ -594,7 +613,7 @@ const GeneratorCreate: React.FC = () => {
                     style={{ borderColor: "rgb(29, 137, 225)" }}
                   >
                     <option value="">Choose Kva</option>
-                    <option value="550">550</option>
+                    {/* <option value="550">550</option>
                     <option value="400">400</option>
                     <option value="375">375</option>
                     <option value="165">165</option>
@@ -603,7 +622,13 @@ const GeneratorCreate: React.FC = () => {
                     <option value="80">80</option>
                     <option value="60">60</option>
                     <option value="30">30</option>
-                    <option value="25">25</option>
+                    <option value="25">25</option> */}
+                    {kvaOptions &&
+                      kvaOptions.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 <div className="">

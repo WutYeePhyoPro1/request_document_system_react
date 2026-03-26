@@ -22,7 +22,7 @@ import { v4 as uuidv4 } from "uuid";
 import { FaStar } from "react-icons/fa";
 import FullPageLoader from "../../../components/FullPageLoader";
 import { Check, FilesIcon, Text, Loader } from "lucide-react";
-import type { FileItem } from "../../../utils/meDataUtil/metype";
+import type { FileItem, kvaData } from "../../../utils/meDataUtil/metype";
 
 const GeneratorEdit: React.FC = () => {
   const { id } = useParams();
@@ -56,6 +56,7 @@ const GeneratorEdit: React.FC = () => {
     generator_use: "",
   });
   const [remark, setRemark] = useState<string>("");
+  const [kva, setKva] = useState<kvaData>();
 
   useEffect(() => {
     if (!id) return;
@@ -75,6 +76,7 @@ const GeneratorEdit: React.FC = () => {
         });
         setRemark(data.remark || "");
         setExistingFiles(res?.files || []);
+        setKva(res?.kvaData || "");
       } catch (error) {
         console.error("GeneratorDetail error:", error);
       } finally {
@@ -84,7 +86,10 @@ const GeneratorEdit: React.FC = () => {
 
     fetchData();
   }, [id]);
-  console.log("ExistingFile>>>", remark.length);
+  const kvaData = (kva as kvaData[])?.map((item) => ({
+    value: String(item.kva),
+    label: String(item.kva),
+  }));
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
@@ -594,16 +599,21 @@ const GeneratorEdit: React.FC = () => {
                   style={{ borderColor: "rgb(29, 137, 225)" }}
                 >
                   <option value="">Choose Kva</option>
-                  <option value="550">550</option>
+                  {/* <option value="550">550</option>
                   <option value="400">400</option>
                   <option value="375">375</option>
-                   <option value="165">165</option>
+                  <option value="165">165</option>
                   <option value="150">150</option>
                   <option value="100">100</option>
                   <option value="80">80</option>
                   <option value="60">60</option>
                   <option value="30">30</option>
-                  <option value="25">25</option>
+                  <option value="25">25</option> */}
+                  {kvaData?.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="">
@@ -783,17 +793,30 @@ const GeneratorEdit: React.FC = () => {
                 </span>
               </div>
               <input
-                type="number"
+                type="text"
                 name="voltagel_l_level"
                 value={form.voltagel_l_level}
-                onChange={handleChange}
                 required
                 min="0"
                 max="9999999"
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
+                inputMode="decimal"
+                onChange={(e: any) => {
+                  let value = e.target.value;
+                  value = value.replace(/[^0-9.]/g, "");
+
+                  const parts = value.split(".");
+                  if (parts.length > 2) return;
+                  if (parts[0].length > 6) {
+                    parts[0] = parts[0].slice(0, 6);
                   }
+                  if (parts[1]) {
+                    parts[1] = parts[1].slice(0, 2);
+                  }
+
+                  setForm((prev: any) => ({
+                    ...prev,
+                    voltagel_l_level: parts.join("."),
+                  }));
                 }}
                 onKeyDown={(e: any) => {
                   if (e.key === "-" || e.key === "e") {
