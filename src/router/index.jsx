@@ -172,7 +172,7 @@ const router = createBrowserRouter([
         element: <TransformerCreate />,
       },
       {
-        path: "transformer_detail/:id",
+        path: "me_transformer_detail/:id",
         element: <TransformerDetail />,
       },
       {

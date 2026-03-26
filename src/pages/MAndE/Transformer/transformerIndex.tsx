@@ -231,7 +231,7 @@ const Index: React.FC = () => {
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
             <Link
-              to={`/transformer_detail/${element.id ?? ""}`}
+              to={`/me_transformer_detail/${element.id ?? ""}`}
               className="contents"
             >
               {element.form_doc_no ?? "-"}
@@ -265,7 +265,7 @@ const Index: React.FC = () => {
           </Table.Td>
 
           <Link
-            to={`/transformer_detail/${element.id ?? ""}`}
+            to={`/me_transformer_detail/${element.id ?? ""}`}
             className="contents"
           >
             <Table.Td>{element.from_branches?.branch_name ?? "-"}</Table.Td>

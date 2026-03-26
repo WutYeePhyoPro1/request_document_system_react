@@ -88,7 +88,7 @@ const TransformerDetail: React.FC = () => {
                     label: "transformer",
                   },
                   {
-                    path: `/transformer_detail/${id}`,
+                    path: `/me_transformer_detail/${id}`,
                     label: "Transformer Detail",
                   },
                 ]}
@@ -140,7 +140,7 @@ const TransformerDetail: React.FC = () => {
                       state={{
                         reAdd: true,
                         formId: detailData?.subForm?.sub_form_id,
-                        transformerFormIdူ: detailData?.generalForm?.id,
+                        transformerFormId: detailData?.generalForm?.id,
                       }}
                       to="/transformer_create"
                     >
