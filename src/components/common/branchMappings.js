@@ -41,6 +41,7 @@ export const translateBranchName = (branchName, t) => {
     { key: 'mawlamyine', translationKey: 'branches.mawlamyine' },
     { key: 'tampawady', translationKey: 'branches.tampawady' },
     { key: 'bago', translationKey: 'branches.bago' },
+    // {key: 'nay pyi taw', translationKey: 'branches.nayPyiTaw' },
   ];
   
   // Check each mapping
@@ -88,12 +89,12 @@ export const resolveBranchDisplay = ({ branchId, branchName, fallback = 'N/A', t
 };
 
 /**
- * Branch mappings (can be extended as needed)
+ * Branch ID to name fallback (when /api/branches doesn't return the branch, e.g. filtered by user)
  */
 export const BRANCH_MAPPINGS = {
-  // Add your branch mappings here
-  // '1': 'Main Branch',
-  // '2': 'Secondary Branch',
+  24: 'Nay Pyi Taw',
+  '24': 'Nay Pyi Taw',
+  // Add more id -> name fallbacks as needed
 };
 
 /**
