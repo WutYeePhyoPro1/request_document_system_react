@@ -330,13 +330,8 @@ function DamageIssueList({
 
   const renderMobileCard = (row, idx) => {
     const gf = row.general_form || row || {};
-<<<<<<< HEAD
-    const detailId = gf?.id || row?.general_form_id || gf?.general_form_id || row?.id;
-    const generalFormId = gf?.id || row?.general_form_id || gf?.general_form_id || null;
-=======
     const detailId = row.id;
     const generalFormId = gf?.general_form_id || gf?.id || row?.general_form_id || null;
->>>>>>> new_branch
     const displayNo = (safeCurrentPage - 1) * PAGE_SIZE + idx + 1;
     
             const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
