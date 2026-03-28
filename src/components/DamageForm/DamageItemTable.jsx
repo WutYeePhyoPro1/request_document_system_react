@@ -2122,17 +2122,16 @@ const normalizeImageEntries = (list) => {
     }
     
     setIsUpdatingSystemQty(true);
+    const payload = { general_form_id: generalFormId, form_id: formId, layout_id: layoutId };
+    console.log('[Update System Qty] Button clicked. generalFormId=', generalFormId, 'payload=', payload);
 
     try {
       // apiRequest already returns JSON and throws on error
       const responseData = await apiRequest('/api/big-damage-issues/sys_update', {
         method: 'POST',
-        body: JSON.stringify({
-          general_form_id: generalFormId,
-          form_id: formId,
-          layout_id: layoutId
-        })
+        body: JSON.stringify(payload)
       });
+      console.log('[Update System Qty] sys_update API success:', responseData);
 
       // The API endpoint returns product codes, not items
       // So we need to refetch the items to get updated system_qty values
@@ -2142,6 +2141,7 @@ const normalizeImageEntries = (list) => {
       // Only trigger refetch once
       onSystemQtyStatusChange(true);
     } catch (error) {
+      console.error('[Update System Qty] sys_update API error:', error?.message, error);
       setErrorModal({
         isOpen: true,
         message: error.message || 'Failed to update system quantities. Please try again.'
@@ -2261,7 +2261,7 @@ const normalizeImageEntries = (list) => {
         </div>
 
         {/* Right side: Action buttons and Add Product button */}
-         <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
+        <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
           {/* Delete button - Show for Ongoing or Checked (approver only) status.
               Also allow Branch Account users to delete when the form is BM Approved or OP Approved. */}
           {(
@@ -2397,13 +2397,15 @@ const normalizeImageEntries = (list) => {
             {paginatedItems.length > 0 ? (
               paginatedItems.map((item, idx) => {
                 const matchId = item.id ?? item.specific_form_id;
-                
+                const systemQtyZero = (parseFloat(item.system_qty) || 0) === 0;
                 return (
                 <tr
                   key={item.id}
+                  title={systemQtyZero ? (t('table.struckThroughNoStockReason', { defaultValue: 'Struck through: System quantity is 0 (no stock available)' })) : undefined}
                   className={`border-b border-gray-200 hover:bg-gray-50 transition-all ${
                     selectedIds.includes(item.id) ? "bg-emerald-50" : ""
-                  }`}
+                  } ${systemQtyZero ? "text-red-600 line-through" : ""}`}
+                  title={systemQtyZero ? t('table.struckThroughNoStockReason', { defaultValue: 'Struck through: System quantity is 0 (no stock available)' }) : undefined}
                 >
                   <td
                     className="px-2 py-2 text-center text-[13px]"
@@ -2427,6 +2429,11 @@ const normalizeImageEntries = (list) => {
                   </td>
                   <td className="px-2 py-2 hidden md:table-cell text-[13px]">
                     {item.system_qty}
+                    {systemQtyZero && (
+                      <span className="block text-[11px] font-medium mt-0.5 normal-case no-underline" style={{ textDecoration: 'none' }} title={t('table.struckThroughNoStockReason', { defaultValue: 'Struck through: System quantity is 0 (no stock available)' })}>
+                        {t('table.noStockStruckThrough', { defaultValue: '(No stock)' })}
+                      </span>
+                    )}
                   </td>
                   <td className="px-2 py-2 text-[13px]">
                     {(() => {
@@ -3211,13 +3218,20 @@ const normalizeImageEntries = (list) => {
 
       <div className="block md:hidden">
         {paginatedItems.length ? (
-          paginatedItems.map((item) => (
+          paginatedItems.map((item) => {
+            const mobileSystemQtyZero = (parseFloat(item.system_qty) || 0) === 0;
+            return (
             <div
               key={item.id}
               className={`border border-gray-200 rounded-lg p-2.5 mb-2 bg-white ${
                 selectedIds.includes(item.id) ? "ring-1 ring-emerald-400 border-emerald-300" : ""
-              }`}
+              } ${mobileSystemQtyZero ? "text-red-600 line-through" : ""}`}
             >
+              {mobileSystemQtyZero && (
+                <div className="text-[11px] font-medium mb-1.5 px-1 py-0.5 bg-red-50 border border-red-200 rounded no-underline" style={{ textDecoration: 'none' }} role="status">
+                  {t('table.noStockStruckThrough', { defaultValue: 'No stock (System Qty: 0) — struck through' })}
+                </div>
+              )}
               <div className="flex gap-2 min-w-0">
                 <input
                   type="checkbox"
@@ -3732,7 +3746,8 @@ const normalizeImageEntries = (list) => {
                 </div>
               </div>
             </div>
-          ))
+            );
+          })
         ) : (
           <p className="text-center text-gray-400 text-sm py-6">{t('table.noItemsAdded', { defaultValue: 'No items added yet.' })}</p>
         )}

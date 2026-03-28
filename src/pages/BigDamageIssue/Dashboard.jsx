@@ -121,7 +121,13 @@ const Dashboard = () => {
     if (filters.branch?.value) params.set("branch", filters.branch.value);
     if (filters.fromDate?.trim()) params.set("start_date", filters.fromDate);
     if (filters.toDate?.trim()) params.set("end_date", filters.toDate);
-    
+
+    // Product name/code: backend filters by product_code and product_name via "search"
+    const productSearch = (filters.productName && typeof filters.productName === 'string')
+      ? filters.productName.trim()
+      : '';
+    if (productSearch) params.set("search", productSearch);
+
     return params.toString();
   };
 
