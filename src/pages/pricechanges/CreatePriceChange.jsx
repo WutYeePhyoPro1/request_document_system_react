@@ -366,8 +366,9 @@ export default function () {
                     return;
                 }
 
+                cancelledCodes = [];
                 await fetchProduct(productCode);
-
+                await processCancelledAlerts();
 
             }catch(err){
                 console.error(err);
@@ -413,19 +414,8 @@ export default function () {
             };
             if(!data.error){
                 if (result.product_name && result.product_name.includes("(Cancel)")) {
-                    console.log("Contains Cancel");
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Product Cancelled',
-                        html: `
-                            Product '<b>${result.barcode}</b>'<br>
-                            ${result.product_name}<br><br>
-                            <span style="color:red; font-weight:bold;">⚠ This product is CANCELLED</span>
-                        `,
-                    });
-
-                    setProductCode("");
-                    return;
+                    cancelledCodes.push(result);
+                    return { isCancelled: true, product: result };
                 }
 
                 setProductCode("");
@@ -453,6 +443,22 @@ export default function () {
             // setLoading(false);
         
         }
+    }
+
+    const processCancelledAlerts = async ()=>{
+        for (const item of cancelledCodes) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Product Cancelled',
+                html: `
+                    Product '<b>${item.barcode}</b>'<br>
+                    ${item.product_name}<br><br>
+                    <span style="color:red; font-weight:bold;">⚠ This product is CANCELLED</span>
+                `,
+                confirmButtonText: 'OK'
+            });
+        }
+        cancelledCodes = [];
     }
 
     const calculateProfit = (new_cost_price = 0, price1 = 0)=>{
@@ -701,6 +707,7 @@ export default function () {
             let existingCodes = [];
             existingCodes = new Set(existingCodes.map(p => String(p.product_code).trim()));
 
+            cancelledCodes = [];
             for (const [index, row] of jsonData.entries()) {
                 const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
@@ -735,6 +742,8 @@ export default function () {
                 }
         
             }
+
+            await processCancelledAlerts();
         }catch(err){
             console.log(err);
         }finally {

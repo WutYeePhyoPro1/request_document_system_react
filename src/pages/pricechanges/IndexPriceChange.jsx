@@ -11,6 +11,7 @@ import Select from 'react-select'
 import { FiCopy,FiExternalLink } from 'react-icons/fi';
 import { FaSpinner,FaEye,FaSync } from "react-icons/fa";
 import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
+import { dateFormat } from '../../utils/requestDiscountUtil/helper';
 
 
 export default function IndexPriceChange() {
@@ -498,6 +499,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Effective Date</span></th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Urgent</span></th>
                                             <th className="py-2 px-4 border-b">Department</th>
+                                            <th className="py-2 px-4 border-b">Remark</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
                                             <th className="py-2 px-4 border-b">Created Date</th>
                                         </tr>
@@ -609,6 +611,11 @@ export default function IndexPriceChange() {
                                                             <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500"  value={data.asset_type == 'on'} checked={data.asset_type == 'on'} />
                                                         </td>
                                                         <td className="py-2 px-4 border-b">{data.to_category.name}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {data.remark?.length > 20 
+                                                                ? data.remark.substring(0, 20) + "...." 
+                                                                : data.remark}
+                                                        </td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.created_at}</td>
                                                     </tr>
