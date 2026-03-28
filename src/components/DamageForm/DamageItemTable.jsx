@@ -2400,7 +2400,6 @@ const normalizeImageEntries = (list) => {
               paginatedItems.map((item, idx) => {
                 const matchId = item.id ?? item.specific_form_id;
                 const systemQtyZero = (parseFloat(item.system_qty) || 0) === 0;
-                
                 return (
                 <tr
                   key={item.id}
