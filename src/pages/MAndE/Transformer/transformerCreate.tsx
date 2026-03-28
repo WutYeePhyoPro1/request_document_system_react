@@ -161,6 +161,19 @@ const TransformerCreate: React.FC = () => {
     btnStatus: string,
   ) => {
     e.preventDefault();
+    if (btnStatus == "Ongoing") {
+      const confirmBox = await Swal.fire({
+        title: "Are you sure",
+        text: "Sent To Manager?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "rgb(29, 95, 219)",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes",
+        cancelButtonText: "No",
+      });
+      if (!confirmBox.isConfirmed) return;
+    }
     const formElement = document.querySelector("form") as HTMLFormElement;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];

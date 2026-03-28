@@ -226,7 +226,7 @@ const TransformerDetail: React.FC = () => {
                       <div className="opacity-40">
                         <div>Checked By</div>
                         <div>-------------------</div>
-                        <div>Operation Analysis</div>
+                        {/* <div>Operation Analysis</div> */}
                         <div>
                           {/* {dateTimeFormat(detailData?.getChecker?.created_at)} */}
                         </div>
@@ -271,7 +271,7 @@ const TransformerDetail: React.FC = () => {
                       <div className="opacity-40">
                         <div>Completed By</div>
                         <div>-------------------</div>
-                        <div>Operation Analysis</div>
+                        {/* <div>Operation Analysis</div> */}
                         <div>
                           {dateTimeFormat(detailData?.form?.created_at)}
                         </div>

@@ -84,7 +84,7 @@ const Notification = () => {
                       .toLowerCase()
                       .replace(/\s+/g, "_");
                     // /m_and_e/panel_board/123
-                    path = `/${slug}_detail/${noti.data.specific_form_id}`;
+                    path = `/me_${slug}_detail/${noti.data.specific_form_id}`;
                   } else {
                     // /leave_detail/123
                     path = `/${matchedForm.route}_detail/${noti.data.specific_form_id}`;
