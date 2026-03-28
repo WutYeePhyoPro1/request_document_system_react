@@ -131,6 +131,20 @@ export const handleCopy = async (
 };
 
 
+// export const numberFormat = (
+//   value: number | string | null | undefined,
+//   decimal = 2
+// ): string => {
+//   if (value === null || value === undefined || value === "") return "-";
+
+//   const num = Number(value);
+//   if (isNaN(num)) return "-";
+
+//   return new Intl.NumberFormat("en-US", {
+//     minimumFractionDigits: decimal,
+//     maximumFractionDigits: decimal,
+//   }).format(num);
+// };
 export const numberFormat = (
   value: number | string | null | undefined,
   decimal = 2
@@ -141,11 +155,9 @@ export const numberFormat = (
   if (isNaN(num)) return "-";
 
   return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimal,
     maximumFractionDigits: decimal,
   }).format(num);
 };
-
 export const fullNumberFormat = (
   value: number | string | null | undefined,
   decimal = 0
