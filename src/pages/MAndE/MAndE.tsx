@@ -57,7 +57,7 @@ const MAndE: React.FC = () => {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {subForms.map((form) => (
+        {/* {subForms.map((form) => (
           <Link
             key={form.id}
             to={`/${form.name.toLowerCase().replace(/\s+/g, "-")}/${form.id}`}
@@ -73,7 +73,39 @@ const MAndE: React.FC = () => {
               </span>
             )}
           </Link>
-        ))}
+        ))} */}
+        {subForms.map((form) => {
+          const isDisabled = form.id !== 1;
+
+          return (
+            <Link
+              key={form.id}
+              to={
+                isDisabled
+                  ? "#"
+                  : `/${form.name.toLowerCase().replace(/\s+/g, "-")}/${form.id}`
+              }
+              onClick={(e) => {
+                if (isDisabled) e.preventDefault();
+              }}
+              className={`relative m-2 border rounded-lg shadow-md p-4 flex items-center space-x-3 transition
+        ${
+          isDisabled
+            ? "bg-gray-200 border-gray-300 text-gray-400 cursor-not-allowed pointer-events-none"
+            : "bg-white border-blue-300 hover:shadow-lg cursor-pointer"
+        }
+      `}
+            >
+              <span className="font-semibold">{form.name}</span>
+
+              {!isDisabled && subFormCounts[`20_${form.id}`] > 0 && (
+                <span className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                  {subFormCounts[`20_${form.id}`]}+
+                </span>
+              )}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
