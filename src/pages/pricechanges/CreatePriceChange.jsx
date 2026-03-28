@@ -326,6 +326,8 @@ export default function () {
             // required: 'ကုန်ပစ္စည်းကုဒ် ဖြည့်ပါ',
         }
     };
+
+    let cancelledCodes = [];
     const searchHandler = async () => {
             setSearching(true);
 
@@ -410,6 +412,22 @@ export default function () {
                 id: apiProduct.barcode,
             };
             if(!data.error){
+                if (result.product_name && result.product_name.includes("(Cancel)")) {
+                    console.log("Contains Cancel");
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Product Cancelled',
+                        html: `
+                            Product '<b>${result.barcode}</b>'<br>
+                            ${result.product_name}<br><br>
+                            <span style="color:red; font-weight:bold;">⚠ This product is CANCELLED</span>
+                        `,
+                    });
+
+                    setProductCode("");
+                    return;
+                }
+
                 setProductCode("");
                 setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
             }else{
