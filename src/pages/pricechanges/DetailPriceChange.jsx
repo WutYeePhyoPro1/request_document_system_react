@@ -469,7 +469,7 @@ export default function () {
             console.log(data);
             const apiProduct = data.data;
 
-            const new_cost_price = apiProduct.new_cost_price || row["New Cost Price"] || '';
+            const new_cost_price = row["New Cost Price"] || apiProduct.new_cost_price || '';
             const price1 = apiProduct.price1 || row["Price 1"] || formatTo2Decimals(apiProduct.price) || '';
             const result = {
                 ...apiProduct,
