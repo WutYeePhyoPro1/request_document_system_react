@@ -20,7 +20,14 @@ export const useBranches = (fetcher) => {
 
   const branchMap = useMemo(() => {
     const map = {};
-    branchList.forEach(b => { if (b?.id) map[b.id] = b.branch_name; });
+    branchList.forEach(b => {
+      if (b?.id == null) return;
+      const name = b.branch_name || b.name || b.branch_short_name;
+      if (name) {
+        map[b.id] = name;
+        map[String(b.id)] = name;
+      }
+    });
     return map;
   }, [branchList]);
 

@@ -19,6 +19,7 @@ import {
   getTotalAmount,
   normalizeBranch,
 } from './utils/helpers';
+import { getBranchName } from '../../components/common/branchMappings';
 import { PAGE_SIZE, OP_THRESHOLD } from './utils/constants';
 
 function DamageIssueList({ 
@@ -68,7 +69,8 @@ function DamageIssueList({
   const navigateToDetail = (detailId, bigDamageId, generalFormId) => {
     const currentUrl = window.location.pathname + window.location.search;
     sessionStorage.setItem('bigDamageIssueReturnUrl', currentUrl);
-    navigate(`/big-damage-issue-add/${detailId}`, { 
+    const detailPath = `/big-damage-issue-add/${detailId}?lookup=general_form`;
+    navigate(detailPath, { 
       state: { bigDamageId, generalFormId, returnPage: currentPage, returnUrl: currentUrl } 
     });
   };
@@ -117,25 +119,33 @@ function DamageIssueList({
   
   const filteredForms = useMemo(() => {
     let forms = Array.from(formsWithItems.values());
-   
+
+    // When product filter is set, the list API was already called with search= so backend returned
+    // only forms that have a matching product. The API returns one row per form (no product lines),
+    // so we must not filter here or we would remove all forms (rows have no product_code).
+    // When product filter is not set but we have product data on rows, do client-side filter.
     if (productNameFilterLower) {
-      forms = forms.filter(formData => {
-        const hasMatchingItem = formData.items.some(item => {
-          const code = String(item.product_code || '').toLowerCase();
-          const name = String(item.product_name || '').toLowerCase();
-          return code.includes(productNameFilterLower) || name.includes(productNameFilterLower);
+      const hasAnyProductData = forms.some(f =>
+        f.items.some(i => (i.product_code || i.product_name || '').toString().trim())
+      );
+      if (hasAnyProductData) {
+        forms = forms.filter(formData => {
+          const hasMatchingItem = formData.items.some(item => {
+            const code = String(item.product_code || '').toLowerCase();
+            const name = String(item.product_name || '').toLowerCase();
+            return code.includes(productNameFilterLower) || name.includes(productNameFilterLower);
+          });
+          if (!hasMatchingItem && formData.formRow) {
+            const rowCode = (formData.formRow?.product_code || formData.formRow?.code || '').toString().toLowerCase();
+            const rowName = (formData.formRow?.product_name || formData.formRow?.name || '').toString().toLowerCase();
+            return rowCode.includes(productNameFilterLower) || rowName.includes(productNameFilterLower);
+          }
+          return hasMatchingItem;
         });
-        
-        if (!hasMatchingItem && formData.formRow) {
-          const rowCode = (formData.formRow?.product_code || formData.formRow?.code || '').toString().toLowerCase();
-          const rowName = (formData.formRow?.product_name || formData.formRow?.name || '').toString().toLowerCase();
-          return rowCode.includes(productNameFilterLower) || rowName.includes(productNameFilterLower);
-        }
-        
-        return hasMatchingItem;
-      });
+      }
+      // else: backend already filtered; show all returned forms
     }
-    
+
     return forms;
   }, [formsWithItems, productNameFilterLower]);
   
@@ -183,8 +193,13 @@ function DamageIssueList({
     if (branchInfo.name) return branchInfo.name;
     if (gf?.to_branch_name) return gf.to_branch_name;
     if (gf?.from_branch_name) return gf.from_branch_name;
-    if (branchInfo.id != null && branchMap[branchInfo.id]) return branchMap[branchInfo.id];
-    if (branchInfo.id != null) return String(branchInfo.id);
+    if (branchInfo.id != null) {
+      const fromMap = branchMap[branchInfo.id] ?? branchMap[String(branchInfo.id)];
+      if (fromMap) return fromMap;
+      const fromMappings = getBranchName(branchInfo.id) ?? getBranchName(String(branchInfo.id));
+      if (fromMappings) return fromMappings;
+      return String(branchInfo.id);
+    }
     return '-';
   };
 
@@ -243,7 +258,8 @@ function DamageIssueList({
 
   const renderRow = (row, idx) => {
     const gf = row || {};
-                    const detailId = row.id;
+    const detailId = row.id;
+    const generalFormId = gf?.general_form_id || gf?.general_form?.id || row?.general_form_id || null;
     const displayNo = (safeCurrentPage - 1) * PAGE_SIZE + idx + 1;
     
                     const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
@@ -266,7 +282,7 @@ function DamageIssueList({
                       <tr
                         key={row.id}
                         className="border-b border-gray-200 bg-gray-100 hover:bg-gray-200 transition duration-150 ease-in-out cursor-pointer"
-                        onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
+                        onClick={() => navigateToDetail(detailId, row.id, generalFormId)}
                       >
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 w-12">
                           {displayNo}
@@ -314,7 +330,10 @@ function DamageIssueList({
 
   const renderMobileCard = (row, idx) => {
     const gf = row.general_form || row || {};
-            const detailId = row.id;
+
+    const detailId = gf?.id || row?.general_form_id || gf?.general_form_id || row?.id;
+    const generalFormId = gf?.id || row?.general_form_id || gf?.general_form_id || null;
+
     const displayNo = (safeCurrentPage - 1) * PAGE_SIZE + idx + 1;
     
             const toBranchInfo = normalizeBranch(gf.to_branch || gf.toBranch);
@@ -338,11 +357,11 @@ function DamageIssueList({
                 key={`mobile-card-${row.id}`}
                 role="button"
                 tabIndex={0}
-                onClick={() => navigateToDetail(detailId, row.id, gf.id || null)}
+                onClick={() => navigateToDetail(detailId, row.id, generalFormId)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
-                    navigateToDetail(detailId, row.id, gf.id || null);
+                    navigateToDetail(detailId, row.id, generalFormId);
                   }
                 }}
                 className="bg-gray-100 rounded-xl shadow-md border border-gray-200 p-4 transition hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
