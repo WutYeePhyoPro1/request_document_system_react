@@ -87,7 +87,7 @@ export default function CctvDetails() {
     };
 
     const checkManager = () => {
-        if (!recordDetails || recordDetails.form.status !== 'Checked') return false;
+        if (!recordDetails || recordDetails.form.status !== 'Checked') return false;    
 
         const approvalProcessUsers = recordDetails.approval_process_users;
         if (!approvalProcessUsers) return false;

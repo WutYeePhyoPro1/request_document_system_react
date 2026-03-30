@@ -44,6 +44,25 @@ export default function CctvIndex() {
 
     const token = localStorage.getItem('token');
     const form_id = 15;
+    const getCaseTypeLabel = (caseType) => {
+        const type = Number(caseType);
+        switch (type) {
+            case 1:
+                return 'Check Process';
+            case 2:
+                return 'Customer Complain';
+            case 3:
+                return 'Accident Case';
+            case 4:
+                return 'HR Case';
+            case 5:
+                return 'Stolen Case';
+            case 6:
+                return 'Other';
+            default:
+                return '—';
+        }
+    };
 
     const fetchCctvRecords = async (page = 1) => {
         try {
@@ -56,7 +75,8 @@ export default function CctvIndex() {
             });
             if (!response.ok) throw new Error(`Error fetching CCTV records: ${response.statusText}`);
             const data = await response.json();
-            setCctvRequests(data.data.data);
+            const list = data?.data?.data ?? [];
+            setCctvRequests(list);
             setPaginationInfo(data.data);
             setCurrentPage(data.data.current_page);
         } catch (error) {
@@ -81,7 +101,8 @@ export default function CctvIndex() {
 
             if (!response.ok) throw new Error(`Search page failed: ${response.statusText}`);
             const result = await response.json();
-            setCctvRequests(result.data.data);
+            const list = result?.data?.data ?? [];
+            setCctvRequests(list);
             setPaginationInfo(result.data);
             setCurrentPage(result.data.current_page);
         } catch (error) {
@@ -133,7 +154,6 @@ export default function CctvIndex() {
         const restoredPayload = location.state?.searchPayload;
         const restoredFormData = location.state?.formData;
         if (location.state?.restoreSearch && restoredPayload) {
-            console.log('Restoring previous search:', restoredPayload, restoredFormData);
             setIsSearchMode(true);
             setSearchPayload(restoredPayload);
             setFormData(restoredFormData || {});
@@ -342,8 +362,9 @@ export default function CctvIndex() {
                                         <th className="py-2 px-4 border-b">Document No</th>
                                         <th className="py-2 px-4 border-b">Branch</th>
                                         <th className="py-2 px-4 border-b">Requested By</th>
+                                        <th className="py-2 px-4 border-b">Case Type</th>
+                                        <th className="py-2 px-4 border-b">Description</th>
                                         <th className="py-2 px-4 border-b">Case Date</th>
-                                        <th className="py-2 px-4 border-b">Created Date</th>
                                         <th className="py-2 px-4 border-b">Video</th>
                                     </tr>
                                 </thead>
@@ -384,12 +405,15 @@ export default function CctvIndex() {
                                                     )}
                                             </td>
                                             <td className="py-2 px-4 border-b">
-                                                {branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'}
+                                                {item.branch_name ?? item.from_branches?.branch_name ?? branches.find(b => b.id == item.from_branch)?.branch_name ?? '—'}
                                             </td>
 
                                             <td className="py-2 px-4 border-b">Miss. {item.requester_name}</td>
-                                            <td className="py-2 px-4 border-b">{item.cctv_record?.issue_date || ''}</td>
-                                            <td className="py-2 px-4 border-b">{item.created_at.slice(0, 10)}</td>
+                                            <td className="py-2 px-4 border-b">{getCaseTypeLabel(item.cctv_record?.case_type)}</td>
+                                            <td className="py-2 px-4 border-b max-w-[300px] truncate" title={item.cctv_record?.description ?? ''}>
+                                                {item.cctv_record?.description ?? '—'}
+                                            </td>
+                                            <td className="py-2 px-4 border-b">{item.case_date ?? (item.cctv_record?.issue_date ? String(item.cctv_record.issue_date).slice(0, 10) : null) ?? '—'}</td>
                                             <td className="py-2 px-4 border-b text-center">
 
                                                 <button className="bg-gray-600 text-white p-2 rounded hover:bg-gray-700" title={item.asset_type === 1 ? "Camera On" : "Camera Off"}>
@@ -487,13 +511,23 @@ export default function CctvIndex() {
 
                                             <div className="flex justify-between">
                                                 <span>Miss. {item.requester_name}</span>
-                                                <span>{branches.find(branch => branch.id === item.from_branch)?.branch_name || '—'}</span>
+                                                <span>{item.branch_name ?? item.from_branches?.branch_name ?? branches.find(b => b.id == item.from_branch)?.branch_name ?? '—'}</span>
 
                                             </div>
 
+                                            <div className="flex justify-between gap-2">
+                                                <span className="font-semibold">Case Type:</span>
+                                                <span className="text-right">{getCaseTypeLabel(item.cctv_record?.case_type)}</span>
+                                            </div>
+
+                                            <div>
+                                                <span className="font-semibold">Description: </span>
+                                                <span>{item.cctv_record?.description ?? '—'}</span>
+                                            </div>
+
                                             <div className="flex justify-between">
-                                                <span>{item.cctv_record?.issue_date || '—'}</span>
-                                                <span>{item.created_at.slice(0, 10)}</span>
+                                                <span className="font-semibold">Case Date:</span>
+                                                <span>{item.case_date ?? (item.cctv_record?.issue_date ? String(item.cctv_record.issue_date).slice(0, 10) : null) ?? '—'}</span>
                                             </div>
 
                                             <div className="flex justify-between items-center">
