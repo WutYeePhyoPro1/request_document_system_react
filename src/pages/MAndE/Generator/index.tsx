@@ -2,7 +2,10 @@ import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
-import type { indexData } from "../../../utils/requestDiscountUtil";
+import {
+  type metaData,
+  type indexData,
+} from "../../../utils/requestDiscountUtil";
 import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
 import { parse } from "uuid";
 import { FiCopy } from "react-icons/fi";
@@ -18,8 +21,11 @@ import TsStatusBadge from "../../../components/ui/TsStatusBadge";
 
 const Index: React.FC = () => {
   const formId = 1;
-  const [generalData, setGeneralData] = useState<indexData[]>([]);
-  const [copied, setCopied] = useState<boolean>(false);
+  const [generalData, setGeneralData] = useState<{
+    meta?: metaData;
+    data: indexData[];
+  }>({ data: [] });
+  const [copied, setCopied] = useState<any>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [activePage, setActivePage] = useState<number>(1);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
@@ -113,7 +119,7 @@ const Index: React.FC = () => {
       setSearchTerm((prev) => ({ ...prev, status: value }));
     }
   };
-  const handleBranchChange = (value: string) => {
+  const handleBranchChange = (value: any) => {
     setSearchTerm((prev) => ({ ...prev, branch_id: value }));
   };
   const navigate = useNavigate();
@@ -194,10 +200,10 @@ const Index: React.FC = () => {
       : [];
   }, [generalData, activePage]);
   const rows = useMemo(() => {
-    return paginatedData?.map((element, index) => {
+    return paginatedData?.map((element: indexData, index: number) => {
       const isCopied = copied === element.id;
       const hasUnreadNotification = generalData?.meta?.noti_data?.some(
-        (item: IndexData) =>
+        (item: indexData) =>
           element.id === item.specific_form_id &&
           element.form_id === item.form_id &&
           element.form_doc_no === item.form_doc_no,
@@ -205,16 +211,17 @@ const Index: React.FC = () => {
 
       return (
         <Table.Tr
-          key={element.id}
-          bg={
-            selectedRows.includes(element.id)
-              ? "var(--mantine-color-blue-light)"
-              : undefined
-          }
+          key={element.id ?? index}
+          style={{
+            backgroundColor:
+              element.id && selectedRows.includes(element.id)
+                ? "var(--mantine-color-blue-light)"
+                : undefined,
+          }}
         >
           <Table.Td>{start + index + 1}</Table.Td>
           <Table.Td>
-            <TsStatusBadge status={element.status} />
+            <TsStatusBadge status={element.status ?? ""} />
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
             <Link
@@ -226,6 +233,7 @@ const Index: React.FC = () => {
 
             <button
               onClick={() => {
+                if (!element.form_doc_no) return;
                 handleCopy(
                   element.form_doc_no,
                   () => {
@@ -293,10 +301,12 @@ const Index: React.FC = () => {
             <Link
               to="/generator_create"
               state={{ formId: formId }}
-              className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
+              className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
               style={{ background: "#2ea2d1" }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = "#6fc3df")}
-              onMouseLeave={(e) => {
+              onMouseEnter={(e: any) =>
+                (e.target.style.backgroundColor = "#6fc3df")
+              }
+              onMouseLeave={(e: any) => {
                 e.target.style.backgroundColor = "#2ea2d1";
               }}
             >
@@ -455,7 +465,7 @@ const Index: React.FC = () => {
                 searchable
                 clearable
                 value={searchTerm.branch_id}
-                data={generalData?.meta?.branch?.map((item) => ({
+                data={generalData?.meta?.branch?.map((item: indexData) => ({
                   value: String(item.id),
                   label: item.branch_name,
                 }))}
@@ -470,10 +480,12 @@ const Index: React.FC = () => {
                 searchable
                 clearable
                 value={searchTerm.branch_id}
-                data={generalData?.meta?.user_branches?.map((item) => ({
-                  value: String(item.branch_id),
-                  label: item.branches?.branch_name || "",
-                }))}
+                data={generalData?.meta?.user_branches?.map(
+                  (item: indexData) => ({
+                    value: String(item.branch_id),
+                    label: item.branches?.branch_name || "",
+                  }),
+                )}
                 onChange={handleBranchChange}
                 placeholder="Select Status"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
