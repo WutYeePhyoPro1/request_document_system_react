@@ -88,3 +88,9 @@
   position: relative;
   z-index: 2;
 }
+
+.selected-cell {
+    outline: 2px dotted #3b82f6;
+    outline: 2px dotted #000;
+    outline-offset: -4px;
+}

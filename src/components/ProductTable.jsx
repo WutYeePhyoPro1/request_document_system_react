@@ -16,6 +16,18 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
     const {columns, visibleColumns} = useSelector((state)=>state.pricechanges)
     const isVisible = (slug) => visibleColumns.includes(slug);
 
+    const [selectedCell, setSelectedCell] = useState({
+        rowIndex: null,
+        colKey: null
+    });
+    const [editingCell, setEditingCell] = useState({
+        rowIndex: null,
+        colKey: null
+    });
+    const isSelected = (rowIndex, colKey) => {
+        return selectedCell.rowIndex === rowIndex && selectedCell.colKey === colKey;
+    };
+
     return (
         <>
         <div className="overflow-auto max-h-[500px]">
@@ -56,34 +68,53 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
 
                             {
                                 isVisible('no') &&
-                                <td>{++index}</td>
+                                <td
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'no' })}
+                                className={isSelected(index, 'no') ? 'selected-cell' : ''}
+                                >{index+1}</td>
                             }
 
                             {
                                 isVisible('product_code') &&
-                                <td>{item.product_code}</td>
+                                <td
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'product_code' })}
+                                className={isSelected(index, 'product_code') ? 'selected-cell' : ''}
+                                >{item.product_code}</td>
                             }
 
                             {
                                 isVisible('product_name') &&
-                                <td>{item.product_name}</td>
+                                <td
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'product_name' })}
+                                className={isSelected(index, 'product_name') ? 'selected-cell' : ''}
+                                >{item.product_name}</td>
                             }
 
                             {
                                 isVisible('unit') &&
-                                <td>{item.unit}</td>
+                                <td
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'unit' })}
+                                className={isSelected(index, 'unit') ? 'selected-cell' : ''}
+                                >{item.unit}</td>
                             }
 
                             {
                                 isVisible('price') &&
-                                <td className="text-right text-gray-500">{formatNumber(item.price)}</td>
+                                <td 
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'price' })}
+                                className={`text-right text-gray-500 ${isSelected(index, 'price') ? 'selected-cell' : ''}`}
+                                >{formatNumber(item.price)}</td>
                             }
 
                             {
                                 isVisible('new_cost_price') &&
-                                <td className="text-right">
+                                <td 
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'new_cost_price' })}
+                                onDoubleClick={() => setEditingCell({ rowIndex: index, colKey: 'new_cost_price' })}
+                                className={`text-right ${isSelected(index, 'new_cost_price') ? 'selected-cell' : ''}`}
+                                >
                                     {
-                                        authorizedEdit ?
+                                        authorizedEdit && isEditing(index, 'new_cost_price') ?
                                             <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                                 ${
                                                     pricesErrors?.[item.product_code]?.['new_cost_price'] || pricesErrors?.[item.product_code]?.['New Cost Price'] || pricesErrors?.[item.id]?.['new_cost_price']
@@ -103,7 +134,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
 
                             {
                                 isVisible('price1') &&
-                                <td className={`text-right ${
+                                <td 
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'price1' })}
+                                className={`
+                                    text-right 
+                                    ${isSelected(index, 'price1') ? 'selected-cell' : ''}
+                                    ${
                                     focusedProduct === item.product_code
                                             ? 'bg-gray-200'
                                             : Number(item.price1) > Number(item.price)
@@ -139,7 +175,10 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
 
                             {
                                 isVisible('price2') &&
-                                <td className="text-right">
+                                <td 
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'price2' })}
+                                className={`text-right ${isSelected(index, 'price2') ? 'selected-cell' : ''}`}
+                                >
                                 {
                                     authorizedEdit ?
                                         <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
@@ -161,7 +200,11 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
 
                             {
                                 isVisible('profit') &&
-                                <td className={`text-right ${formatTo2Decimals(item.profit * 100) <= 0 ? 'bg-red-500 text-white' : ( formatTo2Decimals(item.profit * 100) < 100 ? 'bg-green-600 text-white' : 'bg-green-800 text-white')}`} style={{ whiteSpace: "nowrap"}}>
+                                <td 
+                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'profit' })}
+                                className={`text-right 
+                                ${isSelected(index, 'profit') ? 'selected-cell' : ''}
+                                ${formatTo2Decimals(item.profit * 100) <= 0 ? 'bg-red-500 text-white' : ( formatTo2Decimals(item.profit * 100) < 100 ? 'bg-green-600 text-white' : 'bg-green-800 text-white')}`} style={{ whiteSpace: "nowrap"}}>
                                     {formatTo2Decimals(item.profit * 100)} %
                                 </td>
                             }

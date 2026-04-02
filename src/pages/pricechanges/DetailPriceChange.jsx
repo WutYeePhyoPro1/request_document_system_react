@@ -75,7 +75,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    const [productsLock, setProductsLock] = useState(false);
+    const [productsLock, setProductsLock] = useState(true);
     let totalProductCount = products.length;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1674,7 +1674,7 @@ export default function () {
 
             {
                 !pcLoading &&
-                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
+                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col min-h-[80vh]">
                     
                     {/* Action Bar as Card Header */}
                     <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
@@ -1795,7 +1795,7 @@ export default function () {
                     </header>
 
                     {/* Card Body Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden flex-1">
                         
                         {/* Branch Sidebar (Left Column) */}
                         <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
