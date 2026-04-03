@@ -60,6 +60,7 @@ export default function () {
     const [products,setProducts] = useState([]);
     const [productsLock, setProductsLock] = useState(false);
 
+
     // const token = localStorage.getItem('token');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [searching,setSearching] = useState(false);
@@ -326,6 +327,8 @@ export default function () {
             // required: 'ကုန်ပစ္စည်းကုဒ် ဖြည့်ပါ',
         }
     };
+
+    let cancelledCodes = [];
     const searchHandler = async () => {
             setSearching(true);
 
@@ -364,8 +367,9 @@ export default function () {
                     return;
                 }
 
+                cancelledCodes = [];
                 await fetchProduct(productCode);
-
+                await processCancelledAlerts();
 
             }catch(err){
                 console.error(err);
@@ -410,6 +414,11 @@ export default function () {
                 id: apiProduct.barcode,
             };
             if(!data.error){
+                if (result.product_name && result.product_name.includes("(Cancel)")) {
+                    cancelledCodes.push(result);
+                    return { isCancelled: true, product: result };
+                }
+
                 setProductCode("");
                 setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
             }else{
@@ -435,6 +444,22 @@ export default function () {
             // setLoading(false);
         
         }
+    }
+
+    const processCancelledAlerts = async ()=>{
+        for (const item of cancelledCodes) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Product Cancelled',
+                html: `
+                    Product '<b>${item.barcode}</b>'<br>
+                    ${item.product_name}<br><br>
+                    <span style="color:red; font-weight:bold;">⚠ This product is CANCELLED</span>
+                `,
+                confirmButtonText: 'OK'
+            });
+        }
+        cancelledCodes = [];
     }
 
     const calculateProfit = (new_cost_price = 0, price1 = 0)=>{
@@ -683,6 +708,7 @@ export default function () {
             let existingCodes = [];
             existingCodes = new Set(existingCodes.map(p => String(p.product_code).trim()));
 
+            cancelledCodes = [];
             for (const [index, row] of jsonData.entries()) {
                 const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
@@ -717,6 +743,8 @@ export default function () {
                 }
         
             }
+
+            await processCancelledAlerts();
         }catch(err){
             console.log(err);
         }finally {
@@ -724,7 +752,7 @@ export default function () {
             e.target.value = "";
         }
     };
-    const excludeBranchIds = [1,16,18,19,21,22,14,15];
+    const excludeBranchIds = [1,16,18,19,20,21,22,14,15];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branchesall', {
@@ -865,7 +893,7 @@ export default function () {
                 />
 
                 {/* Main Unitary Card */}
-                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
+                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col min-h-[80vh]">
                     
                     {/* Action Bar as Card Header */}
                     <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
@@ -904,7 +932,7 @@ export default function () {
                     </header>
 
                     {/* Card Body Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden flex-1">
                         
                         {/* Branch Sidebar (Left Column) */}
                         <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
@@ -1136,13 +1164,13 @@ export default function () {
                                     
                                     <div className="flex gap-4">
 
-                                        <button
+                                        {/* <button
                                         onClick={() => setProductsLock(!productsLock)}
                                         className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
                                         title={productsLock ? "Edit Mode" : "View Mode"}
                                         >
                                         {productsLock ? <FaPen /> : <FaEye />}
-                                        </button>
+                                        </button> */}
 
                                         {/* <ColumnToggleDropdown /> */}
 

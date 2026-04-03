@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
-import type { indexData } from "../../../utils/requestDiscountUtil";
+import { MultiSelect, Pagination, Select, Table ,Loader } from "@mantine/core";
+import type { IndexData } from "../../../utils/requestDiscountUtil";
 import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
 import { parse } from "uuid";
 import { FiCopy } from "react-icons/fi";
