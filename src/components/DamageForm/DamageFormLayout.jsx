@@ -19,6 +19,61 @@ import './ButtonHoverEffects.css';
 import './BoxesLoader.css';
 import Pro1LoadingAnimation from './Pro1LoadingAnimation';
 
+
+function getCancelCompletedVisibilityCutoff(completionDate) {
+  const d = new Date(completionDate);
+  if (Number.isNaN(d.getTime())) return null;
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  return new Date(y, m + 1, 2, 0, 0, 0, 0);
+}
+
+function resolveBigDamageCompletedAt(formData, initialData) {
+  const gf = formData?.general_form || formData?.generalForm || initialData?.general_form || initialData?.generalForm || {};
+
+  // Match Laravel big_damage_issue: optional($general_form->files)[0]->created_at
+  // API may expose files as `files` or `general_form_files`; avoid using formData.files (damage images) unless needed
+  const filesList =
+    (Array.isArray(gf.files) && gf.files.length ? gf.files : null) ||
+    (Array.isArray(gf.general_form_files) && gf.general_form_files.length ? gf.general_form_files : null) ||
+    (Array.isArray(gf.generalFormFiles) && gf.generalFormFiles.length ? gf.generalFormFiles : null) ||
+    (Array.isArray(formData?.files) && formData.files.length ? formData.files : null) ||
+    (Array.isArray(initialData?.files) && initialData.files.length ? initialData.files : null);
+  const firstFile = filesList?.[0];
+  if (firstFile && typeof firstFile === 'object') {
+    const fromFile = firstFile.created_at || firstFile.createdAt;
+    if (fromFile != null && String(fromFile).trim() !== '') return fromFile;
+  }
+
+  const direct = [gf.issued_at, gf.issuedAt, gf.completed_at, gf.completedAt].find((v) => v != null && String(v).trim() !== '');
+  if (direct) return direct;
+
+  const approvals = Array.isArray(formData?.approvals) ? formData.approvals : [];
+  const issuedBy = approvals.find((a) => {
+    const label = (a.label || '').toLowerCase();
+    return label.includes('issued') && label.includes('by');
+  });
+  if (issuedBy) {
+    const fromApproval =
+      issuedBy.date ||
+      issuedBy.raw?.acted_at ||
+      issuedBy.raw?.updated_at ||
+      issuedBy.raw?.created_at;
+    if (fromApproval) return fromApproval;
+  }
+
+  return gf.updated_at || gf.updatedAt || '';
+}
+
+/** True while Cancel may still show for Completed (before 2nd of next month after issue). If no date, allow (legacy). */
+function isCancelCompletedBeforeCutoff(formData, initialData) {
+  const completedAt = resolveBigDamageCompletedAt(formData, initialData);
+  if (!completedAt) return true;
+  const cutoff = getCancelCompletedVisibilityCutoff(completedAt);
+  if (!cutoff) return true;
+  return Date.now() < cutoff.getTime();
+}
+
 const extractImageArray = (item = {}) => {
   if (!item || typeof item !== 'object') return [];
 
@@ -2520,12 +2575,14 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
         }
       }
       
-      // Branch Account or allowed emp_id (000-000046, 000-000498): enable Cancel when form is Completed
-      const allowedEmpIdsForCancelWhenCompleted = ['000-000046', '000-000498'];
+  
+      const allowedEmpIdsForCancelWhenCompleted = ['000-000046', '000-000498', 'superadmin@mail.com'];
       const currentEmpIdForActions = (currentUser?.emp_id || currentUser?.employee_number || '').toString().trim();
       const isAllowedEmpIdForCancelWhenCompletedInActions = allowedEmpIdsForCancelWhenCompleted.includes(currentEmpIdForActions);
       if ((isBranchAccountUser || isAllowedEmpIdForCancelWhenCompletedInActions) && normalizedStatus === 'Completed') {
-        act.cancel = true;
+        if (isCancelCompletedBeforeCutoff(formData, initialData)) {
+          act.cancel = true;
+        }
       }
       
       // Operation Manager should NOT see BackToPrevious / Cancel when viewing OPApproved form
@@ -2630,8 +2687,8 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
                                 formData.status === 'OPApproved' ||
                                 formData.status === 'OP Approved');
   
-  // Emp IDs allowed to see Cancel button when form status is Completed (matches Laravel big_damage_issue detail)
-  const ALLOWED_EMP_IDS_CANCEL_WHEN_COMPLETED = ['000-000046', '000-000498'];
+
+  const ALLOWED_EMP_IDS_CANCEL_WHEN_COMPLETED = ['000-000046', '000-000498', 'superadmin@mail.com'];
   const currentEmpId = (currentUser?.emp_id || currentUser?.employee_number || initialData?.current_user?.emp_id || initialData?.current_user?.employee_number || '').toString().trim();
   const isAllowedEmpIdForCancelWhenCompleted = ALLOWED_EMP_IDS_CANCEL_WHEN_COMPLETED.includes(currentEmpId);
   
@@ -2697,8 +2754,8 @@ let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && 
                             true :
                             // Existing logic for other cases - hide if BM Approved
                             (!isBMApproved && formData.status !== 'Completed' && formData.status !== 'Cancelled'));
-// Also allow OP to see Cancel when appropriate; allow Branch Account or allowed emp_id to see Cancel when form is Completed
-let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForButtons)) && !isBranchAccount) || (resolvedStatusLower === 'completed' && (isBranchAccount || isAllowedEmpIdForCancelWhenCompleted));
+// Also allow OP to see Cancel when appropriate; allow Branch Account or allowed emp_id to see Cancel when form is Completed (until 2nd of next month after issue)
+let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForButtons)) && !isBranchAccount) || (resolvedStatusLower === 'completed' && (isBranchAccount || isAllowedEmpIdForCancelWhenCompleted) && isCancelCompletedBeforeCutoff(formData, initialData));
                           // Also allow Operation Manager to see Cancel on OP stages
                           const shouldShowCancelOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
 
@@ -2869,6 +2926,14 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
     }
   } catch (e) {
     // ignore
+  }
+
+  // Completed + special users: hide Cancel after cutoff (2nd of next month after issue)
+  if (resolvedStatusLower === 'completed' && (isBranchAccount || isAllowedEmpIdForCancelWhenCompleted) && !isCancelCompletedBeforeCutoff(formData, initialData)) {
+    shouldShowCancelFinal = false;
+    if (typeof actions !== 'undefined') {
+      actions.cancel = false;
+    }
   }
 
   // Handle back button click - preserve pagination and filters
@@ -3093,8 +3158,11 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
       return;
     }
     
-    // Validate cancel action - require reason/remark (skip for allowed emp_ids 000-000046, 000-000498)
+    // Validate cancel action - require reason/remark (skip for allowed emp_ids incl. superadmin@mail.com)
     if (action === 'Cancel' || action === 'cancel') {
+      if (resolvedStatusLower === 'completed' && !isCancelCompletedBeforeCutoff(formData, initialData)) {
+        return;
+      }
       if (!isAllowedEmpIdForCancelWhenCompleted && (!formData.reason || formData.reason.trim() === '')) {
         const errorMessage = t('messages.cancelReasonRequired', { 
           defaultValue: 'Please provide a reason for canceling the form. The remark field in Supporting Info is required.' 
