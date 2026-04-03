@@ -321,7 +321,7 @@ const TransformerCreate: React.FC = () => {
             checked={transformerUse === "use"}
             onChange={(e) => setTransformerUse(e.target.value)}
           />
-          Transformer Use
+          Transformer Run
         </label>
 
         <label className="flex items-center gap-2">
@@ -331,7 +331,7 @@ const TransformerCreate: React.FC = () => {
             checked={transformerUse === "no_use"}
             onChange={(e) => setTransformerUse(e.target.value)}
           />
-          Transformer Not Use
+          Transformer Not Run
         </label>
       </div>
 
@@ -699,24 +699,18 @@ const TransformerCreate: React.FC = () => {
                       inputMode="decimal"
                       onChange={(e: any) => {
                         let value = e.target.value;
-
                         value = value.replace(/[^0-9.]/g, "");
-
                         const parts = value.split(".");
                         if (parts.length > 2) {
                           value = parts[0] + "." + parts[1];
                         }
-
                         if (parts[0].length > 8) {
                           parts[0] = parts[0].slice(0, 8);
                         }
-
                         if (parts[1]) {
                           parts[1] = parts[1].slice(0, 2);
                         }
-
                         value = parts.join(".");
-
                         e.target.value = value;
                       }}
                       onWheel={(e) => e.currentTarget.blur()}
