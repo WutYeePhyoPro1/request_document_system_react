@@ -8,24 +8,22 @@ const useDetectOtherTab = (formId) => {
 
     const channel = new BroadcastChannel(`form-${formId}-channel`);
 
-    // Announce this tab is open
-    channel.postMessage({ type: 'TAB_OPENED', timestamp: Date.now() });
+    let isDuplicate = false;
 
-    // Listen to other tabs
+    channel.postMessage({ type: 'CHECK' });
+
     channel.onmessage = (msg) => {
       const { type } = msg.data;
 
-      if (type === 'TAB_OPENED') {
-        // Another tab opened
-        // setAnotherTabOpen(true);
-
-        // Reply to notify new tab that we already exist
-        channel.postMessage({ type: 'TAB_ALREADY_OPEN' });
+      if (type === 'CHECK') {
+        channel.postMessage({ type: 'EXISTS' });
       }
 
-      if (type === 'TAB_ALREADY_OPEN') {
-        // Existing tab confirmed
-        setAnotherTabOpen(true);
+      if (type === 'EXISTS') {
+        if (!isDuplicate) {
+          isDuplicate = true;
+          setAnotherTabOpen(true);
+        }
       }
 
       if (type === 'TAB_CLOSED') {
@@ -33,7 +31,7 @@ const useDetectOtherTab = (formId) => {
       }
     };
 
-    // Notify others if this tab closes
+    // Optional: notify on close
     const handleUnload = () => {
       channel.postMessage({ type: 'TAB_CLOSED' });
     };
