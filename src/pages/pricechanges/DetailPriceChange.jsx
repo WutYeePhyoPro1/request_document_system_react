@@ -82,7 +82,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    const [productsLock, setProductsLock] = useState(false);
+    const [productsLock, setProductsLock] = useState(true);
     let totalProductCount = products.length;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -2095,7 +2095,7 @@ export default function () {
                                 <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
                                     <div className="flex gap-4">
-                                        {/* {
+                                        {
                                             changable &&
                                             <button
                                             onClick={() => setProductsLock(!productsLock)}
@@ -2104,12 +2104,12 @@ export default function () {
                                             >
                                                 {productsLock ? <FaPen /> : <FaEye />}
                                             </button>
-                                        } */}
+                                        }
                                         <ColumnToggleDropdown columns={columns}/>
                                     </div>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock}/>
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock} />
                                 {/* </div> */}
                             </div>
                         </main>
