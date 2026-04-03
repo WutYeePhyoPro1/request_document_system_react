@@ -1164,13 +1164,13 @@ export default function () {
                                     
                                     <div className="flex gap-4">
 
-                                        <button
+                                        {/* <button
                                         onClick={() => setProductsLock(!productsLock)}
                                         className={`flex items-center justify-center p-2 rounded-md border transition bg-amber-500 text-white border-yellow-400`}
                                         title={productsLock ? "Edit Mode" : "View Mode"}
                                         >
                                         {productsLock ? <FaPen /> : <FaEye />}
-                                        </button>
+                                        </button> */}
 
                                         {/* <ColumnToggleDropdown /> */}
 

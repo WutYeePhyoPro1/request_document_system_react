@@ -1,4 +1,4 @@
-import React, { useEffect, useState} from "react";
+import React, { useEffect, useState, useRef} from "react";
 import { FaMinusCircle } from "react-icons/fa";
 import {formatNumber,formattDecimalNumber,formatTo2Decimals} from "./Fomatter.jsx";
 import {useDispatch,useSelector} from "react-redux"
@@ -26,6 +26,44 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
     });
     const isSelected = (rowIndex, colKey) => {
         return selectedCell.rowIndex === rowIndex && selectedCell.colKey === colKey;
+    };
+
+    const isEditing = (rowIndex, colKey) => {
+        return editingCell.rowIndex === rowIndex && editingCell.colKey === colKey;
+    };
+
+
+
+    const selectCell = (rowIndex, colKey) => {
+        const isSameCell =
+            selectedCell.rowIndex === rowIndex &&
+            selectedCell.colKey === colKey;
+
+        if (isSameCell) {
+            activateEditWithDelay(rowIndex, colKey);
+        } else {
+            // normal behavior → select new cell + close edit
+            setSelectedCell({ rowIndex, colKey });
+            setEditingCell({ rowIndex: null, colKey: null });
+        }
+    };
+
+    const editTimer = useRef(null);
+    const activateEditWithDelay = (rowIndex, colKey, delay = 200) => {
+        clearTimeout(editTimer.current);
+
+        editTimer.current = setTimeout(() => {
+            setEditingCell({ rowIndex, colKey });
+        }, delay);
+    };
+
+    const hasPriceError = (productCode, productId, inputColumn, excelColumn) => {
+        //  || (pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']) 
+        return Boolean(
+            pricesErrors?.[productCode]?.[inputColumn] ||                   
+            pricesErrors?.[productCode]?.[excelColumn] || 
+            pricesErrors?.[productId]?.[inputColumn]
+        );
     };
 
     return (
@@ -69,7 +107,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('no') &&
                                 <td
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'no' })}
+                                onClick={() => selectCell(index, 'no')}
                                 className={isSelected(index, 'no') ? 'selected-cell' : ''}
                                 >{index+1}</td>
                             }
@@ -77,7 +115,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('product_code') &&
                                 <td
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'product_code' })}
+                                onClick={() => selectCell(index, 'product_code')}
                                 className={isSelected(index, 'product_code') ? 'selected-cell' : ''}
                                 >{item.product_code}</td>
                             }
@@ -85,7 +123,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('product_name') &&
                                 <td
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'product_name' })}
+                                onClick={() => selectCell(index, 'product_name')}
                                 className={isSelected(index, 'product_name') ? 'selected-cell' : ''}
                                 >{item.product_name}</td>
                             }
@@ -93,7 +131,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('unit') &&
                                 <td
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'unit' })}
+                                onClick={() => selectCell(index, 'unit')}
                                 className={isSelected(index, 'unit') ? 'selected-cell' : ''}
                                 >{item.unit}</td>
                             }
@@ -101,7 +139,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('price') &&
                                 <td 
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'price' })}
+                                onClick={() => selectCell(index, 'price')}
                                 className={`text-right text-gray-500 ${isSelected(index, 'price') ? 'selected-cell' : ''}`}
                                 >{formatNumber(item.price)}</td>
                             }
@@ -109,12 +147,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('new_cost_price') &&
                                 <td 
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'new_cost_price' })}
-                                onDoubleClick={() => setEditingCell({ rowIndex: index, colKey: 'new_cost_price' })}
+                                onClick={() => selectCell(index, 'new_cost_price')}
+                                // onDoubleClick={() => activateEditWithDelay(index, 'new_cost_price')}
                                 className={`text-right ${isSelected(index, 'new_cost_price') ? 'selected-cell' : ''}`}
                                 >
                                     {
-                                        authorizedEdit && isEditing(index, 'new_cost_price') ?
+                                        authorizedEdit && isEditing(index, 'new_cost_price') || hasPriceError(item.product_code,item.id, 'new_cost_price', 'New Cost Price') ?
                                             <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                                 ${
                                                     pricesErrors?.[item.product_code]?.['new_cost_price'] || pricesErrors?.[item.product_code]?.['New Cost Price'] || pricesErrors?.[item.id]?.['new_cost_price']
@@ -123,11 +161,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                                 }
                                             `} 
                                             onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                            autoFocus
                                             onFocus={(e) => e.target.select()} 
                                             value={item.new_cost_price}
                                             readOnly={!authorizedEdit}
                                             />
-                                        : formatNumber(item.new_cost_price)
+                                        : <span className="block w-28 text-right ms-auto">{formatNumber(item.new_cost_price)}</span>
                                     }
                                 </td>
                             }
@@ -135,9 +174,10 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('price1') &&
                                 <td 
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'price1' })}
+                                onClick={() => selectCell(index, 'price1')}
+                                // onDoubleClick={() => activateEditWithDelay(index, 'price1')}
                                 className={`
-                                    text-right 
+                                    text-right
                                     ${isSelected(index, 'price1') ? 'selected-cell' : ''}
                                     ${
                                     focusedProduct === item.product_code
@@ -150,7 +190,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                     }`}>
                                     {/* { item.price1 }, {item.price} */}
                                     {
-                                        authorizedEdit ?
+                                        authorizedEdit && isEditing(index, 'price1') || hasPriceError(item.product_code,item.id, 'price1', 'Price 1')  ?
                                             <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                                 ${
                                                     ((pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']) && focusedProduct === item.product_code)
@@ -160,6 +200,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             `} 
                                             data-priceError = {pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']}
                                             onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                            autoFocus
                                             onFocus={(e)=>{
                                                 setFocusedProduct(item.product_code);
                                                 e.target.select();
@@ -168,7 +209,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             value={item.price1}
                                             readOnly={!authorizedEdit}
                                             />
-                                        : formatNumber(item.price1)
+                                        : <span className="block w-28 text-right ms-auto">{formatNumber(item.price1)}</span>
                                     }
                                 </td>
                             }
@@ -176,11 +217,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('price2') &&
                                 <td 
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'price2' })}
+                                onClick={() => selectCell(index, 'price2')}
+                                // onDoubleClick={() => activateEditWithDelay(index, 'price2')}
                                 className={`text-right ${isSelected(index, 'price2') ? 'selected-cell' : ''}`}
                                 >
                                 {
-                                    authorizedEdit ?
+                                    authorizedEdit && isEditing(index, 'price2') || hasPriceError(item.product_code,item.id, 'price2', 'Price 2') ?
                                         <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
                                             ${
                                                 pricesErrors?.[item.product_code]?.['price2'] || pricesErrors?.[item.product_code]?.['Price 2'] || pricesErrors?.[item.id]?.['price2']
@@ -189,11 +231,12 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             }
                                         `} 
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
+                                        autoFocus
                                         onFocus={(e) => e.target.select()} 
                                         value={item.price2}
                                         readOnly={!authorizedEdit}
                                         />
-                                    : formatNumber(item.price2)
+                                    : <span className="block w-28 text-right ms-auto">{formatNumber(item.price2)}</span>
                                 }
                             </td>
                             }
@@ -201,7 +244,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                             {
                                 isVisible('profit') &&
                                 <td 
-                                onClick={() => setSelectedCell({ rowIndex: index, colKey: 'profit' })}
+                                onClick={() => selectCell(index, 'profit')}
                                 className={`text-right 
                                 ${isSelected(index, 'profit') ? 'selected-cell' : ''}
                                 ${formatTo2Decimals(item.profit * 100) <= 0 ? 'bg-red-500 text-white' : ( formatTo2Decimals(item.profit * 100) < 100 ? 'bg-green-600 text-white' : 'bg-green-800 text-white')}`} style={{ whiteSpace: "nowrap"}}>
