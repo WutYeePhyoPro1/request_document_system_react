@@ -61,7 +61,7 @@ export const getCommonData = async (token: string) => {
       headers: { Authorization: `Bearer ${token}` },
     });
 // console.log("Response>>" , response.data) ;
-    return response?.data?.data;
+    return response?.data;
   } catch (error) {
     console.error("meDataDetail error:", error);
     throw error;

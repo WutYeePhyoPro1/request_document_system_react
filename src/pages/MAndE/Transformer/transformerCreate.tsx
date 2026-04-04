@@ -69,7 +69,7 @@ const TransformerCreate: React.FC = () => {
 
       try {
         const commonData = await getCommonData(token);
-        setKva(commonData);
+        setKva(commonData?.tranKva);
       } catch (error) {
         console.error("Error fetching check item data:", error);
       } finally {

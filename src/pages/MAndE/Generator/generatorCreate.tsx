@@ -69,7 +69,7 @@ const GeneratorCreate: React.FC = () => {
 
       try {
         const commonData = await getCommonData(token);
-        setKva(commonData);
+        setKva(commonData?.data);
       } catch (error) {
         console.error("Error fetching check item data:", error);
       } finally {
