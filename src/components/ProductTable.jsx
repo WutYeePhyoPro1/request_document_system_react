@@ -66,6 +66,16 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
         );
     };
 
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.focus();
+            inputRef.current.select();
+        }
+    }, [editingCell]);
+
+
     return (
         <>
         <div className="overflow-auto max-h-[500px]">
@@ -162,7 +172,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             `} 
                                             onChange={(e)=>pricesHandler(e,item.product_code)} 
                                             // autoFocus
-                                            ref={el => el && isEditing(index, 'new_cost_price') && (el.focus(), el.select())}
+                                            ref={isEditing(index, 'new_cost_price') ? inputRef : null}
                                             onFocus={(e) => e.target.select()} 
                                             value={item.new_cost_price}
                                             readOnly={!authorizedEdit}
@@ -202,7 +212,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             data-priceError = {pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']}
                                             onChange={(e)=>pricesHandler(e,item.product_code)} 
                                             // autoFocus
-                                            ref={el => el && isEditing(index, 'price1') && (el.focus(), el.select())}
+                                            ref={isEditing(index, 'price1') ? inputRef : null}
                                             onFocus={(e)=>{
                                                 setFocusedProduct(item.product_code);
                                                 e.target.select();
@@ -234,14 +244,14 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                         `} 
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
                                         // autoFocus
-                                        ref={el => el && isEditing(index, 'price2') && (el.focus(), el.select())}
+                                        ref={isEditing(index, 'price2') ? inputRef : null}
                                         onFocus={(e) => e.target.select()} 
                                         value={item.price2}
                                         readOnly={!authorizedEdit}
                                         />
                                     : <span className="block w-28 text-right ms-auto">{formatNumber(item.price2)}</span>
                                 }
-                            </td>
+                                </td>
                             }
 
                             {
