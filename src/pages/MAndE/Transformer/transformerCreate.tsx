@@ -179,6 +179,20 @@ const TransformerCreate: React.FC = () => {
     const missingFields: string[] = [];
     formData.append("btn_status", btnStatus);
     // validation
+    const meterUnit = Number(formData.get("meter_unit") || 0);
+    const OLTCTipping = Number(formData.get("oltc_tapping") || 0);
+    if (transformerUse === "use" && meterUnit === 0) {
+      missingFields.push("Meter Units must be greater than 0");
+    }
+    if (transformerUse === "use" && OLTCTipping === 0) {
+      missingFields.push("Oltc Tipping must be greater than 0");
+    }
+
+    // const cost = Number(formData.get("cost") || 0);
+    // if (serviceDate && cost === 0) {
+    //   missingFields.push("Cost must be greater than 0");
+    // }
+
     Object.entries(validators).forEach(([key, message]) => {
       if (
         transformerUse === "no_use" &&
@@ -186,10 +200,23 @@ const TransformerCreate: React.FC = () => {
       ) {
         return;
       }
+
       if ((!serviceDate || serviceDate.trim() === "") && key === "cost") {
         return;
       }
+
       const value = formData.get(key);
+      if (key === "cost") {
+        if (!value || value.toString().trim() === "") {
+          missingFields.push("Cost is required");
+        } else {
+          const cost = Number(value);
+          if (cost === 0) {
+            missingFields.push("Cost must be greater than 0");
+          }
+        }
+        return;
+      }
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
       }
@@ -786,7 +813,12 @@ const TransformerCreate: React.FC = () => {
                     key={fileField.id}
                     className="flex flex-col gap-2 w-full"
                   >
-                    <label>{index === 0 ? "Upload" : undefined}</label>
+                    <div className="flex items-center gap-2">
+                      <label>{index === 0 ? "Upload" : undefined}</label>
+                      <span>
+                        <FaStar className="text-red-400" />
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-3">
                       {/* MD + LG FILE INPUT */}
