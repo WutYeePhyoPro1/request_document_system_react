@@ -1178,7 +1178,7 @@ export default function () {
 
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={!productsLock}/>
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={!productsLock} activeProcess={true}/>
                                 {/* </div> */}
                             </div>
                         </main>

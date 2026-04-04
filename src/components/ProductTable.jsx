@@ -3,7 +3,7 @@ import { FaMinusCircle } from "react-icons/fa";
 import {formatNumber,formattDecimalNumber,formatTo2Decimals} from "./Fomatter.jsx";
 import {useDispatch,useSelector} from "react-redux"
 
-export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors,authorizedEdit=true}){
+export default function ProductTable({data,pricesHandler,removeHandler,pricesErrors,authorizedEdit=true, activeProcess=false}){
     const tablestyle = {
         thead: { backgroundColor: "#A9D8E9" },
         th: { backgroundColor: "inherit" , position: "sticky", top:0, zIndex:10},
@@ -152,8 +152,8 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                 className={`text-right ${isSelected(index, 'new_cost_price') ? 'selected-cell' : ''}`}
                                 >
                                     {
-                                        authorizedEdit && isEditing(index, 'new_cost_price') || hasPriceError(item.product_code,item.id, 'new_cost_price', 'New Cost Price') || authorizedEdit ?
-                                            <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
+                                        (activeProcess && isEditing(index, 'new_cost_price')) || hasPriceError(item.product_code,item.id, 'new_cost_price', 'New Cost Price') || authorizedEdit ?
+                                            <input type="number" id="new_cost_price" name="new_cost_price"    className={`w-28 p-1 rounded-md focus:outline-none border text-right pricecols
                                                 ${
                                                     pricesErrors?.[item.product_code]?.['new_cost_price'] || pricesErrors?.[item.product_code]?.['New Cost Price'] || pricesErrors?.[item.id]?.['new_cost_price']
                                                         ? 'border-red-600 focus:border-red-600'
@@ -162,6 +162,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             `} 
                                             onChange={(e)=>pricesHandler(e,item.product_code)} 
                                             // autoFocus
+                                            ref={el => el && isEditing(index, 'new_cost_price') && (el.focus(), el.select())}
                                             onFocus={(e) => e.target.select()} 
                                             value={item.new_cost_price}
                                             readOnly={!authorizedEdit}
@@ -190,8 +191,8 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                     }`}>
                                     {/* { item.price1 }, {item.price} */}
                                     {
-                                        authorizedEdit && isEditing(index, 'price1') || hasPriceError(item.product_code,item.id, 'price1', 'Price 1') || authorizedEdit  ?
-                                            <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
+                                        (activeProcess && isEditing(index, 'price1')) || hasPriceError(item.product_code,item.id, 'price1', 'Price 1') || authorizedEdit  ?
+                                            <input type="number" id="price1" name="price1"    className={`w-28 p-1 rounded-md focus:outline-none border text-right pricecols
                                                 ${
                                                     ((pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']) && focusedProduct === item.product_code)
                                                         ? 'border-red-600 focus:border-red-600'
@@ -201,6 +202,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             data-priceError = {pricesErrors?.[item.product_code]?.['price1'] || pricesErrors?.[item.product_code]?.['Price 1'] || pricesErrors?.[item.id]?.['price1']}
                                             onChange={(e)=>pricesHandler(e,item.product_code)} 
                                             // autoFocus
+                                            ref={el => el && isEditing(index, 'price1') && (el.focus(), el.select())}
                                             onFocus={(e)=>{
                                                 setFocusedProduct(item.product_code);
                                                 e.target.select();
@@ -222,8 +224,8 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                 className={`text-right ${isSelected(index, 'price2') ? 'selected-cell' : ''}`}
                                 >
                                 {
-                                    authorizedEdit && isEditing(index, 'price2') || hasPriceError(item.product_code,item.id, 'price2', 'Price 2') || authorizedEdit ?
-                                        <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border text-right
+                                    (activeProcess && isEditing(index, 'price2')) || hasPriceError(item.product_code,item.id, 'price2', 'Price 2') || authorizedEdit ?
+                                        <input type="number" id="price2" name="price2"    className={`w-28 p-1 rounded-md focus:outline-none border text-right pricecols
                                             ${
                                                 pricesErrors?.[item.product_code]?.['price2'] || pricesErrors?.[item.product_code]?.['Price 2'] || pricesErrors?.[item.id]?.['price2']
                                                     ? 'border-red-600 focus:border-red-600'
@@ -232,6 +234,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                         `} 
                                         onChange={(e)=>pricesHandler(e,item.product_code)} 
                                         // autoFocus
+                                        ref={el => el && isEditing(index, 'price2') && (el.focus(), el.select())}
                                         onFocus={(e) => e.target.select()} 
                                         value={item.price2}
                                         readOnly={!authorizedEdit}

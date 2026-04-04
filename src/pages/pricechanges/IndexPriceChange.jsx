@@ -334,13 +334,14 @@ export default function IndexPriceChange() {
                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
                         <div className="flex flex-col">
                             <label htmlFor="form_doc_no" className="mb-1 font-medium text-gray-700">
-                                Form Doc No
+                                Doc No/ GCP No/ Remark
                             </label>
                             <input
                                 id="form_doc_no"
                                 name="form_doc_no"
                                 type="text"
-                                placeholder="Enter Form Doc No"
+                                // placeholder="Search by Doc No, GCP No, Remark"
+                                placeholder="Search by Keyword...."
                                 className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
                                 onFocus={(e) => e.target.style.borderColor = '#6fc3df'}
                                 onBlur={(e) => e.target.style.borderColor = '#2ea2d1'}

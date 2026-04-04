@@ -94,3 +94,14 @@
     outline: 2px dotted #000;
     outline-offset: -4px;
 }
+
+.pricecols::-webkit-outer-spin-button,
+.pricecols::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.pricecols{
+    -moz-appearance: textfield; /* Firefox */
+    min-width: 100px;
+}
