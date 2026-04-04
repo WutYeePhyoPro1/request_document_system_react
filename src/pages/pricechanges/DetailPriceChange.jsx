@@ -29,13 +29,10 @@ import "flatpickr/dist/themes/material_blue.css";
 
 import {fetchServerTime} from "./../../store/servertimeSlice";
 import ColumnToggleDropdown from "../../components/ColumnToggleDropdown.jsx";
+import AlreadyOpenScreen from "../../components/AlreadyOpenScreen";
 
 export default function () {
     const { id } = useParams();
-    // const anotherTabOpen = useDetectOtherTab(id || null);
-
-
-    
 
     const productslimit = 50;
     // const token = localStorage.getItem('token');
@@ -82,7 +79,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    const [productsLock, setProductsLock] = useState(false);
+    const [productsLock, setProductsLock] = useState(true);
     let totalProductCount = products.length;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1645,15 +1642,10 @@ export default function () {
         init();
     }, []);
 
-    // if (anotherTabOpen) {
-    //     // Show "Already Open" UI
-    //     return (
-    //     <div style={{ textAlign: 'center', marginTop: '50px' }}>
-    //         <h2 style={{ color: 'red' }}>⚠️ This form is already open in another tab!</h2>
-    //         <p>Please close the other tab before editing this form.</p>
-    //     </div>
-    //     );
-    // }
+    const anotherTabOpen = useDetectOtherTab(id || null);
+    if (anotherTabOpen) {
+        return <AlreadyOpenScreen/>
+    }
 
     return (
         <>
@@ -2095,7 +2087,7 @@ export default function () {
                                 <div className="flex justify-between mb-4">
                                     <h2 className="text-base font-semibold text-slate-800">Product Prices <span className="text-red-600 text-md">*</span> <span className="text-sm">Total <strong className="text-sky-600">{products.length}</strong> product{products.length > 1 && 's'}.</span></h2>
                                     <div className="flex gap-4">
-                                        {/* {
+                                        {
                                             changable &&
                                             <button
                                             onClick={() => setProductsLock(!productsLock)}
@@ -2104,12 +2096,12 @@ export default function () {
                                             >
                                                 {productsLock ? <FaPen /> : <FaEye />}
                                             </button>
-                                        } */}
+                                        }
                                         <ColumnToggleDropdown columns={columns}/>
                                     </div>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock}/>
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock} activeProcess={changable} />
                                 {/* </div> */}
                             </div>
                         </main>
