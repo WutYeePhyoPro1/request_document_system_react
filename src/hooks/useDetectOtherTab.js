@@ -1,49 +1,78 @@
 import { useEffect, useState } from 'react';
 
 const useDetectOtherTab = (formId) => {
-  const [anotherTabOpen, setAnotherTabOpen] = useState(false);
+  const [isDuplicate, setIsDuplicate] = useState(false);
 
   useEffect(() => {
     if (!formId) return;
 
     const channel = new BroadcastChannel(`form-${formId}-channel`);
 
-    let isDuplicate = false;
+    const tabId = Date.now() + Math.random(); // unique id
+    let activeTabs = new Set([tabId]);
 
-    channel.postMessage({ type: 'CHECK' });
+    const updateOwnership = () => {
+      // The smallest ID is the "main tab"
+      const mainTabId = Math.min(...activeTabs);
+      setIsDuplicate(mainTabId !== tabId);
+    };
+
+    // 🔹 Step 1: announce "I opened this form"
+    channel.postMessage({
+      type: 'FORM_OPENED',
+      tabId,
+    });
 
     channel.onmessage = (msg) => {
-      const { type } = msg.data;
+      const { type, tabId: incomingTabId } = msg.data;
 
-      if (type === 'CHECK') {
-        channel.postMessage({ type: 'EXISTS' });
+      // 🔹 Another tab opened
+      if (type === 'FORM_OPENED') {
+        activeTabs.add(incomingTabId);
+
+        // Tell the new tab: "I already exist"
+        channel.postMessage({
+          type: 'FORM_ALREADY_OPEN',
+          tabId,
+        });
+
+        updateOwnership();
       }
 
-      if (type === 'EXISTS') {
-        if (!isDuplicate) {
-          isDuplicate = true;
-          setAnotherTabOpen(true);
-        }
+      // 🔹 Receive info about existing tabs
+      if (type === 'FORM_ALREADY_OPEN') {
+        activeTabs.add(incomingTabId);
+        updateOwnership();
       }
 
-      if (type === 'TAB_CLOSED') {
-        setAnotherTabOpen(false);
+      // 🔹 A tab closed
+      if (type === 'FORM_CLOSED') {
+        activeTabs.delete(incomingTabId);
+        updateOwnership();
       }
     };
 
-    // Optional: notify on close
+    // 🔹 Notify when closing
     const handleUnload = () => {
-      channel.postMessage({ type: 'TAB_CLOSED' });
+      channel.postMessage({
+        type: 'FORM_CLOSED',
+        tabId,
+      });
     };
+
     window.addEventListener('beforeunload', handleUnload);
 
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
+      channel.postMessage({
+        type: 'FORM_CLOSED',
+        tabId,
+      });
       channel.close();
     };
   }, [formId]);
 
-  return anotherTabOpen;
+  return isDuplicate;
 };
 
 export default useDetectOtherTab;

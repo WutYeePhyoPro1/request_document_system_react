@@ -29,13 +29,10 @@ import "flatpickr/dist/themes/material_blue.css";
 
 import {fetchServerTime} from "./../../store/servertimeSlice";
 import ColumnToggleDropdown from "../../components/ColumnToggleDropdown.jsx";
+import AlreadyOpenScreen from "../../components/AlreadyOpenScreen";
 
 export default function () {
     const { id } = useParams();
-    // const anotherTabOpen = useDetectOtherTab(id || null);
-
-
-    
 
     const productslimit = 50;
     // const token = localStorage.getItem('token');
@@ -1645,15 +1642,10 @@ export default function () {
         init();
     }, []);
 
-    // if (anotherTabOpen) {
-    //     // Show "Already Open" UI
-    //     return (
-    //     <div style={{ textAlign: 'center', marginTop: '50px' }}>
-    //         <h2 style={{ color: 'red' }}>⚠️ This form is already open in another tab!</h2>
-    //         <p>Please close the other tab before editing this form.</p>
-    //     </div>
-    //     );
-    // }
+    const anotherTabOpen = useDetectOtherTab(id || null);
+    if (anotherTabOpen) {
+        return <AlreadyOpenScreen/>
+    }
 
     return (
         <>
