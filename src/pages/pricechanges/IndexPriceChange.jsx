@@ -11,6 +11,7 @@ import Select from 'react-select'
 import { FiCopy,FiExternalLink } from 'react-icons/fi';
 import { FaSpinner,FaEye,FaSync } from "react-icons/fa";
 import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
+import { dateFormat } from '../../utils/requestDiscountUtil/helper';
 
 
 export default function IndexPriceChange() {
@@ -333,13 +334,14 @@ export default function IndexPriceChange() {
                     <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6 text-sm mt-4">
                         <div className="flex flex-col">
                             <label htmlFor="form_doc_no" className="mb-1 font-medium text-gray-700">
-                                Form Doc No
+                                Doc No/ GCP No/ Remark
                             </label>
                             <input
                                 id="form_doc_no"
                                 name="form_doc_no"
                                 type="text"
-                                placeholder="Enter Form Doc No"
+                                // placeholder="Search by Doc No, GCP No, Remark"
+                                placeholder="Search by Keyword...."
                                 className="border border-blue-500 focus:outline-none p-2 w-full rounded-md"
                                 onFocus={(e) => e.target.style.borderColor = '#6fc3df'}
                                 onBlur={(e) => e.target.style.borderColor = '#2ea2d1'}
@@ -498,6 +500,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Effective Date</span></th>
                                             <th className="py-2 px-4 border-b"><span className='text-red-600'>Urgent</span></th>
                                             <th className="py-2 px-4 border-b">Department</th>
+                                            <th className="py-2 px-4 border-b">Remark</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
                                             <th className="py-2 px-4 border-b">Created Date</th>
                                         </tr>
@@ -609,6 +612,11 @@ export default function IndexPriceChange() {
                                                             <input type="checkbox" id="urgent_price_change" name="urgent_price_change" className="w-4 h-4 rounded text-red-600 border-gray-300 focus:ring-red-500"  value={data.asset_type == 'on'} checked={data.asset_type == 'on'} />
                                                         </td>
                                                         <td className="py-2 px-4 border-b">{data.to_category.name}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            {data.remark?.length > 20 
+                                                                ? data.remark.substring(0, 20) + "...." 
+                                                                : data.remark}
+                                                        </td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.created_at}</td>
                                                     </tr>
