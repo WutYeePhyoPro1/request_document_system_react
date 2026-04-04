@@ -175,7 +175,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             ref={isEditing(index, 'new_cost_price') ? inputRef : null}
                                             onFocus={(e) => e.target.select()} 
                                             value={item.new_cost_price}
-                                            readOnly={!authorizedEdit}
+                                            // readOnly={!authorizedEdit}
                                             />
                                         : <span className="block w-28 text-right ms-auto">{formatNumber(item.new_cost_price)}</span>
                                     }
@@ -219,7 +219,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                             }}
                                             onBlur={() => setFocusedProduct(null)}
                                             value={item.price1}
-                                            readOnly={!authorizedEdit}
+                                            // readOnly={!authorizedEdit}
                                             />
                                         : <span className="block w-28 text-right ms-auto">{formatNumber(item.price1)}</span>
                                     }
@@ -247,7 +247,7 @@ export default function ProductTable({data,pricesHandler,removeHandler,pricesErr
                                         ref={isEditing(index, 'price2') ? inputRef : null}
                                         onFocus={(e) => e.target.select()} 
                                         value={item.price2}
-                                        readOnly={!authorizedEdit}
+                                        // readOnly={!authorizedEdit}
                                         />
                                     : <span className="block w-28 text-right ms-auto">{formatNumber(item.price2)}</span>
                                 }
