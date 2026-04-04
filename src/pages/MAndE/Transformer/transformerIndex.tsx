@@ -466,7 +466,8 @@ const Index: React.FC = () => {
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
               Branch
             </label>
-            {generalData?.meta?.authenticatedUser?.emp_id == "000-000046" ||
+            {generalData?.meta?.authenticatedUser?.emp_id == "000-000046" || 
+            generalData?.meta?.authenticatedUser?.emp_id == "000-000071" ||
             generalData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
             generalData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
               <Select
@@ -479,7 +480,7 @@ const Index: React.FC = () => {
                   label: item.branch_name,
                 }))}
                 onChange={handleBranchChange}
-                placeholder="Select Status"
+                placeholder="Select Branch"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
               />
             ) : (
@@ -496,7 +497,7 @@ const Index: React.FC = () => {
                   }),
                 )}
                 onChange={handleBranchChange}
-                placeholder="Select Status"
+                placeholder="Select Branch"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
               />
             )}
