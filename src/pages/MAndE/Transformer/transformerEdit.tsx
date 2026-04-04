@@ -218,6 +218,15 @@ const TransformerEdit: React.FC = () => {
     const formElement = e.currentTarget;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
+    const meterUnit = Number(formData.get("meter_unit") || 0);
+    const OLTCTipping = Number(formData.get("oltc_tapping") || 0);
+    if (form.trans_use === "use" && meterUnit === 0) {
+      missingFields.push("Meter Units must be greater than 0");
+    }
+    if (form.trans_use === "use" && OLTCTipping === 0) {
+      missingFields.push("Oltc Tipping must be greater than 0");
+    }
+
     Object.entries(validators).forEach(([key, message]) => {
       if (
         form.trans_use === "no_use" &&
@@ -232,6 +241,17 @@ const TransformerEdit: React.FC = () => {
         return;
       }
       const value = formData.get(key);
+      if (key === "cost") {
+        if (!value || value.toString().trim() === "") {
+          missingFields.push("Cost is required");
+        } else {
+          const cost = Number(value);
+          if (cost === 0) {
+            missingFields.push("Cost must be greater than 0");
+          }
+        }
+        return;
+      }
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
       }

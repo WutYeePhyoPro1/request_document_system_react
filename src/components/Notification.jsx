@@ -1,6 +1,6 @@
-import React, { useContext, useEffect, useState } from "react";
+import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { badgeNoti } from "../api/badgeNoti";
+// import { badgeNoti } from "../api/badgeNoti";
 import finalLogo from "../assets/images/finallogo.png";
 import { FaBell, FaCheckDouble } from "react-icons/fa";
 import { NotificationContext } from "../context/NotificationContext";

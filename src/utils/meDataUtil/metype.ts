@@ -43,6 +43,7 @@ export interface meGeneratorDataType {
     requester_name?: string;
     total_amount?: number | null;
     created_at?: string | null;
+    ongoing_time?: string | null ;
     updated_at?: string | Date;
     reason?: string | number;
     osnb_doc_no?: string | null;
@@ -69,10 +70,12 @@ export interface meGeneratorDataType {
         }
     }
     created_at?:string ;
+     ongoing_time?: string | null ;
     comment?:string ;
   }
   getApprover?:{
     created_at?:string ;
+     ongoing_time?: string | null ;
     comment?:string ;
     approval_users?:{
         title?: string ;
@@ -84,7 +87,8 @@ export interface meGeneratorDataType {
     }
   }
   form?:{
-    created_at?: string
+    created_at?: string ;
+     ongoing_time?: string | null ;
   }
   sendManagerAssettype?:{
 

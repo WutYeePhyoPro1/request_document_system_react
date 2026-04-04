@@ -169,7 +169,7 @@ const TransformerDetail: React.FC = () => {
                       setLoading={setLoading}
                     />
                   </div>
-                  <div className="userData grid lg:grid-cols-6 md:grid-cols-6 grid-cols-3 items-start text-sm">
+                  <div className="userData grid lg:grid-cols-5 md:grid-cols-4 grid-cols-2 items-start text-sm gap-6">
                     {/* Prepared By */}
                     <div className="flex flex-col">
                       <span className="font-medium ">Prepared By</span>
@@ -185,7 +185,10 @@ const TransformerDetail: React.FC = () => {
                         )
                       </span>
                       <span className="text-blue-500 mt-1">
-                        {dateTimeFormat(detailData?.generalForm?.created_at)}
+                        {dateTimeFormat(
+                          detailData?.generalForm?.ongoing_time ??
+                            detailData?.generalForm?.created_at,
+                        )}
                       </span>
                     </div>
                     {detailData?.getChecker &&
@@ -214,8 +217,8 @@ const TransformerDetail: React.FC = () => {
                             {dateTimeFormat(detailData?.getChecker?.created_at)}
                           </div>
                           {detailData?.getChecker?.comment && (
-                            <div className="text-info text-break italic text-blue-500 mt-1">
-                              “{detailData?.getChecker?.comment}”
+                            <div className="text-info text-break italic text-blue-500 mt-1  w:[80px] whitespace-normal break-words ">
+                              {detailData?.getChecker?.comment}
                             </div>
                           )}
                         </div>
@@ -259,8 +262,8 @@ const TransformerDetail: React.FC = () => {
                             )}
                           </div>
                           {detailData?.getApprover?.comment && (
-                            <div className="text-info text-break italic text-blue-500 mt-1">
-                              “{detailData?.getApprover?.comment}”
+                            <div className="text-info text-break italic text-blue-500 mt-1  w:[80px] whitespace-normal break-words ">
+                              {detailData?.getApprover?.comment}
                             </div>
                           )}
                         </div>

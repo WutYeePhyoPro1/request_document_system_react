@@ -128,4 +128,8 @@ export const getUpdateTransformerData = async (
       "Content-Type": "multipart/form-data",
     },
   });
+<<<<<<< HEAD
 };
+=======
+};
+>>>>>>> b94c80f84d7034313f151b3e707b97d496c968e7

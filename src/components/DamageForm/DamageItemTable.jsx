@@ -2261,7 +2261,9 @@ const normalizeImageEntries = (list) => {
         </div>
 
         {/* Right side: Action buttons and Add Product button */}
-        <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
+
+         <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
+
           {/* Delete button - Show for Ongoing or Checked (approver only) status.
               Also allow Branch Account users to delete when the form is BM Approved or OP Approved. */}
           {(
