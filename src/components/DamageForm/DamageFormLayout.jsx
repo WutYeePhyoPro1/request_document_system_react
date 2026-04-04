@@ -915,6 +915,10 @@ export default function DamageFormLayout({ mode = "add", initialData = null }) {
   const resolvedStatusRaw = formData?.status || formData?.general_form?.status || initialData?.status || initialData?.general_form?.status || initialData?.generalForm?.status || '';
   const resolvedStatus = resolvedStatusRaw ? String(resolvedStatusRaw).trim().replace(/\s+/g, ' ') : '';
   const resolvedStatusLower = resolvedStatus.toLowerCase();
+  // Checker (incl. branch LP) may change asset_type / case type while the form is Ongoing
+  const checkerCanEditAssetType =
+    isCurrentUserChecker &&
+    resolvedStatusLower === 'ongoing';
   // Force-hide UI for checkers when viewing a form — but only when the form is already Checked.
   // This ensures checkers can still see remark/attachments on Ongoing forms.
   const hideUiForCheckerInView = (mode === 'view' || mode === 'readonly') && isCurrentUserChecker && (resolvedStatusLower === 'checked');
@@ -3903,14 +3907,14 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
 
       // Convert caseType to asset_type format expected by backend
       // "Other income sell" -> "on", "Not sell" -> "off"
-      // CRITICAL: For existing forms, preserve the ORIGINAL caseType from initialData
-      // This prevents automatic changes during approval/status updates
-      // Only use formData.caseType for NEW forms or when explicitly changed by user
-      const currentCaseType = isExistingForm
-        ? (initialData?.caseType || (initialData?.asset_type === 'on' ? 'Other income sell' : 'Not sell'))
-        : (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== ''
-            ? formData.caseType
-            : (initialData?.caseType || 'Not sell'));
+      // For existing forms, preserve the ORIGINAL caseType from initialData during approval/status updates,
+      // except when the checker is editing in Ongoing — then use formData.caseType.
+      const currentCaseType =
+        isExistingForm && !checkerCanEditAssetType
+          ? (initialData?.caseType || (initialData?.asset_type === 'on' ? 'Other income sell' : 'Not sell'))
+          : (formData.caseType !== undefined && formData.caseType !== null && formData.caseType !== ''
+              ? formData.caseType
+              : (initialData?.caseType || (initialData?.asset_type === 'on' ? 'Other income sell' : 'Not sell')));
 
 
       // Normalize the caseType value (handle variations)
@@ -5086,34 +5090,18 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
                                     formData.status === 'Ac_Acknowledged' ||
                                     formData.status === 'OPApproved');
 
-        // Handle timeout errors specifically for issuance operations
+        // Timeout during issuance: do not assume success — ISS may be missing while status could still change server-side
         if ((apiError.isTimeout || apiError.status === 408 || apiError.status === 504 ||
              apiError.message?.includes('timeout') || apiError.message?.includes('Timeout') ||
              apiError.code === 'ECONNABORTED') && isIssuanceOperation) {
-          // This is a timeout during issuance - show success message since backend continues
-          const successMessage = t('messages.formIssued', { defaultValue: 'Form issued successfully' }) +
-                                ' - ' + t('messages.issuanceInProgress', { defaultValue: 'Operation continues in background. Please check the form list.' });
-
-          setSuccessMessage(successMessage);
-          setSuccessModalMessage(successMessage);
-          setSuccessModalAction('issue');
-          setIsSuccessModalOpen(true);
-
-          // Navigate after showing success message
-          setTimeout(() => {
-            const storedReturnUrl = sessionStorage.getItem('bigDamageIssueReturnUrl');
-            if (storedReturnUrl) {
-              sessionStorage.removeItem('bigDamageIssueReturnUrl');
-              const urlParts = storedReturnUrl.split('?');
-              const pathname = urlParts[0] || '/big_damage_issue';
-              const search = urlParts[1] ? `?${urlParts[1]}` : '';
-              navigate(pathname + search, { replace: true });
-            } else {
-              navigate('/big_damage_issue', { replace: true });
-            }
-          }, 3000); // Give more time to read the message
-
-          return; // Exit early - treat as success
+          const errorMessage = t('messages.errors.issuanceTimeoutVerify', {
+            defaultValue: 'The request timed out. Do not assume the form was issued. Reload this form or open the list and confirm the ISS number before trying again.'
+          });
+          setError(errorMessage);
+          setSuccessMessage('');
+          setErrorModalMessage(errorMessage);
+          setIsErrorModalOpen(true);
+          return;
         }
 
         let errorMessage = t('messages.errors.formSubmitFailed');
@@ -5968,6 +5956,7 @@ const resolveApproveAction = () => {
             isPdfDownloading={isPdfDownloading}
             issueRemarks={formData.issue_remarks || []}
             btpRemark={formData.general_form?.remark || initialData?.general_form?.remark || ''}
+            checkerCanEditAssetType={checkerCanEditAssetType}
           />
         );
       })()}
@@ -6046,7 +6035,7 @@ const resolveApproveAction = () => {
                     caseType: newCaseType
                   }));
                 }}
-                isReadOnly={true}
+                isReadOnly={!checkerCanEditAssetType}
               />
             </div>
           </div>
