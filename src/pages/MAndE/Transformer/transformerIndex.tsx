@@ -448,20 +448,46 @@ const Index: React.FC = () => {
               />
             </div>
           </div>
+          {generalData?.meta?.authenticatedUser?.role_id == 1 ? (
+            <div className="flex flex-col">
+              <label
+                htmlFor="status"
+                className="mb-1 font-medium text-gray-700"
+              >
+                Status
+              </label>
+              <MultiSelect
+                id="status"
+                placeholder={
+                  searchTerm.status.length > 0 ? "" : "Select Status"
+                }
+                data={["All", "Default", "Ongoing", "Completed", "Cancel"]}
+                className="border border-blue-500 focus:outline-none w-full rounded-md"
+                value={searchTerm.status}
+                onChange={handleStatusChange}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              <label
+                htmlFor="status"
+                className="mb-1 font-medium text-gray-700"
+              >
+                Status
+              </label>
+              <MultiSelect
+                id="status"
+                placeholder={
+                  searchTerm.status.length > 0 ? "" : "Select Status"
+                }
+                data={["All", "Ongoing", "Completed", "Cancel"]}
+                className="border border-blue-500 focus:outline-none w-full rounded-md"
+                value={searchTerm.status}
+                onChange={handleStatusChange}
+              />
+            </div>
+          )}
 
-          <div className="flex flex-col">
-            <label htmlFor="status" className="mb-1 font-medium text-gray-700">
-              Status
-            </label>
-            <MultiSelect
-              id="status"
-              placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
-              data={["All", "Default", "Ongoing", "Completed", "Cancel"]}
-              className="border border-blue-500 focus:outline-none w-full rounded-md"
-              value={searchTerm.status}
-              onChange={handleStatusChange}
-            />
-          </div>
           <div className="flex flex-col">
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
               Branch
