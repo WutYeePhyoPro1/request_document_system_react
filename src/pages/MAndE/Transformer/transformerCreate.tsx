@@ -340,7 +340,7 @@ const TransformerCreate: React.FC = () => {
           ]}
         />
       </div>
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-6 p-4 rounded-xl">
         <label className="flex items-center gap-2">
           <input
             type="radio"
