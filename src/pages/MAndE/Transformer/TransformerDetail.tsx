@@ -76,7 +76,7 @@ const TransformerDetail: React.FC = () => {
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 w-full ">
               {detailData?.generalForm?.remark && (
                 <h1 className="text-red-700 font-bold  text-break italic  mt-1  w:[80px] whitespace-normal break-words ">
-                  [ {detailData.generalForm.remark}]
+                   {detailData.generalForm.remark}
                 </h1>
               )}
 
