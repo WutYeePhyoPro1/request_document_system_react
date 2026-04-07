@@ -133,23 +133,29 @@ const TableDetail: React.FC<TableDetailProps> = ({
           <div className=" whitespace-nowrap">
             {element.transformer_time_ampm}
           </div>,
-          <div className=" whitespace-nowrap">
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
             {numberFormat(element.meter_unit)}
           </div>,
-          <div className=" whitespace-nowrap">
+          // <div className="bg-red-600 whitespace-nowrap flex">
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
             {numberFormat(element.tran_kva_level)}
+            {/* </div> */}
           </div>,
-          numberFormat(element.voltagel_l_level),
-          <div className=" whitespace-nowrap">{element.tran_size}</div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.voltagel_l_level)}
+          </div>,
+          <div className=" flex items-center justify-center w-full whitespace-nowrap">
+            {element.tran_size}
+          </div>,
           numberFormat(element.l1_level),
           numberFormat(element.l2_level),
           numberFormat(element.l3_level),
           numberFormat(element.total_kw_level),
 
-          <div className=" whitespace-nowrap">
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
             {numberFormat(element.oltc_tapping)}
           </div>,
-          <div className=" whitespace-nowrap">
+          <div className=" flex items-end justify-center w-full whitespace-nowrap">
             {numberFormat(element.cost ?? "-")}
           </div>,
           <div className="whitespace-nowrap">

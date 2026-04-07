@@ -250,7 +250,14 @@ const GeneratorEdit: React.FC = () => {
     const formElement = e.currentTarget;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
-
+    const l1 = Number(formData.get("l1_level") || 0);
+    const l2 = Number(formData.get("l2_level") || 0);
+    const l3 = Number(formData.get("l3_level") || 0);
+    if (form.generator_use === "use") {
+      if (l1 === 0) missingFields.push("L1 must be greater than 0");
+      if (l2 === 0) missingFields.push("L2 must be greater than 0");
+      if (l3 === 0) missingFields.push("L3 must be greater than 0");
+    }
     Object.entries(validators).forEach(([key, message]) => {
       if (
         form.generator_use === "no_use" &&
