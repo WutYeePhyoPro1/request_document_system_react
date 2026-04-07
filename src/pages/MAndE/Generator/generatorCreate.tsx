@@ -179,6 +179,14 @@ const GeneratorCreate: React.FC = () => {
     const missingFields: string[] = [];
     formData.append("btn_status", btnStatus);
     // validation
+    const l1 = Number(formData.get("l1_level") || 0);
+    const l2 = Number(formData.get("l2_level") || 0);
+    const l3 = Number(formData.get("l3_level") || 0);
+    if (generatorUse === "use") {
+      if (l1 === 0) missingFields.push("L1 must be greater than 0");
+      if (l2 === 0) missingFields.push("L2 must be greater than 0");
+      if (l3 === 0) missingFields.push("L3 must be greater than 0");
+    }
     Object.entries(validators).forEach(([key, message]) => {
       if (
         generatorUse === "no_use" &&
@@ -694,11 +702,14 @@ const GeneratorCreate: React.FC = () => {
                   min={0}
                   max={9999999}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
                     if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l1Value: Number(val),
+                        l1Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -735,11 +746,14 @@ const GeneratorCreate: React.FC = () => {
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
                     if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l2Value: Number(val),
+                        l2Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -774,11 +788,14 @@ const GeneratorCreate: React.FC = () => {
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
                     if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l3Value: Number(val),
+                        l3Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}

@@ -220,13 +220,19 @@ const TransformerEdit: React.FC = () => {
     const missingFields: string[] = [];
     const meterUnit = Number(formData.get("meter_unit") || 0);
     const OLTCTipping = Number(formData.get("oltc_tapping") || 0);
-    if (form.trans_use === "use" && meterUnit === 0) {
-      missingFields.push("Meter Units must be greater than 0");
-    }
-    if (form.trans_use === "use" && OLTCTipping === 0) {
-      missingFields.push("Oltc Tipping must be greater than 0");
-    }
+    const l1 = Number(formData.get("l1_level") || 0);
+    const l2 = Number(formData.get("l2_level") || 0);
+    const l3 = Number(formData.get("l3_level") || 0);
+    if (form.trans_use === "use") {
+      if (meterUnit === 0)
+        missingFields.push("Meter Units must be greater than 0");
 
+      if (l1 === 0) missingFields.push("L1 must be greater than 0");
+      if (l2 === 0) missingFields.push("L2 must be greater than 0");
+      if (l3 === 0) missingFields.push("L3 must be greater than 0");
+      if (OLTCTipping === 0)
+        missingFields.push("OLTC Tapping must be greater than 0");
+    }
     Object.entries(validators).forEach(([key, message]) => {
       if (
         form.trans_use === "no_use" &&
