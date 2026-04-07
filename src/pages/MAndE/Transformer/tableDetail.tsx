@@ -13,7 +13,6 @@ import { Button, Group, Modal, Table, type TableData } from "@mantine/core";
 import { IconEdit, IconFile, IconTrash } from "@tabler/icons-react";
 import {
   dateFormat,
-  fullNumberFormat,
   numberFormat,
 } from "../../../utils/requestDiscountUtil/helper";
 
@@ -137,16 +136,18 @@ const TableDetail: React.FC<TableDetailProps> = ({
           <div className=" whitespace-nowrap">
             {numberFormat(element.meter_unit)}
           </div>,
-          <div className=" whitespace-nowrap">{element.tran_kva_level}</div>,
+          <div className=" whitespace-nowrap">
+            {numberFormat(element.tran_kva_level)}
+          </div>,
           numberFormat(element.voltagel_l_level),
           <div className=" whitespace-nowrap">{element.tran_size}</div>,
-          fullNumberFormat(element.l1_level),
-          fullNumberFormat(element.l2_level),
-          fullNumberFormat(element.l3_level),
+          numberFormat(element.l1_level),
+          numberFormat(element.l2_level),
+          numberFormat(element.l3_level),
           numberFormat(element.total_kw_level),
 
           <div className=" whitespace-nowrap">
-            {fullNumberFormat(element.oltc_tapping)}
+            {numberFormat(element.oltc_tapping)}
           </div>,
           <div className=" whitespace-nowrap">
             {numberFormat(element.cost ?? "-")}
