@@ -73,9 +73,9 @@ const TransformerDetail: React.FC = () => {
               className="h-30 w-full bg-cover bg-center  rounded-lg shadow-md mb-2 p-4 sm:p-6"
               style={{ backgroundImage: `url(${dashboardPhoto})` }}
             ></div>
-            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 w-full">
+            <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 w-full ">
               {detailData?.generalForm?.remark && (
-                <h1 className="text-red-700 font-bold">
+                <h1 className="text-red-700 font-bold  text-break italic  mt-1  w:[80px] whitespace-normal break-words ">
                   [ {detailData.generalForm.remark}]
                 </h1>
               )}
