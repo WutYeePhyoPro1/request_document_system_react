@@ -233,6 +233,17 @@ const TransformerEdit: React.FC = () => {
       if (OLTCTipping === 0)
         missingFields.push("OLTC Tapping must be greater than 0");
     }
+    const transDate = form.trans_date;
+
+    if (transDate) {
+      const selectedDate = new Date(transDate.toString());
+      const today = new Date();
+      // today.setHours(0, 0, 0, 0);
+
+      if (selectedDate > today) {
+        missingFields.push("Transformer Date cannot be greater than today");
+      }
+    }
     Object.entries(validators).forEach(([key, message]) => {
       if (
         form.trans_use === "no_use" &&
