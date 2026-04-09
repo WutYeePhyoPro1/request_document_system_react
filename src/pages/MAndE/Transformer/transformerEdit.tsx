@@ -616,7 +616,7 @@ const TransformerEdit: React.FC = () => {
               <div className="flex items-center gap-2">
                 <label htmlFor="">L2</label>
                 <span>
-                  <FaStar className="text-red-400" />
+                  <FaStar className="text-red-ူ" />
                 </span>
               </div>
               <input

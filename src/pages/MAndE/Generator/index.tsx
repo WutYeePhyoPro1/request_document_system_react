@@ -458,6 +458,7 @@ const Index: React.FC = () => {
               Branch
             </label>
             {generalData?.meta?.authenticatedUser?.emp_id == "000-000046" ||
+            generalData?.meta?.authenticatedUser?.emp_id == "000-000071" ||
             generalData?.meta?.authenticatedUser?.emp_id == "000-000024" ||
             generalData?.meta?.authenticatedUser?.emp_id == "000-000067" ? (
               <Select
