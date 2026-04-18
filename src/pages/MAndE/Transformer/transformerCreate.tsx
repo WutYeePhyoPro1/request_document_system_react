@@ -456,7 +456,7 @@ const TransformerCreate: React.FC = () => {
                       <FaStar className="text-red-400" />
                     </span>
                   </div>
-                  <input
+                  {/* <input
                     type="number"
                     name="meter_unit"
                     required
@@ -474,6 +474,41 @@ const TransformerCreate: React.FC = () => {
                     }}
                     onWheel={(e) => e.currentTarget.blur()}
                     className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  /> */}
+                  <input
+                    type="text"
+                    name="meter_unit"
+                    required
+                    inputMode="decimal"
+                    onChange={(e: any) => {
+                      let value = e.target.value;
+
+                      // allow only numbers and dot
+                      value = value.replace(/[^0-9.]/g, "");
+
+                      const parts = value.split(".");
+
+                      // prevent multiple dots
+                      if (parts.length > 2) {
+                        value = parts[0] + "." + parts[1];
+                      }
+
+                      // limit integer part to 8 digits
+                      if (parts[0].length > 8) {
+                        parts[0] = parts[0].slice(0, 8);
+                      }
+
+                      // limit decimal part to 2 digits
+                      if (parts[1]) {
+                        parts[1] = parts[1].slice(0, 2);
+                      }
+
+                      value = parts.join(".");
+                      e.target.value = value;
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                     style={{ borderColor: "rgb(29, 137, 225)" }}
                   />
                 </div>
