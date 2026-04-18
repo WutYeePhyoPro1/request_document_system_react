@@ -461,10 +461,10 @@ const TransformerCreate: React.FC = () => {
                     name="meter_unit"
                     required
                     min="0"
-                    max="9999"
+                    max="99999999"
                     onInput={(e: any) => {
-                      if (e.target.value.length > 6) {
-                        e.target.value = e.target.value.slice(0, 6);
+                      if (e.target.value.length > 8) {
+                        e.target.value = e.target.value.slice(0, 8);
                       }
                     }}
                     onKeyDown={(e) => {

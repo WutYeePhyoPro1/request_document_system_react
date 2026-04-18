@@ -466,8 +466,8 @@ const TransformerEdit: React.FC = () => {
 
                     const parts = value.split(".");
                     if (parts.length > 2) return;
-                    if (parts[0].length > 6) {
-                      parts[0] = parts[0].slice(0, 6);
+                    if (parts[0].length > 8) {
+                      parts[0] = parts[0].slice(0, 8);
                     }
                     if (parts[1]) {
                       parts[1] = parts[1].slice(0, 2);
