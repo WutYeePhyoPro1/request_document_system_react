@@ -34,7 +34,8 @@ import TransformerIndex from "../pages/MAndE/Transformer/transformerIndex.js";
 import TransformerCreate from "../pages/MAndE/Transformer/transformerCreate.js";
 import TransformerDetail from "../pages/MAndE/Transformer/TransformerDetail.js";
 import TransformerEdit from "../pages/MAndE/Transformer/transformerEdit.js";
-
+import SolarIndex from "../pages/MAndE/Solar/solarIndex.js";
+import SolarCreate from "../pages/MAndE/Solar/solarCreate.js";
 const LoginRoute = () => {
   const token = localStorage.getItem("token");
   return token ? <Navigate to="/dashboard" /> : <Login />;
@@ -178,6 +179,14 @@ const router = createBrowserRouter([
       {
         path: "transformer_edit/:id",
         element: <TransformerEdit />,
+      },
+      {
+        path: "solar/:id",
+        element: <SolarIndex />,
+      },
+      {
+        path: "solar_create",
+        element: <SolarCreate />,
       },
       {
         path: "price_changes",
