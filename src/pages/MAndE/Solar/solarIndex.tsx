@@ -12,18 +12,13 @@ import {
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
 import Swal from "sweetalert2";
-import {
-  generalTransformerData,
-  searchTransformerData,
-} from "../../../api/ME/Transformer/transformer";
 import TsStatusBadge from "../../../components/ui/TsStatusBadge";
-import { generalSolarData } from "../../../api/ME/solar";
+import { generalSolarData, searchSolarData } from "../../../api/ME/solar";
 // src/assets/css/style.css
 
 const solarIndex: React.FC = () => {
   const formId = 3;
-  console.log("FormID>>", formId);
-  // const [generalData, setGeneralData] = useState<indexData[]>([]);
+
   const [generalData, setGeneralData] = useState<{
     meta?: metaData;
     data: indexData[];
@@ -46,20 +41,20 @@ const solarIndex: React.FC = () => {
   };
   console.log("GeneralData", generalData);
   useEffect(() => {
-    const cached = sessionStorage.getItem("transformer_cache");
+    const cached = sessionStorage.getItem("solar_cache");
     if (cached) {
       const parsed = JSON.parse(cached);
       parsed.activePage = activePage;
-      sessionStorage.setItem("transformer_cache", JSON.stringify(parsed));
+      sessionStorage.setItem("solar_cache", JSON.stringify(parsed));
     }
   }, [activePage]);
   useEffect(() => {
-    const cached = sessionStorage.getItem("transformer_cache");
+    const cached = sessionStorage.getItem("solar_cache");
     const token = localStorage.getItem("token");
     if (!token) return;
     if (cached) {
       const parsed = JSON.parse(cached);
-      generalTransformerData(token)
+      generalSolarData(token)
         .then((data) => {
           setGeneralData({
             meta: {
@@ -156,11 +151,11 @@ const solarIndex: React.FC = () => {
     setLoading(true);
     // console.log("SeaarchTerm>>", searchTerm) ;
     try {
-      const results = await searchTransformerData(token, searchTerm);
+      const results = await searchSolarData(token, searchTerm);
 
       // Store cache only when user searches
       sessionStorage.setItem(
-        "transformer_cache",
+        "solar_cache",
         JSON.stringify({
           data: results.data,
           searchTerm,
@@ -178,7 +173,7 @@ const solarIndex: React.FC = () => {
     }
   };
   const handleRestart = async () => {
-    sessionStorage.removeItem("transformer_cache");
+    sessionStorage.removeItem("solar_cache");
 
     setSearchTerm({
       form_doc_no: "",
@@ -194,7 +189,7 @@ const solarIndex: React.FC = () => {
     setLoading(true);
     await fetchData();
 
-    navigate(`/transformer/${formId}`, { replace: true });
+    navigate(`/solar/${formId}`, { replace: true });
   };
   const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
@@ -232,7 +227,7 @@ const solarIndex: React.FC = () => {
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
             <Link
-              to={`/me_transformer_detail/${element.id ?? ""}`}
+              to={`/me_solar_detail/${element.id ?? ""}`}
               className="contents"
             >
               {element.form_doc_no ?? "-"}
@@ -266,7 +261,7 @@ const solarIndex: React.FC = () => {
           </Table.Td>
 
           <Link
-            to={`/me_transformer_detail/${element.id ?? ""}`}
+            to={`/me_solar_detail/${element.id ?? ""}`}
             className="contents"
           >
             <Table.Td>{element.from_branches?.branch_name ?? "-"}</Table.Td>
@@ -306,7 +301,7 @@ const solarIndex: React.FC = () => {
           ]}
         />
         <div className="flex justify-between mr-4">
-          <h2 className="text-xl font-semibold">Transformer Form</h2>
+          <h2 className="text-xl font-semibold">Solar Form</h2>
           {generalData?.meta?.createdUser === true && (
             <Link
               to="/solar_create"

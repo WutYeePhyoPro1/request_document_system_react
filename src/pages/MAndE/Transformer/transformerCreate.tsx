@@ -456,26 +456,7 @@ const TransformerCreate: React.FC = () => {
                       <FaStar className="text-red-400" />
                     </span>
                   </div>
-                  {/* <input
-                    type="number"
-                    name="meter_unit"
-                    required
-                    min="0"
-                    max="99999999"
-                    onInput={(e: any) => {
-                      if (e.target.value.length > 8) {
-                        e.target.value = e.target.value.slice(0, 8);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "-" || e.key === "e") {
-                        e.preventDefault();
-                      }
-                    }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                    style={{ borderColor: "rgb(29, 137, 225)" }}
-                  /> */}
+
                   <input
                     type="text"
                     name="meter_unit"

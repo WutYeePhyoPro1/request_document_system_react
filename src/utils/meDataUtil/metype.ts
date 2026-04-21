@@ -124,6 +124,7 @@ export interface FileItem  {
   id?: number | string ,
    generator_id?: number,
    transformer_id?:number,
+   solar_id?:number ,
 
   file?: File | null,
   preview?: string | null,
@@ -164,6 +165,29 @@ export interface meTransDataType {
     total_kw_level ?: number ,
     trans_use?:string ,
     
+} 
+
+export interface meSolarDataType {
+   id?:number ,
+    solar_date ?: string ,
+    solar_time?:string ,
+    solar_time_ampm?: string ,
+    solar_unit?:number | string  ,
+    solar_output_Kw?:number ,
+    voltagel_l_level?:number ,
+    solar_size?:string,
+    l1_level ?: number ,
+    l2_level ?:number ,
+    l3_level ?: number ,
+    oltc_tapping?:number ,
+    panel_cleaning_date?:string ,
+    remark?:string,
+  check_inverter?:string ,
+  check_battery?:string ,
+  check_panel_temperature?:string ,
+    total_kw_level ?: number ,
+    solar_use?:string ,
+    
 }
 
 export interface kvaData {
@@ -185,3 +209,8 @@ export interface TransformerEditResponse {
    kvaData:kvaData ;
 }
 
+export interface SolarEditResponse {
+  editData: meSolarDataType;
+  files: FileItem[];
+   
+}
