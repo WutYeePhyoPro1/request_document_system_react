@@ -280,7 +280,7 @@ const SolarEdit: React.FC = () => {
       Swal.fire({
         icon: "success",
         title: "Success",
-        text: "Solar data stored successfully",
+        text: "Solar data updated successfully",
       });
       formElement.reset(); // optional
       navigate(-1);
