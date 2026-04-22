@@ -7,6 +7,7 @@ import ProductTable from "../../components/ProductTable"
 import { FaFileImport,FaSpinner,FaInfoCircle,FaLock, FaPen, FaEye  } from "react-icons/fa";
 import { BsCartCheck } from "react-icons/bs";
 import { FiCopy } from 'react-icons/fi';
+import useDetectOtherTab from "../../hooks/useDetectOtherTab"
 
 // import $ from "jquery";
 import Select from 'react-select'
@@ -28,8 +29,11 @@ import "flatpickr/dist/themes/material_blue.css";
 
 import {fetchServerTime} from "./../../store/servertimeSlice";
 import ColumnToggleDropdown from "../../components/ColumnToggleDropdown.jsx";
+import AlreadyOpenScreen from "../../components/AlreadyOpenScreen";
 
 export default function () {
+    const { id } = useParams();
+
     const productslimit = 50;
     // const token = localStorage.getItem('token');
     const { user, token } = useSelector((state) => state.auth);
@@ -47,9 +51,9 @@ export default function () {
 
     const [pcLoading,setPcLoading] = useState(true);
 
-    const { id } = useParams();
-    
 
+
+  
     const today = () => new Date().toISOString().split("T")[0];
     const minDate = today();
     const maxDate = new Date();
@@ -75,7 +79,7 @@ export default function () {
         route: "price_changes"
     });
     const [products,setProducts] = useState([]);
-    const [productsLock, setProductsLock] = useState(false);
+    const [productsLock, setProductsLock] = useState(true);
     let totalProductCount = products.length;
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,7 +130,7 @@ export default function () {
     } 
     const isOverdueForm = checkOverdueForm(svrDateObj, new Date(formState.effective_date))
     // console.log(checkOverdueForm(svrDateObj, new Date(formState.effectiveDateObj)))
-     console.log(isOverdueForm,'overdue form');
+    console.log(isOverdueForm,'overdue form');
     const isRunner = (formState.status == "Approved" || formState.status == "Partial") && (getApprover?.approval_users?.id === user.id || pcMonitor);
     const computeHasPendingBranch = (formState)=> {
         return  formState?.price_change_branches?.some(
@@ -420,6 +424,8 @@ export default function () {
             // required: 'ကုန်ပစ္စည်းကုဒ် ဖြည့်ပါ',
         }
     };
+
+    let cancelledCodes = [];
     const searchHandler = async () => {
             if(!changable) return;
 
@@ -462,8 +468,9 @@ export default function () {
                     return;
                 }
 
+                cancelledCodes = [];
                 await fetchProduct(productCode);
-
+                await processCancelledAlerts();
 
             }catch(err){
                 console.error(err);
@@ -508,6 +515,11 @@ export default function () {
                 id: apiProduct.barcode,
             };
             if(!data.error){
+                if (result.product_name && result.product_name.includes("(Cancel)")) {
+                    cancelledCodes.push(result);
+                    return { isCancelled: true, product: result };
+                }
+
                 setProductCode("");
                 setProducts((prev)=>[...prev,result]); // data: {barcode: '8806084625007', product_name: 'LG Refrigerator GN-Y201CQS(164Ltr,1Door)', unit: 'PC', price: '1279000.0000'}
             }else{
@@ -533,6 +545,22 @@ export default function () {
             // setLoading(false);
         
         }
+    }
+
+    const processCancelledAlerts = async ()=>{
+        for (const item of cancelledCodes) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Product Cancelled',
+                html: `
+                    Product '<b>${item.barcode}</b>'<br>
+                    ${item.product_name}<br><br>
+                    <span style="color:red; font-weight:bold;">⚠ This product is CANCELLED</span>
+                `,
+                confirmButtonText: 'OK'
+            });
+        }
+        cancelledCodes = [];
     }
 
     const calculateProfit = (new_cost_price = 0, price1 = 0)=>{
@@ -775,6 +803,7 @@ export default function () {
             let existingCodes = [];
             existingCodes = new Set(existingCodes.map(p => String(p.product_code).trim()));
 
+            cancelledCodes = [];
             for (const [index, row] of jsonData.entries()) {
                 const code = String(row['Product Code']).trim();
                 console.log("Row", index + 1, row);
@@ -808,6 +837,8 @@ export default function () {
                 }
         
             }
+
+            await processCancelledAlerts();
         }catch(err){
             console.log(err);
         }finally {
@@ -815,7 +846,7 @@ export default function () {
             e.target.value = "";
         }
     };
-    const excludeBranchIds = [1,16,18,19,21,22,14,15];
+    const excludeBranchIds = [1,16,18,19,20,21,22,14,15];
     const fetchBranches = useCallback(async () => {
         try {
             const response = await fetch('/api/branchesall', {
@@ -1611,6 +1642,11 @@ export default function () {
         init();
     }, []);
 
+    const anotherTabOpen = useDetectOtherTab(id || null);
+    if (anotherTabOpen) {
+        return <AlreadyOpenScreen/>
+    }
+
     return (
         <>
         {forceLoading && <FullPageLoader />}
@@ -1647,7 +1683,7 @@ export default function () {
 
             {
                 !pcLoading &&
-                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
+                <div className="mt-4 bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden flex flex-col min-h-[80vh]">
                     
                     {/* Action Bar as Card Header */}
                     <header className="bg-slate-50 border-b border-gray-200 px-6 py-4">
@@ -1768,7 +1804,7 @@ export default function () {
                     </header>
 
                     {/* Card Body Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 overflow-hidden flex-1">
                         
                         {/* Branch Sidebar (Left Column) */}
                         <aside className="lg:col-span-2 border-r border-gray-100 flex flex-col bg-slate-50/50">
@@ -2065,7 +2101,7 @@ export default function () {
                                     </div>
                                 </div>
                                 {/* <div className="overflow-auto max-h-[500px]"> */}
-                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock}/>
+                                    <ProductTable data={products} pricesHandler={pricesHandler} removeHandler={removeHandler} pricesErrors={pricesErrors} authorizedEdit={changable && !productsLock} activeProcess={changable} />
                                 {/* </div> */}
                             </div>
                         </main>

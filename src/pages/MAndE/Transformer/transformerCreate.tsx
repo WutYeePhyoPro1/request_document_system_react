@@ -18,18 +18,23 @@ import {
   IconPhoto,
   IconX,
 } from "@tabler/icons-react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
 import { Check, FilesIcon, Text } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
+import type {
+  FileItem,
+  kvaData,
+  meGeneratorDataType,
+} from "../../../utils/meDataUtil/metype";
 import Swal from "sweetalert2";
 import { m } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
 import { getStoreTransformerData } from "../../../api/ME/Transformer/transformer";
+import { getCommonData } from "../../../api/ME/meData";
 
 const TransformerCreate: React.FC = () => {
   type LevelType = {
@@ -40,7 +45,7 @@ const TransformerCreate: React.FC = () => {
   const location = useLocation();
   const { formId } = location.state || "";
   const { reAdd } = location.state || "";
-  const { generalFormId } = location.state || "";
+  const { transformerFormId } = location.state || "";
   const [transformerUse, setTransformerUse] = useState<string>("use");
   const [serviceDate, setServiceDate] = useState<string>("");
   const [levelValue, setLevelValue] = useState<LevelType>({
@@ -48,10 +53,36 @@ const TransformerCreate: React.FC = () => {
     l2Value: "",
     l3Value: "",
   });
-  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
+  const [remark, setRemark] = useState<string>("");
+  const [invoiceFile, setInvoiceFile] = useState<FileItem[]>([
     { id: uuidv4(), file: null },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [kva, setKva] = useState<kvaData>();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      setLoading(true);
+
+      try {
+        const commonData = await getCommonData(token);
+        setKva(commonData?.tranKva);
+      } catch (error) {
+        console.error("Error fetching check item data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+  const kvaData = (kva as kvaData[])?.map((item) => ({
+    value: String(item.kva),
+    label: String(item.kva),
+  }));
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
@@ -64,7 +95,7 @@ const TransformerCreate: React.FC = () => {
       },
     ]);
   };
-  const removeInvoiceFile = (id) => {
+  const removeInvoiceFile = (id: any) => {
     setInvoiceFile((prev) =>
       prev.filter((item) => {
         if (item.id === id && item.preview) {
@@ -74,8 +105,8 @@ const TransformerCreate: React.FC = () => {
       }),
     );
   };
-  const updateFile = (id, file) => {
-    setInvoiceFile((prev) =>
+  const updateFile = (id: any, file: File | null): void => {
+    setInvoiceFile((prev: FileItem[]) =>
       prev.map((item) => {
         if (item.id !== id) return item;
 
@@ -99,28 +130,81 @@ const TransformerCreate: React.FC = () => {
       }),
     );
   };
+
   const validators = {
     trans_date: "Date is required",
     trans_time: "Time is required",
+    meter_unit: "Meter Unit is required",
+    tran_kva_level: "KVA Level is required",
+    voltagel_l_level: "Voltage l-L is required",
+    tran_size: "Transformer Size is required",
     l1_level: "L1 is required",
     l2_level: "L2 is required",
     l3_level: "L3 is required",
-    voltagel_l_level: "Voltage L-L is required",
-    // tran_kva_level: "Transformer KVA Level is required",
+
     oltc_tapping: "OLTC Tapping is required",
     cost: "Cost is required",
-    // remark: "Remark is required",
   };
   const navigate = useNavigate();
   const handleBack = () => {
     navigate(-1);
   };
-  const handleSubmit = async (btnStatus: string) => {
+  const isAtLimit = remark.length === 225;
+  const handleRemarkChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    // setRemark(e.target.value);
+    if (e.target.value.length <= 225) {
+      setRemark(e.target.value);
+    }
+  };
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    btnStatus: string,
+  ) => {
+    e.preventDefault();
+    if (btnStatus == "Ongoing") {
+      const confirmBox = await Swal.fire({
+        title: "Are you sure",
+        text: "Sent To Manager?",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "rgb(29, 95, 219)",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes",
+        cancelButtonText: "No",
+      });
+      if (!confirmBox.isConfirmed) return;
+    }
     const formElement = document.querySelector("form") as HTMLFormElement;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
     formData.append("btn_status", btnStatus);
     // validation
+    const meterUnit = Number(formData.get("meter_unit") || 0);
+    const OLTCTipping = Number(formData.get("oltc_tapping") || 0);
+    const l1 = Number(formData.get("l1_level") || 0);
+    const l2 = Number(formData.get("l2_level") || 0);
+    const l3 = Number(formData.get("l3_level") || 0);
+    if (transformerUse === "use") {
+      if (meterUnit === 0)
+        missingFields.push("Meter Units must be greater than 0");
+
+      if (l1 === 0) missingFields.push("L1 must be greater than 0");
+      if (l2 === 0) missingFields.push("L2 must be greater than 0");
+      if (l3 === 0) missingFields.push("L3 must be greater than 0");
+      if (OLTCTipping === 0)
+        missingFields.push("OLTC Tapping must be greater than 0");
+    }
+    const transDate = formData.get("trans_date");
+
+    if (transDate) {
+      const selectedDate = new Date(transDate.toString());
+      const today = new Date();
+      // today.setHours(0, 0, 0, 0);
+
+      if (selectedDate > today) {
+        missingFields.push("Transformer Date cannot be greater than today");
+      }
+    }
     Object.entries(validators).forEach(([key, message]) => {
       if (
         transformerUse === "no_use" &&
@@ -128,14 +212,30 @@ const TransformerCreate: React.FC = () => {
       ) {
         return;
       }
+
       if ((!serviceDate || serviceDate.trim() === "") && key === "cost") {
         return;
       }
+
       const value = formData.get(key);
+      if (key === "cost") {
+        if (!value || value.toString().trim() === "") {
+          missingFields.push("Cost is required");
+        } else {
+          const cost = Number(value);
+          if (cost === 0) {
+            missingFields.push("Cost must be greater than 0");
+          }
+        }
+        return;
+      }
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
       }
     });
+    if (!invoiceFile[0]?.file) {
+      missingFields.push("Upload file is required");
+    }
 
     const serviceDateValue = formData.get("trans_service_date");
     const remarkValue = formData.get("remark");
@@ -191,11 +291,10 @@ const TransformerCreate: React.FC = () => {
       Swal.fire({
         icon: "success",
         title: "Success",
-        text: "Generator data stored successfully",
+        text: "Transformer data stored successfully",
       });
 
-      formElement.reset(); // optional
-      // navigate(`/generator/${formId}`);
+      formElement.reset();
       navigate(-1);
     } catch (error) {
       Swal.fire({
@@ -208,7 +307,7 @@ const TransformerCreate: React.FC = () => {
     }
   };
 
-  const handleCaptureChoice = (id: string, mode: "camera" | "gallery") => {
+  const handleCaptureChoice = (id: any, mode: "camera" | "gallery") => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -227,6 +326,7 @@ const TransformerCreate: React.FC = () => {
 
     input.click();
   };
+
   const FullPageLoader = () => (
     <div className="fixed inset-0 z-[9999] bg-black/40 flex items-center justify-center">
       <Loader size="xl" color="blue" />
@@ -253,7 +353,7 @@ const TransformerCreate: React.FC = () => {
           ]}
         />
       </div>
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex items-center gap-6 p-4 rounded-xl">
         <label className="flex items-center gap-2">
           <input
             type="radio"
@@ -261,7 +361,7 @@ const TransformerCreate: React.FC = () => {
             checked={transformerUse === "use"}
             onChange={(e) => setTransformerUse(e.target.value)}
           />
-          Transformer Use
+          Transformer Run
         </label>
 
         <label className="flex items-center gap-2">
@@ -271,12 +371,12 @@ const TransformerCreate: React.FC = () => {
             checked={transformerUse === "no_use"}
             onChange={(e) => setTransformerUse(e.target.value)}
           />
-          Transformer Not Use
+          Transformer Not Run
         </label>
       </div>
 
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => handleSubmit(e, "Default")}
         className=" 
           relative
           overflow-hidden
@@ -320,8 +420,8 @@ const TransformerCreate: React.FC = () => {
                 />
                 <input
                   type="hidden"
-                  name="generalFormID"
-                  value={generalFormId}
+                  name="transformerFormID"
+                  value={transformerFormId}
                 />
                 <input
                   type="hidden"
@@ -348,6 +448,148 @@ const TransformerCreate: React.FC = () => {
             </div>
 
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Meter Units</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  {/* <input
+                    type="number"
+                    name="meter_unit"
+                    required
+                    min="0"
+                    max="99999999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 8) {
+                        e.target.value = e.target.value.slice(0, 8);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  /> */}
+                  <input
+                    type="text"
+                    name="meter_unit"
+                    required
+                    inputMode="decimal"
+                    onChange={(e: any) => {
+                      let value = e.target.value;
+
+                      // allow only numbers and dot
+                      value = value.replace(/[^0-9.]/g, "");
+
+                      const parts = value.split(".");
+
+                      // prevent multiple dots
+                      if (parts.length > 2) {
+                        value = parts[0] + "." + parts[1];
+                      }
+
+                      // limit integer part to 8 digits
+                      if (parts[0].length > 8) {
+                        parts[0] = parts[0].slice(0, 8);
+                      }
+
+                      // limit decimal part to 2 digits
+                      if (parts[1]) {
+                        parts[1] = parts[1].slice(0, 2);
+                      }
+
+                      value = parts.join(".");
+                      e.target.value = value;
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>KVA Level</label>
+                    <FaStar className="text-red-400" />
+                  </div>
+                  <select
+                    name="tran_kva_level"
+                    id=""
+                    className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Kva</option>
+                    {/* <option value="550">550</option>
+                    <option value="400">400</option>
+                    <option value="375">375</option>
+                    <option value="150">150</option>
+                    <option value="100">100</option>
+                    <option value="80">80</option>
+                    <option value="60">60</option>
+                    <option value="30">30</option>
+                    <option value="25">25</option> */}
+                    {kvaData?.map((item) => (
+                      <option key={item.value} value={item.value}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">VoltageL-L</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="voltagel_l_level"
+                    required
+                    min="0"
+                    max="9999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Transformer Size</label>
+                    <FaStar className="text-red-400" />
+                  </div>
+                  <select
+                    name="tran_size"
+                    id=""
+                    className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Size</option>
+                    <option value="Big">Big</option>
+                    <option value="Small">Small</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
               <div className="">
                 <div className="flex items-center gap-2">
                   <label htmlFor="">L1</label>
@@ -358,17 +600,20 @@ const TransformerCreate: React.FC = () => {
                 <input
                   type="number"
                   name="l1_level"
-                  min="0"
+                  min="1"
                   max="9999"
                   value={transformerUse === "no_use" ? 0 : levelValue.l1Value}
                   disabled={transformerUse === "no_use"}
                   required={transformerUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.length <= 4) {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
+                    if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l1Value: Number(val),
+                        l1Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -403,11 +648,14 @@ const TransformerCreate: React.FC = () => {
                   disabled={transformerUse === "no_use"}
                   required={transformerUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.length <= 4) {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
+                    if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l2Value: Number(val),
+                        l2Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -445,11 +693,14 @@ const TransformerCreate: React.FC = () => {
                   disabled={transformerUse === "no_use"}
                   required={transformerUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
-                    if (val.length <= 4) {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
+                    if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l3Value: Number(val),
+                        l3Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -470,37 +721,6 @@ const TransformerCreate: React.FC = () => {
               </div>
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Meter Units</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="meter_unit"
-                  required
-                  min="0"
-                  max="9999"
-                  onInput={(e) => {
-                    if (e.target.value.length > 4) {
-                      e.target.value = e.target.value.slice(0, 4);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-            </div>
-
-            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="">
-                <div className="flex items-center gap-2">
                   <label htmlFor="">OLTC Tapping</label>
                   <span>
                     <FaStar className="text-red-400" />
@@ -512,37 +732,9 @@ const TransformerCreate: React.FC = () => {
                   required
                   min="0"
                   max="9999"
-                  onInput={(e) => {
-                    if (e.target.value.length > 4) {
-                      e.target.value = e.target.value.slice(0, 4);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">VoltageL</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="voltagel_l_level"
-                  required
-                  min="0"
-                  max="9999"
-                  onInput={(e) => {
-                    if (e.target.value.length > 4) {
-                      e.target.value = e.target.value.slice(0, 4);
+                  onInput={(e: any) => {
+                    if (e.target.value.length > 6) {
+                      e.target.value = e.target.value.slice(0, 6);
                     }
                   }}
                   onKeyDown={(e) => {
@@ -578,32 +770,31 @@ const TransformerCreate: React.FC = () => {
                 </div>
                 {serviceDate && (
                   <div>
-                    <label>Cost</label>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="">Cost</label>
+                      <span>
+                        <FaStar className="text-red-400" />
+                      </span>
+                    </div>
                     <input
                       type="text"
                       name="cost"
                       required
                       inputMode="decimal"
-                      onChange={(e) => {
+                      onChange={(e: any) => {
                         let value = e.target.value;
-
                         value = value.replace(/[^0-9.]/g, "");
-
                         const parts = value.split(".");
                         if (parts.length > 2) {
                           value = parts[0] + "." + parts[1];
                         }
-
                         if (parts[0].length > 8) {
                           parts[0] = parts[0].slice(0, 8);
                         }
-
                         if (parts[1]) {
                           parts[1] = parts[1].slice(0, 2);
                         }
-
                         value = parts.join(".");
-
                         e.target.value = value;
                       }}
                       onWheel={(e) => e.currentTarget.blur()}
@@ -614,25 +805,77 @@ const TransformerCreate: React.FC = () => {
                 )}
               </div>
               <div className="">
-                <label htmlFor=""> Remark</label>
+                {serviceDate ? (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor=""> Remark</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                    <span
+                      className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                    >
+                      {remark.length}/{225}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <label htmlFor=""> Remark</label>
+                    <span
+                      className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                    >
+                      {remark.length}/{225}
+                    </span>
+                  </div>
+                )}
+
                 <textarea
                   name="remark"
-                  id=""
-                  cols="3"
-                  rows="1"
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                  value={remark}
+                  onChange={handleRemarkChange}
+                  maxLength={225}
+                  rows={1}
+                  className={`border p-2 w-full rounded-md outline-none transition-all 
+                      ${
+                        isAtLimit
+                          ? "border-orange-500 focus:ring-1 focus:ring-orange-500"
+                          : "border-[rgb(29,137,225)] focus:ring-2 focus:ring-blue-400"
+                      }`}
                 ></textarea>
+                {isAtLimit && (
+                  <span className="text-orange-600 text-xs font-semibold">
+                    Maximum limit of {225} characters reached.
+                  </span>
+                )}
+                {/* <div className="flex justify-between mt-1 px-1">
+                  <div className="h-4">
+                    {isAtLimit && (
+                      <span className="text-orange-600 text-xs font-semibold">
+                        Maximum limit of {225} characters reached.
+                      </span>
+                    )}
+                  </div>
+
+                  <span
+                    className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                  >
+                    {remark.length}/{225}
+                  </span>
+                </div> */}
               </div>
             </div>
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
               <div className="">
-                {invoiceFile.map((fileField, index) => (
+                {invoiceFile.map((fileField: FileItem, index: number) => (
                   <div
                     key={fileField.id}
                     className="flex flex-col gap-2 w-full"
                   >
-                    <label>{index === 0 ? "Upload" : undefined}</label>
+                    <div className="flex items-center gap-2">
+                      <label>{index === 0 ? "Upload" : undefined}</label>
+                      <span>
+                        <FaStar className="text-red-400" />
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-3">
                       {/* MD + LG FILE INPUT */}
@@ -640,7 +883,7 @@ const TransformerCreate: React.FC = () => {
                         type="file"
                         name="file[]"
                         required
-                        onChange={(e) =>
+                        onChange={(e: any) =>
                           updateFile(fileField.id, e.target.files?.[0] || null)
                         }
                         className="hidden sm:hidden md:block flex-1 border p-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
@@ -656,7 +899,7 @@ const TransformerCreate: React.FC = () => {
                               style={{ borderColor: "rgb(29, 137, 225)" }}
                             >
                               {fileField.name ? (
-                                <Text truncate>{fileField.name}</Text>
+                                <Text>{fileField.name}</Text>
                               ) : (
                                 <Text color="dimmed">Tap to upload...</Text>
                               )}
@@ -667,7 +910,7 @@ const TransformerCreate: React.FC = () => {
                             <Menu.Label>Choose Source</Menu.Label>
 
                             <Menu.Item
-                              icon={<IconCamera size={16} />}
+                              // icon={<IconCamera size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "camera")
                               }
@@ -676,7 +919,7 @@ const TransformerCreate: React.FC = () => {
                             </Menu.Item>
 
                             <Menu.Item
-                              icon={<IconPhoto size={16} />}
+                              // icon={<IconPhoto size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "gallery")
                               }
@@ -703,7 +946,7 @@ const TransformerCreate: React.FC = () => {
                 <div className="flex flex-wrap gap-3 mt-2">
                   {invoiceFile
                     .filter((f) => f.file)
-                    .map((fileField) => (
+                    .map((fileField: any) => (
                       <div
                         key={`preview-${fileField.id}`}
                         className="w-40 p-2 border rounded-md flex items-center justify-center"
@@ -757,7 +1000,7 @@ const TransformerCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -778,7 +1021,7 @@ const TransformerCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -788,7 +1031,7 @@ const TransformerCreate: React.FC = () => {
 
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Ongoing")}
+                  onClick={(e: any) => handleSubmit(e, "Ongoing")}
                   disabled={loading}
                   color="blue"
                   radius="md"
