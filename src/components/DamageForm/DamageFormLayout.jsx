@@ -3765,7 +3765,8 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
           remark,
           acc_code1: accountCode,
           specific_form_id: specificId,
-          product_type: isOtherIncomeSell ? resolvedActual : (item?.product_type ?? resolvedFinal),
+          // Laravel ISS posting uses product_type[] as issue qty; keep it aligned with actual_qty
+          product_type: resolvedActual,
           product_category_id: normalizedCategoryId,
         };
       });
