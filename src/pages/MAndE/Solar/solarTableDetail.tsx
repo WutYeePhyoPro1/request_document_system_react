@@ -92,9 +92,9 @@ const SolarTableDetail: React.FC<TableDetailProps> = ({
       <div className="whitespace-nowrap">Total KW</div>,
 
       <div className="whitespace-nowrap">Solar Unit</div>,
-      <div className="whitespace-nowrap">Inverter Checking</div>,
-      <div className="whitespace-nowrap">Battery Checking</div>,
-      <div className="whitespace-nowrap">Temperature Checking</div>,
+      <div className="whitespace-nowrap">Inverter Check</div>,
+      <div className="whitespace-nowrap">Battery Check</div>,
+      <div className="whitespace-nowrap">SDP Panel temp Check</div>,
       <div className="whitespace-nowrap">Panel Cleaning Date</div>,
       "Remark",
       "Image",

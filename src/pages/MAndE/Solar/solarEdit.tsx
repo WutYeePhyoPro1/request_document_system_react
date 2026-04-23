@@ -280,7 +280,7 @@ const SolarEdit: React.FC = () => {
       Swal.fire({
         icon: "success",
         title: "Success",
-        text: "Solar data updated successfully",
+        text: "Solar data stored successfully",
       });
       formElement.reset(); // optional
       navigate(-1);
@@ -461,7 +461,7 @@ const SolarEdit: React.FC = () => {
               <div className="flex items-center gap-2">
                 <label htmlFor="">L2</label>
                 <span>
-                  <FaStar className="text-red-ူ" />
+                  <FaStar className="text-red-400" />
                 </span>
               </div>
               <input
@@ -642,7 +642,7 @@ const SolarEdit: React.FC = () => {
                   onChange={handleChange}
                   required
                   min="0"
-                  max="9999"
+                  max="9999999"
                   onInput={(e: any) => {
                     if (e.target.value.length > 6) {
                       e.target.value = e.target.value.slice(0, 6);
@@ -663,7 +663,7 @@ const SolarEdit: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Inverter Checking</label>
+                  <label htmlFor="">Inverter Check</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
@@ -683,7 +683,7 @@ const SolarEdit: React.FC = () => {
               </div>
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Battery Checking</label>
+                  <label htmlFor="">Battery Check</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
@@ -704,7 +704,7 @@ const SolarEdit: React.FC = () => {
 
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor=""> Temperature Checking </label>
+                  <label htmlFor=""> SDP Panel temp Check </label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>

@@ -584,7 +584,7 @@ const SolarCreate: React.FC = () => {
                     name="solar_output_Kw"
                     required
                     min="0"
-                    max="9999"
+                    max="9999999"
                     onInput={(e: any) => {
                       if (e.target.value.length > 6) {
                         e.target.value = e.target.value.slice(0, 6);
@@ -612,7 +612,7 @@ const SolarCreate: React.FC = () => {
                     name="solar_unit"
                     required
                     min="0"
-                    max="9999"
+                    max="9999999"
                     onInput={(e: any) => {
                       if (e.target.value.length > 6) {
                         e.target.value = e.target.value.slice(0, 6);
@@ -633,7 +633,7 @@ const SolarCreate: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor="">Inverter Checking</label>
+                    <label htmlFor="">Inverter Check</label>
                     <span>
                       <FaStar className="text-red-400" />
                     </span>
@@ -651,7 +651,7 @@ const SolarCreate: React.FC = () => {
                 </div>
                 <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor="">Battery Checking</label>
+                    <label htmlFor="">Battery Check</label>
                     <span>
                       <FaStar className="text-red-400" />
                     </span>
@@ -670,7 +670,7 @@ const SolarCreate: React.FC = () => {
 
                 <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor=""> Temperature Checking </label>
+                    <label htmlFor=""> SDP Panel temp Check </label>
                     <span>
                       <FaStar className="text-red-400" />
                     </span>
