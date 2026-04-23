@@ -612,7 +612,7 @@ const SolarEdit: React.FC = () => {
                   onChange={handleChange}
                   required
                   min="0"
-                  max="9999"
+                  max="9999999"
                   onInput={(e: any) => {
                     if (e.target.value.length > 6) {
                       e.target.value = e.target.value.slice(0, 6);
