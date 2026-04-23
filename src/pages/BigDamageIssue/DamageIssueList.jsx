@@ -207,6 +207,7 @@ function DamageIssueList({
     t('list.columns.no', { defaultValue: 'No' }),
     t('list.columns.status', { defaultValue: 'Status' }),
     t('list.columns.documentNo', { defaultValue: 'Document No' }),
+    t('list.columns.issNo', { defaultValue: 'ISS No' }),
     t('list.columns.sellNotSell', { defaultValue: 'Sell / Not Sell' }),
     t('list.columns.branch', { defaultValue: 'Branch' }),
     t('list.columns.requestedBy', { defaultValue: 'Requested By' }),
@@ -214,6 +215,26 @@ function DamageIssueList({
     t('list.columns.createdDate', { defaultValue: 'Created Date' }),
     t('list.columns.modified', { defaultValue: 'Modified' }),
   ];
+
+  /** @param {object} issueOrForm — list row: GeneralForm (dashboard API) or BigDamageIssue with nested general_form */
+  const getIssDisplay = (issueOrForm) => {
+    const gf = issueOrForm?.general_form ?? issueOrForm ?? {};
+    const raw =
+      issueOrForm?.iss_numbers ??
+      gf?.iss_numbers ??
+      issueOrForm?.general_form?.iss_numbers;
+    if (Array.isArray(raw) && raw.length > 0) {
+      return raw.filter(Boolean).join(', ');
+    }
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw.trim();
+    }
+    const files = gf?.files || gf?.general_form_files || issueOrForm?.general_form?.files || [];
+    const issFile = Array.isArray(files)
+      ? files.find((f) => f && f.file === 'ISS_DOCUMENT' && f.name && String(f.name).trim() !== '' && f.name !== 'ISS_DOCUMENT')
+      : null;
+    return issFile?.name || '—';
+  };
 
   const renderNotificationBadge = (row, gf) => {
     if (isSuppressedForUnread(row, gf)) {
@@ -296,6 +317,9 @@ function DamageIssueList({
             <span className="whitespace-nowrap">{renderNotificationBadge(row, gf)}</span>
             {formDocNo !== '-' && <CopyButton text={formDocNo} size="small" />}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900 font-mono text-xs max-w-[10rem] truncate" title={getIssDisplay(row)}>
+                          {getIssDisplay(row)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
           <span className={`text-sm font-medium ${isOtherIncomeSell ? 'text-blue-400' : 'text-red-500'}`}>
@@ -387,6 +411,15 @@ function DamageIssueList({
                   </span>
                 </div>
 
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 shrink-0">
+                    {t('list.columns.issNo', { defaultValue: 'ISS No' })}
+                  </span>
+                  <span className="text-sm font-bold font-mono text-gray-900 text-right break-all">
+                    {getIssDisplay(row)}
+                  </span>
+                </div>
+
                 <div className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-700">
                   <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -456,13 +489,14 @@ function DamageIssueList({
                         className={`px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
                           index === 0 ? 'w-12' :
                           index === 1 ? 'w-28' :
-                          index === 2 ? 'w-80 text-left' :
+                          index === 2 ? 'w-72 text-left' :
                           index === 3 ? 'w-36 text-left' :
-                          index === 4 ? 'w-28 text-left' :
-                          index === 5 ? 'w-36 text-left' :
-                          index === 6 ? 'w-32 text-right pr-6' :
-                          index === 7 ? 'w-44 text-left' :
-                          index === 8 ? 'w-48 text-left' :
+                          index === 4 ? 'w-36 text-left' :
+                          index === 5 ? 'w-28 text-left' :
+                          index === 6 ? 'w-36 text-left' :
+                          index === 7 ? 'w-32 text-right pr-6' :
+                          index === 8 ? 'w-44 text-left' :
+                          index === 9 ? 'w-48 text-left' :
                           'text-left'
                         }`}
                       >

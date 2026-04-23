@@ -1,0 +1,83 @@
+ <div className="flex gap-2 flex-wrap items-center order-1 sm:order-2">
+          {/* Delete button - Show for Ongoing or Checked (approver only) status.
+              Also allow Branch Account users to delete when the form is BM Approved or OP Approved. */}
+          {(
+            // Allow delete when:
+            // - Ongoing, or
+            // - Checked by an approver, or
+            // - Branch Account viewing BM Approved / OP Approved forms
+            (
+              (status === 'Ongoing' || status?.toLowerCase() === 'ongoing') ||
+              (status === 'Checked' && isApproverRole) ||
+              (isAccount && (
+                status === 'BM Approved' ||
+                status === 'BMApproved' ||
+                status === 'OP Approved' ||
+                status === 'OPApproved'
+              ))
+            ) &&
+            status !== 'Completed' &&
+            status !== 'Issued' &&
+            status !== 'SupervisorIssued' &&
+            mode !== 'add' &&
+            (
+              // Default: hide delete for Ac_Acknowledged/Acknowledged stages for non-account users
+              (
+                status !== 'Ac_Acknowledged' &&
+                status !== 'Acknowledged'
+              ) ||
+              // Branch Account already allowed for BM/OP above
+              isAccount
+            ) &&
+            !isUserRole &&
+            !isSupervisorUser &&
+            !(isCheckerRole && ((status || '').toString().toLowerCase() === 'checked')) &&
+            selectedIds.length > 0
+          ) && (
+            <button
+              onClick={confirmMultipleDelete}
+              className="flex items-center gap-1 px-2 py-[1px] text-[0.65rem] sm:text-[0.75rem] bg-red-600 text-white rounded hover:bg-red-700 transition"
+            >
+              <Trash2 size={14} /> {t('table.delete', { defaultValue: 'Delete' })} ({selectedIds.length})
+            </button>
+          )}
+          
+          {/* Account codes button should appear only in acknowledge and issue stages */}
+          {/* Operation Manager should NOT see account code button at Ac_Acknowledged stage */}
+          {(() => {
+            // Don't show button if no account codes available
+            if (accountCodes.length === 0) return null;
+            
+            // Don't show button if account codes are hidden
+            if (!showAccountCodes) return null;
+            
+            // Only show button at specific stages
+            const isAllowedStage = status === 'Ac_Acknowledged' || 
+             status === 'Acknowledged' || 
+             status === 'Issued' || 
+                                  status === 'SupervisorIssued';
+            if (!isAllowedStage) return null;
+            
+            // CRITICAL: Don't show button for Operation Manager at Ac_Acknowledged stage
+            const isOpManagerAtAcknowledged = isOpManager && (status === 'Ac_Acknowledged' || status === 'Acknowledged');
+            if (isOpManagerAtAcknowledged) {
+              return null;
+            }
+            
+            // CRITICAL: Don't show button for Branch Account users
+            if (isAccount) {
+              return null;
+            }
+            
+            return (
+              <button
+                type="button"
+                onClick={() => setShowAccountCodes((prev) => !prev)}
+                className={`flex items-center gap-2 px-3 py-1 rounded text-[0.7rem] sm:text-[0.75rem] border transition ${showAccountCodes ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-gray-300 hover:bg-gray-100 text-gray-700'}`}
+              >
+                <span className="font-semibold">{showAccountCodes ? t('table.hideAccountCodes', { defaultValue: 'Hide Account Codes' }) : t('table.showAccountCodes', { defaultValue: 'Show Account Codes' })}</span>
+              </button>
+            );
+          })()}
+          
+        </div>

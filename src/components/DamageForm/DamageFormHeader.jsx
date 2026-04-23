@@ -91,7 +91,8 @@ export default function DamageFormHeader({
   onDownloadPdf = null,
   isPdfDownloading = false, // Loading state for PDF download
   issueRemarks = [], // Add issueRemarks prop for ISS remark type display
-  btpRemark = '' // Back to Previous remark from general_form.remark
+  btpRemark = '', // Back to Previous remark from general_form.remark
+  checkerCanEditAssetType = false, // checker in Ongoing: allow changing whole-form case type (Not sell / Other income sell)
 }) {
   const { t } = useTranslation();
   // Set the branch from user's session on component mount (only if form doesn't have branch data)
@@ -411,22 +412,49 @@ export default function DamageFormHeader({
                     </button>
                   </div>
                 )}
-                <span className={`inline-block text-sm mt-1 font-medium px-2.5 py-0.5 rounded-md border w-fit ${
-                  (formData.caseType || '').toLowerCase().includes('not sell') 
-                    ? 'bg-red-50 border-red-200 text-red-700' 
-                    : 'bg-green-50 border-green-200 text-green-700'
-                }`}>
-                  {(() => {
-                    const caseType = formData.caseType || '';
-                    const caseTypeLower = caseType.toLowerCase();
-                    if (caseTypeLower.includes('not sell')) {
-                      return t('list.notSell', { defaultValue: 'Not Sell' });
-                    } else if (caseTypeLower.includes('other income sell') || caseTypeLower.includes('other income')) {
-                      return t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' });
+                {checkerCanEditAssetType ? (
+                  <select
+                    aria-label={t('damageFormHeader.assetType', { defaultValue: 'Asset type' })}
+                    className={`inline-block text-sm mt-1 font-medium px-2 py-1 rounded-md border w-fit max-w-full cursor-pointer focus:ring-2 focus:ring-offset-0 focus:outline-none ${
+                      (formData.caseType || '').toLowerCase().includes('not sell')
+                        ? 'bg-red-50 border-red-200 text-red-700 focus:ring-red-300'
+                        : 'bg-green-50 border-green-200 text-green-700 focus:ring-green-300'
+                    }`}
+                    value={
+                      (formData.caseType || '').toLowerCase().includes('not sell')
+                        ? 'Not sell'
+                        : 'Other income sell'
                     }
-                    return caseType || t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' });
-                  })()}
-                </span>
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setFormData((prev) => ({ ...prev, caseType: v }));
+                    }}
+                  >
+                    <option value="Not sell">{t('list.notSell', { defaultValue: 'Not Sell' })}</option>
+                    <option value="Other income sell">
+                      {t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' })}
+                    </option>
+                  </select>
+                ) : (
+                  <span
+                    className={`inline-block text-sm mt-1 font-medium px-2.5 py-0.5 rounded-md border w-fit ${
+                      (formData.caseType || '').toLowerCase().includes('not sell')
+                        ? 'bg-red-50 border-red-200 text-red-700'
+                        : 'bg-green-50 border-green-200 text-green-700'
+                    }`}
+                  >
+                    {(() => {
+                      const caseType = formData.caseType || '';
+                      const caseTypeLower = caseType.toLowerCase();
+                      if (caseTypeLower.includes('not sell')) {
+                        return t('list.notSell', { defaultValue: 'Not Sell' });
+                      } else if (caseTypeLower.includes('other income sell') || caseTypeLower.includes('other income')) {
+                        return t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' });
+                      }
+                      return caseType || t('list.otherIncomeSell', { defaultValue: 'Other Income Sell' });
+                    })()}
+                  </span>
+                )}
               </div>
             </div>
           </div>
