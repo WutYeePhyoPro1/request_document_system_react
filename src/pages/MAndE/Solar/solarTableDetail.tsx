@@ -89,7 +89,8 @@ const SolarTableDetail: React.FC<TableDetailProps> = ({
       <div className="whitespace-nowrap">Voltage L-L</div>,
       // <div className="whitespace-nowrap">Solar Size</div>,
       <div className="whitespace-nowrap">Total Output Kw</div>,
-      // <div className="whitespace-nowrap">Total KW</div>,
+      <div className="whitespace-nowrap">Grid KW Use</div>,
+      <div className="whitespace-nowrap">Total Load KW Use</div>,
 
       <div className="whitespace-nowrap">Solar Unit</div>,
       <div className="whitespace-nowrap">Inverter Check</div>,
@@ -143,6 +144,16 @@ const SolarTableDetail: React.FC<TableDetailProps> = ({
           // </div>,
           <div className="flex items-end justify-center w-full whitespace-nowrap">
             {numberFormat(element.total_solar_output_Kw)}
+          </div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.grid_kw_use)}
+          </div>,
+          // numberFormat(element.total_kw_level),
+
+          // <div className="bg-red-600 whitespace-nowrap flex">
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.total_load_kw_use)}
+            {/* </div> */}
           </div>,
           // numberFormat(element.total_kw_level),
 

@@ -35,6 +35,8 @@ const SolarEdit: React.FC = () => {
     l2_level: 0,
     l3_level: 0,
     voltagel_l_level: 0,
+    grid_kw_use: 0,
+    total_load_kw_use: 0,
     // solar_size: "",
 
     total_solar_output_Kw: 0,
@@ -201,6 +203,8 @@ const SolarEdit: React.FC = () => {
     l2_level: "L2 is required",
     l3_level: "L3 is required",
     voltagel_l_level: "Voltage l-L is required",
+    grid_kw_use: "Grid Kw Use is required",
+    total_load_kw_use: "Total Load Kw Use is required",
     // solar_size: "Solar Size is required",
     total_solar_output_Kw: "Output Kw is required",
     solar_unit: "Solar Unit is required",
@@ -496,43 +500,43 @@ const SolarEdit: React.FC = () => {
           </div>
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L3</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l3_level"
-                min="0"
-                max="999999"
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                value={form.solar_use === "no_use" ? 0 : form.l3_level}
-                disabled={form.solar_use === "no_use"}
-                required={form.solar_use == "use"}
-                onChange={handleLLevelChange}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{
-                  borderColor:
-                    form.solar_use === "use"
-                      ? "rgb(29, 137, 225)"
-                      : "rgb(207, 209, 197)",
-                }}
-              />
-            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">L3</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="l3_level"
+                  min="0"
+                  max="999999"
+                  onInput={(e: any) => {
+                    if (e.target.value.length > 6) {
+                      e.target.value = e.target.value.slice(0, 6);
+                    }
+                  }}
+                  value={form.solar_use === "no_use" ? 0 : form.l3_level}
+                  disabled={form.solar_use === "no_use"}
+                  required={form.solar_use == "use"}
+                  onChange={handleLLevelChange}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{
+                    borderColor:
+                      form.solar_use === "use"
+                        ? "rgb(29, 137, 225)"
+                        : "rgb(207, 209, 197)",
+                  }}
+                />
+              </div>
               <div className="">
                 <div className="flex items-center gap-2">
                   <label htmlFor="">VoltageL-L</label>
@@ -576,24 +580,69 @@ const SolarEdit: React.FC = () => {
                   style={{ borderColor: "rgb(29, 137, 225)" }}
                 />
               </div>
-              {/* <div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              <div className="">
                 <div className="flex items-center gap-2">
-                  <label>Solar Size</label>
-                  <FaStar className="text-red-400" />
+                  <label htmlFor="">Grid Kw Use</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
                 </div>
-                <select
-                  name="solar_size"
-                  value={form?.solar_size}
-                  onChange={(e: any) => handleChange(e)}
-                  id=""
-                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                <input
+                  type="number"
+                  name="grid_kw_use"
+                  value={form.grid_kw_use}
+                  placeholder="Enter Grid Kw use for one day."
+                  onChange={handleLLevelChange}
+                  min="0"
+                  max="9999999"
+                  onInput={(e: any) => {
+                    if (e.target.value.length > 6) {
+                      e.target.value = e.target.value.slice(0, 6);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
-                >
-                  <option value="">Choose Size</option>
-                  <option value="Big">Big</option>
-                  <option value="Small">Small</option>
-                </select>
-              </div> */}
+                />
+              </div>
+
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Total Load Kw Use</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="total_load_kw_use"
+                  value={form.total_load_kw_use}
+                  onChange={handleChange}
+                  placeholder="Enter total load Kw use for 1 day "
+                  min="0"
+                  max="9999999"
+                  onInput={(e: any) => {
+                    if (e.target.value.length > 6) {
+                      e.target.value = e.target.value.slice(0, 6);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
             </div>
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">

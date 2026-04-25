@@ -33,6 +33,7 @@ import { m } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
 import { getStoreSolarData } from "../../../api/ME/solar";
+import { t } from "i18next";
 
 const SolarCreate: React.FC = () => {
   type LevelType = {
@@ -118,6 +119,8 @@ const SolarCreate: React.FC = () => {
     check_inverter: "Inverter checking is required",
     check_battery: "Battery checking is required",
     check_panel_temperature: "Panel Temperature is required",
+    grid_kw_use: "Grid Kw Use is required",
+    total_load_kw_use: "Total Load Kw Use is required",
   };
   const navigate = useNavigate();
   const handleBack = () => {
@@ -481,49 +484,49 @@ const SolarCreate: React.FC = () => {
             </div>
 
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">L3</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="l3_level"
-                  min="0"
-                  max="9999"
-                  value={solarUse === "no_use" ? 0 : levelValue.l3Value}
-                  disabled={solarUse === "no_use"}
-                  required={solarUse == "use"}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val.length > 1 && val.startsWith("0")) {
-                      val = val.replace(/^0+/, "");
-                    }
-                    if (val.length <= 6) {
-                      setLevelValue((prev) => ({
-                        ...prev,
-                        l3Value: val === "" ? "" : Number(val),
-                      }));
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{
-                    borderColor:
-                      solarUse === "use"
-                        ? "rgb(29, 137, 225)"
-                        : "rgb(207, 209, 197)",
-                  }}
-                />
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">L3</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="l3_level"
+                    min="0"
+                    max="9999"
+                    value={solarUse === "no_use" ? 0 : levelValue.l3Value}
+                    disabled={solarUse === "no_use"}
+                    required={solarUse == "use"}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.length > 1 && val.startsWith("0")) {
+                        val = val.replace(/^0+/, "");
+                      }
+                      if (val.length <= 6) {
+                        setLevelValue((prev) => ({
+                          ...prev,
+                          l3Value: val === "" ? "" : Number(val),
+                        }));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{
+                      borderColor:
+                        solarUse === "use"
+                          ? "rgb(29, 137, 225)"
+                          : "rgb(207, 209, 197)",
+                    }}
+                  />
+                </div>
                 <div className="">
                   <div className="flex items-center gap-2">
                     <label htmlFor="">VoltageL-L</label>
@@ -552,6 +555,68 @@ const SolarCreate: React.FC = () => {
                     style={{ borderColor: "rgb(29, 137, 225)" }}
                   />
                 </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Grid Kw Use</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="grid_kw_use"
+                    placeholder="Enter Grid Kw use for one day."
+                    required
+                    min="0"
+                    max="9999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Total Load Kw Use</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="total_load_kw_use"
+                    placeholder="Enter total load Kw use for 1 day "
+                    required
+                    min="0"
+                    max="9999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+
                 {/* <div>
                   <div className="flex items-center gap-2">
                     <label>Solar Size</label>

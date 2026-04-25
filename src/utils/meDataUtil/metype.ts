@@ -187,6 +187,8 @@ export interface meSolarDataType {
   check_panel_temperature?:string ,
     total_kw_level ?: number ,
     solar_use?:string ,
+    total_load_kw_use?:number ,
+    grid_kw_use?:number ,
     
 }
 
