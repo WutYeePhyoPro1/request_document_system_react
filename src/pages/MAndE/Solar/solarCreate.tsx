@@ -161,6 +161,8 @@ const SolarCreate: React.FC = () => {
     const l3 = Number(formData.get("l3_level") || 0);
     const outputKw = Number(formData.get("total_solar_output_Kw") || 0);
     const solarUnit = Number(formData.get("solar_unit") || 0);
+    const gridKwUse = Number(formData.get("grid_kw_use") || 0) ;
+    const totalLoadKwUse = Number(formData.get("total_load_kw_use") || 0) ;
     if (solarUse === "use") {
       if (l1 === 0) missingFields.push("L1 must be greater than 0");
       if (l2 === 0) missingFields.push("L2 must be greater than 0");
@@ -168,8 +170,13 @@ const SolarCreate: React.FC = () => {
       if (outputKw === 0)
         missingFields.push("Output Kw must be greater than 0");
       if (solarUnit === 0)
-        missingFields.push("Solar Unit must be greater than 0");
-    }
+        missingFields.push("Solar Unit must be greater than 0"); 
+      if (gridKwUse === 0)
+        missingFields.push("grid kw use must be greater than 0"); 
+      if (totalLoadKwUse === 0)
+        missingFields.push("total load kw use must be greater than 0");
+    } 
+    
     const solarDate = formData.get("solar_date");
 
     if (solarDate) {
