@@ -173,7 +173,7 @@ export interface meSolarDataType {
     solar_time?:string ,
     solar_time_ampm?: string ,
     solar_unit?:number | string  ,
-    solar_output_Kw?:number ,
+    total_solar_output_Kw?:number ,
     voltagel_l_level?:number ,
     solar_size?:string,
     l1_level ?: number ,

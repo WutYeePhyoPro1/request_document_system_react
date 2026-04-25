@@ -35,9 +35,9 @@ const SolarEdit: React.FC = () => {
     l2_level: 0,
     l3_level: 0,
     voltagel_l_level: 0,
-    solar_size: "",
+    // solar_size: "",
 
-    solar_output_Kw: 0,
+    total_solar_output_Kw: 0,
     solar_unit: 0,
     check_inverter: "",
     check_battery: "",
@@ -201,8 +201,8 @@ const SolarEdit: React.FC = () => {
     l2_level: "L2 is required",
     l3_level: "L3 is required",
     voltagel_l_level: "Voltage l-L is required",
-    solar_size: "Solar Size is required",
-    solar_output_Kw: "Output Kw is required",
+    // solar_size: "Solar Size is required",
+    total_solar_output_Kw: "Output Kw is required",
     solar_unit: "Solar Unit is required",
     check_inverter: "Inverter checking is required",
     check_battery: "Battery checking is required",
@@ -217,7 +217,7 @@ const SolarEdit: React.FC = () => {
     const l1 = Number(formData.get("l1_level") || 0);
     const l2 = Number(formData.get("l2_level") || 0);
     const l3 = Number(formData.get("l3_level") || 0);
-    const outputKw = Number(formData.get("solar_output_Kw") || 0);
+    const outputKw = Number(formData.get("total_solar_output_Kw") || 0);
     const solarUnit = Number(formData.get("solar_unit") || 0);
     if (form.solar_use === "use") {
       if (l1 === 0) missingFields.push("L1 must be greater than 0");
@@ -576,7 +576,7 @@ const SolarEdit: React.FC = () => {
                   style={{ borderColor: "rgb(29, 137, 225)" }}
                 />
               </div>
-              <div>
+              {/* <div>
                 <div className="flex items-center gap-2">
                   <label>Solar Size</label>
                   <FaStar className="text-red-400" />
@@ -593,22 +593,22 @@ const SolarEdit: React.FC = () => {
                   <option value="Big">Big</option>
                   <option value="Small">Small</option>
                 </select>
-              </div>
+              </div> */}
             </div>
           </div>
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Output Kw</label>
+                  <label htmlFor="">Total Output Kw</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
                 </div>
                 <input
                   type="number"
-                  name="solar_output_Kw"
-                  value={form.solar_output_Kw}
+                  name="total_solar_output_Kw"
+                  value={form.total_solar_output_Kw}
                   onChange={handleChange}
                   required
                   min="0"
