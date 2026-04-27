@@ -68,6 +68,14 @@ export interface meGeneratorDataType {
         department?:{
             name?: string
         }
+    } 
+    approval_users?:{
+        title?: string ;
+        name?: string ;
+        department?:{
+            name?: string ;
+        }
+        
     }
     created_at?:string ;
      ongoing_time?: string | null ;

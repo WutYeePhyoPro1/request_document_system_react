@@ -76,7 +76,7 @@ const TransformerDetail: React.FC = () => {
             <div className="bg-white shadow-md rounded-lg p-4 sm:p-6 mb-6 w-full ">
               {detailData?.generalForm?.remark && (
                 <h1 className="text-red-700 font-bold  text-break italic  mt-1  w:[80px] whitespace-normal break-words ">
-                   {detailData.generalForm.remark}
+                  {detailData.generalForm.remark}
                 </h1>
               )}
 
@@ -202,13 +202,19 @@ const TransformerDetail: React.FC = () => {
                           {/* sdfnmdnsfm */}
                           <div className="font-medium ">Checked By</div>
                           <div className="font-semibold text-blue-400 mt-1">
-                            {detailData?.getChecker?.assigned_user?.title}{" "}
-                            {detailData?.getChecker?.assigned_user?.name}
+                            {/* {detailData?.getChecker?.assigned_user?.title}{" "}
+                            {detailData?.getChecker?.assigned_user?.name} */}
+                            {detailData?.getChecker?.approval_users?.title}{" "}
+                            {detailData?.getChecker?.approval_users?.name}
                           </div>
                           <div className="text-blue-500 mt-1">
                             (
-                            {
+                            {/* {
                               detailData?.getChecker?.assigned_user?.department
+                                ?.name
+                            } */}
+                            {
+                              detailData?.getChecker?.approval_users?.department
                                 ?.name
                             }
                             )
