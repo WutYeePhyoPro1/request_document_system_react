@@ -32,6 +32,7 @@ import CreatePriceChange from "../pages/pricechanges/CreatePriceChange.jsx";
 import DetailPriceChange from "../pages/pricechanges/DetailPriceChange.jsx";
 import IndexPromotionJob from "../pages/promotionjobs/IndexPromotionJob.jsx";
 import CreatePromotionJob from "../pages/promotionjobs/CreatePromotionJob.jsx";
+import PromotionJobRunner from "../pages/promotionjobs/PromotionJobRunner.jsx";
 import PromotionJobUI from "../pages/promotionjobs/PromotionJobUI.jsx";
 import DetailPromotionJob from "../pages/promotionjobs/DetailPromotionJob.jsx";
 import TransformerIndex from "../pages/MAndE/Transformer/transformerIndex.js";
@@ -201,8 +202,8 @@ const router = createBrowserRouter([
       },
       {
         path: "promotion_jobs/create",
-        // element: <CreatePromotionJob />,
-        element: <PromotionJobUI />,
+        element: <CreatePromotionJob />,
+        // element: <PromotionJobRunner />,
       },
       {
         path: "promotion_jobs_detail/:id",
