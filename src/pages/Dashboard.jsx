@@ -163,7 +163,8 @@ const Dashboard = () => {
     "CCTV Request Form": "📹",
     "M&E Form": "⚙️",
     "Coupon Voucher": "📑",
-    "Price Change Form": "💲"
+    "Price Change Form": "💲",
+    "Promotion Job Form": "🚀"
     }
   const requests = allForm.map((form) => ({
     title: form?.name || "",
