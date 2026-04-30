@@ -20,7 +20,12 @@ export default function () {
 
     const [branches, setBranches] = useState([]);
     const [forceLoading, setForceLoading] = useState(false);
-    const [selected, setSelected] = useState([]);
+    const [selectedBranches, setSelectedBranches] = useState([]);
+    const toggleBranch = (id) => {
+        setSelectedBranches((prev) =>
+            prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+        );
+    };
 
     const excludeBranchIds = [] || [1,16,18,19,20,21,22,14,15];
     const fetchBranches = async () => {
@@ -52,7 +57,128 @@ export default function () {
             setBranches([]);
         }
     }
+
+    const applyHandler = async ()=>{
+
+        
+        const formData = {
+            branches: selectedBranches
+        };
+        console.log(formData);
+        if(selectedBranches.length == 0){
+            Swal.fire({
+                icon: "warning",
+                title: "Please select the branches first.",
+                // text: data.message,
+            });
+            return ;
+        }
+            try{
+                const res = await axios.post(`/api/promotion_jobs`,formData,{
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+                console.log(res.data);
+
+                const data = res.data;
+
+                if(data.success == false){
+                    if(data.errors){
+                        let errorMessages = "";
+                        Object.values(data.errors).forEach(errorArray => {
+                            errorArray.forEach(error => {
+                                errorMessages += `• ${error} \n`;
+                            });
+                        });
+
+                        Swal.fire({
+                            icon: "error",
+                            title: " Invalid Form!!",
+                            // text: "Some fields contain errors. Please review the form and try again.",
+                            text: errorMessages,
+                        });
+                    }else{
+                        throw new Error("Promotion job failed!");
+                    }
+                }
+
+                console.log("Promotion Job Started");
+                // Swal.fire({
+                //     icon: "success",
+                //     title: "Promotion Job Runner started running successfully!",
+                //     text: data.message,
+                // });
+                // navigate("/promotion_jobs");
+
+            }catch(err){
+                Swal.fire({
+                    icon: "error",
+                    title: "Form Submit Error!!",
+                    text: "Something went wrong while while starting promotionjob.",
+                });
+            }finally{
+                // setForceLoading(false);
+                // setIsSubmitting(false);
+            }
+    };
     
+    const runPromotion = async () => {
+        if (selectedBranches.length === 0) return;
+
+        setIsRunning(true);
+
+        // initialize status
+        const initial = selectedBranches.map(id => ({
+            id,
+            status: "pending"
+        }));
+        setBranchStatus(initial);
+
+        // run all in parallel
+        const promises = selectedBranches.map(async (branchId) => {
+
+            // mark running
+            setBranchStatus(prev =>
+                prev.map(b =>
+                    b.id === branchId ? { ...b, status: "running" } : b
+                )
+            );
+
+            try {
+                const res = await axios.post(
+                    `/api/run-promotion/${branchId}`,
+                    {},
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+
+                // success
+                setBranchStatus(prev =>
+                    prev.map(b =>
+                        b.id === branchId
+                            ? { ...b, status: "success" }
+                            : b
+                    )
+                );
+
+            } catch (err) {
+                // fail
+                setBranchStatus(prev =>
+                    prev.map(b =>
+                        b.id === branchId
+                            ? { ...b, status: "fail" }
+                            : b
+                    )
+                );
+            }
+        });
+
+        // wait all finish
+        await Promise.all(promises);
+
+        setIsRunning(false);
+    };
+
     useEffect(()=>{
         fetchBranches();
     },[]);
@@ -113,13 +239,13 @@ export default function () {
 
                             <button
                                 onClick={() =>
-                                    selected.length === branches.length
-                                        ? setSelected([])
-                                        : setSelected(branches.map((b) => b.id))
+                                    selectedBranches.length === branches.length
+                                        ? setSelectedBranches([])
+                                        : setSelectedBranches(branches.map((b) => b.id))
                                 }
                                 className="text-xs text-blue-600 hover:underline"
                             >
-                                {selected.length === branches.length ? "Unselect All" : "Select All"}
+                                {selectedBranches.length === branches.length ? "Unselect All" : "Select All"}
                             </button>
                         </div>
 
@@ -148,7 +274,7 @@ export default function () {
                         <div className="p-4 overflow-y-auto max-h-[600px]">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {(branches).map((b) => {
-                                    const isSelected = selected.includes(b.id);
+                                    const isSelected = selectedBranches.includes(b.id);
 
                                     return (
                                         <div
@@ -179,10 +305,12 @@ export default function () {
 								
 							<div className="my-2 p-2 text-end">
 								<button
+                                        type="button"
 										className="w-auto px-4 py-2 text-sm rounded-lg
 											bg-blue-600 text-white
 											hover:bg-blue-700 transition"
 										value="Approved"
+                                        onClick={applyHandler}
 										>
 										Apply Branch
 								</button>
