@@ -21,6 +21,13 @@ export default function () {
     const [branches, setBranches] = useState([]);
     const [forceLoading, setForceLoading] = useState(false);
     const [selectedBranches, setSelectedBranches] = useState([]);
+
+
+    const [running,setRunning] = useState(false);
+    const [form,setForm] = useState({});
+    let id = null;
+
+
     const toggleBranch = (id) => {
         setSelectedBranches((prev) =>
             prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
@@ -59,7 +66,6 @@ export default function () {
     }
 
     const applyHandler = async ()=>{
-
         
         const formData = {
             branches: selectedBranches
@@ -73,6 +79,8 @@ export default function () {
             });
             return ;
         }
+
+        setRunning(true);
             try{
                 const res = await axios.post(`/api/promotion_jobs`,formData,{
                     headers: {
@@ -81,7 +89,7 @@ export default function () {
                 });
                 console.log(res.data);
 
-                const data = res.data;
+                const data = res.data.data;
 
                 if(data.success == false){
                     if(data.errors){
@@ -111,73 +119,105 @@ export default function () {
                 // });
                 // navigate("/promotion_jobs");
 
+
+                const general_form = data.general_form;
+                const promotion_jobs = data.promotion_jobs;
+                console.log(general_form,promotion_jobs);
+                // const general_form_files = data.general_form_files;
+                const normalizedForm = {
+                    ...general_form,
+                    // effective_date: general_form.date_formatted ? formatLaravelStyleDate(general_form.date_formatted): '',
+      
+                    promotion_jobs: promotion_jobs.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1),
+                    // general_form_files
+                }
+                // console.log(price_change_branches.length, branchCountRef.current);
+                console.log(normalizedForm);
+                setForm(normalizedForm);
+
+                id = general_form.id;
+                runPromotion(normalizedForm);
+
             }catch(err){
+                console.log(err);
                 Swal.fire({
                     icon: "error",
                     title: "Form Submit Error!!",
                     text: "Something went wrong while while starting promotionjob.",
                 });
+                setRunning(false);
             }finally{
-                // setForceLoading(false);
-                // setIsSubmitting(false);
+                // setRunning(false);
             }
     };
-    
-    const runPromotion = async () => {
-        if (selectedBranches.length === 0) return;
 
-        setIsRunning(true);
-
-        // initialize status
-        const initial = selectedBranches.map(id => ({
-            id,
-            status: "pending"
+    const updateBranchStatus = (branchId, status, message = null) => {
+        setForm(prev => ({
+            ...prev,
+            promotion_jobs: prev.promotion_jobs.map(branch =>
+                branch.branch_id === branchId
+                    ? { ...branch, status, message }
+                    : branch
+            )
         }));
-        setBranchStatus(initial);
+    };
+    
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const runPromotion = async (latestForm = null) => {
+        const data = latestForm || form;
+
+        setRunning(true);
+
+        const promotion_jobs = data.promotion_jobs;
+        if (promotion_jobs.length === 0) return;
 
         // run all in parallel
-        const promises = selectedBranches.map(async (branchId) => {
+        const promises = promotion_jobs.map(async (promotion_job) => {
 
-            // mark running
-            setBranchStatus(prev =>
-                prev.map(b =>
-                    b.id === branchId ? { ...b, status: "running" } : b
-                )
-            );
+            let branchId = promotion_job.branch_id;
+            updateBranchStatus(branchId, "Running");
 
             try {
                 const res = await axios.post(
-                    `/api/run-promotion/${branchId}`,
+                    `/api/promotion_jobs/${id}/${branchId}/run_promotion`,
                     {},
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
 
-                // success
-                setBranchStatus(prev =>
-                    prev.map(b =>
-                        b.id === branchId
-                            ? { ...b, status: "success" }
-                            : b
-                    )
-                );
+                if (res.data?.success === false) {
+                    throw new Error(res?.data?.message);
+                }
+
+                await sleep(4000);
+                updateBranchStatus(branchId, res.data.status ,res.data.message);
+                return res;
+
 
             } catch (err) {
-                // fail
-                setBranchStatus(prev =>
-                    prev.map(b =>
-                        b.id === branchId
-                            ? { ...b, status: "fail" }
-                            : b
-                    )
+                console.log('There is an error in running branch promotion job:',err);
+                updateBranchStatus(
+                    branchId,
+                    "Failed",
+                    err.response?.data?.message || err.message
                 );
+                throw err;
             }
         });
 
         // wait all finish
         await Promise.all(promises);
+        // setRunning(false);
 
-        setIsRunning(false);
+        await Swal.fire({
+            icon: "success",
+            title: "All Branches Updated!",
+            text: "The latest promotions are now live across all locations.",
+            confirmButtonText: "Great!"
+        });
+        navigate('/promotion_jobs');
     };
+
 
     useEffect(()=>{
         fetchBranches();
@@ -304,21 +344,24 @@ export default function () {
 							</div>
 								
 							<div className="my-2 p-2 text-end">
-								<button
-                                        type="button"
-										className="w-auto px-4 py-2 text-sm rounded-lg
-											bg-blue-600 text-white
-											hover:bg-blue-700 transition"
-										value="Approved"
-                                        onClick={applyHandler}
-										>
-										Apply Branch
-								</button>
+                                {
+                                    <button
+                                            type="button"
+                                            className="w-auto px-4 py-2 text-sm rounded-lg
+                                                bg-blue-600 text-white
+                                                hover:bg-blue-700 transition"
+                                            value="Approved"
+                                            onClick={applyHandler}
+                                            disabled={running}
+                                            >
+                                            {running ? 'Running...' : 'Apply Branch'}
+                                    </button>
+                                }
 							</div>
 
 
 							{/* EMPTY STATE */}
-							{/* {!running && Object.keys(jobs).length === 0 && ( */}
+							{!running && !form?.promotion_jobs && (
 								<div className="flex flex-col items-center justify-center h-full text-center">
 
 									{/* Icon */}
@@ -380,7 +423,54 @@ export default function () {
 										</div>
 									</div>
 								</div>
-							{/* )} */}
+							)} 
+
+                            {form?.promotion_jobs?.length > 0  && (
+                            <ul className="space-y-3 overflow-y-auto max-h-[600px] p-2">
+                                {form?.promotion_jobs?.map((pjbranch) => (
+                                    <li
+                                    key={pjbranch}
+                                    className="flex items-center justify-between p-1 rounded-lg borders"
+                                    >
+                                    <span className="font-medium">
+                                        {pjbranch.branch?.branch_name}: {pjbranch.message} 
+                                        {/* {pjbranch.status}  */}
+                                    </span>
+                
+                
+                                    {/* Status */}
+                                    <div>
+                                    {(pjbranch.status.toLowerCase()  == "default" || pjbranch.status.toLowerCase() === "pending" ) && (
+                                        <span className="text-sm text-yellow-600">
+                                        ⏳ Pending
+                                        </span>
+                                    )}
+                
+                                    {pjbranch.status.toLowerCase() === "running" && (
+                                        <span className="text-sm text-blue-600">
+                                        <span className="text-xl animate-spin mr-1">🔄</span> Running...
+                                        </span>
+                                    )}
+                
+                                    {pjbranch.status.toLowerCase() === "success" && (
+                                        <span className="text-sm text-green-600">
+                                        ✔ Success
+                                        </span>
+                                    )}
+                
+                                    {pjbranch.status.toLowerCase() === "failed" && (
+                                        <span className="text-sm text-red-600">
+                                        ❌ Failed
+                                        </span>
+                                    )}
+                                    </div>
+                
+                                    </li>
+                                ))}
+                            </ul>
+                            )} 
+
+
                     </div>
                 </div>
                 
