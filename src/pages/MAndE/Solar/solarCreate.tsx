@@ -888,7 +888,7 @@ const SolarCreate: React.FC = () => {
                     className="flex flex-col gap-2 w-full"
                   >
                     <div className="flex items-center gap-2">
-                      <label>{index === 0 ? "Upload" : undefined}</label>
+                      <label>{index === 0 ? "Upload(Max uploads file 4)" : undefined}</label>
                       <span>
                         <FaStar className="text-red-400" />
                       </span>
