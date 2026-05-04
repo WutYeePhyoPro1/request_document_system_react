@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import Select from 'react-select'
 import { FiCopy,FiExternalLink } from 'react-icons/fi';
 import { FaSpinner,FaEye,FaSync } from "react-icons/fa";
-import {fetchPriceChanges,setFilter,clearFilters,isFiltersEmpty} from "./../../store/pricechangeSlice";
+import {fetchPromotionJobs,setFilter,clearFilters,isFiltersEmpty} from "./../../store/promotionJobSlice";
 import { dateFormat } from '../../utils/requestDiscountUtil/helper';
 
 
@@ -21,26 +21,20 @@ export default function IndexPriceChange() {
 
     const statusOptions = [
         { value: "Default", label: "Default" },
-        { value: "Ongoing", label: "Ongoing" },
-        { value: "Checked", label: "Checked" },
-        // { value: "Approved", label: "Approved" },
-        { value: "Partial", label: "Partial" },
-        { value: "Pass approval", label: "Pass approval" },
-        { value: "Already changed", label: "Already changed" },
-        { value: "Cancel", label: "Cancel" },
-        { value: "Approved", label: "Failed" },
+        { value: "Success", label: "Success" },
+        { value: "Failed", label: "Failed" },
     ];
     const [branches, setBranches] = useState([]);
     const [categories, setCategories] = useState([]);
 
-    const {loading,error,datas,filters,isSearchMode,paginationInfo} = useSelector((state)=>state.pricechanges)
+    const {loading,error,datas,filters,paginationInfo} = useSelector((state)=>state.promotionjobs)
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
     
     useEffect(()=>{
         console.log("Filter Empty:",isFiltersEmpty);
-        dispatch(fetchPriceChanges({filters}));
+        dispatch(fetchPromotionJobs({filters}));
     },[dispatch]);
 
 
@@ -69,7 +63,7 @@ export default function IndexPriceChange() {
 
     const handlePageClick = (page) => {
         if (page >= 1 && page <= paginationInfo.last_page) {
-            dispatch(fetchPriceChanges({filters,page}));
+            dispatch(fetchPromotionJobs({filters,page}));
         }
     };
 
@@ -106,12 +100,12 @@ export default function IndexPriceChange() {
 
     const searchHandler = (e)=>{
         e.preventDefault();
-        dispatch(fetchPriceChanges({filters}));
+        dispatch(fetchPromotionJobs({filters}));
     }
 
     const clearHandler = (e)=>{
         dispatch(clearFilters())
-        dispatch(fetchPriceChanges());
+        dispatch(fetchPromotionJobs());
     }
 
     return (
@@ -258,11 +252,30 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">Status</th>
                                             <th className="py-2 px-4 border-b">Requested By</th>
                                             <th className="py-2 px-4 border-b">Start Time</th>
-                                            <th className="py-2 px-4 border-b">Time Taken (ms)</th>
+                                            <th className="py-2 px-4 border-b">Total Branches</th>
+                                            {/* <th className="py-2 px-4 border-b">Time Taken (ms)</th> */}
                                         </tr>
                                     </thead>
                                     <tbody>
-                          
+                                            {
+                                                datas.map((data,idx)=>(
+                                                    <tr key={idx}
+                                                    onClick={() => user.from_branch_id === 1 && navigate(`/promotion_jobs_detail/${data.id}`)}
+                                                    className="group relative cursor-pointer hover:bg-[#efefef] transition"
+                                                    >
+                                                        <td className="py-2 px-4 border-b">
+                                                            {paginationInfo.from + idx}
+                                                        </td>
+                                                        <td className="py-2 px-4 border-b">#{data.id}</td>
+                                                        <td className="py-2 px-4 border-b">
+                                                            <StatusBadge status={data?.status ? (data?.status != 'Approved' ? data?.status : 'Failed') : ''} />
+                                                        </td>
+                                                        <td className="py-2 px-4 border-b">{data.originators.name}</td>
+                                                        <td className="py-2 px-4 border-b">{data.run_started_at}</td>
+                                                        <td className="py-2 px-4 border-b">{data.total_branches}</td>
+                                                    </tr>
+                                                )
+                                            )}
                                     </tbody>
                                 </table>
 
