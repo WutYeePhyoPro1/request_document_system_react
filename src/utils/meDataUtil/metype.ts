@@ -198,6 +198,23 @@ export interface meSolarDataType {
     total_load_kw_use?:number ,
     grid_kw_use?:number ,
     
+} 
+
+export interface meEvaDataType {
+   id?:number ,
+    eva_date ?: string ,
+    eva_time?:string ,
+    eva_time_ampm?: string ,
+    eva_size?:string,
+    pump1_water_pressure?:number ,
+    pump2_water_pressure?:number ,
+  pump_air_check?:string ,
+  pipe_leak_check?:string ,
+  water_level_check?:string ,
+  filter_wet_check?:string ,
+    remark?:string,
+ 
+    
 }
 
 export interface kvaData {
@@ -221,6 +238,12 @@ export interface TransformerEditResponse {
 
 export interface SolarEditResponse {
   editData: meSolarDataType;
+  files: FileItem[];
+   
+} 
+
+export interface EvaEditResponse {
+  editData: meEvaDataType;
   files: FileItem[];
    
 }

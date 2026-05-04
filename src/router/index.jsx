@@ -38,6 +38,10 @@ import SolarIndex from "../pages/MAndE/Solar/solarIndex.js";
 import SolarCreate from "../pages/MAndE/Solar/solarCreate.js";
 import SolarDetail from "../pages/MAndE/Solar/solarDetail.js";
 import SolarEdit from "../pages/MAndE/Solar/solarEdit.js";
+import EvaIndex from "../pages/MAndE/Eva/EvaIndex.js";
+import EvaCreate from "../pages/MAndE/Eva/EvaCreate.js";
+import EvaDetail from "../pages/MAndE/Eva/EvaDetail.js";
+import EvaEdit from "../pages/MAndE/Eva/EvaEdit.js";
 const LoginRoute = () => {
   const token = localStorage.getItem("token");
   return token ? <Navigate to="/dashboard" /> : <Login />;
@@ -197,6 +201,23 @@ const router = createBrowserRouter([
       {
         path: "solar_edit/:id",
         element: <SolarEdit />,
+      },
+
+      {
+        path: "evaporator/:id",
+        element: <EvaIndex />,
+      },
+      {
+        path: "evaporator_create",
+        element: <EvaCreate />,
+      },
+      {
+        path: "me_evaporator_detail/:id",
+        element: <EvaDetail />,
+      },
+      {
+        path: "evaporator_edit/:id",
+        element: <EvaEdit />,
       },
       {
         path: "price_changes",

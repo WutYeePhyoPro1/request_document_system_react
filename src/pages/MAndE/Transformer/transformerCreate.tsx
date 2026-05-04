@@ -46,6 +46,7 @@ const TransformerCreate: React.FC = () => {
   const { formId } = location.state || "";
   const { reAdd } = location.state || "";
   const { transformerFormId } = location.state || "";
+  console.log("Transformer Form ID:", transformerFormId);
   const [transformerUse, setTransformerUse] = useState<string>("use");
   const [serviceDate, setServiceDate] = useState<string>("");
   const [levelValue, setLevelValue] = useState<LevelType>({
@@ -911,7 +912,7 @@ const TransformerCreate: React.FC = () => {
                         </Menu>
                       </div>
 
-                      {index === 0 ? (
+                      {index === 0 && invoiceFile.length <= 3 ? (
                         <Button onClick={addInvoiceFile}>Add</Button>
                       ) : (
                         <Button

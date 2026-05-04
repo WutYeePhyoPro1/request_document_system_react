@@ -1080,7 +1080,7 @@ const GeneratorEdit: React.FC = () => {
                     </div>
 
                     {/* ADD / REMOVE BUTTON */}
-                    {index === 0 ? (
+                    {index === 0 && invoiceFile.length <= 3 ? (
                       <Button onClick={addInvoiceFile}>Add</Button>
                     ) : (
                       <Button

@@ -1123,7 +1123,7 @@ const GeneratorCreate: React.FC = () => {
                         </Menu>
                       </div>
 
-                      {index === 0 ? (
+                      {index === 0 && invoiceFile.length <= 3 ? (
                         <Button onClick={addInvoiceFile}>Add</Button>
                       ) : (
                         <Button
