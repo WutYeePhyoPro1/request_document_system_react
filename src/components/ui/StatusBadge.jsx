@@ -55,6 +55,8 @@ export default function StatusBadge({ status, count }) {
           return "bg-[#007bff1a] text-[#007bff]";
       case "failed":
              return "bg-[#fecaca] text-[#991b1b]";
+      case "success":
+        return "bg-[#adebbb] text-[#28a745]";
       default:
         return "bg-gray-200 text-gray-600";
     }

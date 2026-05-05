@@ -4,6 +4,7 @@ import approveReducer from "./approveSlice" ;
 import authReducer from "./authSlice";
 import pricechangeReducer from "./pricechangeSlice";
 import servertimeSlice from "./servertimeSlice";
+import promotionJobReducer from "./promotionJobSlice";
 
 
 const store = configureStore({
@@ -12,6 +13,7 @@ const store = configureStore({
       discount: discountReducer ,
       approve: approveReducer ,
       pricechanges: pricechangeReducer,
+      promotionjobs: promotionJobReducer,
       servertime: servertimeSlice,
   },
 });
