@@ -206,13 +206,14 @@ export interface meEvaDataType {
     eva_time?:string ,
     eva_time_ampm?: string ,
     eva_size?:string,
-    pump1_water_pressure?:number ,
-    pump2_water_pressure?:number ,
+    pump1_water_pressure?:string ,
+    pump2_water_pressure?:string ,
   pump_air_check?:string ,
   pipe_leak_check?:string ,
   water_level_check?:string ,
   filter_wet_check?:string ,
     remark?:string,
+    eva_use?:string ,
  
     
 }

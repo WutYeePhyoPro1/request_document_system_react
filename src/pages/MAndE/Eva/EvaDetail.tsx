@@ -141,7 +141,7 @@ const EvaDetail: React.FC = () => {
                       state={{
                         reAdd: true,
                         formId: detailData?.subForm?.sub_form_id,
-                        evaporatorFormId: detailData?.generalForm?.id,
+                        evaFormId: detailData?.generalForm?.id,
                       }}
                       to="/evaporator_create"
                     >

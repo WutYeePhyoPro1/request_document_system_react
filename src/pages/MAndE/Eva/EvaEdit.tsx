@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import {
   type FileItem,
+  type meEvaDataType,
   type meSolarDataType,
 } from "../../../utils/meDataUtil/metype";
 import Swal from "sweetalert2";
@@ -18,6 +19,11 @@ import {
   solarEditData,
   solarFileDelete,
 } from "../../../api/ME/solar";
+import {
+  evaEditData,
+  evaFileDelete,
+  getUpdateEvaData,
+} from "../../../api/ME/eva";
 
 const EvaEdit: React.FC = () => {
   const { id } = useParams();
@@ -28,24 +34,17 @@ const EvaEdit: React.FC = () => {
   ]);
 
   const [loading, setLoading] = useState<boolean>(false);
-  const [form, setForm] = useState<meSolarDataType>({
-    solar_date: "",
-    solar_time: "",
-    l1_level: 0,
-    l2_level: 0,
-    l3_level: 0,
-    voltagel_l_level: 0,
-    grid_kw_use: 0,
-    total_load_kw_use: 0,
-    // solar_size: "",
+  const [form, setForm] = useState<meEvaDataType>({
+    eva_date: "",
+    eva_time: "",
+    eva_size: "",
+    pump1_water_pressure: "",
+    pump2_water_pressure: "",
+    filter_wet_check: "",
+    pump_air_check: "",
+    pipe_leak_check: "",
+    water_level_check: "",
 
-    total_solar_output_Kw: 0,
-    solar_unit: 0,
-    check_inverter: "",
-    check_battery: "",
-    check_panel_temperature: "",
-
-    panel_cleaning_date: "",
     remark: "",
   });
   const [remark, setRemark] = useState<string>("");
@@ -58,18 +57,18 @@ const EvaEdit: React.FC = () => {
       if (!token) return;
       setLoading(true);
       try {
-        const res = await solarEditData(token, id);
+        const res = await evaEditData(token, id);
         console.log("ExistingFiles>>", res);
         const data = res?.editData;
         setForm({
           ...data,
-          solar_time: data?.solar_time ? data.solar_time.slice(0, 5) : "",
-          solar_use: data?.solar_use ?? "use",
+          eva_time: data?.eva_time ? data.eva_time.slice(0, 5) : "",
+          eva_use: data?.eva_use ?? "use",
         });
         setRemark(data.remark || "");
         setExistingFiles(res?.files || []);
       } catch (error) {
-        console.error("SolarDetail error:", error);
+        console.error("EvaDetail error:", error);
       } finally {
         setLoading(false);
       }
@@ -171,7 +170,7 @@ const EvaEdit: React.FC = () => {
   const deleteExistingFile = async (fileId: number | string | undefined) => {
     const confirm = await Swal.fire({
       title: "Delete file?",
-      text: "This cannot be undone",
+      text: "Are you sure want to delete.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
@@ -180,7 +179,7 @@ const EvaEdit: React.FC = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      await solarFileDelete(token, fileId);
+      await evaFileDelete(token, fileId);
       setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
       Swal.fire({
         icon: "success",
@@ -197,20 +196,15 @@ const EvaEdit: React.FC = () => {
     }
   };
   const validators = {
-    solar_date: "Date is required",
-    solar_time: "Time is required",
-    l1_level: "L1 is required",
-    l2_level: "L2 is required",
-    l3_level: "L3 is required",
-    voltagel_l_level: "Voltage l-L is required",
-    grid_kw_use: "Grid Kw Use is required",
-    total_load_kw_use: "Total Load Kw Use is required",
-    // solar_size: "Solar Size is required",
-    total_solar_output_Kw: "Output Kw is required",
-    solar_unit: "Solar Unit is required",
-    check_inverter: "Inverter checking is required",
-    check_battery: "Battery checking is required",
-    check_panel_temperature: "Panel Temperature is required",
+    eva_date: "Date is required",
+    eva_time: "Time is required",
+    eva_size: "Evaporators Size is required",
+    pump1_water_pressure: "Pump1 Water Pressure is required",
+    pump2_water_pressure: "Pump2 Water Pressure is required",
+    filter_wet_check: "Filter Wet Check is required",
+    pump_air_check: "Pump Air Check is required",
+    pipe_leak_check: "Pipe Leak Check is required",
+    water_level_check: "Water Level Check is required",
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -218,45 +212,18 @@ const EvaEdit: React.FC = () => {
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
 
-    const l1 = Number(formData.get("l1_level") || 0);
-    const l2 = Number(formData.get("l2_level") || 0);
-    const l3 = Number(formData.get("l3_level") || 0);
-    const outputKw = Number(formData.get("total_solar_output_Kw") || 0);
-    const solarUnit = Number(formData.get("solar_unit") || 0);
-    const gridKwUse = Number(formData.get("grid_kw_use") || 0);
-    const totalLoadKwUse = Number(formData.get("total_load_kw_use") || 0);
-    if (form.solar_use === "use") {
-      if (l1 === 0) missingFields.push("L1 must be greater than 0");
-      if (l2 === 0) missingFields.push("L2 must be greater than 0");
-      if (l3 === 0) missingFields.push("L3 must be greater than 0");
-      if (outputKw === 0)
-        missingFields.push("Output Kw must be greater than 0");
-      if (solarUnit === 0)
-        missingFields.push("Solar Unit must be greater than 0");
-      if (gridKwUse === 0)
-        missingFields.push("grid kw use must be greater than 0");
-      if (totalLoadKwUse === 0)
-        missingFields.push("total load kw use must be greater than 0");
-    }
-    const solarDate = form.solar_date;
+    const evaDate = form.eva_date;
 
-    if (solarDate) {
-      const selectedDate = new Date(solarDate.toString());
+    if (evaDate) {
+      const selectedDate = new Date(evaDate.toString());
       const today = new Date();
       // today.setHours(0, 0, 0, 0);
 
       if (selectedDate > today) {
-        missingFields.push("Solar Date cannot be greater than today");
+        missingFields.push("Eva Date cannot be greater than today");
       }
     }
     Object.entries(validators).forEach(([key, message]) => {
-      if (
-        form.solar_use === "no_use" &&
-        ["l1_level", "l2_level", "l3_level"].includes(key)
-      ) {
-        return;
-      }
-
       const value = formData.get(key);
 
       if (!value || value.toString().trim() === "") {
@@ -286,11 +253,11 @@ const EvaEdit: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      await getUpdateSolarData(token, formData, id);
+      await getUpdateEvaData(token, formData, id);
       Swal.fire({
         icon: "success",
         title: "Success",
-        text: "Solar data stored successfully",
+        text: "Eva data stored successfully",
       });
       formElement.reset(); // optional
       navigate(-1);
@@ -326,8 +293,8 @@ const EvaEdit: React.FC = () => {
         segments={[
           { path: "/dashboard", label: "Home" },
           {
-            path: `/me_solar_detail/${generalForm?.id}`,
-            label: "Solar Detail",
+            path: `/me_evaporator_detail/${generalForm?.id}`,
+            label: "Eva Detail",
           },
         ]}
       />
@@ -335,23 +302,23 @@ const EvaEdit: React.FC = () => {
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="radio"
-            name="solar_use"
+            name="eva_use"
             value="use"
-            checked={form.solar_use === "use"}
+            checked={form.eva_use === "use"}
             onChange={handleChange}
           />
-          Solar Run
+          Eva Run
         </label>
 
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="radio"
-            name="solar_use"
+            name="eva_use"
             value="no_use"
-            checked={form.solar_use === "no_use"}
+            checked={form.eva_use === "no_use"}
             onChange={handleChange}
           />
-          Solar Not Run
+          Eva Not Run
         </label>
       </div>
       <form
@@ -384,8 +351,8 @@ const EvaEdit: React.FC = () => {
               </div>
               <input
                 required
-                name="solar_date"
-                value={form.solar_date}
+                name="eva_date"
+                value={form.eva_date}
                 type="date"
                 onChange={handleChange}
                 max={new Date().toISOString().split("T")[0]}
@@ -406,8 +373,8 @@ const EvaEdit: React.FC = () => {
               />
               <input
                 type="hidden"
-                name="solar_use"
-                value={form.solar_use == "use" ? "use" : "no_use"}
+                name="eva_use"
+                value={form.eva_use == "use" ? "use" : "no_use"}
               />
             </div>
 
@@ -421,9 +388,9 @@ const EvaEdit: React.FC = () => {
               <input
                 type="time"
                 required
-                name="solar_time"
+                name="eva_time"
                 onChange={handleChange}
-                value={form.solar_time}
+                value={form.eva_time}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               />
@@ -431,301 +398,17 @@ const EvaEdit: React.FC = () => {
           </div>
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L1</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l1_level"
-                min="0"
-                max="999999"
-                value={form.solar_use === "no_use" ? 0 : form.l1_level}
-                disabled={form.solar_use === "no_use"}
-                required={form.solar_use == "use"}
-                onChange={handleLLevelChange}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{
-                  borderColor:
-                    form.solar_use === "use"
-                      ? "rgb(29, 137, 225)"
-                      : "rgb(207, 209, 197)",
-                }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L2</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l2_level"
-                min="0"
-                max="999999"
-                value={form.solar_use === "no_use" ? 0 : form.l2_level}
-                disabled={form.solar_use === "no_use"}
-                required={form.solar_use == "use"}
-                onChange={handleLLevelChange}
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{
-                  borderColor:
-                    form.solar_use === "use"
-                      ? "rgb(29, 137, 225)"
-                      : "rgb(207, 209, 197)",
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">L3</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="l3_level"
-                  min="0"
-                  max="999999"
-                  onInput={(e: any) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
-                  value={form.solar_use === "no_use" ? 0 : form.l3_level}
-                  disabled={form.solar_use === "no_use"}
-                  required={form.solar_use == "use"}
-                  onChange={handleLLevelChange}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{
-                    borderColor:
-                      form.solar_use === "use"
-                        ? "rgb(29, 137, 225)"
-                        : "rgb(207, 209, 197)",
-                  }}
-                />
-              </div>
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">VoltageL-L</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="text"
-                  name="voltagel_l_level"
-                  value={form?.voltagel_l_level}
-                  required
-                  min="0"
-                  max="999999"
-                  inputMode="decimal"
-                  onChange={(e: any) => {
-                    let value = e.target.value;
-                    value = value.replace(/[^0-9.]/g, "");
-
-                    const parts = value.split(".");
-                    if (parts.length > 2) return;
-                    if (parts[0].length > 6) {
-                      parts[0] = parts[0].slice(0, 6);
-                    }
-                    if (parts[1]) {
-                      parts[1] = parts[1].slice(0, 2);
-                    }
-
-                    setForm((prev: any) => ({
-                      ...prev,
-                      voltagel_l_level: parts.join("."),
-                    }));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Grid Kw Use</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="grid_kw_use"
-                  value={form.grid_kw_use}
-                  placeholder="Enter Grid Kw use for one day."
-                  onChange={handleLLevelChange}
-                  min="0"
-                  max="9999999"
-                  onInput={(e: any) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Total Load Kw Use</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="total_load_kw_use"
-                  value={form.total_load_kw_use}
-                  onChange={handleChange}
-                  placeholder="Enter total load Kw use for 1 day "
-                  min="0"
-                  max="9999999"
-                  onInput={(e: any) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Total Output Kw</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="total_solar_output_Kw"
-                  value={form.total_solar_output_Kw}
-                  onChange={handleChange}
-                  required
-                  min="0"
-                  max="9999999"
-                  onInput={(e: any) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Unit Day</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="solar_unit"
-                  value={form.solar_unit}
-                  onChange={handleChange}
-                  required
-                  min="0"
-                  max="9999999"
-                  onInput={(e: any) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Inverter Check</label>
+                  <label htmlFor="">Pump1 Water Pressure</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
                 </div>
                 <select
-                  name="check_inverter"
-                  value={form?.check_inverter}
+                  name="pump1_water_pressure"
+                  value={form?.pump1_water_pressure}
                   onChange={(e: any) => handleChange(e)}
                   id=""
                   className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
@@ -738,14 +421,36 @@ const EvaEdit: React.FC = () => {
               </div>
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Battery Check</label>
+                  <label htmlFor="">Pump2 Water Pressure</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
                 </div>
                 <select
-                  name="check_battery"
-                  value={form?.check_battery}
+                  name="pump2_water_pressure"
+                  value={form?.pump2_water_pressure}
+                  id=""
+                  onChange={(e: any) => handleChange(e)}
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Filter Wet Check</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <select
+                  name="filter_wet_check"
+                  value={form?.filter_wet_check}
                   onChange={(e: any) => handleChange(e)}
                   id=""
                   className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
@@ -759,14 +464,14 @@ const EvaEdit: React.FC = () => {
 
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor=""> SDP Panel temp Check </label>
+                  <label htmlFor="">Pump air check</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
                 </div>
                 <select
-                  name="check_panel_temperature"
-                  value={form?.check_panel_temperature}
+                  name="pump_air_check"
+                  value={form?.pump_air_check}
                   onChange={(e: any) => handleChange(e)}
                   id=""
                   className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
@@ -778,94 +483,53 @@ const EvaEdit: React.FC = () => {
                 </select>
               </div>
             </div>
-
-            {/* <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <label>Inverter Checking</label>
-                              <span>
-                                <FaStar className="text-red-400" />
-                              </span>
-                            </div>
-          
-                            <label className="flex items-center gap-2 mt-2">
-                              <input
-                                type="checkbox"
-                                name="check_inverter"
-                                value="Checked"
-                                className="w-4 h-4"
-                              />
-                              <span>Checked</span>
-                            </label>
-                          </div>
-          
-                          
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <label>Battery Checking</label>
-                              <span>
-                                <FaStar className="text-red-400" />
-                              </span>
-                            </div>
-          
-                            <label className="flex items-center gap-2 mt-2">
-                              <input
-                                type="checkbox"
-                                name="check_battery"
-                                value="Checked"
-                                className="w-4 h-4"
-                              />
-                              <span>Checked</span>
-                            </label>
-                          </div>
-          
-                       
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <label>Panel Temperature Checking</label>
-                              <span>
-                                <FaStar className="text-red-400" />
-                              </span>
-                            </div>
-          
-                            <label className="flex items-center gap-2 mt-2">
-                              <input
-                                type="checkbox"
-                                name="check_panel_temperature"
-                                value="Checked"
-                                className="w-4 h-4"
-                              />
-                              <span>Checked</span>
-                            </label>
-                          </div>
-                        </div> */}
           </div>
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
               <div className="">
-                <label htmlFor=""> Panel Cleaning Date</label>
-                <input
-                  type="date"
-                  name="panel_cleaning_date"
-                  value={form.panel_cleaning_date}
-                  onChange={handleChange}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Pipe Leak Check</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <select
+                  name="pipe_leak_check"
+                  value={form?.pipe_leak_check}
+                  id=""
+                  onChange={(e: any) => handleChange(e)}
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
+              </div>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Water Level Check</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <select
+                  name="water_level_check"
+                  value={form?.water_level_check}
+                  onChange={(e: any) => handleChange(e)}
+                  id=""
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
               </div>
             </div>
             <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor=""> Remark</label>
-                <span
-                  className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
-                >
-                  {remark.length}/{225}
-                </span>
-              </div>
-
+              <label htmlFor=""> Remark</label>
               <textarea
                 name="remark"
                 value={remark}
@@ -881,14 +545,45 @@ const EvaEdit: React.FC = () => {
               >
                 {form.remark}
               </textarea>
-              {isAtLimit && (
-                <span className="text-orange-600 text-xs font-semibold">
-                  Maximum limit of {225} characters reached.
+              <div className="flex justify-between mt-1 px-1">
+                <div className="h-4">
+                  {isAtLimit && (
+                    <span className="text-orange-600 text-xs font-semibold animate-pulse">
+                      Maximum limit of 225 characters reached.
+                    </span>
+                  )}
+                </div>
+
+                <span
+                  className={`text-xs font-mono ${remark?.length === 225 ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                >
+                  {remark?.length}/225
                 </span>
-              )}
+              </div>
             </div>
           </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6 ">
+
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6 items-start ">
+            <div className="mt-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Evaporators Size</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
+              <select
+                name="eva_size"
+                value={form?.eva_size}
+                onChange={(e: any) => handleChange(e)}
+                id=""
+                className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                style={{ borderColor: "rgb(29, 137, 225)" }}
+              >
+                <option value="">Choose Size</option>
+                <option value="Big">Big</option>
+                <option value="Small">Small</option>
+              </select>
+            </div>
             <div className="">
               {invoiceFile.map((fileField, index) => (
                 <div key={fileField.id} className="flex flex-col gap-2 w-full">
@@ -947,7 +642,7 @@ const EvaEdit: React.FC = () => {
                     </div>
 
                     {/* ADD / REMOVE BUTTON */}
-                    {index === 0 ? (
+                    {index === 0 && invoiceFile.length <= 3 ? (
                       <Button onClick={addInvoiceFile}>Add</Button>
                     ) : (
                       <Button

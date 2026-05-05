@@ -127,31 +127,32 @@ const EvaTableDetail: React.FC<TableDetailProps> = ({
             {dateFormat(element.eva_date)}
           </div>,
           <div className=" whitespace-nowrap">{element.eva_time_ampm}</div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {element.eva_size}
+          </div>,
 
           <div className="flex items-end justify-center w-full whitespace-nowrap">
-            {numberFormat(element.pump1_water_pressure)}
+            {element.pump1_water_pressure}
           </div>,
           // <div className=" flex items-center justify-center w-full whitespace-nowrap">
           //   {element.solar_size}
           // </div>,
           <div className="flex items-end justify-center w-full whitespace-nowrap">
-            {numberFormat(element.pump2_water_pressure)}
+            {element.pump2_water_pressure}
           </div>,
-          <div className="flex items-end justify-center w-full whitespace-nowrap">
-            {numberFormat(element.eva_size)}
-          </div>,
+
           // numberFormat(element.total_kw_level),
 
           // <div className="bg-red-600 whitespace-nowrap flex">
           <div className="flex items-end justify-center w-full whitespace-nowrap">
-            {numberFormat(element.pump_air_check)}
+            {element.pump_air_check}
             {/* </div> */}
           </div>,
           // numberFormat(element.total_kw_level),
 
           // <div className="bg-red-600 whitespace-nowrap flex">
           <div className="flex items-end justify-center w-full whitespace-nowrap">
-            {numberFormat(element.pipe_leak_check)}
+            {element.pipe_leak_check}
             {/* </div> */}
           </div>,
 

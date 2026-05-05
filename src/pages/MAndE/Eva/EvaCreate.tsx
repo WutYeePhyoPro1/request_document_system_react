@@ -163,13 +163,6 @@ const EvaCreate: React.FC = () => {
       }
     }
     Object.entries(validators).forEach(([key, message]) => {
-      if (
-        evaUse === "no_use" &&
-        ["l1_level", "l2_level", "l3_level"].includes(key)
-      ) {
-        return;
-      }
-
       const value = formData.get(key);
 
       if (!value || value.toString().trim() === "") {
@@ -567,9 +560,11 @@ const EvaCreate: React.FC = () => {
                     className="flex flex-col gap-2 w-full"
                   >
                     <div className="flex items-center gap-2">
-                      <label>{index === 0 ? "Upload" : undefined}</label>
+                      <label>
+                        {index === 0 ? "Upload(Max uploads file 4)" : undefined}
+                      </label>
                       <span>
-                        <FaStar className="text-red-400" />
+                        {index === 0 && <FaStar className="text-red-400" />}
                       </span>
                     </div>
 
@@ -626,7 +621,7 @@ const EvaCreate: React.FC = () => {
                         </Menu>
                       </div>
 
-                      {index === 0 ? (
+                      {index === 0 && invoiceFile.length <= 3 ? (
                         <Button onClick={addInvoiceFile}>Add</Button>
                       ) : (
                         <Button
