@@ -108,6 +108,8 @@ export default function IndexPriceChange() {
         dispatch(fetchPromotionJobs());
     }
 
+    const runner = user.from_branch_id == 1 && (user.department_id == 6 || user.department_id == 11 || user.department_id == 10) && user.role_name == "Approver";
+
     return (
         <>
             < div className="p-6 bg-white shadow-md rounded-lg" >
@@ -122,7 +124,7 @@ export default function IndexPriceChange() {
                     <div className="flex justify-between mr-4">
                         <h2 className="text-xl font-semibold ">Promotion Job Form</h2>
 
-                        { user.from_branch_id == 1 && (user.department_id == 6 || user.department_id == 11) &&
+                        { runner &&
                         <Link to="/promotion_jobs/create" className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
                             style={{
                                 backgroundColor: '#2ea2d1',
@@ -248,11 +250,10 @@ export default function IndexPriceChange() {
                                         <tr>
                                             {/* <th className="py-2 px-4 border-b">Action</th> */}
                                             <th className="py-2 px-4 border-b">No</th>
-                                            <th className="py-2 px-4 border-b">Job ID</th>
                                             <th className="py-2 px-4 border-b">Status</th>
-                                            <th className="py-2 px-4 border-b">Requested By</th>
-                                            <th className="py-2 px-4 border-b">Start Time</th>
-                                            <th className="py-2 px-4 border-b">Total Branches</th>
+                                            <th className="py-2 px-4 border-b">Run By</th>
+                                            <th className="py-2 px-4 border-b">Run Time</th>
+                                            <th className="text-rights py-2 px-4 border-b">Total Branches</th>
                                             {/* <th className="py-2 px-4 border-b">Time Taken (ms)</th> */}
                                         </tr>
                                     </thead>
@@ -266,13 +267,12 @@ export default function IndexPriceChange() {
                                                         <td className="py-2 px-4 border-b">
                                                             {paginationInfo.from + idx}
                                                         </td>
-                                                        <td className="py-2 px-4 border-b">#{data.id}</td>
                                                         <td className="py-2 px-4 border-b">
                                                             <StatusBadge status={data?.status ? (data?.status != 'Approved' ? data?.status : 'Failed') : ''} />
                                                         </td>
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.run_started_at}</td>
-                                                        <td className="py-2 px-4 border-b">{data.total_branches}</td>
+                                                        <td className="text-rights py-2 px-4 border-b">{data.total_branches}</td>
                                                     </tr>
                                                 )
                                             )}

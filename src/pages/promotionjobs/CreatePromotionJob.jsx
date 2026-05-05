@@ -43,7 +43,7 @@ export default function () {
         );
     };
 
-    const excludeBranchIds = [] || [1,16,18,19,20,21,22,14,15];
+    const excludeBranchIds = [1,16,18,19,20,21,22,14,15];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branchesall', {

@@ -5,9 +5,8 @@ import {formatDate,formatStrDateTime,formatTo2Decimals,formatLaravelStyleDate} f
 
 const API_URL =  `https://dummyjson.com/products?limit=`;
 
-const STORAGE_KEY = "pricechange_visible_columns";
 
-export const fetchPromotionJobs = createAsyncThunk( "property/fetchPriceChange", async({filters,page=1,searchQuery=''}={},{})=>{
+export const fetchPromotionJobs = createAsyncThunk( "promotionjobs/fetchPromotionJob", async({filters,page=1,searchQuery=''}={},{})=>{
      const token = localStorage.getItem('token');
 
      console.log(filters)
