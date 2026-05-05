@@ -27,16 +27,17 @@ export default function () {
 
     const [running,setRunning] = useState(false);
     const [form,setForm] = useState({});
+    // const [isEdit, setIsEdit] = useState(false);
+    const isEdit = !!form?.id;
+
     
     const [cooldown, setCooldown] = useState(0);
 
     const [searchItem,setSearchItem] = useState("");
     const [filteredBranches,setFilteredBranches] = useState([]);
 
-    let id = null;
-
-
     const toggleBranch = (id) => {
+        if(isEdit) return;
         setSelectedBranches((prev) =>
             prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
         );
@@ -146,7 +147,6 @@ export default function () {
                     console.log(normalizedForm);
                     setForm(normalizedForm);
 
-                    id = general_form.id;
                     runPromotion(normalizedForm);
                 }else{
                     runPromotion();
@@ -180,6 +180,7 @@ export default function () {
 
     const runPromotion = async (latestForm = null) => {
         const data = latestForm || form;
+        const id = data.id;
 
         setRunning(true);
 
@@ -199,16 +200,14 @@ export default function () {
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
 
+                console.log(res.data);
                 if (res.data?.success === false) {
                     throw new Error(res?.data?.message);
                 }
 
                 // await sleep(4000);
                 updateBranchStatus(branchId, res.data.status ,res.data.message);
-                setForm(prev => ({
-                    ...prev,
-                    status: "Success"
-                }));
+
                 return res;
             } catch (err) {
                 console.log('There is an error in running branch promotion job:',err);
@@ -228,6 +227,10 @@ export default function () {
 
         // wait all finish
         await Promise.all(promises);
+        setForm(prev => ({
+            ...prev,
+            status: "Success"
+        }));
         
         await Swal.fire({
             icon: "success",
@@ -330,10 +333,10 @@ export default function () {
                             <path d="M19.1 4.9C23 8.8 23 15.1 19.1 19" />
                         </svg> 
                         Promotion Job Runner
-                        {/* {
+                        {
                             form?.status &&
                             <StatusBadge status={form?.status ? (form?.status != 'Approved' ? form?.status : 'Failed') : ''} />
-                        } */}
+                        }
                     </h1>
     
                     <Link
@@ -355,6 +358,7 @@ export default function () {
 
                             <button
                                 onClick={(e) =>{
+                                    if(isEdit) return;
                                     selectedBranches.length === branches.length
                                         ? setSelectedBranches([])
                                         : setSelectedBranches(branches.map((b) => b.id))

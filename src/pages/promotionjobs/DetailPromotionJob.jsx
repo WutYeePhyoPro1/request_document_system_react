@@ -123,6 +123,7 @@ export default function () {
 
     const runPromotion = async (latestForm = null) => {
         const data = latestForm || form;
+        // const id = data.id;
 
         setRunning(true);
 
@@ -158,6 +159,10 @@ export default function () {
                     "Failed",
                     err.response?.data?.message || err.message
                 );
+                setForm(prev => ({
+                    ...prev,
+                    status: "Failed"
+                }));
                 setRunning(false);
                 throw err;
             }
@@ -165,6 +170,10 @@ export default function () {
 
         // wait all finish
         await Promise.all(promises);
+        setForm(prev => ({
+            ...prev,
+            status: "Success"
+        }));
 
         await Swal.fire({
             icon: "success",
