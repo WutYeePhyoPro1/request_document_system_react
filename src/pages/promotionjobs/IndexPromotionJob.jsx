@@ -20,7 +20,7 @@ export default function IndexPriceChange() {
     console.log(user);
 
     const statusOptions = [
-        { value: "Default", label: "Default" },
+        // { value: "Default", label: "Default" },
         { value: "Success", label: "Success" },
         { value: "Failed", label: "Failed" },
     ];
@@ -254,6 +254,7 @@ export default function IndexPriceChange() {
                                             <th className="py-2 px-4 border-b">Run By</th>
                                             <th className="py-2 px-4 border-b">Run Time</th>
                                             <th className="text-rights py-2 px-4 border-b">Total Branches</th>
+                                            <th className="text-rights py-2 px-4 border-b">Failed Branches</th>
                                             {/* <th className="py-2 px-4 border-b">Time Taken (ms)</th> */}
                                         </tr>
                                     </thead>
@@ -273,6 +274,7 @@ export default function IndexPriceChange() {
                                                         <td className="py-2 px-4 border-b">{data.originators.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.run_started_at}</td>
                                                         <td className="text-rights py-2 px-4 border-b">{data.total_branches}</td>
+                                                        <td className="text-rights py-2 px-4 border-b">{data.failed_branches.length == 0 ? '-' : data.failed_branches.length}</td>
                                                     </tr>
                                                 )
                                             )}

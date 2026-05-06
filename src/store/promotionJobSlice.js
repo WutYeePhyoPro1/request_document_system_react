@@ -91,6 +91,7 @@ const promotionJobSlice = createSlice({
                         ...item,
                          created_at: formatLaravelStyleDate(item.created_at,'Y-m-d H:i:s'),
                          run_started_at: formatLaravelStyleDate(item.run_started_at,'Y-m-d H:i:s'),
+                         failed_branches: item.promotion_jobs.filter((promotion_job)=>promotion_job.status == 'Failed')
                     }))
                     console.log(action.payload.data.data)
 

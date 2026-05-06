@@ -336,6 +336,18 @@ export default function () {
         
                         <Link
                             to="/promotion_jobs"
+                            onClick={(e) => {
+                                if (running) {
+                                    e.preventDefault(); // stop navigation
+    
+                                    Swal.fire({
+                                        icon: "warning",
+                                        title: "Promotion Job is Running",
+                                        text: "Please wait until all branches finish.",
+                                        confirmButtonText: "OK"
+                                    });
+                                }
+                            }}
                             className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
                         >
                             <span className="mr-1 sm:mr-2">←</span> Back
