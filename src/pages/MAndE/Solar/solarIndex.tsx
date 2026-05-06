@@ -2,11 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import NavPath from "../../../components/NavPath";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { MultiSelect, Pagination, Select, Table, Loader } from "@mantine/core";
-import {
-  type metaData,
-  type indexData,
-} from "../../../utils/requestDiscountUtil";
-import { generalGeneratorData } from "../../../api/ME/Generator/generatos";
+import type { indexData, metaData } from "../../../utils/requestDiscountUtil";
 import { parse } from "uuid";
 import { FiCopy } from "react-icons/fi";
 import { AiFillMessage } from "react-icons/ai";
@@ -16,11 +12,13 @@ import {
   handleCopy,
 } from "../../../utils/requestDiscountUtil/helper";
 import Swal from "sweetalert2";
-import { searchMeData } from "../../../api/ME/meData";
 import TsStatusBadge from "../../../components/ui/TsStatusBadge";
+import { generalSolarData, searchSolarData } from "../../../api/ME/solar";
+// src/assets/css/style.css
 
-const Index: React.FC = () => {
-  const formId = 1;
+const solarIndex: React.FC = () => {
+  const formId = 3;
+
   const [generalData, setGeneralData] = useState<{
     meta?: metaData;
     data: indexData[];
@@ -41,21 +39,22 @@ const Index: React.FC = () => {
     const [y, m, d] = val.split("-");
     return `${d}-${m}-${y}`;
   };
+  console.log("GeneralData", generalData);
   useEffect(() => {
-    const cached = sessionStorage.getItem("generator_cache");
+    const cached = sessionStorage.getItem("solar_cache");
     if (cached) {
       const parsed = JSON.parse(cached);
       parsed.activePage = activePage;
-      sessionStorage.setItem("generator_cache", JSON.stringify(parsed));
+      sessionStorage.setItem("solar_cache", JSON.stringify(parsed));
     }
   }, [activePage]);
   useEffect(() => {
-    const cached = sessionStorage.getItem("generator_cache");
+    const cached = sessionStorage.getItem("solar_cache");
     const token = localStorage.getItem("token");
     if (!token) return;
     if (cached) {
       const parsed = JSON.parse(cached);
-      generalGeneratorData(token)
+      generalSolarData(token)
         .then((data) => {
           setGeneralData({
             meta: {
@@ -83,7 +82,7 @@ const Index: React.FC = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const data = await generalGeneratorData(token);
+      const data = await generalSolarData(token);
       setGeneralData({
         meta: {
           authenticatedUser: data?.authenticatedUser,
@@ -102,6 +101,8 @@ const Index: React.FC = () => {
       setLoading(false);
     }
   };
+  console.log("SearchTerm>>", generalData);
+  console.log("createdUser>>", generalData?.meta?.createdUser);
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setSearchTerm((prev) => ({ ...prev, [name]: value }));
@@ -120,7 +121,7 @@ const Index: React.FC = () => {
     }
   };
   const handleBranchChange = (value: any) => {
-    setSearchTerm((prev) => ({ ...prev, branch_id: value }));
+    setSearchTerm((prev: any) => ({ ...prev, branch_id: value }));
   };
   const navigate = useNavigate();
   const handleSearch = async () => {
@@ -148,13 +149,13 @@ const Index: React.FC = () => {
       return;
     }
     setLoading(true);
-
+    // console.log("SeaarchTerm>>", searchTerm) ;
     try {
-      const results = await searchMeData(token, searchTerm);
+      const results = await searchSolarData(token, searchTerm);
 
       // Store cache only when user searches
       sessionStorage.setItem(
-        "generator_cache",
+        "solar_cache",
         JSON.stringify({
           data: results.data,
           searchTerm,
@@ -172,7 +173,7 @@ const Index: React.FC = () => {
     }
   };
   const handleRestart = async () => {
-    sessionStorage.removeItem("generator_cache");
+    sessionStorage.removeItem("solar_cache");
 
     setSearchTerm({
       form_doc_no: "",
@@ -188,7 +189,7 @@ const Index: React.FC = () => {
     setLoading(true);
     await fetchData();
 
-    navigate(`/generator/${formId}`, { replace: true });
+    navigate(`/solar/${formId}`, { replace: true });
   };
   const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
@@ -202,11 +203,12 @@ const Index: React.FC = () => {
   const rows = useMemo(() => {
     return paginatedData?.map((element: indexData, index: number) => {
       const isCopied = copied === element.id;
+
       const hasUnreadNotification = generalData?.meta?.noti_data?.some(
         (item: indexData) =>
-          element.id === item.specific_form_id &&
-          element.form_id === item.form_id &&
-          element.form_doc_no === item.form_doc_no,
+          element.id === item?.specific_form_id &&
+          element.form_id === item?.form_id &&
+          element.form_doc_no === item?.form_doc_no,
       );
 
       return (
@@ -225,10 +227,10 @@ const Index: React.FC = () => {
           </Table.Td>
           <Table.Td className="flex flex-justify gap-3 items-center">
             <Link
-              to={`/me_generator_detail/${element.id}`}
+              to={`/me_solar_detail/${element.id ?? ""}`}
               className="contents"
             >
-              {element.form_doc_no}
+              {element.form_doc_no ?? "-"}
             </Link>
 
             <button
@@ -237,7 +239,7 @@ const Index: React.FC = () => {
                 handleCopy(
                   element.form_doc_no,
                   () => {
-                    setCopied(element.id);
+                    if (element.id) setCopied(element.id);
                     setTimeout(() => setCopied(null), 2000);
                   },
                   (err) => console.log("Copy Failed:", err),
@@ -257,10 +259,13 @@ const Index: React.FC = () => {
               <AiFillMessage className="text-red-400 w-4 h-4" />
             )}
           </Table.Td>
-          <Link to={`/me_generator_detail/${element.id}`} className="contents">
-            <Table.Td>{element.from_branches?.branch_name}</Table.Td>
-            <Table.Td>{element.originators?.name}</Table.Td>
 
+          <Link
+            to={`/me_solar_detail/${element.id ?? ""}`}
+            className="contents"
+          >
+            <Table.Td>{element.from_branches?.branch_name ?? "-"}</Table.Td>
+            <Table.Td>{element.originators?.name ?? "-"}</Table.Td>
             <Table.Td>{dateFormat(element.created_at)}</Table.Td>
             <Table.Td>{dateTimeFormat(element.updated_at)}</Table.Td>
             <Table.Td className="text-blue-600 font-medium underline">
@@ -292,16 +297,16 @@ const Index: React.FC = () => {
             { path: "/dashboard", label: "Home" },
             { path: "/dashboard", label: "Dashboard" },
             { path: "/m_and_e", label: "M And E" },
-            { path: `/generator/${formId}`, label: "Generator" },
+            { path: `/solar/${formId}`, label: "Solar" },
           ]}
         />
         <div className="flex justify-between mr-4">
-          <h2 className="text-xl font-semibold">Generator Form</h2>
+          <h2 className="text-xl font-semibold">Solar Form</h2>
           {generalData?.meta?.createdUser === true && (
             <Link
-              to="/generator_create"
+              to="/solar_create"
               state={{ formId: formId }}
-              className="text-white font-bold py-2 px-4 rounded cursor-pointer text-sm"
+              className="text-white fonr-bold py-2 px-4 rounded cursor-pointer text-sm"
               style={{ background: "#2ea2d1" }}
               onMouseEnter={(e: any) =>
                 (e.target.style.backgroundColor = "#6fc3df")
@@ -439,20 +444,46 @@ const Index: React.FC = () => {
               />
             </div>
           </div>
+          {generalData?.meta?.authenticatedUser?.role_id == 1 ? (
+            <div className="flex flex-col">
+              <label
+                htmlFor="status"
+                className="mb-1 font-medium text-gray-700"
+              >
+                Status
+              </label>
+              <MultiSelect
+                id="status"
+                placeholder={
+                  searchTerm.status.length > 0 ? "" : "Select Status"
+                }
+                data={["All", "Default", "Ongoing", "Completed", "Cancel"]}
+                className="border border-blue-500 focus:outline-none w-full rounded-md"
+                value={searchTerm.status}
+                onChange={handleStatusChange}
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col">
+              <label
+                htmlFor="status"
+                className="mb-1 font-medium text-gray-700"
+              >
+                Status
+              </label>
+              <MultiSelect
+                id="status"
+                placeholder={
+                  searchTerm.status.length > 0 ? "" : "Select Status"
+                }
+                data={["All", "Ongoing", "Completed", "Cancel"]}
+                className="border border-blue-500 focus:outline-none w-full rounded-md"
+                value={searchTerm.status}
+                onChange={handleStatusChange}
+              />
+            </div>
+          )}
 
-          <div className="flex flex-col">
-            <label htmlFor="status" className="mb-1 font-medium text-gray-700">
-              Status
-            </label>
-            <MultiSelect
-              id="status"
-              placeholder={searchTerm.status.length > 0 ? "" : "Select Status"}
-              data={["All", "Default", "Ongoing", "Completed", "Cancel"]}
-              className="border border-blue-500 focus:outline-none w-full rounded-md"
-              value={searchTerm.status}
-              onChange={handleStatusChange}
-            />
-          </div>
           <div className="flex flex-col">
             <label htmlFor="status" className="mb-1 font-medium text-gray-700">
               Branch
@@ -471,7 +502,7 @@ const Index: React.FC = () => {
                   label: item.branch_name,
                 }))}
                 onChange={handleBranchChange}
-                placeholder="Select Status"
+                placeholder="Select Branch"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
               />
             ) : (
@@ -488,7 +519,7 @@ const Index: React.FC = () => {
                   }),
                 )}
                 onChange={handleBranchChange}
-                placeholder="Select Status"
+                placeholder="Select Branch"
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
               />
             )}
@@ -567,4 +598,4 @@ const Index: React.FC = () => {
   );
 };
 
-export default Index;
+export default solarIndex;

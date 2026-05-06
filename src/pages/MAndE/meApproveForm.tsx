@@ -1,16 +1,16 @@
 import React, { useContext, useState } from "react";
 import { approveFormME } from "../../api/ME/meData";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Button, Textarea } from "@mantine/core";
 import Swal from "sweetalert2";
 import { NotificationContext } from "../../context/NotificationContext";
 import { useNavigate } from "react-router-dom";
+import type { meGeneratorDataType } from "../../utils/meDataUtil/metype";
 
 type MeApproveFormProps = {
-  detailData: meGeneratorDataType;
+  detailData?: meGeneratorDataType; // make optional
   onRefresh: () => void;
-  loading: (value: boolean) => void;
-  setLoading: (value: boolean) => void;
+  loading: boolean;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 const MeApproveForm: React.FC<MeApproveFormProps> = ({

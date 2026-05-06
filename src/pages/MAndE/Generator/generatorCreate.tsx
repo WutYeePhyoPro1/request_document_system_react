@@ -18,18 +18,22 @@ import {
   IconPhoto,
   IconX,
 } from "@tabler/icons-react";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
 import { Check, FilesIcon, Text } from "lucide-react";
 import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
+import type {
+  kvaData,
+  meGeneratorDataType,
+} from "../../../utils/meDataUtil/metype";
 import Swal from "sweetalert2";
 import { m } from "framer-motion";
 import { getStoreGeneratorData } from "../../../api/ME/Generator/generatos";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
+import { getCommonData } from "../../../api/ME/meData";
 
 const GeneratorCreate: React.FC = () => {
   type LevelType = {
@@ -50,15 +54,42 @@ const GeneratorCreate: React.FC = () => {
   });
   const [remark, setRemark] = useState<string>("");
 
-  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile>([
-    { id: uuidv4(), file: null },
+  const [invoiceFile, setInvoiceFile] = useState<InvoiceFile[]>([
+    { id: uuidv4(), file: null, preview: null, type: null, name: null },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [kva, setKva] = useState<kvaData[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      setLoading(true);
+
+      try {
+        const commonData = await getCommonData(token);
+        setKva(commonData?.data);
+      } catch (error) {
+        console.error("Error fetching check item data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const kvaOptions = kva.map((item) => ({
+    value: String(item.kva),
+    label: String(item.kva),
+  }));
+
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
       {
-        id: Date.now(),
+        id: uuidv4(),
         file: null,
         preview: null,
         type: null,
@@ -66,7 +97,7 @@ const GeneratorCreate: React.FC = () => {
       },
     ]);
   };
-  const removeInvoiceFile = (id) => {
+  const removeInvoiceFile = (id: string | number) => {
     setInvoiceFile((prev) =>
       prev.filter((item) => {
         if (item.id === id && item.preview) {
@@ -76,7 +107,7 @@ const GeneratorCreate: React.FC = () => {
       }),
     );
   };
-  const updateFile = (id, file) => {
+  const updateFile = (id: string | number, file: File | null) => {
     setInvoiceFile((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
@@ -125,7 +156,11 @@ const GeneratorCreate: React.FC = () => {
   const handleBack = () => {
     navigate(-1);
   };
-  const handleSubmit = async (btnStatus: string) => {
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    btnStatus: string,
+  ) => {
+    e.preventDefault();
     if (btnStatus == "Ongoing") {
       const confirmBox = await Swal.fire({
         title: "Are you sure",
@@ -144,6 +179,14 @@ const GeneratorCreate: React.FC = () => {
     const missingFields: string[] = [];
     formData.append("btn_status", btnStatus);
     // validation
+    const l1 = Number(formData.get("l1_level") || 0);
+    const l2 = Number(formData.get("l2_level") || 0);
+    const l3 = Number(formData.get("l3_level") || 0);
+    if (generatorUse === "use") {
+      if (l1 === 0) missingFields.push("L1 must be greater than 0");
+      if (l2 === 0) missingFields.push("L2 must be greater than 0");
+      if (l3 === 0) missingFields.push("L3 must be greater than 0");
+    }
     Object.entries(validators).forEach(([key, message]) => {
       if (
         generatorUse === "no_use" &&
@@ -250,18 +293,39 @@ const GeneratorCreate: React.FC = () => {
     }
   };
   // Add a function to trigger the specific type of upload
-  const handleUploadChoice = (choice, fileFieldId) => {
+  // const handleUploadChoice = (choice, fileFieldId) => {
+  //   const input = document.createElement("input");
+  //   input.type = "file";
+  //   input.accept = "image/*";
+
+  //   // If user chooses camera, we add the capture attribute
+  //   if (choice === "camera") {
+  //     input.setAttribute("capture", "environment"); // 'user' for front cam, 'environment' for back
+  //   }
+
+  //   input.onchange = (e) => {
+  //     updateFile(fileFieldId, e.target.files?.[0] || null);
+  //   };
+
+  //   input.click();
+  // };
+  const handleUploadChoice = (
+    choice: "camera" | "gallery",
+    fileFieldId: string,
+  ) => {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
 
-    // If user chooses camera, we add the capture attribute
     if (choice === "camera") {
-      input.setAttribute("capture", "environment"); // 'user' for front cam, 'environment' for back
+      input.setAttribute("capture", "environment");
     }
 
-    input.onchange = (e) => {
-      updateFile(fileFieldId, e.target.files?.[0] || null);
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0] || null;
+
+      updateFile(fileFieldId, file);
     };
 
     input.click();
@@ -373,7 +437,7 @@ const GeneratorCreate: React.FC = () => {
       </div>
 
       <form
-        onSubmit={handleSubmit}
+        onSubmit={(e) => handleSubmit(e, "Default")}
         className=" 
           relative
           overflow-hidden
@@ -477,7 +541,7 @@ const GeneratorCreate: React.FC = () => {
                     min="1"
                     max="100"
                     defaultValue={100}
-                    onInput={(e) => {
+                    onInput={(e: any) => {
                       let value = e.target.value;
 
                       if (value > 100) e.target.value = 100;
@@ -511,7 +575,7 @@ const GeneratorCreate: React.FC = () => {
                         e.preventDefault();
                       }
                     }}
-                    onInput={(e) => {
+                    onInput={(e: any) => {
                       let value = Number(e.target.value);
                       if (value > 100) e.target.value = 100;
                       if (value < 1 && e.target.value !== "")
@@ -557,7 +621,7 @@ const GeneratorCreate: React.FC = () => {
                     style={{ borderColor: "rgb(29, 137, 225)" }}
                   >
                     <option value="">Choose Kva</option>
-                    <option value="550">550</option>
+                    {/* <option value="550">550</option>
                     <option value="400">400</option>
                     <option value="375">375</option>
                     <option value="165">165</option>
@@ -566,7 +630,13 @@ const GeneratorCreate: React.FC = () => {
                     <option value="80">80</option>
                     <option value="60">60</option>
                     <option value="30">30</option>
-                    <option value="25">25</option>
+                    <option value="25">25</option> */}
+                    {kvaOptions &&
+                      kvaOptions.map((item) => (
+                        <option key={item.value} value={item.value}>
+                          {item.label}
+                        </option>
+                      ))}
                   </select>
                 </div>
                 <div className="">
@@ -582,7 +652,7 @@ const GeneratorCreate: React.FC = () => {
                     required
                     step="0.01"
                     inputMode="decimal"
-                    onChange={(e) => {
+                    onChange={(e: any) => {
                       let value = e.target.value;
 
                       value = value.replace(/[^0-9.]/g, "");
@@ -632,11 +702,14 @@ const GeneratorCreate: React.FC = () => {
                   min={0}
                   max={9999999}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
                     if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l1Value: Number(val),
+                        l1Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -673,11 +746,14 @@ const GeneratorCreate: React.FC = () => {
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
                     if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l2Value: Number(val),
+                        l2Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -712,11 +788,14 @@ const GeneratorCreate: React.FC = () => {
                   disabled={generatorUse === "no_use"}
                   required={generatorUse == "use"}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
                     if (val.length <= 6) {
                       setLevelValue((prev) => ({
                         ...prev,
-                        l3Value: Number(val),
+                        l3Value: val === "" ? "" : Number(val),
                       }));
                     }
                   }}
@@ -780,7 +859,7 @@ const GeneratorCreate: React.FC = () => {
                   required
                   min="0"
                   max="9999999"
-                  onInput={(e) => {
+                  onInput={(e: any) => {
                     if (e.target.value.length > 6) {
                       e.target.value = e.target.value.slice(0, 6);
                     }
@@ -806,7 +885,7 @@ const GeneratorCreate: React.FC = () => {
                   type="text"
                   name="running_hour"
                   inputMode="decimal"
-                  onChange={(e) => {
+                  onChange={(e: any) => {
                     let value = e.target.value;
 
                     value = value.replace(/[^0-9.]/g, "");
@@ -861,7 +940,7 @@ const GeneratorCreate: React.FC = () => {
                       e.preventDefault();
                     }
                   }}
-                  onInput={(e) => {
+                  onInput={(e: any) => {
                     let value = e.target.value;
 
                     if (value > 100) e.target.value = 100;
@@ -904,7 +983,7 @@ const GeneratorCreate: React.FC = () => {
                       name="cost"
                       required
                       inputMode="decimal"
-                      onChange={(e) => {
+                      onChange={(e: any) => {
                         let value = e.target.value;
 
                         value = value.replace(/[^0-9.]/g, "");
@@ -985,7 +1064,7 @@ const GeneratorCreate: React.FC = () => {
                     className="flex flex-col gap-2 w-full"
                   >
                     <div className="flex items-center gap-2">
-                      <label>{index === 0 ? "Upload" : undefined}</label>
+                      <label>{index === 0 ? "Upload(Max uploads file 4)" : undefined}</label>
                       <span>
                         <FaStar className="text-red-400" />
                       </span>
@@ -1013,7 +1092,7 @@ const GeneratorCreate: React.FC = () => {
                               style={{ borderColor: "rgb(29, 137, 225)" }}
                             >
                               {fileField.name ? (
-                                <Text truncate>{fileField.name}</Text>
+                                <Text>{fileField.name}</Text>
                               ) : (
                                 <Text color="dimmed">Tap to upload...</Text>
                               )}
@@ -1024,7 +1103,7 @@ const GeneratorCreate: React.FC = () => {
                             <Menu.Label>Choose Source</Menu.Label>
 
                             <Menu.Item
-                              icon={<IconCamera size={16} />}
+                              // icon={<IconCamera size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "camera")
                               }
@@ -1033,7 +1112,7 @@ const GeneratorCreate: React.FC = () => {
                             </Menu.Item>
 
                             <Menu.Item
-                              icon={<IconPhoto size={16} />}
+                              // icon={<IconPhoto size={16} />}
                               onClick={() =>
                                 handleCaptureChoice(fileField.id, "gallery")
                               }
@@ -1044,7 +1123,7 @@ const GeneratorCreate: React.FC = () => {
                         </Menu>
                       </div>
 
-                      {index === 0 ? (
+                      {index === 0 && invoiceFile.length <= 3 ? (
                         <Button onClick={addInvoiceFile}>Add</Button>
                       ) : (
                         <Button
@@ -1068,12 +1147,12 @@ const GeneratorCreate: React.FC = () => {
                         {/* IMAGE */}
                         {fileField.type === "image" && (
                           <a
-                            href={fileField.preview}
+                            href={fileField.preview ?? ""}
                             target="_blank"
                             rel="noreferrer"
                           >
                             <img
-                              src={fileField.preview}
+                              src={fileField.preview ?? ""}
                               alt="Preview"
                               className="w-40  object-cover rounded"
                             />
@@ -1083,7 +1162,7 @@ const GeneratorCreate: React.FC = () => {
                         {/* PDF */}
                         {fileField.type === "pdf" && (
                           <a
-                            href={fileField.preview}
+                            href={fileField.preview ?? ""}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex flex-col items-center gap-1"
@@ -1114,7 +1193,7 @@ const GeneratorCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -1135,7 +1214,7 @@ const GeneratorCreate: React.FC = () => {
               <div className="flex lg:justify-center md:justify-center  gap-4 lg:gap-12 md:gap-12 flex-wrap">
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Default")}
+                  onClick={(e: any) => handleSubmit(e, "Default")}
                   disabled={loading}
                   color="green"
                   radius="md"
@@ -1145,7 +1224,7 @@ const GeneratorCreate: React.FC = () => {
 
                 <Button
                   type="button"
-                  onClick={() => handleSubmit("Ongoing")}
+                  onClick={(e: any) => handleSubmit(e, "Ongoing")}
                   disabled={loading}
                   color="blue"
                   radius="md"

@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
+import type { editDataResponse, FileItem, meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 
 const API = axios.create({
     baseURL: "/api" ,
@@ -18,7 +18,7 @@ export const generalGeneratorData = async(token:string) => {
     }
 }
 
-export const getStoreGeneratorData = async (token:string | null , formData:meGeneratorDataType)=>{
+export const getStoreGeneratorData = async (token:string | null , formData:FormData)=>{
   return API.post(`/me/generator/store` , formData , {
     headers: {
       Authorization: `Bearer ${token}` ,
@@ -26,7 +26,7 @@ export const getStoreGeneratorData = async (token:string | null , formData:meGen
     },
   });
 };
-export const getUpdateGeneratorData = async (token:string | null , formData:meGeneratorDataType , id:string)=>{
+export const getUpdateGeneratorData = async (token:string | null , formData:FormData , id:string | undefined)=>{
   return API.post(`/me/generator/update/${id}` , formData , {
     headers: {
       Authorization: `Bearer ${token}` ,
@@ -34,7 +34,7 @@ export const getUpdateGeneratorData = async (token:string | null , formData:meGe
     },
   });
 };
-export const generatorDataDetail = async(token:string , id:string) : Promise<meGeneratorDataType >=> {
+export const generatorDataDetail = async(token:string , id:string) : Promise<editDataResponse >=> {
   try {
     const response = await API.get(`/me/generator/edit/${id}` , {
       headers : {Authorization: `Bearer ${token}`} ,
@@ -43,10 +43,10 @@ export const generatorDataDetail = async(token:string , id:string) : Promise<meG
     return response.data;
   } catch (error) {
     console.error("meDataDetail error:", error);
-    return null;
+    throw error;
   }
 }
-export const generatorFileDelete = async(token:string , id:string) : Promise<meGeneratorDataType >=> {
+export const generatorFileDelete = async(token:string , id:string|number) : Promise<FileItem >=> {
   try {
     const response = await API.get(`/me/generator/deleteFile/${id}` , {
       headers : {Authorization: `Bearer ${token}`} ,
@@ -55,7 +55,7 @@ export const generatorFileDelete = async(token:string , id:string) : Promise<meG
     return response.data;
   } catch (error) {
     console.error("generator delete error:", error);
-    return null;
+    throw error;
   }
 }
 

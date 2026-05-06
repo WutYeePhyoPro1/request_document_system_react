@@ -26,17 +26,16 @@ import type { InvoiceFile } from "../../../utils/requestDiscountUtil/create";
 import { v4 as uuidv4 } from "uuid";
 import type {
   FileItem,
-  kvaData,
   meGeneratorDataType,
 } from "../../../utils/meDataUtil/metype";
 import Swal from "sweetalert2";
 import { m } from "framer-motion";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaStar } from "react-icons/fa";
-import { getStoreTransformerData } from "../../../api/ME/Transformer/transformer";
-import { getCommonData } from "../../../api/ME/meData";
+import { getStoreSolarData } from "../../../api/ME/solar";
+import { t } from "i18next";
 
-const TransformerCreate: React.FC = () => {
+const SolarCreate: React.FC = () => {
   type LevelType = {
     l1Value: number | "";
     l2Value: number | "";
@@ -45,45 +44,20 @@ const TransformerCreate: React.FC = () => {
   const location = useLocation();
   const { formId } = location.state || "";
   const { reAdd } = location.state || "";
-  const { transformerFormId } = location.state || "";
-  console.log("Transformer Form ID:", transformerFormId);
-  const [transformerUse, setTransformerUse] = useState<string>("use");
-  const [serviceDate, setServiceDate] = useState<string>("");
+  const { solarFormId } = location.state || "";
+  const [solarUse, setSolarUse] = useState<string>("use");
   const [levelValue, setLevelValue] = useState<LevelType>({
     l1Value: "",
     l2Value: "",
     l3Value: "",
   });
+  // console.log("solarFormID>>", solarFormId);
   const [remark, setRemark] = useState<string>("");
   const [invoiceFile, setInvoiceFile] = useState<FileItem[]>([
     { id: uuidv4(), file: null },
   ]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [kva, setKva] = useState<kvaData>();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      setLoading(true);
-
-      try {
-        const commonData = await getCommonData(token);
-        setKva(commonData?.tranKva);
-      } catch (error) {
-        console.error("Error fetching check item data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-  const kvaData = (kva as kvaData[])?.map((item) => ({
-    value: String(item.kva),
-    label: String(item.kva),
-  }));
   const addInvoiceFile = () => {
     setInvoiceFile((prev) => [
       ...prev,
@@ -133,18 +107,20 @@ const TransformerCreate: React.FC = () => {
   };
 
   const validators = {
-    trans_date: "Date is required",
-    trans_time: "Time is required",
-    meter_unit: "Meter Unit is required",
-    tran_kva_level: "KVA Level is required",
-    voltagel_l_level: "Voltage l-L is required",
-    tran_size: "Transformer Size is required",
+    solar_date: "Date is required",
+    solar_time: "Time is required",
     l1_level: "L1 is required",
     l2_level: "L2 is required",
     l3_level: "L3 is required",
-
-    oltc_tapping: "OLTC Tapping is required",
-    cost: "Cost is required",
+    voltagel_l_level: "Voltage l-L is required",
+    // solar_size: "Solar Size is required",
+    total_solar_output_Kw: "Output Kw is required",
+    solar_unit: "Solar Unit is required",
+    check_inverter: "Inverter checking is required",
+    check_battery: "Battery checking is required",
+    check_panel_temperature: "Panel Temperature is required",
+    grid_kw_use: "Grid Kw Use is required",
+    total_load_kw_use: "Total Load Kw Use is required",
   };
   const navigate = useNavigate();
   const handleBack = () => {
@@ -179,57 +155,49 @@ const TransformerCreate: React.FC = () => {
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
     formData.append("btn_status", btnStatus);
-    // validation
-    const meterUnit = Number(formData.get("meter_unit") || 0);
-    const OLTCTipping = Number(formData.get("oltc_tapping") || 0);
+
     const l1 = Number(formData.get("l1_level") || 0);
     const l2 = Number(formData.get("l2_level") || 0);
     const l3 = Number(formData.get("l3_level") || 0);
-    if (transformerUse === "use") {
-      if (meterUnit === 0)
-        missingFields.push("Meter Units must be greater than 0");
-
+    const outputKw = Number(formData.get("total_solar_output_Kw") || 0);
+    const solarUnit = Number(formData.get("solar_unit") || 0);
+    const gridKwUse = Number(formData.get("grid_kw_use") || 0);
+    const totalLoadKwUse = Number(formData.get("total_load_kw_use") || 0);
+    if (solarUse === "use") {
       if (l1 === 0) missingFields.push("L1 must be greater than 0");
       if (l2 === 0) missingFields.push("L2 must be greater than 0");
       if (l3 === 0) missingFields.push("L3 must be greater than 0");
-      if (OLTCTipping === 0)
-        missingFields.push("OLTC Tapping must be greater than 0");
+      if (outputKw === 0)
+        missingFields.push("Output Kw must be greater than 0");
+      if (solarUnit === 0)
+        missingFields.push("Solar Unit must be greater than 0");
+      if (gridKwUse === 0)
+        missingFields.push("grid kw use must be greater than 0");
+      if (totalLoadKwUse === 0)
+        missingFields.push("total load kw use must be greater than 0");
     }
-    const transDate = formData.get("trans_date");
 
-    if (transDate) {
-      const selectedDate = new Date(transDate.toString());
+    const solarDate = formData.get("solar_date");
+
+    if (solarDate) {
+      const selectedDate = new Date(solarDate.toString());
       const today = new Date();
       // today.setHours(0, 0, 0, 0);
 
       if (selectedDate > today) {
-        missingFields.push("Transformer Date cannot be greater than today");
+        missingFields.push("Solar Date cannot be greater than today");
       }
     }
     Object.entries(validators).forEach(([key, message]) => {
       if (
-        transformerUse === "no_use" &&
+        solarUse === "no_use" &&
         ["l1_level", "l2_level", "l3_level"].includes(key)
       ) {
         return;
       }
 
-      if ((!serviceDate || serviceDate.trim() === "") && key === "cost") {
-        return;
-      }
-
       const value = formData.get(key);
-      if (key === "cost") {
-        if (!value || value.toString().trim() === "") {
-          missingFields.push("Cost is required");
-        } else {
-          const cost = Number(value);
-          if (cost === 0) {
-            missingFields.push("Cost must be greater than 0");
-          }
-        }
-        return;
-      }
+
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
       }
@@ -238,16 +206,7 @@ const TransformerCreate: React.FC = () => {
       missingFields.push("Upload file is required");
     }
 
-    const serviceDateValue = formData.get("trans_service_date");
     const remarkValue = formData.get("remark");
-
-    if (
-      serviceDateValue &&
-      serviceDateValue.toString().trim() !== "" &&
-      (!remarkValue || remarkValue.toString().trim() === "")
-    ) {
-      missingFields.push("Remark is required when Service Date is filled");
-    }
 
     if (missingFields.length > 0) {
       Swal.fire({
@@ -287,12 +246,12 @@ const TransformerCreate: React.FC = () => {
     try {
       const token = localStorage.getItem("token");
 
-      await getStoreTransformerData(token, formData);
+      await getStoreSolarData(token, formData);
 
       Swal.fire({
         icon: "success",
         title: "Success",
-        text: "Transformer data stored successfully",
+        text: " data stored successfully",
       });
 
       formElement.reset();
@@ -350,7 +309,7 @@ const TransformerCreate: React.FC = () => {
           segments={[
             { path: "/dashboard", label: "Home" },
             { path: "/dashboard", label: "Dashboard" },
-            { path: `/transformer/${formId}`, label: "Transformer" },
+            { path: `/solar/${formId}`, label: "Solar" },
           ]}
         />
       </div>
@@ -359,20 +318,20 @@ const TransformerCreate: React.FC = () => {
           <input
             type="radio"
             value="use"
-            checked={transformerUse === "use"}
-            onChange={(e) => setTransformerUse(e.target.value)}
+            checked={solarUse === "use"}
+            onChange={(e) => setSolarUse(e.target.value)}
           />
-          Transformer Run
+          Solar Run
         </label>
 
         <label className="flex items-center gap-2">
           <input
             type="radio"
             value="no_use"
-            checked={transformerUse === "no_use"}
-            onChange={(e) => setTransformerUse(e.target.value)}
+            checked={solarUse === "no_use"}
+            onChange={(e) => setSolarUse(e.target.value)}
           />
-          Transformer Not Run
+          Solar Not Run
         </label>
       </div>
 
@@ -389,7 +348,7 @@ const TransformerCreate: React.FC = () => {
           p-6
         "
       >
-        <fieldset disabled={!transformerUse}>
+        <fieldset disabled={!solarUse}>
           {/* Liquid light flow */}
           <div className="absolute -inset-1 animate-liquid bg-gradient-to-r from-white/20 via-blue-200/20 to-purple-200/20 blur-2xl opacity-70" />
 
@@ -407,7 +366,7 @@ const TransformerCreate: React.FC = () => {
                 </div>
                 <input
                   required
-                  name="trans_date"
+                  name="solar_date"
                   type="date"
                   max={new Date().toISOString().split("T")[0]}
                   className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
@@ -419,15 +378,11 @@ const TransformerCreate: React.FC = () => {
                   name="reAdd"
                   value={reAdd == true ? "reAdd" : ""}
                 />
+                <input type="hidden" name="solarFormID" value={solarFormId} />
                 <input
                   type="hidden"
-                  name="transformerFormID"
-                  value={transformerFormId}
-                />
-                <input
-                  type="hidden"
-                  name="trans_use"
-                  value={transformerUse == "use" ? "use" : "no_use"}
+                  name="solar_use"
+                  value={solarUse == "use" ? "use" : "no_use"}
                 />
               </div>
 
@@ -441,9 +396,96 @@ const TransformerCreate: React.FC = () => {
                 <input
                   type="time"
                   required
-                  name="trans_time"
+                  name="solar_time"
                   className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
+                />
+              </div>
+            </div>
+
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">L1</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="l1_level"
+                  min="1"
+                  max="9999"
+                  value={solarUse === "no_use" ? 0 : levelValue.l1Value}
+                  disabled={solarUse === "no_use"}
+                  required={solarUse == "use"}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
+                    if (val.length <= 6) {
+                      setLevelValue((prev) => ({
+                        ...prev,
+                        l1Value: val === "" ? "" : Number(val),
+                      }));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{
+                    borderColor:
+                      solarUse === "use"
+                        ? "rgb(29, 137, 225)"
+                        : "rgb(207, 209, 197)",
+                  }}
+                />
+              </div>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">L2</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  name="l2_level"
+                  min="0"
+                  max="9999"
+                  value={solarUse === "no_use" ? 0 : levelValue.l2Value}
+                  disabled={solarUse === "no_use"}
+                  required={solarUse == "use"}
+                  onChange={(e) => {
+                    let val = e.target.value;
+                    if (val.length > 1 && val.startsWith("0")) {
+                      val = val.replace(/^0+/, "");
+                    }
+                    if (val.length <= 6) {
+                      setLevelValue((prev) => ({
+                        ...prev,
+                        l2Value: val === "" ? "" : Number(val),
+                      }));
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e") {
+                      e.preventDefault();
+                    }
+                  }}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                  style={{
+                    borderColor:
+                      solarUse === "use"
+                        ? "rgb(29, 137, 225)"
+                        : "rgb(207, 209, 197)",
+                  }}
                 />
               </div>
             </div>
@@ -452,78 +494,46 @@ const TransformerCreate: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor="">Meter Units</label>
+                    <label htmlFor="">L3</label>
                     <span>
                       <FaStar className="text-red-400" />
                     </span>
                   </div>
-
                   <input
-                    type="text"
-                    name="meter_unit"
-                    required
-                    inputMode="decimal"
-                    onChange={(e: any) => {
-                      let value = e.target.value;
-
-                      // allow only numbers and dot
-                      value = value.replace(/[^0-9.]/g, "");
-
-                      const parts = value.split(".");
-
-                      // prevent multiple dots
-                      if (parts.length > 2) {
-                        value = parts[0] + "." + parts[1];
+                    type="number"
+                    name="l3_level"
+                    min="0"
+                    max="9999"
+                    value={solarUse === "no_use" ? 0 : levelValue.l3Value}
+                    disabled={solarUse === "no_use"}
+                    required={solarUse == "use"}
+                    onChange={(e) => {
+                      let val = e.target.value;
+                      if (val.length > 1 && val.startsWith("0")) {
+                        val = val.replace(/^0+/, "");
                       }
-
-                      // limit integer part to 8 digits
-                      if (parts[0].length > 8) {
-                        parts[0] = parts[0].slice(0, 8);
+                      if (val.length <= 6) {
+                        setLevelValue((prev) => ({
+                          ...prev,
+                          l3Value: val === "" ? "" : Number(val),
+                        }));
                       }
-
-                      // limit decimal part to 2 digits
-                      if (parts[1]) {
-                        parts[1] = parts[1].slice(0, 2);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
                       }
-
-                      value = parts.join(".");
-                      e.target.value = value;
                     }}
                     onWheel={(e) => e.currentTarget.blur()}
-                    className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{
+                      borderColor:
+                        solarUse === "use"
+                          ? "rgb(29, 137, 225)"
+                          : "rgb(207, 209, 197)",
+                    }}
                   />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <label>KVA Level</label>
-                    <FaStar className="text-red-400" />
-                  </div>
-                  <select
-                    name="tran_kva_level"
-                    id=""
-                    className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                    style={{ borderColor: "rgb(29, 137, 225)" }}
-                  >
-                    <option value="">Choose Kva</option>
-                    {/* <option value="550">550</option>
-                    <option value="400">400</option>
-                    <option value="375">375</option>
-                    <option value="150">150</option>
-                    <option value="100">100</option>
-                    <option value="80">80</option>
-                    <option value="60">60</option>
-                    <option value="30">30</option>
-                    <option value="25">25</option> */}
-                    {kvaData?.map((item) => (
-                      <option key={item.value} value={item.value}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
                     <label htmlFor="">VoltageL-L</label>
@@ -552,13 +562,75 @@ const TransformerCreate: React.FC = () => {
                     style={{ borderColor: "rgb(29, 137, 225)" }}
                   />
                 </div>
-                <div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                <div className="">
                   <div className="flex items-center gap-2">
-                    <label>Transformer Size</label>
+                    <label htmlFor="">Grid Kw Use</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="grid_kw_use"
+                    placeholder="Enter Grid Kw use for one day."
+                    required
+                    min="0"
+                    max="9999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Total Load Kw Use</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="total_load_kw_use"
+                    placeholder="Enter total load Kw use for 1 day "
+                    required
+                    min="0"
+                    max="9999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+
+                {/* <div>
+                  <div className="flex items-center gap-2">
+                    <label>Solar Size</label>
                     <FaStar className="text-red-400" />
                   </div>
                   <select
-                    name="tran_size"
+                    name="solar_size"
                     id=""
                     className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                     style={{ borderColor: "rgb(29, 137, 225)" }}
@@ -567,248 +639,211 @@ const TransformerCreate: React.FC = () => {
                     <option value="Big">Big</option>
                     <option value="Small">Small</option>
                   </select>
-                </div>
+                </div> */}
               </div>
             </div>
-
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">L1</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="l1_level"
-                  min="1"
-                  max="9999"
-                  value={transformerUse === "no_use" ? 0 : levelValue.l1Value}
-                  disabled={transformerUse === "no_use"}
-                  required={transformerUse == "use"}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val.length > 1 && val.startsWith("0")) {
-                      val = val.replace(/^0+/, "");
-                    }
-                    if (val.length <= 6) {
-                      setLevelValue((prev) => ({
-                        ...prev,
-                        l1Value: val === "" ? "" : Number(val),
-                      }));
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{
-                    borderColor:
-                      transformerUse === "use"
-                        ? "rgb(29, 137, 225)"
-                        : "rgb(207, 209, 197)",
-                  }}
-                />
-              </div>
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">L2</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="l2_level"
-                  min="0"
-                  max="9999"
-                  value={transformerUse === "no_use" ? 0 : levelValue.l2Value}
-                  disabled={transformerUse === "no_use"}
-                  required={transformerUse == "use"}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val.length > 1 && val.startsWith("0")) {
-                      val = val.replace(/^0+/, "");
-                    }
-                    if (val.length <= 6) {
-                      setLevelValue((prev) => ({
-                        ...prev,
-                        l2Value: val === "" ? "" : Number(val),
-                      }));
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{
-                    borderColor:
-                      transformerUse === "use"
-                        ? "rgb(29, 137, 225)"
-                        : "rgb(207, 209, 197)",
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">L3</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="l3_level"
-                  min="0"
-                  max="9999"
-                  value={transformerUse === "no_use" ? 0 : levelValue.l3Value}
-                  disabled={transformerUse === "no_use"}
-                  required={transformerUse == "use"}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val.length > 1 && val.startsWith("0")) {
-                      val = val.replace(/^0+/, "");
-                    }
-                    if (val.length <= 6) {
-                      setLevelValue((prev) => ({
-                        ...prev,
-                        l3Value: val === "" ? "" : Number(val),
-                      }));
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{
-                    borderColor:
-                      transformerUse === "use"
-                        ? "rgb(29, 137, 225)"
-                        : "rgb(207, 209, 197)",
-                  }}
-                />
-              </div>
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">OLTC Tapping</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <input
-                  type="number"
-                  name="oltc_tapping"
-                  required
-                  min="0"
-                  max="9999"
-                  onInput={(e: any) => {
-                    if (e.target.value.length > 6) {
-                      e.target.value = e.target.value.slice(0, 6);
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-            </div>
-
-            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div
-                className={
-                  serviceDate
-                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3 items-center"
-                    : ""
-                }
-              >
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
                 <div className="">
-                  <label htmlFor=""> Service Date</label>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Total Output Kw</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
                   <input
-                    type="date"
-                    name="trans_service_date"
-                    onChange={(e) => setServiceDate(e.target.value)}
+                    type="number"
+                    name="total_solar_output_Kw"
+                    required
+                    min="0"
+                    max="9999999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
                     onWheel={(e) => e.currentTarget.blur()}
                     className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                     style={{ borderColor: "rgb(29, 137, 225)" }}
                   />
                 </div>
-                {serviceDate && (
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="">Cost</label>
-                      <span>
-                        <FaStar className="text-red-400" />
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      name="cost"
-                      required
-                      inputMode="decimal"
-                      onChange={(e: any) => {
-                        let value = e.target.value;
-                        value = value.replace(/[^0-9.]/g, "");
-                        const parts = value.split(".");
-                        if (parts.length > 2) {
-                          value = parts[0] + "." + parts[1];
-                        }
-                        if (parts[0].length > 8) {
-                          parts[0] = parts[0].slice(0, 8);
-                        }
-                        if (parts[1]) {
-                          parts[1] = parts[1].slice(0, 2);
-                        }
-                        value = parts.join(".");
-                        e.target.value = value;
-                      }}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                      style={{ borderColor: "rgb(29, 137, 225)" }}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="">
-                {serviceDate ? (
+                <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor=""> Remark</label>
+                    <label htmlFor="">Unit Day</label>
                     <span>
                       <FaStar className="text-red-400" />
                     </span>
-                    <span
-                      className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
-                    >
-                      {remark.length}/{225}
-                    </span>
                   </div>
-                ) : (
+                  <input
+                    type="number"
+                    name="solar_unit"
+                    required
+                    min="0"
+                    max="9999999"
+                    onInput={(e: any) => {
+                      if (e.target.value.length > 6) {
+                        e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
+                <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor=""> Remark</label>
-                    <span
-                      className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
-                    >
-                      {remark.length}/{225}
+                    <label htmlFor="">Inverter Check</label>
+                    <span>
+                      <FaStar className="text-red-400" />
                     </span>
                   </div>
-                )}
+                  <select
+                    name="check_inverter"
+                    id=""
+                    className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Option</option>
+                    <option value="Checked">Check</option>
+                    <option value="Not Check">Not Check</option>
+                  </select>
+                </div>
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Battery Check</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <select
+                    name="check_battery"
+                    id=""
+                    className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Option</option>
+                    <option value="Checked">Check</option>
+                    <option value="Not Check">Not Check</option>
+                  </select>
+                </div>
+
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor=""> SDP Panel temp Check </label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <select
+                    name="check_panel_temperature"
+                    id=""
+                    className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Option</option>
+                    <option value="Checked">Check</option>
+                    <option value="Not Check">Not Check</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Inverter Checking</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      name="check_inverter"
+                      value="Checked"
+                      className="w-4 h-4"
+                    />
+                    <span>Checked</span>
+                  </label>
+                </div>
+
+                
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Battery Checking</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      name="check_battery"
+                      value="Checked"
+                      className="w-4 h-4"
+                    />
+                    <span>Checked</span>
+                  </label>
+                </div>
+
+             
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label>Panel Temperature Checking</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      name="check_panel_temperature"
+                      value="Checked"
+                      className="w-4 h-4"
+                    />
+                    <span>Checked</span>
+                  </label>
+                </div>
+              </div> */}
+            </div>
+
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="">
+                <div className="">
+                  <label htmlFor=""> Panel Cleaning Date</label>
+                  <input
+                    type="date"
+                    name="panel_cleaning_date"
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+              </div>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor=""> Remark</label>
+                  <span
+                    className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                  >
+                    {remark.length}/{225}
+                  </span>
+                </div>
 
                 <textarea
                   name="remark"
@@ -853,11 +888,9 @@ const TransformerCreate: React.FC = () => {
                     className="flex flex-col gap-2 w-full"
                   >
                     <div className="flex items-center gap-2">
-                      <label>
-                        {index === 0 ? "Upload(Max uploads file 4)" : undefined}
-                      </label>
+                      <label>{index === 0 ? "Upload(Max uploads file 4)" : undefined}</label>
                       <span>
-                        {index === 0 && <FaStar className="text-red-400" />}
+                        <FaStar className="text-red-400" />
                       </span>
                     </div>
 
@@ -1040,4 +1073,4 @@ const TransformerCreate: React.FC = () => {
   );
 };
 
-export default TransformerCreate;
+export default SolarCreate;

@@ -2403,7 +2403,6 @@ const normalizeImageEntries = (list) => {
                 return (
                 <tr
                   key={item.id}
-                  title={systemQtyZero ? (t('table.struckThroughNoStockReason', { defaultValue: 'Struck through: System quantity is 0 (no stock available)' })) : undefined}
                   className={`border-b border-gray-200 hover:bg-gray-50 transition-all ${
                     selectedIds.includes(item.id) ? "bg-emerald-50" : ""
                   } ${systemQtyZero ? "text-red-600 line-through" : ""}`}

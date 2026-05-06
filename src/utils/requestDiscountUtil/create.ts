@@ -52,4 +52,6 @@ request_discount?:(number | bigint) [];
 
 }
 
-export interface InvoiceFile { id: string; file: File | null | string };
+export interface InvoiceFile { id: string; file: File | null | string ;preview?: string | null;   
+  type?: string | null;       
+  name?: string | null;  };

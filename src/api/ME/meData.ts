@@ -1,10 +1,11 @@
 import axios from "axios";
-import type { meGeneratorDataType } from "../../utils/meDataUtil/metype";
+import type { kvaData, meGeneratorDataType } from "../../utils/meDataUtil/metype";
 
 const API = axios.create({
     baseURL: "/api" ,
     withCredentials: true ,
 })
+
 
 export const getCheckItems = async(token:string) => {
     try {
@@ -39,7 +40,7 @@ export const searchMeData = async (
   }
 };
 
-export const meDataDetail = async(token:string , id:string) : Promise<meGeneratorDataType >=> {
+export const meDataDetail = async(token:string , id:string | number) : Promise<meGeneratorDataType >=> {
   try {
     const response = await API.get(`/meForm/detail/${id}` , {
       headers : {Authorization: `Bearer ${token}`} ,
@@ -48,9 +49,24 @@ export const meDataDetail = async(token:string , id:string) : Promise<meGenerato
     return response.data;
   } catch (error) {
     console.error("meDataDetail error:", error);
-    return null;
+    throw error ;
   }
 }
+
+
+
+export const getCommonData = async (token: string) => {
+  try {
+    const response = await API.get('/meForm/commonData', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+// console.log("Response>>" , response.data) ;
+    return response?.data;
+  } catch (error) {
+    console.error("meDataDetail error:", error);
+    throw error;
+  }
+};
 
 // export const meApproveForm = async(token:string | formData:meGeneratorDataType | general_form_id:string | sub_form_id:string) => {
 //   return API.post(`/meForm/approve/${general_form_id}/${sub_form_id}` , formData , {
@@ -59,9 +75,14 @@ export const meDataDetail = async(token:string , id:string) : Promise<meGenerato
 //     }
 //   });
 // }
+
+type ApproveFormData = {
+  status: string;
+  comment: string;
+} & Partial<meGeneratorDataType>; 
 export const approveFormME = async (
   token: string,
-  formData: meGeneratorDataType,
+  formData: ApproveFormData,
   form_id:string | number ,
   general_form_id: string | number,
   sub_form_id: string | number

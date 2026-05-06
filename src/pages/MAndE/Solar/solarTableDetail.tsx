@@ -1,48 +1,37 @@
 import React, { useContext, useState } from "react";
 import type {
   FileItem,
-  meGeneratorDataType,
+  meSolarDataType,
   TableDetailProps,
 } from "../../../utils/meDataUtil/metype";
-import {
-  Modal,
-  Table,
-  type TableData,
-  Group,
-  Button,
-  Loader,
-} from "@mantine/core";
-import { IconEdit, IconFile, IconTrash } from "@tabler/icons-react";
+import { NotificationContext } from "../../../context/NotificationContext";
 import { useDisclosure } from "@mantine/hooks";
 import { Link, useNavigate } from "react-router-dom";
-import { generatorDelete } from "../../../api/ME/Generator/generatos";
 import Swal from "sweetalert2";
-import { NotificationContext } from "../../../context/NotificationContext";
+import { transformerDelete } from "../../../api/ME/Transformer/transformer";
+import { Button, Group, Modal, Table, type TableData } from "@mantine/core";
+import { IconEdit, IconFile, IconTrash } from "@tabler/icons-react";
 import {
   dateFormat,
-  fullNumberFormat,
   numberFormat,
 } from "../../../utils/requestDiscountUtil/helper";
+import { solarDelete } from "../../../api/ME/solar";
 
-const TableDetail: React.FC<TableDetailProps> = ({
+const SolarTableDetail: React.FC<TableDetailProps> = ({
   detailData,
   onRefresh,
   loading,
   setLoading,
 }) => {
   const { refreshNotifications } = useContext(NotificationContext);
-  const [activeGeneratorId, setActiveGeneratorId] = React.useState<
-    number | string | null
-  >();
-  const generatorList = detailData?.detailData;
+  const [activeSolarId, setActiveSolarId] = useState<number | string | null>();
+  const solarList = detailData?.detailData;
   const files = detailData?.files;
   const generalForm = detailData?.generalForm;
   const authUserId = detailData?.authUserId;
-  console.log("as>", authUserId, generalForm);
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);
   const navigate = useNavigate();
-
   const handleDelete = async (
     generalFormID?: string | number,
     formId?: string | number,
@@ -65,7 +54,7 @@ const TableDetail: React.FC<TableDetailProps> = ({
     setLoading(true);
 
     try {
-      const res = await generatorDelete(token, generalFormID, formId);
+      const res = await solarDelete(token, generalFormID, formId);
 
       Swal.fire({
         icon: "success",
@@ -73,9 +62,9 @@ const TableDetail: React.FC<TableDetailProps> = ({
         timer: 1200,
         showConfirmButton: false,
       });
-      if ((generatorList as number[]).length <= 1) {
+      if ((solarList as number[]).length <= 1) {
         await refreshNotifications();
-        navigate(`/generator/${formId}`);
+        navigate(`/solar/${formId}`);
       } else {
         onRefresh();
       }
@@ -85,9 +74,6 @@ const TableDetail: React.FC<TableDetailProps> = ({
       setLoading(false);
     }
   };
-
-  console.log("generatorList>>", generatorList);
-
   const tableData: TableData = {
     head: [
       "No",
@@ -97,34 +83,32 @@ const TableDetail: React.FC<TableDetailProps> = ({
         ),
       "Date",
       "Time",
-      <div className="whitespace-nowrap">Oil Level</div>,
-      "Fuel",
-      "Coolant",
-      <div className="whitespace-nowrap">Gen Size</div>,
-      <div className="whitespace-nowrap">Gen Kva</div>,
-      <div className="whitespace-nowrap">Battery Volt</div>,
       "L1",
       "L2",
       "L3",
-      <div className="whitespace-nowrap">Total KW</div>,
       <div className="whitespace-nowrap">Voltage L-L</div>,
-      <div className="whitespace-nowrap">Running Hour</div>,
-      "Cost",
-      <div className="whitespace-nowrap">Service Date</div>,
-      <div className="whitespace-nowrap">Cleaning Level</div>,
+      // <div className="whitespace-nowrap">Solar Size</div>,
+      <div className="whitespace-nowrap">Total Output Kw</div>,
+      <div className="whitespace-nowrap">Grid KW Use</div>,
+      <div className="whitespace-nowrap">Total Load KW Use</div>,
+
+      <div className="whitespace-nowrap">Solar Unit</div>,
+      <div className="whitespace-nowrap">Inverter Check</div>,
+      <div className="whitespace-nowrap">Battery Check</div>,
+      <div className="whitespace-nowrap">SDP Panel temp Check</div>,
+      <div className="whitespace-nowrap">Panel Cleaning Date</div>,
       "Remark",
       "Image",
     ],
-
-    body: (generatorList as meGeneratorDataType[]).length
-      ? (generatorList as meGeneratorDataType[]).map((element, index) => [
+    body: (solarList as meSolarDataType[]).length
+      ? (solarList as meSolarDataType[]).map((element, index) => [
           index + 1,
           <Group gap="xs" key={`action-${element.id}`}>
             {generalForm?.status == "Default" &&
               authUserId == generalForm?.user_id && (
                 <div className="flex gap-2 flex-nowrap">
                   <Link
-                    to={`/generator_edit/${element.id}`}
+                    to={`/solar_edit/${element.id}`}
                     state={{ generalForm }}
                     className="contents"
                   >
@@ -146,30 +130,54 @@ const TableDetail: React.FC<TableDetailProps> = ({
               )}
           </Group>,
           <div className="whitespace-nowrap">
-            {dateFormat(element.generator_date)}
+            {dateFormat(element.solar_date)}
           </div>,
-          <div className=" whitespace-nowrap">
-            {element.generator_time_ampm}
+          <div className=" whitespace-nowrap">{element.solar_time_ampm}</div>,
+          numberFormat(element.l1_level),
+          numberFormat(element.l2_level),
+          numberFormat(element.l3_level),
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.voltagel_l_level)}
           </div>,
-          element.engine_oil_level,
-          `${element.fuel_level}%`,
-          `${element.coolant_level}%`,
-          element.generator_size,
-          fullNumberFormat(element.gen_kva_level),
-          numberFormat(element.battery_volt_level),
-          fullNumberFormat(element.l1_level),
-          fullNumberFormat(element.l2_level),
-          fullNumberFormat(element.l3_level),
-          numberFormat(element.total_kw_level),
-          numberFormat(element.voltagel_l_level),
-          numberFormat(element.running_hour),
-          numberFormat(element.cost ?? "-"),
+          // <div className=" flex items-center justify-center w-full whitespace-nowrap">
+          //   {element.solar_size}
+          // </div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.total_solar_output_Kw)}
+          </div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.grid_kw_use)}
+          </div>,
+          // numberFormat(element.total_kw_level),
+
+          // <div className="bg-red-600 whitespace-nowrap flex">
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.total_load_kw_use)}
+            {/* </div> */}
+          </div>,
+          // numberFormat(element.total_kw_level),
+
+          // <div className="bg-red-600 whitespace-nowrap flex">
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {numberFormat(element.solar_unit)}
+            {/* </div> */}
+          </div>,
+
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {element.check_inverter}
+          </div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {element.check_battery}
+          </div>,
+          <div className="flex items-end justify-center w-full whitespace-nowrap">
+            {element.check_panel_temperature}
+          </div>,
+
           <div className="whitespace-nowrap">
-            {element.generator_service_date
-              ? dateFormat(element.generator_service_date)
+            {element.panel_cleaning_date
+              ? dateFormat(element.panel_cleaning_date)
               : "- "}
           </div>,
-          `${element.generator_cleaning_level}%`,
           <div
             className={`
   ${
@@ -192,7 +200,7 @@ const TableDetail: React.FC<TableDetailProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setActiveGeneratorId(element?.id);
+                  setActiveSolarId(element?.id);
                   openFileModal();
                 }}
                 className="hover:text-blue-900 transition"
@@ -207,9 +215,9 @@ const TableDetail: React.FC<TableDetailProps> = ({
       : [],
   };
   const filteredFiles = (files as FileItem[])?.filter(
-    (file) => file.generator_id === activeGeneratorId,
+    (file) => file.solar_id === activeSolarId,
   );
-
+  console.log("solarList>>", solarList);
   return (
     <div className="relative mt-6 overflow-x-auto">
       <Table
@@ -219,12 +227,11 @@ const TableDetail: React.FC<TableDetailProps> = ({
           th: { backgroundColor: "inherit" },
         }}
       />
-
       <Modal
         opened={fileOpened}
         onClose={() => {
           closeFileModal();
-          setActiveGeneratorId(null);
+          setActiveSolarId(null);
         }}
         title="Attached Files"
         size="lg"
@@ -268,4 +275,4 @@ const TableDetail: React.FC<TableDetailProps> = ({
   );
 };
 
-export default TableDetail;
+export default SolarTableDetail;
