@@ -4,6 +4,7 @@ import dashboardPhoto from "../assets/images/reqBa.png";
 import companyLogo from "../assets/images/finallogo.png";
 import NavPath from "../components/NavPath";
 import { countFormNoti, getFormsList } from "../api/commonApi";
+import { useSelector } from "react-redux";
 
 // Animated Loading Component with Company Logo
 const LoadingScreen = () => {
@@ -103,6 +104,8 @@ const Dashboard = () => {
   const [formCounts, setFormCounts] = useState({});
   const [loading, setLoading] = useState(true);
 
+  const { user, token } = useSelector((state) => state.auth);
+
   useEffect(() => {
     const fetchAllForms = async () => {
       const token = localStorage.getItem("token");
@@ -198,6 +201,11 @@ const Dashboard = () => {
             formCounts[form.id] !== undefined ? formCounts[form.id] : null;
           const icon = formIcons[form.name] || "";
 
+          const runner = user.from_branch_id == 1 && (user.department_id == 6 || user.department_id == 11 || user.department_id == 10); 
+          // && user.role_name == "Approver";
+          if (form.id== 22 && !runner) {
+              return null;
+          }
           return (
             <Link
               key={index}

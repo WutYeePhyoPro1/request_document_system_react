@@ -5,9 +5,8 @@ import {formatDate,formatStrDateTime,formatTo2Decimals,formatLaravelStyleDate} f
 
 const API_URL =  `https://dummyjson.com/products?limit=`;
 
-const STORAGE_KEY = "pricechange_visible_columns";
 
-export const fetchPromotionJobs = createAsyncThunk( "property/fetchPriceChange", async({filters,page=1,searchQuery=''}={},{})=>{
+export const fetchPromotionJobs = createAsyncThunk( "promotionjobs/fetchPromotionJob", async({filters,page=1,searchQuery=''}={},{})=>{
      const token = localStorage.getItem('token');
 
      console.log(filters)
@@ -92,6 +91,7 @@ const promotionJobSlice = createSlice({
                         ...item,
                          created_at: formatLaravelStyleDate(item.created_at,'Y-m-d H:i:s'),
                          run_started_at: formatLaravelStyleDate(item.run_started_at,'Y-m-d H:i:s'),
+                         failed_branches: item.promotion_jobs.filter((promotion_job)=>promotion_job.status == 'Failed')
                     }))
                     console.log(action.payload.data.data)
 

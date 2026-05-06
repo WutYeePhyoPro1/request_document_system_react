@@ -43,7 +43,7 @@ export default function () {
         );
     };
 
-    const excludeBranchIds = [] || [1,16,18,19,20,21,22,14,15];
+    const excludeBranchIds = [1,16,18,19,20,21,22,14,15];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branchesall', {
@@ -336,6 +336,18 @@ export default function () {
         
                         <Link
                             to="/promotion_jobs"
+                            onClick={(e) => {
+                                if (running) {
+                                    e.preventDefault(); // stop navigation
+    
+                                    Swal.fire({
+                                        icon: "warning",
+                                        title: "Promotion Job is Running",
+                                        text: "Please wait until all branches finish.",
+                                        confirmButtonText: "OK"
+                                    });
+                                }
+                            }}
                             className="inline-flex px-3 py-1 sm:px-4 sm:py-2 bg-gray-200 rounded hover:bg-gray-300 items-center text-sm sm:text-base"
                         >
                             <span className="mr-1 sm:mr-2">←</span> Back
@@ -384,22 +396,46 @@ export default function () {
                                 </div>
                             </div>
 
-                            <div className="p-4 overflow-y-auto max-h-[600px]">
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {(filteredBranches).map((b) => {
+                            <div className="p-4 overflow-y-auto max-h-[600px] bg-gray-50/50">
+                                <div className="grid grid-cols-2 gap-2">
+                                    {filteredBranches.map((b) => {
                                         const isSelected = selectedBranches.includes(b.id);
                                         return (
                                             <div
                                                 key={b.id}
                                                 onClick={() => toggleBranch(b.id)}
-                                                className={`break-inside-avoid mb-2 px-3 py-2 rounded-lg cursor-pointer text-sm transition
-                                                    ${
-                                                        isSelected
-                                                            ? "bg-blue-50 text-blue-700 border border-blue-200"
-                                                            : "bg-white text-gray-600 hover:bg-gray-100 border border-gray-200"
-                                                    }`}
+                                                className={`
+                                                    relative flex items-center gap-3 px-3 py-2 rounded-lg border transition-all select-none
+                                                    ${isSelected 
+                                                        ? "bg-blue-50 border-blue-500 ring-1 ring-blue-500" 
+                                                        : "bg-white border-gray-200 hover:border-blue-300"
+                                                    }
+                                                    ${isEdit ? "opacity-60s cursor-not-alloweds" : "cursor-pointer active:scale-95"}
+                                                `}
                                             >
-                                                {b.branch_name}
+                                                {/* Checkbox Input */}
+                                                <div className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        readOnly
+                                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                                                    />
+                                                </div>
+
+                                                {/* Branch Name */}
+                                                <span className={`text-[13px] font-medium truncate ${
+                                                    isSelected ? "text-blue-700 font-bold" : "text-gray-600"
+                                                }`}>
+                                                    {b.branch_name}
+                                                </span>
+
+                                                {/* Subtle Selection Indicator for scannability */}
+                                                {/* {isSelected && (
+                                                    <div className="absolute top-1 right-1">
+                                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                                    </div>
+                                                )} */}
                                             </div>
                                         );
                                     })}
