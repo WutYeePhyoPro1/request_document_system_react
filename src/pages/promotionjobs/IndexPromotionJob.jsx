@@ -108,7 +108,7 @@ export default function IndexPriceChange() {
         dispatch(fetchPromotionJobs());
     }
 
-    const runner = user.from_branch_id == 1 && (user.department_id == 6 || user.department_id == 11 || user.department_id == 10) && user.role_name == "Approver";
+    const runner = user.from_branch_id == 1 && ((user.department_id == 6 || user.department_id == 11 || user.department_id == 10) && user.role_name == "Approver" || user.department_id == 11);
 
     return (
         <>
