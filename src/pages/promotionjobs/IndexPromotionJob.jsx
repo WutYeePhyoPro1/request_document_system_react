@@ -271,7 +271,7 @@ export default function IndexPriceChange() {
                                                         <td className="py-2 px-4 border-b">
                                                             <StatusBadge status={data?.status ? (data?.status != 'Approved' ? data?.status : 'Failed') : ''} />
                                                         </td>
-                                                        <td className="py-2 px-4 border-b">{data.originators.name}</td>
+                                                        <td className="py-2 px-4 border-b">{data.user.name}</td>
                                                         <td className="py-2 px-4 border-b">{data.run_started_at}</td>
                                                         <td className="text-rights py-2 px-4 border-b">{data.total_branches}</td>
                                                         <td className="text-rights py-2 px-4 border-b">{data.failed_branches.length == 0 ? '-' : data.failed_branches.length}</td>

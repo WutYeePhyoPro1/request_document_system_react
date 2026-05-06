@@ -12,6 +12,7 @@ import Swal from "sweetalert2";
 import ServerTime,{fetchServerTime as SvrTime}  from "../../components/ServerTime";
 import { setFilter } from "../../store/pricechangeSlice";
 import StatusBadge from '../../components/ui/StatusBadge';
+import {formatLaravelStyleDate} from "../../components/Fomatter.jsx";
 
 export default function () {
     const { user, token } = useSelector((state) => state.auth);
@@ -43,7 +44,7 @@ export default function () {
         );
     };
 
-    const excludeBranchIds = [1,16,18,19,20,21,22,14,15];
+    const excludeBranchIds = [1,16,18,19,20,21,22,140,15];
     const fetchBranches = async () => {
         try {
             const response = await fetch('/api/branchesall', {
@@ -220,6 +221,7 @@ export default function () {
 
             const general_form = data.general_form;
             const promotion_jobs = data.promotion_jobs;
+            const originators = data.originators;
             console.log(general_form,promotion_jobs);
             // const general_form_files = data.general_form_files;
             const normalizedForm = {
@@ -228,6 +230,8 @@ export default function () {
 
                 promotion_jobs: promotion_jobs.sort((a,b)=>a.branch.branch_code > b.branch.branch_code ? 1 : -1),
                 // general_form_files
+
+                originators: originators
             }
             // console.log(price_change_branches.length, branchCountRef.current);
             console.log(normalizedForm);
@@ -574,7 +578,23 @@ export default function () {
                                     </div>
                                 )}
 
+
                                 {form?.promotion_jobs?.length > 0  && (
+                                <>
+                                {/* <div className="px-3 py-2 mb-2 flex items-center justify-between bg-gray-50 borders rounded-lgs">
+                                    
+                                    <div className="text-sm text-gray-600">
+                                        Total Branches
+                                    </div>
+
+                                    <div className="text-lg font-semibold text-gray-900">
+                                        {form?.promotion_jobs?.length || 0}
+                                    </div>
+
+                                </div> */}
+                                <div className="p-2">
+                                    <span className="text-sm">Total <strong className="text-lg font-semibold text-sky-800">{form?.promotion_jobs?.length}</strong> branch{form?.promotion_jobs?.length > 1 && 'es'}.</span>
+                                </div>
                                 <ul className="space-y-3 overflow-y-auto max-h-[600px] p-2">
                                     {form?.promotion_jobs?.map((pjbranch) => (
                                         <li
@@ -617,6 +637,40 @@ export default function () {
                                         </li>
                                     ))}
                                 </ul>
+
+                                <div className="sticky bottom-0 bg-blue-50 border-t border-blue-200 shadow-md">
+                                    {/* TITLE */}
+                                    <div className="px-4 pt-2 text-xs text-blue-600 uppercase tracking-wide font-medium">
+                                        Run By
+                                    </div>
+
+                                    {/* CONTENT */}
+                                    <div className="px-4 pb-3 pt-2 flex items-center justify-between">
+                                        
+                                        {/* LEFT */}
+                                        <div className="flex items-center gap-3">
+                                        <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold shadow">
+                                            🚀
+                                        </div>
+
+                                        <div className="text-sm">
+                                            <div className="font-semibold text-blue-900">
+                                            {form?.originators.title} {form?.originators.name}
+                                            </div>
+                                            <div className="text-blue-700 text-xs">
+                                            {form?.originators.departments.name}
+                                            </div>
+                                        </div>
+                                        </div>
+
+                                        {/* RIGHT */}
+                                        <div className="text-xs text-blue-800 font-medium">
+                                        {formatLaravelStyleDate(form?.created_at,'Y-m-d H:i:s')}
+                                        </div>
+
+                                    </div>
+                                </div>
+                                </>
                                 )} 
 
 
