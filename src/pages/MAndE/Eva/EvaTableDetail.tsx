@@ -90,6 +90,7 @@ const EvaTableDetail: React.FC<TableDetailProps> = ({
       <div className="whitespace-nowrap">Pipe Check</div>,
       <div className="whitespace-nowrap">Water Level Check</div>,
       <div className="whitespace-nowrap">Filter Check</div>,
+      
 
       "Remark",
       "Image",
