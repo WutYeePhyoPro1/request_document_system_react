@@ -579,11 +579,12 @@ const EvaEdit: React.FC = () => {
                 className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               >
-                
+
                 <option value="">Choose</option>
                 <option value="Big">Big</option>
                 <option value="Small">Small</option>
               </select>
+            
             </div>
             <div className="">
               {invoiceFile.map((fileField, index) => (
