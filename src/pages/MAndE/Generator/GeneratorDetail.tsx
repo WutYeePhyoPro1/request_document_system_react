@@ -195,7 +195,7 @@ const GeneratorDetail: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="font-medium ">Prepared By</span>
                       <span className="font-semibold text-blue-400 mt-1">
-                        Miss. {detailData?.generalForm?.originators?.name}
+                        {detailData?.generalForm?.originators?.title} {detailData?.generalForm?.originators?.name}
                       </span>
                       <span className="text-blue-500 mt-1">
                         (
@@ -220,13 +220,15 @@ const GeneratorDetail: React.FC = () => {
                           {/* sdfnmdnsfm */}
                           <div className="font-medium ">Checked By</div>
                           <div className="font-semibold text-blue-400 mt-1">
-                            {detailData?.getChecker?.assigned_user?.title}{" "}
-                            {detailData?.getChecker?.assigned_user?.name}
+                            {detailData?.getChecker?.approval_users?.title}{" "}
+                            {detailData?.getChecker?.approval_users?.name}
                           </div>
                           <div className="text-blue-500 mt-1">
                             (
                             {
-                              detailData?.getChecker?.assigned_user?.department
+                              // detailData?.getChecker?.assigned_user?.department
+                              //   ?.name
+                              detailData?.getChecker?.approval_users?.department
                                 ?.name
                             }
                             )

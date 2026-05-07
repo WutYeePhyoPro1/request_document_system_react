@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { meGeneratorDataType } from "../../../utils/meDataUtil/metype";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { transformerDetailData } from "../../../api/ME/Transformer/transformer";
 import {
   dateFormat,
   dateTimeFormat,
@@ -10,12 +9,13 @@ import {
 import { Button, Loader } from "@mantine/core";
 import dashboardPhoto from "../../../assets/images/reqBa.png";
 import MeApproveForm from "../meApproveForm";
-import TableDetail from "./tableDetail";
 import NavPath from "../../../components/NavPath";
 import TsStatusBadge from "../../../components/ui/TsStatusBadge";
 import { FiCopy } from "react-icons/fi";
+import SolarTableDetail from "./solarTableDetail";
+import { solarDetailData } from "../../../api/ME/solar";
 
-const TransformerDetail: React.FC = () => {
+const SolarDetail: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [detailData, setDetailData] = useState<meGeneratorDataType | null>();
   const [copied, setCopied] = useState<boolean>(false);
@@ -29,7 +29,7 @@ const TransformerDetail: React.FC = () => {
     if (!token) return;
     setLoading(true);
     try {
-      const data = await transformerDetailData(token, id);
+      const data = await solarDetailData(token, id);
       setDetailData(data);
     } catch (error) {
       console.error("TransformerDetail error:", error);
@@ -84,19 +84,19 @@ const TransformerDetail: React.FC = () => {
                 segments={[
                   { path: "/dashboard", label: "Dashboard" },
                   {
-                    path: `/transformer/${detailData?.subForm?.sub_form_id}`,
-                    label: "transformer",
+                    path: `/solar/${detailData?.subForm?.sub_form_id}`,
+                    label: "Solar",
                   },
                   {
-                    path: `/me_transformer_detail/${id}`,
-                    label: "Transformer Detail",
+                    path: `/me_solar_detail/${id}`,
+                    label: "Solar Detail",
                   },
                 ]}
               />
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-2 gap-2">
                 <h2 className="text-base sm:text-lg font-semibold">
-                  M&E Transformer Form(
+                  M&E SolarForm(
                   {detailData?.generalForm?.form_doc_no
                     ? detailData?.generalForm?.form_doc_no
                     : ""}
@@ -140,9 +140,9 @@ const TransformerDetail: React.FC = () => {
                       state={{
                         reAdd: true,
                         formId: detailData?.subForm?.sub_form_id,
-                        transformerFormId: detailData?.generalForm?.id,
+                        solarFormId: detailData?.generalForm?.id,
                       }}
-                      to="/transformer_create"
+                      to="/solar_create"
                     >
                       Add More
                     </Button>
@@ -153,7 +153,7 @@ const TransformerDetail: React.FC = () => {
               <div className="mb-6">
                 <div className="bodyData">
                   <div className="tableData">
-                    <TableDetail
+                    <SolarTableDetail
                       detailData={detailData}
                       onRefresh={() => fetchData(id!)}
                       loading={loading}
@@ -174,7 +174,7 @@ const TransformerDetail: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="font-medium ">Prepared By</span>
                       <span className="font-semibold text-blue-400 mt-1">
-                        {detailData?.generalForm?.originators?.title}
+                        {detailData?.generalForm?.originators?.title}{" "}
                         {detailData?.generalForm?.originators?.name}
                       </span>
                       <span className="text-blue-500 mt-1">
@@ -204,16 +204,12 @@ const TransformerDetail: React.FC = () => {
                           <div className="font-medium ">Checked By</div>
                           <div className="font-semibold text-blue-400 mt-1">
                             {/* {detailData?.getChecker?.assigned_user?.title}{" "}
-                            {detailData?.getChecker?.assigned_user?.name} */}
+                            {detailData?.getChecker?.assigned_user?.name}  */}
                             {detailData?.getChecker?.approval_users?.title}{" "}
                             {detailData?.getChecker?.approval_users?.name}
                           </div>
                           <div className="text-blue-500 mt-1">
                             (
-                            {/* {
-                              detailData?.getChecker?.assigned_user?.department
-                                ?.name
-                            } */}
                             {
                               detailData?.getChecker?.approval_users?.department
                                 ?.name
@@ -320,4 +316,4 @@ const TransformerDetail: React.FC = () => {
   );
 };
 
-export default TransformerDetail;
+export default SolarDetail;

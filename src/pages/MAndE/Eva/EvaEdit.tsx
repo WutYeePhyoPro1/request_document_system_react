@@ -2,17 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { v4 as uuidv4 } from "uuid";
 import {
-  type kvaData,
   type FileItem,
-  type meTransDataType,
-  type TransformerEditResponse,
+  type meEvaDataType,
+  type meSolarDataType,
 } from "../../../utils/meDataUtil/metype";
-import {
-  getUpdateTransformerData,
-  transformerDelete,
-  transformerEditData,
-  transformerFileDelete,
-} from "../../../api/ME/Transformer/transformer";
 import Swal from "sweetalert2";
 import FullPageLoader from "../../../components/FullPageLoader";
 import { Button, Menu, Text } from "@mantine/core";
@@ -21,29 +14,37 @@ import cctvPhoto from "../../../assets/images/ban1.png";
 import NavPath from "../../../components/NavPath";
 import { fetchData } from "../../../api/FetchApi";
 import { IconFile, IconFileText, IconX } from "@tabler/icons-react";
+import {
+  getUpdateSolarData,
+  solarEditData,
+  solarFileDelete,
+} from "../../../api/ME/solar";
+import {
+  evaEditData,
+  evaFileDelete,
+  getUpdateEvaData,
+} from "../../../api/ME/eva";
 
-const TransformerEdit: React.FC = () => {
+const EvaEdit: React.FC = () => {
   const { id } = useParams();
   const location = useLocation();
   const generalForm = location.state?.generalForm;
   const [invoiceFile, setInvoiceFile] = useState<FileItem[]>([
     { id: uuidv4(), file: null },
   ]);
-  const [kva, setKva] = useState<kvaData>();
+
   const [loading, setLoading] = useState<boolean>(false);
-  const [form, setForm] = useState<meTransDataType>({
-    trans_date: "",
-    trans_time: "",
-    meter_unit: "",
-    tran_kva_level: 0,
-    voltagel_l_level: 0,
-    tran_size: "",
-    l1_level: 0,
-    l2_level: 0,
-    l3_level: 0,
-    oltc_tapping: 0,
-    cost: 0,
-    trans_service_date: "",
+  const [form, setForm] = useState<meEvaDataType>({
+    eva_date: "",
+    eva_time: "",
+    eva_size: "",
+    pump1_water_pressure: "",
+    pump2_water_pressure: "",
+    filter_wet_check: "",
+    pump_air_check: "",
+    pipe_leak_check: "",
+    water_level_check: "",
+
     remark: "",
   });
   const [remark, setRemark] = useState<string>("");
@@ -56,19 +57,18 @@ const TransformerEdit: React.FC = () => {
       if (!token) return;
       setLoading(true);
       try {
-        const res = await transformerEditData(token, id);
+        const res = await evaEditData(token, id);
         console.log("ExistingFiles>>", res);
         const data = res?.editData;
         setForm({
           ...data,
-          trans_time: data?.trans_time ? data.trans_time.slice(0, 5) : "",
-          trans_use: data?.trans_use ?? "use",
+          eva_time: data?.eva_time ? data.eva_time.slice(0, 5) : "",
+          eva_use: data?.eva_use ?? "use",
         });
         setRemark(data.remark || "");
         setExistingFiles(res?.files || []);
-        setKva(res?.kvaData || "");
       } catch (error) {
-        console.error("GeneratorDetail error:", error);
+        console.error("EvaDetail error:", error);
       } finally {
         setLoading(false);
       }
@@ -76,10 +76,6 @@ const TransformerEdit: React.FC = () => {
     fetchData();
   }, []);
 
-  const kvaData = (kva as kvaData[])?.map((item) => ({
-    value: String(item.kva),
-    label: String(item.kva),
-  }));
   const navigate = useNavigate();
 
   const handleChange = (
@@ -183,7 +179,7 @@ const TransformerEdit: React.FC = () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
-      await transformerFileDelete(token, fileId);
+      await evaFileDelete(token, fileId);
       setExistingFiles((prev) => prev.filter((f) => f.id !== fileId));
       Swal.fire({
         icon: "success",
@@ -200,88 +196,43 @@ const TransformerEdit: React.FC = () => {
     }
   };
   const validators = {
-    trans_date: "Date is required",
-    trans_time: "Time is required",
-    meter_unit: "Meter Unit is required",
-    tran_kva_level: "KVA Level is required",
-    voltagel_l_level: "Voltage l-L is required",
-    tran_size: "Transformer Size is required",
-    l1_level: "L1 is required",
-    l2_level: "L2 is required",
-    l3_level: "L3 is required",
-
-    oltc_tapping: "OLTC Tapping is required",
-    cost: "Cost is required",
+    eva_date: "Date is required",
+    eva_time: "Time is required",
+    eva_size: "Evaporators Size is required",
+    pump1_water_pressure: "Pump1 Water Pressure is required",
+    pump2_water_pressure: "Pump2 Water Pressure is required",
+    filter_wet_check: "Filter Wet Check is required",
+    pump_air_check: "Pump Air Check is required",
+    pipe_leak_check: "Pipe Leak Check is required",
+    water_level_check: "Water Level Check is required",
   };
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formElement = e.currentTarget;
     const formData = new FormData(formElement);
     const missingFields: string[] = [];
-    const meterUnit = Number(formData.get("meter_unit") || 0);
-    const OLTCTipping = Number(formData.get("oltc_tapping") || 0);
-    const l1 = Number(formData.get("l1_level") || 0);
-    const l2 = Number(formData.get("l2_level") || 0);
-    const l3 = Number(formData.get("l3_level") || 0);
-    if (form.trans_use === "use") {
-      if (meterUnit === 0)
-        missingFields.push("Meter Units must be greater than 0");
 
-      if (l1 === 0) missingFields.push("L1 must be greater than 0");
-      if (l2 === 0) missingFields.push("L2 must be greater than 0");
-      if (l3 === 0) missingFields.push("L3 must be greater than 0");
-      if (OLTCTipping === 0)
-        missingFields.push("OLTC Tapping must be greater than 0");
-    }
-    const transDate = form.trans_date;
+    const evaDate = form.eva_date;
 
-    if (transDate) {
-      const selectedDate = new Date(transDate.toString());
+    if (evaDate) {
+      const selectedDate = new Date(evaDate.toString());
       const today = new Date();
       // today.setHours(0, 0, 0, 0);
 
       if (selectedDate > today) {
-        missingFields.push("Transformer Date cannot be greater than today");
+        missingFields.push("Eva Date cannot be greater than today");
       }
     }
     Object.entries(validators).forEach(([key, message]) => {
-      if (
-        form.trans_use === "no_use" &&
-        ["l1_level", "l2_level", "l3_level"].includes(key)
-      ) {
-        return;
-      }
-      if (
-        (!form.trans_service_date || form.trans_service_date.trim() == "") &&
-        key === "cost"
-      ) {
-        return;
-      }
       const value = formData.get(key);
-      if (key === "cost") {
-        if (!value || value.toString().trim() === "") {
-          missingFields.push("Cost is required");
-        } else {
-          const cost = Number(value);
-          if (cost === 0) {
-            missingFields.push("Cost must be greater than 0");
-          }
-        }
-        return;
-      }
+
       if (!value || value.toString().trim() === "") {
         missingFields.push(message);
       }
     });
-    const serviceDateValue = formData.get("trans_service_date");
+
     const remarkValue = formData.get("remark");
-    if (
-      serviceDateValue &&
-      serviceDateValue.toString().trim() !== "" &&
-      (!remarkValue || remarkValue.toString().trim() === "")
-    ) {
-      missingFields.push("Remark is required when Service Date is filled");
-    }
+
     if (missingFields.length > 0) {
       Swal.fire({
         icon: "warning",
@@ -302,11 +253,11 @@ const TransformerEdit: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      await getUpdateTransformerData(token, formData, id);
+      await getUpdateEvaData(token, formData, id);
       Swal.fire({
         icon: "success",
         title: "Success",
-        text: "Generator data stored successfully",
+        text: "Eva data stored successfully",
       });
       formElement.reset(); // optional
       navigate(-1);
@@ -341,31 +292,33 @@ const TransformerEdit: React.FC = () => {
       <NavPath
         segments={[
           { path: "/dashboard", label: "Home" },
-          { path: "/generator", label: "Generator" },
-          { path: `/me_generator_detail/${generalForm?.id}`, label: "Edit" },
+          {
+            path: `/me_evaporator_detail/${generalForm?.id}`,
+            label: "Eva Detail",
+          },
         ]}
       />
       <div className="flex items-center gap-6 p-4 rounded-xl">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="radio"
-            name="trans_use"
+            name="eva_use"
             value="use"
-            checked={form.trans_use === "use"}
+            checked={form.eva_use === "use"}
             onChange={handleChange}
           />
-          Transformer Run
+          Eva Run
         </label>
 
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="radio"
-            name="trans_use"
+            name="eva_use"
             value="no_use"
-            checked={form.trans_use === "no_use"}
+            checked={form.eva_use === "no_use"}
             onChange={handleChange}
           />
-          Transformer Not Run
+          Eva Not Run
         </label>
       </div>
       <form
@@ -398,8 +351,8 @@ const TransformerEdit: React.FC = () => {
               </div>
               <input
                 required
-                name="trans_date"
-                value={form.trans_date}
+                name="eva_date"
+                value={form.eva_date}
                 type="date"
                 onChange={handleChange}
                 max={new Date().toISOString().split("T")[0]}
@@ -420,8 +373,8 @@ const TransformerEdit: React.FC = () => {
               />
               <input
                 type="hidden"
-                name="trans_use"
-                value={form.trans_use == "use" ? "use" : "no_use"}
+                name="eva_use"
+                value={form.eva_use == "use" ? "use" : "no_use"}
               />
             </div>
 
@@ -435,371 +388,148 @@ const TransformerEdit: React.FC = () => {
               <input
                 type="time"
                 required
-                name="trans_time"
+                name="eva_time"
                 onChange={handleChange}
-                value={form.trans_time}
+                value={form.eva_time}
                 className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
                 style={{ borderColor: "rgb(29, 137, 225)" }}
               />
             </div>
           </div>
+
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Meter Units</label>
+                  <label htmlFor="">Pump1 Water Pressure</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
                 </div>
-                <input
-                  type="text"
-                  name="meter_unit"
-                  value={form.meter_unit}
-                  required
-                  min="0"
-                  max="999999"
-                  inputMode="decimal"
-                  onChange={(e: any) => {
-                    let value = e.target.value;
-                    value = value.replace(/[^0-9.]/g, "");
-
-                    const parts = value.split(".");
-                    if (parts.length > 2) return;
-                    if (parts[0].length > 8) {
-                      parts[0] = parts[0].slice(0, 8);
-                    }
-                    if (parts[1]) {
-                      parts[1] = parts[1].slice(0, 2);
-                    }
-
-                    setForm((prev: any) => ({
-                      ...prev,
-                      meter_unit: parts.join("."),
-                    }));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <label>KVA Level</label>
-                  <FaStar className="text-red-400" />
-                </div>
                 <select
-                  name="tran_kva_level"
-                  value={form?.tran_kva_level}
-                  id=""
+                  name="pump1_water_pressure"
+                  value={form?.pump1_water_pressure}
                   onChange={(e: any) => handleChange(e)}
-                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  id=""
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
                 >
-                  <option value="">Choose Kva</option>
-                  {kvaData?.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
+              </div>
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Pump2 Water Pressure</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <select
+                  name="pump2_water_pressure"
+                  value={form?.pump2_water_pressure}
+                  id=""
+                  onChange={(e: any) => handleChange(e)}
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
                 </select>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">VoltageL-L</label>
+                  <label htmlFor="">Filter Wet Check</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
                 </div>
-                <input
-                  type="text"
-                  name="voltagel_l_level"
-                  value={form?.voltagel_l_level}
-                  required
-                  min="0"
-                  max="999999"
-                  inputMode="decimal"
-                  onChange={(e: any) => {
-                    let value = e.target.value;
-                    value = value.replace(/[^0-9.]/g, "");
-
-                    const parts = value.split(".");
-                    if (parts.length > 2) return;
-                    if (parts[0].length > 6) {
-                      parts[0] = parts[0].slice(0, 6);
-                    }
-                    if (parts[1]) {
-                      parts[1] = parts[1].slice(0, 2);
-                    }
-
-                    setForm((prev: any) => ({
-                      ...prev,
-                      voltagel_l_level: parts.join("."),
-                    }));
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e") {
-                      e.preventDefault();
-                    }
-                  }}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <label>Transformer Size</label>
-                  <FaStar className="text-red-400" />
-                </div>
                 <select
-                  name="tran_size"
-                  value={form?.tran_size}
+                  name="filter_wet_check"
+                  value={form?.filter_wet_check}
                   onChange={(e: any) => handleChange(e)}
                   id=""
-                  className="border px-2 py-3 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                   style={{ borderColor: "rgb(29, 137, 225)" }}
                 >
-                  <option value="">Choose Size</option>
-                  <option value="Big">Big</option>
-                  <option value="Small">Small</option>
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
+              </div>
+
+              <div className="">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="">Pump air check</label>
+                  <span>
+                    <FaStar className="text-red-400" />
+                  </span>
+                </div>
+                <select
+                  name="pump_air_check"
+                  value={form?.pump_air_check}
+                  onChange={(e: any) => handleChange(e)}
+                  id=""
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
                 </select>
               </div>
             </div>
           </div>
 
           <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L1</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l1_level"
-                min="0"
-                max="999999"
-                value={form.trans_use === "no_use" ? 0 : form.l1_level}
-                disabled={form.trans_use === "no_use"}
-                required={form.trans_use == "use"}
-                onChange={handleLLevelChange}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{
-                  borderColor:
-                    form.trans_use === "use"
-                      ? "rgb(29, 137, 225)"
-                      : "rgb(207, 209, 197)",
-                }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L2</label>
-                <span>
-                  <FaStar className="text-red-ူ" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l2_level"
-                min="0"
-                max="999999"
-                value={form.trans_use === "no_use" ? 0 : form.l2_level}
-                disabled={form.trans_use === "no_use"}
-                required={form.trans_use == "use"}
-                onChange={handleLLevelChange}
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{
-                  borderColor:
-                    form.trans_use === "use"
-                      ? "rgb(29, 137, 225)"
-                      : "rgb(207, 209, 197)",
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">L3</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="l3_level"
-                min="0"
-                max="999999"
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                value={form.trans_use === "no_use" ? 0 : form.l3_level}
-                disabled={form.trans_use === "no_use"}
-                required={form.trans_use == "use"}
-                onChange={handleLLevelChange}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{
-                  borderColor:
-                    form.trans_use === "use"
-                      ? "rgb(29, 137, 225)"
-                      : "rgb(207, 209, 197)",
-                }}
-              />
-            </div>
-            <div className="">
-              <div className="flex items-center gap-2">
-                <label htmlFor="">OLTC Tapping</label>
-                <span>
-                  <FaStar className="text-red-400" />
-                </span>
-              </div>
-              <input
-                type="number"
-                name="oltc_tapping"
-                required
-                min="0"
-                max="999999"
-                onChange={handleChange}
-                value={form.oltc_tapping}
-                onInput={(e: any) => {
-                  if (e.target.value.length > 6) {
-                    e.target.value = e.target.value.slice(0, 6);
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "-" || e.key === "e") {
-                    e.preventDefault();
-                  }
-                }}
-                onWheel={(e) => e.currentTarget.blur()}
-                className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                style={{ borderColor: "rgb(29, 137, 225)" }}
-              />
-            </div>
-          </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-            <div
-              className={
-                form.trans_service_date
-                  ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3 items-center"
-                  : ""
-              }
-            >
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
               <div className="">
-                <label htmlFor=""> Service Date</label>
-                <input
-                  type="date"
-                  name="trans_service_date"
-                  value={form.trans_service_date}
-                  onChange={handleChange}
-                  onWheel={(e) => e.currentTarget.blur()}
-                  className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                />
-              </div>
-              {form.trans_service_date && (
-                <div>
-                  <div className="flex items-center gap-2">
-                    <label htmlFor="">Cost</label>
-                    <span>
-                      <FaStar className="text-red-400" />
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    name="cost"
-                    value={form.cost}
-                    inputMode="decimal"
-                    onChange={(e: any) => {
-                      let value = e.target.value;
-                      value = value.replace(/[^0-9.]/g, "");
-
-                      const parts = value.split(".");
-                      if (parts.length > 2) return;
-                      if (parts[0].length > 8) {
-                        parts[0] = parts[0].slice(0, 8);
-                      }
-                      if (parts[1]) {
-                        parts[1] = parts[1].slice(0, 2);
-                      }
-
-                      setForm((prev: any) => ({
-                        ...prev,
-                        cost: parts.join("."),
-                      }));
-                    }}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="border focus:outline-blue p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
-                    style={{ borderColor: "rgb(29, 137, 225)" }}
-                  />
-                </div>
-              )}
-            </div>
-            <div className="">
-              {form.trans_service_date ? (
                 <div className="flex items-center gap-2">
-                  <label htmlFor=""> Remark</label>
+                  <label htmlFor="">Pipe Leak Check</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
-                  <span
-                    className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
-                  >
-                    {remark.length}/{225}
-                  </span>
                 </div>
-              ) : (
+                <select
+                  name="pipe_leak_check"
+                  value={form?.pipe_leak_check}
+                  id=""
+                  onChange={(e: any) => handleChange(e)}
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
+              </div>
+              <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor=""> Remark</label>
-                  <span
-                    className={`text-xs font-mono ${isAtLimit ? "text-orange-600 font-bold" : "text-gray-400"}`}
-                  >
-                    {remark.length}/{225}
+                  <label htmlFor="">Water Level Check</label>
+                  <span>
+                    <FaStar className="text-red-400" />
                   </span>
                 </div>
-              )}
-
+                <select
+                  name="water_level_check"
+                  value={form?.water_level_check}
+                  onChange={(e: any) => handleChange(e)}
+                  id=""
+                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                  style={{ borderColor: "rgb(29, 137, 225)" }}
+                >
+                  <option value="">Choose Option</option>
+                  <option value="Checked">Check</option>
+                  <option value="Not Check">Not Check</option>
+                </select>
+              </div>
+            </div>
+            <div className="">
+              <label htmlFor=""> Remark</label>
               <textarea
                 name="remark"
                 value={remark}
@@ -815,20 +545,49 @@ const TransformerEdit: React.FC = () => {
               >
                 {form.remark}
               </textarea>
-              {isAtLimit && (
-                <span className="text-orange-600 text-xs font-semibold">
-                  Maximum limit of {225} characters reached.
+              <div className="flex justify-between mt-1 px-1">
+                <div className="h-4">
+                  {isAtLimit && (
+                    <span className="text-orange-600 text-xs font-semibold animate-pulse">
+                      Maximum limit of 225 characters reached.
+                    </span>
+                  )}
+                </div>
+
+                <span
+                  className={`text-xs font-mono ${remark?.length === 225 ? "text-orange-600 font-bold" : "text-gray-400"}`}
+                >
+                  {remark?.length}/225
                 </span>
-              )}
+              </div>
             </div>
           </div>
-          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6 ">
+
+          <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6 items-start ">
+            <div className="mt-2">
+              <div className="flex items-center gap-2">
+                <label htmlFor="">Evaporators Size</label>
+                <span>
+                  <FaStar className="text-red-400" />
+                </span>
+              </div>
+              <select
+                name="eva_size"
+                value={form?.eva_size}
+                onChange={(e: any) => handleChange(e)}
+                id=""
+                className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                style={{ borderColor: "rgb(29, 137, 225)" }}
+              >
+                <option value="">Choose Size</option>
+                <option value="Big">Big</option>
+                <option value="Small">Small</option>
+              </select>
+            </div>
             <div className="">
               {invoiceFile.map((fileField, index) => (
                 <div key={fileField.id} className="flex flex-col gap-2 w-full">
-                  <label>
-                    {index === 0 ? "Upload(Max uploads file 4)" : undefined}
-                  </label>
+                  <label>{index === 0 ? "Upload" : undefined}</label>
 
                   <div className="flex items-center gap-3">
                     {/* MD + LG INPUT */}
@@ -1032,4 +791,4 @@ const TransformerEdit: React.FC = () => {
   );
 };
 
-export default TransformerEdit;
+export default EvaEdit;

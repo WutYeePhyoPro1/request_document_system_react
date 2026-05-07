@@ -68,6 +68,14 @@ export interface meGeneratorDataType {
         department?:{
             name?: string
         }
+    } 
+    approval_users?:{
+        title?: string ;
+        name?: string ;
+        department?:{
+            name?: string ;
+        }
+        
     }
     created_at?:string ;
      ongoing_time?: string | null ;
@@ -124,6 +132,7 @@ export interface FileItem  {
   id?: number | string ,
    generator_id?: number,
    transformer_id?:number,
+   solar_id?:number ,
 
   file?: File | null,
   preview?: string | null,
@@ -164,6 +173,49 @@ export interface meTransDataType {
     total_kw_level ?: number ,
     trans_use?:string ,
     
+} 
+
+export interface meSolarDataType {
+   id?:number ,
+    solar_date ?: string ,
+    solar_time?:string ,
+    solar_time_ampm?: string ,
+    solar_unit?:number | string  ,
+    total_solar_output_Kw?:number ,
+    voltagel_l_level?:number ,
+    solar_size?:string,
+    l1_level ?: number ,
+    l2_level ?:number ,
+    l3_level ?: number ,
+    oltc_tapping?:number ,
+    panel_cleaning_date?:string ,
+    remark?:string,
+  check_inverter?:string ,
+  check_battery?:string ,
+  check_panel_temperature?:string ,
+    total_kw_level ?: number ,
+    solar_use?:string ,
+    total_load_kw_use?:number ,
+    grid_kw_use?:number ,
+    
+} 
+
+export interface meEvaDataType {
+   id?:number ,
+    eva_date ?: string ,
+    eva_time?:string ,
+    eva_time_ampm?: string ,
+    eva_size?:string,
+    pump1_water_pressure?:string ,
+    pump2_water_pressure?:string ,
+  pump_air_check?:string ,
+  pipe_leak_check?:string ,
+  water_level_check?:string ,
+  filter_wet_check?:string ,
+    remark?:string,
+    eva_use?:string ,
+ 
+    
 }
 
 export interface kvaData {
@@ -185,3 +237,14 @@ export interface TransformerEditResponse {
    kvaData:kvaData ;
 }
 
+export interface SolarEditResponse {
+  editData: meSolarDataType;
+  files: FileItem[];
+   
+} 
+
+export interface EvaEditResponse {
+  editData: meEvaDataType;
+  files: FileItem[];
+   
+}

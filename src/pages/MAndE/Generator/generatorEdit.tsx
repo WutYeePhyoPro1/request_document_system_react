@@ -190,7 +190,7 @@ const GeneratorEdit: React.FC = () => {
   const deleteExistingFile = async (fileId: number) => {
     const confirm = await Swal.fire({
       title: "Delete file?",
-      text: "This cannot be undone",
+      text: "Are you sure want to delete.",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#ef4444",
@@ -1025,7 +1025,9 @@ const GeneratorEdit: React.FC = () => {
             <div className="">
               {invoiceFile.map((fileField, index) => (
                 <div key={fileField.id} className="flex flex-col gap-2 w-full">
-                  <label>{index === 0 ? "Upload" : undefined}</label>
+                  <label>
+                    {index === 0 ? "Upload(Max uploads file 4)" : undefined}
+                  </label>
 
                   <div className="flex items-center gap-3">
                     {/* MD + LG INPUT */}
@@ -1080,7 +1082,7 @@ const GeneratorEdit: React.FC = () => {
                     </div>
 
                     {/* ADD / REMOVE BUTTON */}
-                    {index === 0 ? (
+                    {index === 0 && invoiceFile.length <= 3 ? (
                       <Button onClick={addInvoiceFile}>Add</Button>
                     ) : (
                       <Button
