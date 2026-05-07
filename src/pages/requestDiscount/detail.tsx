@@ -366,7 +366,8 @@ const Detail: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="font-medium ">Prepared By</span>
                       <span className="font-semibold text-blue-400 mt-1">
-                        Miss. {detailData?.form?.originators?.name}
+                        {detailData?.generalForm?.originators?.title}
+                        {detailData?.form?.originators?.name}
                       </span>
                       <span className="text-blue-500 mt-1">
                         ({detailData?.form?.originators?.departments?.name})

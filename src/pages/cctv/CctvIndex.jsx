@@ -510,7 +510,7 @@ export default function CctvIndex() {
 
 
                                             <div className="flex justify-between">
-                                                <span>Miss. {item.requester_name}</span>
+                                                <span> {item.requester_name}</span>
                                                 <span>{item.branch_name ?? item.from_branches?.branch_name ?? branches.find(b => b.id == item.from_branch)?.branch_name ?? '—'}</span>
 
                                             </div>

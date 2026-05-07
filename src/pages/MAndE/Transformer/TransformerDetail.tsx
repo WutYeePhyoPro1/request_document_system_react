@@ -174,7 +174,8 @@ const TransformerDetail: React.FC = () => {
                     <div className="flex flex-col">
                       <span className="font-medium ">Prepared By</span>
                       <span className="font-semibold text-blue-400 mt-1">
-                        Miss. {detailData?.generalForm?.originators?.name}
+                        {detailData?.generalForm?.originators?.title}
+                        {detailData?.generalForm?.originators?.name}
                       </span>
                       <span className="text-blue-500 mt-1">
                         (
