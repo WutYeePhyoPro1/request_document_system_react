@@ -109,7 +109,6 @@ const EvaCreate: React.FC = () => {
   const validators = {
     eva_date: "Date is required",
     eva_time: "Time is required",
-    eva_size: "Evaporators is required",
     pump1_water_pressure: "Pump1 Water Pressure is required",
     pump2_water_pressure: "Pump2 Water Pressure is required",
     filter_wet_check: "Filter Check is required",
@@ -412,25 +411,6 @@ const EvaCreate: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor="">Filter Check</label>
-                    <span>
-                      <FaStar className="text-red-400" />
-                    </span>
-                  </div>
-                  <select
-                    name="filter_wet_check"
-                    id=""
-                    className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                    style={{ borderColor: "rgb(29, 137, 225)" }}
-                  >
-                    <option value="">Choose Option</option>
-                    <option value="Checked">Check</option>
-                    <option value="Not Check">Not Check</option>
-                  </select>
-                </div>
-
-                <div className="">
-                  <div className="flex items-center gap-2">
                     <label htmlFor="">Air Tank Check</label>
                     <span>
                       <FaStar className="text-red-400" />
@@ -447,11 +427,7 @@ const EvaCreate: React.FC = () => {
                     <option value="Not Check">Not Check</option>
                   </select>
                 </div>
-              </div>
-            </div>
 
-            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
                     <label htmlFor="">Pipe Check</label>
@@ -470,6 +446,11 @@ const EvaCreate: React.FC = () => {
                     <option value="Not Check">Not Check</option>
                   </select>
                 </div>
+              </div>
+            </div>
+
+            <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
                     <label htmlFor="">Water Level Check</label>
@@ -479,6 +460,25 @@ const EvaCreate: React.FC = () => {
                   </div>
                   <select
                     name="water_level_check"
+                    id=""
+                    className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  >
+                    <option value="">Choose Option</option>
+                    <option value="Checked">Check</option>
+                    <option value="Not Check">Not Check</option>
+                  </select>
+                </div>
+
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Filter Check</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <select
+                    name="filter_wet_check"
                     id=""
                     className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
                     style={{ borderColor: "rgb(29, 137, 225)" }}
@@ -535,25 +535,6 @@ const EvaCreate: React.FC = () => {
               </div>
             </div>
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="">
-                <div className="flex items-center gap-2">
-                  <label htmlFor="">Evaporators</label>
-                  <span>
-                    <FaStar className="text-red-400" />
-                  </span>
-                </div>
-                <select
-                  name="eva_size"
-                  id=""
-                  className="border py-2 px-2 w-full rounded-md focus:outline-2 focus:outline-blue-400"
-                  style={{ borderColor: "rgb(29, 137, 225)" }}
-                >
-                  <option value="">Choose</option>
-                  
-                  <option value="Big">Big</option>
-                  <option value="Small">Small</option>
-                </select>
-              </div>
               <div className="">
                 {invoiceFile.map((fileField: FileItem, index: number) => (
                   <div
