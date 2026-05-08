@@ -96,6 +96,7 @@ export const apiFetch = async (endpoint, options = {}) => {
     const error = new Error(errorMessage);
     error.status = response.status;
     error.errorData = errorData;
+    error.payload = errorData;
     throw error;
   }
 

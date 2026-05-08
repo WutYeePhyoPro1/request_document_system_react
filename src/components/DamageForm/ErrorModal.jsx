@@ -48,8 +48,8 @@ const ErrorModal = ({ isOpen, onClose, message, autoClose = false, autoCloseDura
           Warning!
         </h3>
 
-        {/* Error Message */}
-        <p className="text-gray-600 text-center font-medium">
+        {/* Error Message (preserve line breaks from multi-part API messages) */}
+        <p className="text-gray-600 text-center font-medium whitespace-pre-line">
           {message}
         </p>
 

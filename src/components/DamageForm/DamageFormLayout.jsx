@@ -18,6 +18,7 @@ import { Save, CheckCircle, XCircle, Edit3, CornerUpLeft, Send, Check, FileText,
 import './ButtonHoverEffects.css';
 import './BoxesLoader.css';
 import Pro1LoadingAnimation from './Pro1LoadingAnimation';
+import { build422UserMessage } from '../../utils/api';
 
 
 function getCancelCompletedVisibilityCutoff(completionDate) {
@@ -4599,6 +4600,7 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
             const formattedError = new Error(`HTTP error! status: ${(error.status || error.response.status)} - ${error.response.statusText}`);
             formattedError.status = error.status || error.response.status;
             formattedError.data = errorData;
+            formattedError.payload = errorData;
             formattedError.response = error.response;
             throw formattedError;
           }
@@ -4921,7 +4923,16 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
                         body: JSON.stringify({ total_amount: computedTotal })
                       });
                     } catch (innerErr) {
-                      // Not critical - log and continue
+                      if (innerErr?.status === 422) {
+                        const detail = build422UserMessage(innerErr);
+                        const title422 = t('messages.errors.http422Title', {
+                          defaultValue: 'Request could not be completed',
+                        });
+                        const fallbackDetail = t('messages.errors.validationError');
+                        setErrorModalMessage(`${title422}\n\n${detail || fallbackDetail}`);
+                        setIsErrorModalOpen(true);
+                      }
+                      // Other failures: non-critical for background total sync
                     }
                   }
                 }
@@ -5117,8 +5128,12 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
         } else if (apiError.status === 403) {
           errorMessage = t('messages.errors.forbidden');
         } else if (apiError.status === 422) {
-          // Validation error - show the exact error message from server
-          errorMessage = apiError.message || t('messages.errors.validationError');
+          const detail = build422UserMessage(apiError);
+          const title422 = t('messages.errors.http422Title', {
+            defaultValue: 'Request could not be completed',
+          });
+          const fallbackDetail = t('messages.errors.validationError');
+          errorMessage = `${title422}\n\n${detail || fallbackDetail}`;
         } else if (apiError.status === 500) {
           errorMessage = t('messages.errors.serverError');
         } else if (apiError.status === 503) {
@@ -5152,7 +5167,11 @@ let shouldShowCancelFinal = ((shouldShowCancel || (isOpManager && isOpStageForBu
         // Show error modal
         setErrorModalMessage(errorMessage);
         setIsErrorModalOpen(true);
-        
+
+        if (apiError.status === 422) {
+          return;
+        }
+
         throw apiError; // Re-throw to be caught by the outer catch
       }
     } catch (error) {

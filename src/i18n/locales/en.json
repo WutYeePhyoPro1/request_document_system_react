@@ -172,6 +172,7 @@
       "forbidden": "You do not have permission to perform this action.",
       "notFound": "The requested resource was not found. Please check if the form exists.",
       "validationError": "Validation error. Please check your input and try again.",
+      "http422Title": "Request could not be completed",
       "validation": {
         "title": "Validation Error",
         "pleaseFillRequired": "Please fill in all required fields:",
