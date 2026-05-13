@@ -293,13 +293,15 @@ export default function CctvDetails() {
     }
 
     function renderCaseType(caseType) {
-        switch (caseType) {
+        const type = Number(caseType);
+        switch (type) {
             case 1: return 'Check Process - လုပ်ငန်းစဉ်ကို စစ်ဆေးခြင်း';
             case 2: return 'Customer Complain - customer တိုင်ကြားခြင်းအကြောင်းအရာများ';
             case 3: return 'Accident Case - မတော်တဆဖြစ်ရပ်များ စစ်ဆေးခြင်း';
             case 4: return 'HR Case - HR နှင်ပတ်သတ်သောဖြစ်ရပ်များ စစ်ဆေးခြင်း';
             case 5: return 'Stolen Case - ခိုးယူမူ နှင့်သက်ဆိုင်သော ဖြစ်ရပ်များ စစ်ဆေးခြင်း';
-            default: return 'Other - အခြားအကြောင်းအရာများ စစ်ဆေးခြင်း';
+            case 6: return 'Other - အခြားအကြောင်းအရာများ စစ်ဆေးခြင်း';
+            default: return '—';
         }
     }
 
