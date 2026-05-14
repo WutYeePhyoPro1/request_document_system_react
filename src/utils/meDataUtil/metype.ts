@@ -205,7 +205,6 @@ export interface meEvaDataType {
     eva_date ?: string ,
     eva_time?:string ,
     eva_time_ampm?: string ,
-    eva_size?:string,
     pump1_water_pressure?:string ,
     pump2_water_pressure?:string ,
   pump_air_check?:string ,
