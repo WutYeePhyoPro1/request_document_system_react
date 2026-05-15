@@ -2142,9 +2142,24 @@ const normalizeImageEntries = (list) => {
       onSystemQtyStatusChange(true);
     } catch (error) {
       console.error('[Update System Qty] sys_update API error:', error?.message, error);
+      const api = error?.api || {};
+      let msg = error.message || 'Failed to update system quantities. Please try again.';
+      if (api.error === 'ACTUAL_QTY_EXCEEDS_SYSTEM_STOCK' && Array.isArray(api.violations) && api.violations.length > 0) {
+        const intro = t('messages.systemQtyUpdateBlockedByActualQty', {
+          defaultValue:
+            'Cannot update system quantities: Actual Qty is higher than current stock for the lines below. Reduce Actual Qty to match stock (or below), save the form, then try again.',
+        });
+        const lines = api.violations
+          .map(
+            (v, i) =>
+              `${i + 1}. ${v.product_code ?? ''}: Actual ${v.actual_qty} > stock ${v.new_system_qty}`
+          )
+          .join('\n');
+        msg = `${intro}\n\n${lines}`;
+      }
       setErrorModal({
         isOpen: true,
-        message: error.message || 'Failed to update system quantities. Please try again.'
+        message: msg,
       });
     } finally {
       setIsUpdatingSystemQty(false);
