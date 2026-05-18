@@ -660,7 +660,7 @@ const SolarEdit: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
               <div className="">
                 <div className="flex items-center gap-2">
-                  <label htmlFor="">Total Output Kw</label>
+                  <label htmlFor="">Total Solar Output Kw</label>
                   <span>
                     <FaStar className="text-red-400" />
                   </span>
