@@ -88,7 +88,7 @@ const SolarTableDetail: React.FC<TableDetailProps> = ({
       "L3",
       <div className="whitespace-nowrap">Voltage L-L</div>,
       // <div className="whitespace-nowrap">Solar Size</div>,
-      <div className="whitespace-nowrap">Total Output Kw</div>,
+      <div className="whitespace-nowrap">Total Solar Output Kw</div>,
       <div className="whitespace-nowrap">Average Battery (%)</div>,
       <div className="whitespace-nowrap">Grid KW Use</div>,
       <div className="whitespace-nowrap">Total Load KW Use</div>,
