@@ -114,7 +114,8 @@ const SolarCreate: React.FC = () => {
     l3_level: "L3 is required",
     voltagel_l_level: "Voltage l-L is required",
     // solar_size: "Solar Size is required",
-    total_solar_output_Kw: "Output Kw is required",
+    total_solar_output_Kw: "Solar Output KW is required",
+    avg_battery_percentage: "Average Battery Percentage is required",
     solar_unit: "Solar Unit is required",
     check_inverter: "Inverter checking is required",
     check_battery: "Battery checking is required",
@@ -160,6 +161,9 @@ const SolarCreate: React.FC = () => {
     const l2 = Number(formData.get("l2_level") || 0);
     const l3 = Number(formData.get("l3_level") || 0);
     const outputKw = Number(formData.get("total_solar_output_Kw") || 0);
+    const avgBatteryPercentage = Number(
+      formData.get("avg_battery_percentage") || 0,
+    );
     const solarUnit = Number(formData.get("solar_unit") || 0);
     const gridKwUse = Number(formData.get("grid_kw_use") || 0);
     const totalLoadKwUse = Number(formData.get("total_load_kw_use") || 0);
@@ -169,6 +173,10 @@ const SolarCreate: React.FC = () => {
       if (l3 === 0) missingFields.push("L3 must be greater than 0");
       if (outputKw === 0)
         missingFields.push("Output Kw must be greater than 0");
+
+      if (avgBatteryPercentage === 0)
+        missingFields.push("Average Battery Percentage must be greater than 0");
+
       if (solarUnit === 0)
         missingFields.push("Solar Unit must be greater than 0");
       if (gridKwUse === 0)
@@ -242,6 +250,7 @@ const SolarCreate: React.FC = () => {
         formData.append(`file[${index}]`, fileItem.file);
       }
     });
+    console.log('Form Data', formData);
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
@@ -643,10 +652,10 @@ const SolarCreate: React.FC = () => {
               </div>
             </div>
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 lg:gap-8 md:gap-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-3 gap-3">
                 <div className="">
                   <div className="flex items-center gap-2">
-                    <label htmlFor="">Total Output Kw</label>
+                    <label htmlFor="">Total Solar Output KW</label>
                     <span>
                       <FaStar className="text-red-400" />
                     </span>
@@ -660,6 +669,42 @@ const SolarCreate: React.FC = () => {
                     onInput={(e: any) => {
                       if (e.target.value.length > 6) {
                         e.target.value = e.target.value.slice(0, 6);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e") {
+                        e.preventDefault();
+                      }
+                    }}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="border focus:outline-blue  p-2 w-full rounded-md focus:outline-2 focus:-outline-offset-2 focus:outline-blue-400"
+                    style={{ borderColor: "rgb(29, 137, 225)" }}
+                  />
+                </div>
+
+                <div className="">
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="">Average Battery (%)</label>
+                    <span>
+                      <FaStar className="text-red-400" />
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    name="avg_battery_percentage"
+                    required
+                    min="0"
+                    max="9999999"
+                    onInput={(e: any) => {
+                      const value = parseInt(e.target.value, 10);
+                      if (e.target.value.length > 3) {
+                        e.target.value = e.target.value.slice(0, 3);
+                      }
+                      if (value > 100) {
+                        e.target.value = "100";
+                      }
+                      if (value < 1) {
+                        e.target.value = "1";
                       }
                     }}
                     onKeyDown={(e) => {
@@ -888,7 +933,9 @@ const SolarCreate: React.FC = () => {
                     className="flex flex-col gap-2 w-full"
                   >
                     <div className="flex items-center gap-2">
-                      <label>{index === 0 ? "Upload(Max uploads file 4)" : undefined}</label>
+                      <label>
+                        {index === 0 ? "Upload(Max uploads file 4)" : undefined}
+                      </label>
                       <span>
                         <FaStar className="text-red-400" />
                       </span>
