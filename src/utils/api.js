@@ -39,10 +39,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    const err = new Error(errorData.message || `HTTP error! status: ${response.status}`);
-    err.status = response.status;
-    err.api = errorData;
-    throw err;
+    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();

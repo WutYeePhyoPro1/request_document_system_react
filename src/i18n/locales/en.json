@@ -137,7 +137,6 @@
     "formIssued": "Form issued successfully",
     "productAdded": "Product added successfully",
     "systemQtyUpdated": "System quantities updated successfully",
-    "systemQtyUpdateBlockedByActualQty": "Cannot update system quantities: Actual Qty is higher than current stock for the lines below. Reduce Actual Qty to match stock (or below), save the form, then try again.",
     "createFail": "Create Fail",
     "updateFail": "Update Fail",
     "deleteFail": "Delete Fail",
