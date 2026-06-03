@@ -298,6 +298,9 @@ const extractImageArray = (item = {}) => {
   return [];
 };
 
+/** API rows may use numeric `id` or string; prefer matching with specific_form_id fallback */
+const itemRowIdsEqual = (a, b) => String(a ?? '') === String(b ?? '');
+
 export default function DamageItemTable({ 
   items: itemsProp = [], 
   mode = "add", 
@@ -1042,7 +1045,7 @@ export default function DamageItemTable({
 
 const handleRemarkChange = (id, value) => {
   setItems(prevItems => {
-    const index = prevItems.findIndex(item => item.id === id);
+    const index = prevItems.findIndex(item => itemRowIdsEqual(item.id ?? item.specific_form_id, id));
     if (index === -1) return prevItems;
     
     const newItems = [...prevItems];
@@ -1053,7 +1056,7 @@ const handleRemarkChange = (id, value) => {
     return newItems;
   });
   
-  const index = items.findIndex(item => item.id === id);
+  const index = items.findIndex(item => itemRowIdsEqual(item.id ?? item.specific_form_id, id));
   if (index !== -1) {
     onItemChange(index, 'remark', value);
   }
@@ -1086,7 +1089,7 @@ const handleInputChange = (id, field, value) => {
   setItems(prevItems => {
     const index = prevItems.findIndex(item => {
       const matchId = item.id ?? item.specific_form_id;
-      return matchId === id;
+      return itemRowIdsEqual(matchId, id);
     });
     
     if (index === -1) return prevItems;
@@ -1198,7 +1201,7 @@ const handleInputChange = (id, field, value) => {
   
   const index = items.findIndex(item => {
     const matchId = item.id ?? item.specific_form_id;
-    return matchId === id;
+    return itemRowIdsEqual(matchId, id);
   });
   
     if (index !== -1) {
@@ -1269,7 +1272,7 @@ const handleInputChange = (id, field, value) => {
     setItems((prevItems) => {
       const index = prevItems.findIndex((item) => {
         const matchId = item.id ?? item.specific_form_id;
-        return matchId === id;
+        return itemRowIdsEqual(matchId, id);
       });
 
       if (index === -1) return prevItems;
@@ -1742,7 +1745,7 @@ const normalizeImageEntries = (list) => {
   const removeImage = (id, imgIndex) => {
     setItems(prevItems => {
       const updatedItems = prevItems.map(item => {
-        if (item.id === id) {
+        if (itemRowIdsEqual(item.id ?? item.specific_form_id, id)) {
           const sourceImages = item.img
             || item.images
             || item.damage_images
@@ -2532,7 +2535,7 @@ const normalizeImageEntries = (list) => {
                               }
                               
                               // Only update request_qty - do NOT update actual_qty
-                              handleInputChange(item.id, 'request_qty', valueToUse);
+                              handleInputChange(item.id ?? item.specific_form_id, 'request_qty', valueToUse);
                             }
                           }}
                           onBlur={(e) => {
@@ -2578,7 +2581,7 @@ const normalizeImageEntries = (list) => {
                               return;
                             }
                             
-                            handleQtyChange(item.id, normalizedValue, 'actual_qty');
+                            handleQtyChange(item.id ?? item.specific_form_id, normalizedValue, 'actual_qty');
                           }}
                           className="w-20 border border-gray-300 rounded px-2 py-1"
                           title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2658,7 +2661,7 @@ const normalizeImageEntries = (list) => {
                                   return; // Don't update the value
                                 }
                                 
-                                handleQtyChange(item.id, valueToUse, 'final_qty');
+                                handleQtyChange(item.id ?? item.specific_form_id, valueToUse, 'final_qty');
                               }
                             }}
                             onBlur={(e) => {
@@ -2700,7 +2703,7 @@ const normalizeImageEntries = (list) => {
                                 return;
                               }
                               
-                              handleQtyChange(item.id, normalizedValue, 'final_qty');
+                              handleQtyChange(item.id ?? item.specific_form_id, normalizedValue, 'final_qty');
                             }}
                             className="w-20 border border-gray-300 rounded px-2 py-1"
                             title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -2813,12 +2816,18 @@ const normalizeImageEntries = (list) => {
                               <input
                                 type="text"
                                 inputMode="decimal"
-                                data-item-id={item.id}
+                                data-item-id={item.id ?? item.specific_form_id}
                                 data-field="actual_qty"
                                 data-qty-field="true"
                                 data-auto-focus-target="true"
                                 value={item.actual_qty ?? ''}
                                 max={item.system_qty > 0 ? item.system_qty : undefined}
+                                onFocus={() => {
+                                  editingFieldRef.current = {
+                                    id: item.id ?? item.specific_form_id,
+                                    field: 'actual_qty',
+                                  };
+                                }}
                                 onChange={(e) => {
                                   const nextValue = e.target.value;
 
@@ -2861,7 +2870,7 @@ const normalizeImageEntries = (list) => {
                                       return; // Don't update the value
                                     }
 
-                                    handleQtyChange(item.id, valueToUse, 'actual_qty');
+                                    handleQtyChange(item.id ?? item.specific_form_id, valueToUse, 'actual_qty');
 
                                     // Check if branch account is editing actual_qty in BM Approved status with amount > 500k
                                     // OP Approved forms don't need warning as they're already approved by Operation Manager
@@ -2869,10 +2878,10 @@ const normalizeImageEntries = (list) => {
 
                                     // Calculate current total from items to check against 500k threshold
                                     // Use the updated value for current item, existing values for others
-                                    const currentItemId = item.id;
+                                    const currentItemId = item.id ?? item.specific_form_id;
                                     const currentTotal = items.reduce((acc, currItem) => {
                                       let qty;
-                                      if (String(currItem.id) === String(currentItemId)) {
+                                      if (itemRowIdsEqual(currItem.id ?? currItem.specific_form_id, currentItemId)) {
                                         // This is the current item being edited - use the new value
                                         qty = parseFloat(valueToUse) || 0;
                                       } else {
@@ -2895,6 +2904,17 @@ const normalizeImageEntries = (list) => {
                                   }
                                 }}
                                 onBlur={(e) => {
+                                  const rowId = item.id ?? item.specific_form_id;
+                                  const endActualQtyEdit = () => {
+                                    setTimeout(() => {
+                                      if (
+                                        itemRowIdsEqual(editingFieldRef.current?.id, rowId) &&
+                                        editingFieldRef.current?.field === 'actual_qty'
+                                      ) {
+                                        editingFieldRef.current = null;
+                                      }
+                                    }, 250);
+                                  };
                                   // Normalize value: handle empty, just ".", or trailing "."
                                   let normalizedValue = e.target.value.trim();
                                   if (normalizedValue === '' || normalizedValue === '.') {
@@ -2914,6 +2934,7 @@ const normalizeImageEntries = (list) => {
                                     });
                                     // Reset to previous value
                                     e.target.value = String(item.actual_qty ?? '0');
+                                    endActualQtyEdit();
                                     return;
                                   }
                                   
@@ -2930,10 +2951,12 @@ const normalizeImageEntries = (list) => {
                                     });
                                     // Reset to previous value
                                     e.target.value = String(item.actual_qty ?? '0');
+                                    endActualQtyEdit();
                                     return;
                                   }
                                   
-                                  handleQtyChange(item.id, normalizedValue, 'actual_qty');
+                                  handleQtyChange(rowId, normalizedValue, 'actual_qty');
+                                  endActualQtyEdit();
                                 }}
                                 className="w-20 border border-gray-300 rounded px-2 py-1"
                                 title={item.system_qty > 0 ? `Maximum: ${item.system_qty}` : ''}
@@ -3343,7 +3366,7 @@ const normalizeImageEntries = (list) => {
                                       return;
                                     }
 
-                                    handleInputChange(item.id, 'request_qty', val);
+                                    handleInputChange(item.id ?? item.specific_form_id, 'request_qty', val);
                                   }}
                                   onMouseDown={(e) => e.stopPropagation()}
                                   onTouchStart={(e) => e.stopPropagation()}
@@ -3400,7 +3423,7 @@ const normalizeImageEntries = (list) => {
                                       return;
                                     }
 
-                                    handleInputChange(item.id, 'final_qty', val);
+                                    handleInputChange(item.id ?? item.specific_form_id, 'final_qty', val);
                                   }}
                                   onMouseDown={(e) => e.stopPropagation()}
                                   onTouchStart={(e) => e.stopPropagation()}
@@ -3424,10 +3447,17 @@ const normalizeImageEntries = (list) => {
                                 <input
                                   type="text"
                                   inputMode="decimal"
-                                  data-item-id={item.id}
+                                  data-item-id={item.id ?? item.specific_form_id}
                                   data-field="actual_qty"
                                   data-qty-field="true"
                                   value={item.actual_qty ?? ''}
+                                  onFocus={(e) => {
+                                    e.stopPropagation();
+                                    editingFieldRef.current = {
+                                      id: item.id ?? item.specific_form_id,
+                                      field: 'actual_qty',
+                                    };
+                                  }}
                                   onChange={(e) => {
                                     e.stopPropagation();
                                     const nextValue = e.target.value;
@@ -3469,7 +3499,7 @@ const normalizeImageEntries = (list) => {
                                       }
 
                                       // Use handleQtyChange instead of handleInputChange to properly recalculate amount
-                                      handleQtyChange(item.id, valueToUse, 'actual_qty');
+                                      handleQtyChange(item.id ?? item.specific_form_id, valueToUse, 'actual_qty');
 
                                       // Check if branch account is editing actual_qty in BM Approved status with amount > 500k
                                       // OP Approved forms don't need warning as they're already approved by Operation Manager
@@ -3477,10 +3507,10 @@ const normalizeImageEntries = (list) => {
 
                                       // Calculate current total from items to check against 500k threshold
                                       // Use the updated value for current item, existing values for others
-                                      const currentItemId = item.id;
+                                      const currentItemId = item.id ?? item.specific_form_id;
                                       const currentTotal = items.reduce((acc, currItem) => {
                                         let qty;
-                                        if (String(currItem.id) === String(currentItemId)) {
+                                        if (itemRowIdsEqual(currItem.id ?? currItem.specific_form_id, currentItemId)) {
                                           // This is the current item being edited - use the new value
                                           qty = parseFloat(valueToUse) || 0;
                                         } else {
@@ -3503,6 +3533,17 @@ const normalizeImageEntries = (list) => {
                                     }
                                   }}
                                   onBlur={(e) => {
+                                    const rowId = item.id ?? item.specific_form_id;
+                                    const endActualQtyEdit = () => {
+                                      setTimeout(() => {
+                                        if (
+                                          itemRowIdsEqual(editingFieldRef.current?.id, rowId) &&
+                                          editingFieldRef.current?.field === 'actual_qty'
+                                        ) {
+                                          editingFieldRef.current = null;
+                                        }
+                                      }, 250);
+                                    };
                                     // Normalize value: handle empty, just ".", or trailing "."
                                     let normalizedValue = e.target.value.trim();
                                     if (normalizedValue === '' || normalizedValue === '.') {
@@ -3520,6 +3561,7 @@ const normalizeImageEntries = (list) => {
                                         isOpen: true,
                                         message: t('messages.errors.systemQtyZero', { defaultValue: 'System Quantity is 0. You cannot enter a quantity greater than 0.' })
                                       });
+                                      endActualQtyEdit();
                                       return;
                                     }
                                     
@@ -3534,13 +3576,15 @@ const normalizeImageEntries = (list) => {
                                           defaultValue: `${productName}: Actual Quantity (${numericValue}) cannot be greater than System Quantity (${systemQty}).`
                                         })
                                       });
+                                      endActualQtyEdit();
                                       return;
                                     }
                                     
                                     // Update with normalized value on blur
                                     if (normalizedValue !== String(item.actual_qty ?? '')) {
-                                      handleQtyChange(item.id, normalizedValue, 'actual_qty');
+                                      handleQtyChange(rowId, normalizedValue, 'actual_qty');
                                     }
+                                    endActualQtyEdit();
                                   }}
                                   onMouseDown={(e) => e.stopPropagation()}
                                   onTouchStart={(e) => e.stopPropagation()}
@@ -3565,7 +3609,7 @@ const normalizeImageEntries = (list) => {
                                 value={item.remark || ''}
                                 onChange={(e) => {
                                   e.stopPropagation();
-                                  handleInputChange(item.id, 'remark', e.target.value);
+                                  handleInputChange(item.id ?? item.specific_form_id, 'remark', e.target.value);
                                 }}
                                 onMouseDown={(e) => {
                                   e.stopPropagation();
