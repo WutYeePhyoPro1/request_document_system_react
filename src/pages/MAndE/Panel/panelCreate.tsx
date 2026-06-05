@@ -293,7 +293,7 @@ const panelCreate: React.FC = () => {
           ]}
         />
       </div>
-      <div className="flex items-center gap-6 p-4 rounded-xl">
+      {/* <div className="flex items-center gap-6 p-4 rounded-xl">
         <label className="flex items-center gap-2">
           <input
             type="radio"
@@ -313,7 +313,7 @@ const panelCreate: React.FC = () => {
           />
           Panel Not Run
         </label>
-      </div>
+      </div> */}
 
       <form
         onSubmit={(e) => handleSubmit(e, "Default")}

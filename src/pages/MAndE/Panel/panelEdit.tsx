@@ -324,7 +324,7 @@ const PanelEdit: React.FC = () => {
           },
         ]}
       />
-      <div className="flex items-center gap-6 p-4 rounded-xl">
+      {/* <div className="flex items-center gap-6 p-4 rounded-xl">
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="radio"
@@ -346,7 +346,7 @@ const PanelEdit: React.FC = () => {
           />
           Panel Not Run
         </label>
-      </div>
+      </div> */}
       <form
         onSubmit={handleSubmit}
         className=" 
