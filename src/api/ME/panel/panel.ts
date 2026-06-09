@@ -102,7 +102,7 @@ export const searchPanelData = async (
   }
 ) => {
   try {
-    const response = await API.get("me/panel/search", {
+    const response = await API.get("me/panel/searchNotification", {
       params,
       headers: { Authorization: `Bearer ${token}` },
     });
