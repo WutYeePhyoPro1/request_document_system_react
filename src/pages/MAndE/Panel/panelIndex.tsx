@@ -40,15 +40,15 @@ const panelIndex: React.FC = () => {
   };
   console.log("PanelData", panelData);
   useEffect(() => {
-    const cached = sessionStorage.getItem("solar_cache");
+    const cached = sessionStorage.getItem("panel_cache");
     if (cached) {
       const parsed = JSON.parse(cached);
       parsed.activePage = activePage;
-      sessionStorage.setItem("solar_cache", JSON.stringify(parsed));
+      sessionStorage.setItem("panel_cache", JSON.stringify(parsed));
     }
   }, [activePage]);
   useEffect(() => {
-    const cached = sessionStorage.getItem("solar_cache");
+    const cached = sessionStorage.getItem("panel_cache");
     const token = localStorage.getItem("token");
     if (!token) return;
     if (cached) {
@@ -154,7 +154,7 @@ const panelIndex: React.FC = () => {
 
       // Store cache only when user searches
       sessionStorage.setItem(
-        "solar_cache",
+        "panel_cache",
         JSON.stringify({
           data: results.data,
           searchTerm,
@@ -172,7 +172,7 @@ const panelIndex: React.FC = () => {
     }
   };
   const handleRestart = async () => {
-    sessionStorage.removeItem("solar_cache");
+    sessionStorage.removeItem("panel_cache");
 
     setSearchTerm({
       form_doc_no: "",
@@ -188,7 +188,7 @@ const panelIndex: React.FC = () => {
     setLoading(true);
     await fetchData();
 
-    navigate(`/solar/${formId}`, { replace: true });
+    navigate(`/panel/${formId}`, { replace: true });
   };
   const pageSize: number = 15;
   const start = (activePage - 1) * pageSize;
