@@ -278,7 +278,7 @@ const PanelEdit: React.FC = () => {
     });
     setLoading(true);
     try {
-      console.log('FormData entries>>', Array.from(formData.entries()));
+      console.log("FormData entries>>", Array.from(formData.entries()));
       const token = localStorage.getItem("token");
       await updatePanelData(token, formData, id);
       Swal.fire({
@@ -288,12 +288,23 @@ const PanelEdit: React.FC = () => {
       });
       formElement.reset(); // optional
       navigate(-1);
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Something went wrong while saving data",
-      });
+    } catch (error: any) {
+      console.log("Full error:", error);
+
+      if (!error?.response) {
+        Swal.fire({
+          icon: "error",
+          title: "Network Error",
+          text: "Internet လိုင်းကိုတစ်ချက်လောက်ပြန်စစ်ပေးပါ။",
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text:
+            "Something went wrong while saving data",
+        });
+      }
     } finally {
       setLoading(false);
     }

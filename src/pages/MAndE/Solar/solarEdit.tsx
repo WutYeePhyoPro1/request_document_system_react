@@ -204,7 +204,7 @@ const SolarEdit: React.FC = () => {
     grid_kw_use: "Grid Kw Use is required",
     total_load_kw_use: "Total Load Kw Use is required",
     total_solar_output_Kw: "Output Kw is required",
-    avg_battery_percentage : "Average Battery Percentage is required",
+    avg_battery_percentage: "Average Battery Percentage is required",
     solar_unit: "Solar Unit is required",
     check_inverter: "Inverter checking is required",
     check_battery: "Battery checking is required",
@@ -299,12 +299,23 @@ const SolarEdit: React.FC = () => {
       });
       formElement.reset(); // optional
       navigate(-1);
-    } catch (error) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: "Something went wrong while saving data",
-      });
+    } catch (error: any) {
+      console.log("Full error:", error);
+
+      if (!error?.response) {
+        Swal.fire({
+          icon: "error",
+          title: "Network Error",
+          text: "Internet လိုင်းကိုတစ်ချက်လောက်ပြန်စစ်ပေးပါ။",
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text:
+            "Something went wrong while saving data",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -727,7 +738,6 @@ const SolarEdit: React.FC = () => {
                 />
               </div>
 
-        
               <div className="">
                 <div className="flex items-center gap-2">
                   <label htmlFor="">Unit Day</label>
