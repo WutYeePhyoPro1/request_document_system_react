@@ -49,6 +49,7 @@ export interface meGeneratorDataType {
     remark?: string;
     status?: string;
     originators?: {
+      title?: string;
       name?: string;
       departments?: {
         name?: string;
@@ -116,7 +117,7 @@ export interface FileItem {
   generator_id?: number;
   transformer_id?: number;
   solar_id?: number;
-
+  panel_id?: number;
   file?: File | null;
   preview?: string | null;
   type?: "image" | "pdf" | "other" | null;

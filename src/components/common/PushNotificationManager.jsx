@@ -33,6 +33,10 @@ export default function PushNotificationManager() {
   const [permissionDenied, setPermissionDenied] = useState(false);
 
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      return;
+    }
+
     // Check if browser supports notifications
     if (!("Notification" in window)) {
       console.log("[Push] Notifications not supported");
@@ -76,6 +80,10 @@ export default function PushNotificationManager() {
   };
 
   const subscribeToPush = async () => {
+    if (import.meta.env.DEV) {
+      return;
+    }
+
     try {
       console.log("[Push] Requesting notification permission...");
 

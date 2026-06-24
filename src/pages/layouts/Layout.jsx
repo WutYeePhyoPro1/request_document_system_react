@@ -4,7 +4,7 @@ import Sidebar from "../../components/Siderbar";
 import Navbar from "../../components/Navbar";
 import PushNotificationManager from "../../components/common/PushNotificationManager";
 
-if ("serviceWorker" in navigator) {
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
   window.addEventListener("load", function () {
     navigator.serviceWorker.register("/sw.js").then(
       function (registration) {

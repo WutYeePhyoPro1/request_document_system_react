@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), tsconfigPaths()],
     server: {
       host: true,
+      watch: {
+        usePolling: true,
+        interval: 1000,
+        ignored: ['**/node_modules/**', '**/.git/**', '**/dist/**'],
+      },
       proxy: {
         '/api': {
           target: apiUrl,
