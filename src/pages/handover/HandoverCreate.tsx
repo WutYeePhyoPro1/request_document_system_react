@@ -268,9 +268,12 @@ export default function HandoverDetail() {
                         handleChange(index, "module_name", e.target.value)
                       }
                       className="border focus:outline-none p-3 w-full rounded-md"
+                      required
                       style={{ borderColor: "#d0d6d8" }}
                     >
-                      <option value="">Select module</option>
+                      <option value="" disabled>
+                        Select module
+                      </option>
                       {getModules(
                         form.category_name,
                         categories.find((c) => c.value === form.category_name)

@@ -267,9 +267,12 @@ function HandoverEdit() {
                         handleFormChange("module_name", e.target.value)
                       }
                       className={inputClass}
+                      required
                       style={inputStyle}
                     >
-                      <option value="">Select module</option>
+                      <option value="" disabled>
+                        Select module
+                      </option>
                       {getModules(
                         editForm.category_name,
                         CATEGORIES.find(
