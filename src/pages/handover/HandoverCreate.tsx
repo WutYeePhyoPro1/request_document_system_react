@@ -291,7 +291,7 @@ export default function HandoverDetail() {
                       Attach File{" "}
                       <span className="text-red-500 text-xl">* </span>
                       <span className="block text-sm text-gray-500 font-normal mt-1">
-                        Backend accepts: (.xlsx, .xls, .csv, .jpg, .jpeg, .png,
+                       File Type Accepts: (.xlsx, .xls, .csv, .pdf, .doc, .docx .jpg, .jpeg, .png,
                         .webp)
                       </span>
                     </label>

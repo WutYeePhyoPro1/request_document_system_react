@@ -339,7 +339,7 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
                   Attachments (max:5)
                 </p>
                 <span className="block text-sm text-gray-500 font-normal mt-1">
-                  Backend accepts: (.xlsx, .xls, .csv, .pdf, .doc, .docx, .jpg,
+                  File Type Accepts: (.xlsx, .xls, .csv, .pdf, .doc, .docx, .jpg,
                   .jpeg, .png, .webp)
                 </span>
                 <input
