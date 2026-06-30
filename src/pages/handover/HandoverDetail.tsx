@@ -14,7 +14,7 @@ import dashboardPhoto from "../../assets/images/reqBa.png";
 
 import NavPath from "../../components/NavPath";
 import TsStatusBadge from "../../components/ui/TsStatusBadge";
-import { FiCopy } from "react-icons/fi";
+import { FiCopy, FiUserCheck, FiUsers } from "react-icons/fi";
 
 import { handoverDetailData } from "../../api/Handover/handover";
 import HandoverTable from "./HandoverTable";
@@ -26,7 +26,35 @@ interface RecipientUser {
   id: number;
   name: string;
   emp_id: string;
+  title?: string;
+  department?: {
+    name?: string;
+  };
 }
+
+const getRecipientUser = (item: any) =>
+  item?.user ??
+  item?.users ??
+  item?.recipient_user ??
+  item?.recipientUser ??
+  item?.approval_users ??
+  item?.approval_user;
+
+const getRecipientName = (recipient: RecipientUser) =>
+  recipient.name?.trim() || `User #${recipient.id}`;
+
+const getInitials = (name: string) => {
+  const cleanName = name.trim();
+  if (!cleanName) return "U";
+
+  return cleanName
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+};
 
 const getRecipientsFromReviews = (data: any): RecipientUser[] => {
   const reviews = Array.isArray(data?.handoverReview)
@@ -40,11 +68,13 @@ const getRecipientsFromReviews = (data: any): RecipientUser[] => {
           : [];
 
   return reviews
-    .filter((item: any) => item?.user_id)
+    .filter((item: any) => item?.user_id || getRecipientUser(item)?.id)
     .map((item: any) => ({
-      id: Number(item.user_id),
-      name: item.user?.name ?? item.name ?? "",
-      emp_id: item.user?.emp_id ?? item.emp_id ?? "",
+      id: Number(item.user_id ?? getRecipientUser(item)?.id),
+      name: getRecipientUser(item)?.name ?? item.name ?? "",
+      emp_id: getRecipientUser(item)?.emp_id ?? item.emp_id ?? "",
+      title: getRecipientUser(item)?.title,
+      department: getRecipientUser(item)?.department,
     }));
 };
 
@@ -243,6 +273,67 @@ const HandoverDetail: React.FC = () => {
                       onCheckedHandoverChange={handleCheckedHandoverChange}
                     />
                   </div>
+
+                  {recipients.length > 0 && detailData?.generalForm?.status !== "Checked" && (
+                    <div className="mt-6 rounded-lg border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+                            <FiUsers className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              Recipients
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {recipients.length} user
+                              {recipients.length > 1 ? "s" : ""} selected for
+                              this handover
+                            </div>
+                          </div>
+                        </div>
+                        <div className="inline-flex w-fit items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-medium text-blue-600">
+                          <FiUserCheck className="h-3.5 w-3.5" />
+                          Added
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {recipients.map((recipient) => {
+                          const recipientName = getRecipientName(recipient);
+                          const departmentName = recipient.department?.name;
+
+                          return (
+                            <div
+                              key={recipient.id}
+                              className="flex min-w-0 items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-3 shadow-sm"
+                            >
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-semibold text-blue-700">
+                                {getInitials(recipientName)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-gray-900">
+                                  {recipient.title
+                                    ? `${recipient.title} ${recipientName}`
+                                    : recipientName}
+                                </div>
+                                <div className="mt-0.5 truncate text-xs text-gray-500">
+                                  {recipient.emp_id
+                                    ? `Emp ID: ${recipient.emp_id}`
+                                    : `User ID: ${recipient.id}`}
+                                </div>
+                                {departmentName && (
+                                  <div className="mt-0.5 truncate text-xs text-blue-500">
+                                    {departmentName}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   <hr className="mt-8 mb-6" />
 
                   {/* Search Recipient */}

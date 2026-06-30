@@ -5,12 +5,19 @@ import { NotificationContext } from "../../context/NotificationContext";
 import { useNavigate } from "react-router-dom";
 import type { HandoverDataType } from "../../utils/HandoverUtil/handovertype";
 import { approveFormHandover } from "../../api/Handover/handover";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 interface RecipientUser {
   id: number;
   name: string;
   emp_id: string;
 }
+
+type AttachmentPreview = {
+  name: string;
+  url: string | null;
+  isImage: boolean;
+};
 
 type HandoverApproveFormProps = {
   recipients?: RecipientUser[];
@@ -36,8 +43,8 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
 
   const [comment, setComment] = useState("");
   const [rating, setRating] = useState(0); // ★ star rating
-  const [photos, setPhotos] = useState<File[]>([]); // multiple photos
-  const [previews, setPreviews] = useState<string[]>([]); // preview URLs
+  const [photos, setPhotos] = useState<File[]>([]); // multiple attachments
+  const [previews, setPreviews] = useState<AttachmentPreview[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recipientReviews = Array.isArray(detailData?.recipientData)
     ? detailData.recipientData
@@ -67,24 +74,38 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
     setComment(e.target.value);
   };
 
-  // ── Photo select handler ─────────────────────────────
+  // ── Attachment select handler ────────────────────────
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (photos.length + files.length > 5) {
       Swal.fire({
         icon: "warning",
         title: "Warning",
-        text: "Maximum 5 photos allowed",
+        text: "Maximum 5 attachments allowed",
       });
       return;
     }
-    const newPreviews = files.map((f) => URL.createObjectURL(f));
+    const newPreviews = files.map((file) => {
+      const isImage =
+        file.type.startsWith("image/") ||
+        /\.(jpg|jpeg|png|webp)$/i.test(file.name);
+
+      return {
+        name: file.name,
+        url: isImage ? URL.createObjectURL(file) : null,
+        isImage,
+      };
+    });
     setPhotos((prev) => [...prev, ...files]);
     setPreviews((prev) => [...prev, ...newPreviews]);
   };
 
-  // ── Remove photo ─────────────────────────────────────
+  // ── Remove attachment ────────────────────────────────
   const handleRemovePhoto = (index: number) => {
+    const preview = previews[index];
+    if (preview?.url) {
+      URL.revokeObjectURL(preview.url);
+    }
     setPhotos((prev) => prev.filter((_, i) => i !== index));
     setPreviews((prev) => prev.filter((_, i) => i !== index));
   };
@@ -96,6 +117,30 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
         icon: "warning",
         title: "Not allowed",
         text: "Only the originator can add recipients.",
+      });
+      return;
+    }
+
+    if (
+      ["checked", "recipient_received"].includes(statusValue) &&
+      checkedHandoverIds.length === 0
+    ) {
+      Swal.fire({
+        icon: "warning",
+        title: "Checked item required",
+        text: "Please check at least one handover item.",
+      });
+      return;
+    }
+
+    if (
+      statusValue === "recipient_received" &&
+      pendingRecipientReviews.length === 0
+    ) {
+      Swal.fire({
+        icon: "warning",
+        title: "Review already submitted",
+        text: "You have already uploaded your rating and review.",
       });
       return;
     }
@@ -137,18 +182,6 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
         icon: "warning",
         title: "Recipient required",
         text: "Please add recipients.",
-      });
-      return;
-    }
-
-    if (
-      statusValue === "recipient_received" &&
-      pendingRecipientReviews.length === 0
-    ) {
-      Swal.fire({
-        icon: "warning",
-        title: "Review already submitted",
-        text: "You have already uploaded your rating and review.",
       });
       return;
     }
@@ -204,7 +237,11 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
       onRefresh();
     } catch (error) {
       console.error(error);
-      Swal.fire("Error", "Something went wrong", "error");
+      Swal.fire(
+        "Error",
+        getApiErrorMessage(error, "Something went wrong"),
+        "error",
+      );
     } finally {
       setLoading(false);
     }
@@ -296,14 +333,18 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
                 />
               </div>
 
-              {/* Photo Upload */}
+              {/* Attachment Upload */}
               <div>
-                <p className="text-sm text-gray-500 mb-1">Image (max:5)</p>
-
+                <p className="text-sm text-gray-500 mb-1">
+                  Attachments (max:5)
+                </p>
+                <span className="block text-sm text-gray-500 font-normal mt-1">
+                  Backend accepts: (.xlsx, .xls, .csv, .pdf, .doc, .docx, .jpg,
+                  .jpeg, .png, .webp)
+                </span>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
                   multiple
                   className="hidden"
                   onChange={handlePhotoChange}
@@ -314,22 +355,31 @@ const HandoverApproveForm: React.FC<HandoverApproveFormProps> = ({
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-500 hover:border-blue-400 hover:text-blue-500 transition-colors"
                 >
-                  Choose Image
+                  Choose Files
                 </button>
 
                 {/* Preview Grid */}
                 {previews.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
-                    {previews.map((src, i) => (
+                    {previews.map((preview, i) => (
                       <div
                         key={i}
-                        className="relative w-20 h-20 rounded-lg overflow-hidden border border-gray-200"
+                        className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50"
                       >
-                        <img
-                          src={src}
-                          alt={`preview-${i}`}
-                          className="w-full h-full object-cover"
-                        />
+                        {preview.isImage && preview.url ? (
+                          <img
+                            src={preview.url}
+                            alt={preview.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full p-2 flex flex-col items-center justify-center text-center text-xs text-gray-600">
+                            <span className="text-lg">📄</span>
+                            <span className="line-clamp-2 break-all">
+                              {preview.name}
+                            </span>
+                          </div>
+                        )}
                         <button
                           type="button"
                           onClick={() => handleRemovePhoto(i)}

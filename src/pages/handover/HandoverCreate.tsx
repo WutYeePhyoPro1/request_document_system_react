@@ -3,8 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import NavPath from "../../components/NavPath";
 import { Button, Loader, Checkbox, Menu } from "@mantine/core";
 import Swal from "sweetalert2";
-import axios from "axios";
 import { storeHandoverData } from "../../api/Handover/handover";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 interface Category {
   value: string;
   name: string;
@@ -158,14 +158,13 @@ export default function HandoverDetail() {
           text: "Internet လိုင်းကိုတစ်ချက်လောက်ပြန်စစ်ပေးပါ။",
         });
       } else {
-        const message =
-          error?.response?.data?.message ||
-          "Something went wrong while saving data";
-
         Swal.fire({
           icon: "error",
           title: "Error",
-          text: message,
+          text: getApiErrorMessage(
+            error,
+            "Something went wrong while saving data",
+          ),
         });
       }
     } finally {
@@ -287,12 +286,15 @@ export default function HandoverDetail() {
                   <div>
                     <label className="block text-md font-medium mb-1">
                       Attach File{" "}
-                      <span className="text-red-500 text-xl">*</span>
+                      <span className="text-red-500 text-xl">* </span>
+                      <span className="block text-sm text-gray-500 font-normal mt-1">
+                        Backend accepts: (.xlsx, .xls, .csv, .jpg, .jpeg, .png,
+                        .webp)
+                      </span>
                     </label>
                     <input
                       type="file"
                       name={`file_${index}`}
-                      accept="image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx"
                       onChange={(e) => {
                         const file = e.target.files?.[0] ?? null;
                         console.log("Selected file:", file);

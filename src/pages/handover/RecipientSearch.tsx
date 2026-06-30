@@ -41,7 +41,15 @@ export default function RecipientSearch({
     try {
       const token = localStorage.getItem("token");
       const data = await searchRecipient(token, query);
-      const result = data?.data;
+      const rawResult = data?.data;
+      const result = rawResult
+        ? {
+            ...rawResult,
+            id: Number(rawResult.id ?? rawResult.user_id),
+            name: rawResult.name ?? rawResult.user?.name ?? "",
+            emp_id: rawResult.emp_id ?? rawResult.user?.emp_id ?? "",
+          }
+        : null;
       if (data?.status !== 200) {
         Swal.fire({
           icon: "error",
@@ -51,7 +59,17 @@ export default function RecipientSearch({
         return;
       }
 
+      if (!result?.id) {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: "Recipient user data is missing.",
+        });
+        return;
+      }
+
       setSearchResult(result);
+      setQuery("");
       setShowDropdown(true);
     } catch (error: any) {
       const message = error?.response?.data?.message || "Something went wrong";

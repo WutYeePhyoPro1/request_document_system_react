@@ -95,7 +95,7 @@ export interface HandoverDataType {
   };
 
   handoverData?: {};
-  recipientData?: RecipientData | null;
+  recipientData?: RecipientData | RecipientData[] | null;
   files?: {};
   authUserId?: {};
 }
@@ -115,13 +115,17 @@ export interface RecipientData {
   created_at: string;
   updated_at: string;
   files: ReviewAttachment[];
-  user: {
+  user?: {
     title?: string;
     name?: string;
+    emp_id?: string;
     department?: {
       name?: string;
     };
   };
+  users?: RecipientData["user"];
+  recipient_user?: RecipientData["user"];
+  recipientUser?: RecipientData["user"];
 }
 
 export interface FileItem {

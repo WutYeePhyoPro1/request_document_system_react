@@ -52,8 +52,11 @@ const HandoverIndex: React.FC = () => {
     if (cached) {
       const parsed = JSON.parse(cached);
       setLoading(true);
-      getHandoverData(token)
-        .then((data) => {
+      Promise.all([
+        getHandoverData(token),
+        searchHandoverData(token, parsed.searchTerm),
+      ])
+        .then(([data, freshSearchData]) => {
           setGeneralData({
             meta: {
               authenticatedUser: data?.authenticatedUser,
@@ -63,8 +66,16 @@ const HandoverIndex: React.FC = () => {
               authBranch: data?.authBranch,
               createdUser: data?.createdUser,
             },
-            data: parsed.data,
+            data: freshSearchData?.data ?? [],
           });
+          sessionStorage.setItem(
+            "handover_cache",
+            JSON.stringify({
+              data: freshSearchData?.data ?? [],
+              searchTerm: parsed.searchTerm,
+              activePage: parsed.activePage,
+            }),
+          );
           setSearchTerm(parsed.searchTerm);
           setActivePage(parsed.activePage);
           setLoading(false);
@@ -437,7 +448,7 @@ const HandoverIndex: React.FC = () => {
                 placeholder={
                   searchTerm.status.length > 0 ? "" : "Select Status"
                 }
-                data={["All", "Ongoing", "Checked", "Recipient Received", "Approved" ,"Completed"]}
+                data={["All", "Default",  "Ongoing", "Checked", "Recipient Received", "Approved" ,"Completed"]}
                 className="border border-blue-500 focus:outline-none w-full rounded-md"
                 value={searchTerm.status}
                 onChange={handleStatusChange}

@@ -37,9 +37,20 @@ const HandoverTable: React.FC<TableDetailProps> = ({
   console.log("Handover Files", files);
   const generalForm = detailData?.generalForm;
   const authUserId = detailData?.authUserId;
+  const recipientReviews = Array.isArray(detailData?.recipientData)
+    ? detailData.recipientData
+    : detailData?.recipientData
+      ? [detailData.recipientData]
+      : [];
+  const hasSubmittedRecipientReview = recipientReviews.some(
+    (item) =>
+      String(item.user_id) === String(authUserId) && item.rating != null,
+  );
   const canEditChecked =
     (generalForm?.status === "Ongoing" && detailData?.supervisor === true) ||
-    (generalForm?.status === "Checked" && detailData?.recipient === true);
+    (generalForm?.status === "Checked" &&
+      detailData?.recipient === true &&
+      !hasSubmittedRecipientReview);
 
   const [fileOpened, { open: openFileModal, close: closeFileModal }] =
     useDisclosure(false);

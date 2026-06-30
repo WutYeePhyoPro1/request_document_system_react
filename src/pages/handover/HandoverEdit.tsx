@@ -7,6 +7,7 @@ import {
   editHandoverData,
   updateHandoverData,
 } from "../../api/Handover/handover";
+import { getApiErrorMessage } from "../../utils/apiErrorMessage";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,7 +181,10 @@ function HandoverEdit() {
         Swal.fire({
           icon: "error",
           title: "Error",
-          text: "Something went wrong while updating.",
+          text: getApiErrorMessage(
+            error,
+            "Something went wrong while updating.",
+          ),
         });
       }
     } finally {
@@ -312,7 +316,6 @@ function HandoverEdit() {
                     <input
                       type="file"
                       name="file"
-                      accept="image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx"
                       onChange={(e) =>
                         handleFileChange(e.target.files?.[0] ?? null)
                       }
