@@ -13,32 +13,64 @@ const FilterCard = lazy(() => import("../pages/BigDamageIssue/FilterCard.jsx"));
 const CctvForm = lazy(() => import("../pages/cctv/CctvForm.jsx"));
 const Login = lazy(() => import("../pages/auth/Login.jsx"));
 const CctvIndex = lazy(() => import("../pages/cctv/CctvIndex.jsx"));
-const BigDamageIssue = lazy(() => import("../pages/BigDamageIssue/Dashboard.jsx"));
+const BigDamageIssue = lazy(
+  () => import("../pages/BigDamageIssue/Dashboard.jsx"),
+);
 const CctvDetails = lazy(() => import("../pages/cctv/CctvDetails.jsx"));
 const CctvEdit = lazy(() => import("../pages/cctv/CctvEdit.jsx"));
 const AutoLogin = lazy(() => import("../context/AutoLogin.jsx"));
 const Demo = lazy(() => import("../pages/requestDiscount/index.tsx"));
 const Create = lazy(() => import("../pages/requestDiscount/create.tsx"));
 const DamageAdd = lazy(() => import("../pages/BigDamageIssue/DamageAdd.jsx"));
-const DamageDetail = lazy(() => import("../pages/BigDamageIssue/DamageDetail.jsx"));
+const DamageDetail = lazy(
+  () => import("../pages/BigDamageIssue/DamageDetail.jsx"),
+);
 const DamageView = lazy(() => import("../pages/BigDamageIssue/DamageView.jsx"));
-const DamageIssueList = lazy(() => import("../pages/BigDamageIssue/DamageIssueList.jsx"));
+const DamageIssueList = lazy(
+  () => import("../pages/BigDamageIssue/DamageIssueList.jsx"),
+);
 const Detail = lazy(() => import("../pages/requestDiscount/detail.js"));
-const IndexPriceChange = lazy(() => import("../pages/pricechanges/IndexPriceChange.jsx"));
-const CreatePriceChange = lazy(() => import("../pages/pricechanges/CreatePriceChange.jsx"));
-const DetailPriceChange = lazy(() => import("../pages/pricechanges/DetailPriceChange.jsx"));
-const IndexPromotionJob = lazy(() => import("../pages/promotionjobs/IndexPromotionJob.jsx"));
-const CreatePromotionJob = lazy(() => import("../pages/promotionjobs/CreatePromotionJob.jsx"));
-const DetailPromotionJob = lazy(() => import("../pages/promotionjobs/DetailPromotionJob.jsx"));
+const IndexPriceChange = lazy(
+  () => import("../pages/pricechanges/IndexPriceChange.jsx"),
+);
+const CreatePriceChange = lazy(
+  () => import("../pages/pricechanges/CreatePriceChange.jsx"),
+);
+const DetailPriceChange = lazy(
+  () => import("../pages/pricechanges/DetailPriceChange.jsx"),
+);
+const IndexPromotionJob = lazy(
+  () => import("../pages/promotionjobs/IndexPromotionJob.jsx"),
+);
+const CreatePromotionJob = lazy(
+  () => import("../pages/promotionjobs/CreatePromotionJob.jsx"),
+);
+const DetailPromotionJob = lazy(
+  () => import("../pages/promotionjobs/DetailPromotionJob.jsx"),
+);
 const MAndE = lazy(() => import("../pages/MAndE/MAndE.jsx"));
 const Index = lazy(() => import("../pages/MAndE/Generator/index.js"));
-const GeneratorCreate = lazy(() => import("../pages/MAndE/Generator/generatorCreate.js"));
-const GeneratorDetail = lazy(() => import("../pages/MAndE/Generator/GeneratorDetail.js"));
-const GeneratorEdit = lazy(() => import("../pages/MAndE/Generator/generatorEdit.js"));
-const TransformerIndex = lazy(() => import("../pages/MAndE/Transformer/transformerIndex.js"));
-const TransformerCreate = lazy(() => import("../pages/MAndE/Transformer/transformerCreate.js"));
-const TransformerDetail = lazy(() => import("../pages/MAndE/Transformer/TransformerDetail.js"));
-const TransformerEdit = lazy(() => import("../pages/MAndE/Transformer/transformerEdit.js"));
+const GeneratorCreate = lazy(
+  () => import("../pages/MAndE/Generator/generatorCreate.js"),
+);
+const GeneratorDetail = lazy(
+  () => import("../pages/MAndE/Generator/GeneratorDetail.js"),
+);
+const GeneratorEdit = lazy(
+  () => import("../pages/MAndE/Generator/generatorEdit.js"),
+);
+const TransformerIndex = lazy(
+  () => import("../pages/MAndE/Transformer/transformerIndex.js"),
+);
+const TransformerCreate = lazy(
+  () => import("../pages/MAndE/Transformer/transformerCreate.js"),
+);
+const TransformerDetail = lazy(
+  () => import("../pages/MAndE/Transformer/TransformerDetail.js"),
+);
+const TransformerEdit = lazy(
+  () => import("../pages/MAndE/Transformer/transformerEdit.js"),
+);
 const SolarIndex = lazy(() => import("../pages/MAndE/Solar/solarIndex.js"));
 const SolarCreate = lazy(() => import("../pages/MAndE/Solar/solarCreate.js"));
 const SolarDetail = lazy(() => import("../pages/MAndE/Solar/solarDetail.js"));
@@ -51,13 +83,27 @@ const PanelIndex = lazy(() => import("../pages/MAndE/Panel/panelIndex.js"));
 const PanelCreate = lazy(() => import("../pages/MAndE/Panel/panelCreate.js"));
 const PanelDetail = lazy(() => import("../pages/MAndE/Panel/panelDetail.js"));
 const PanelEdit = lazy(() => import("../pages/MAndE/Panel/panelEdit.js"));
+const WaterTankIndex = lazy(() => import("../pages/MAndE/WaterTank/Index.js"));
+const WaterTankCreate = lazy(
+  () => import("../pages/MAndE/WaterTank/Create.js"),
+);
+const WaterTankDetail = lazy(
+  () => import("../pages/MAndE/WaterTank/Detail.js"),
+);
+const WaterTankEdit = lazy(() => import("../pages/MAndE/WaterTank/Edit.js"));
 const HandoverIndex = lazy(() => import("../pages/handover/HandoverIndex.js"));
 const HandoverEdit = lazy(() => import("../pages/handover/HandoverEdit.js"));
-const HandoverCreate = lazy(() => import("../pages/handover/HandoverCreate.js"));
-const HandoverDetail = lazy(() => import("../pages/handover/HandoverDetail.js"));
+const HandoverCreate = lazy(
+  () => import("../pages/handover/HandoverCreate.js"),
+);
+const HandoverDetail = lazy(
+  () => import("../pages/handover/HandoverDetail.js"),
+);
 
 const lazyElement = (Component) => (
-  <Suspense fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}>
+  <Suspense
+    fallback={<div className="p-6 text-sm text-gray-500">Loading...</div>}
+  >
     <Component />
   </Suspense>
 );
@@ -255,6 +301,25 @@ const router = createBrowserRouter([
         path: "panel_edit/:id",
         element: lazyElement(PanelEdit),
       },
+
+      {
+        path: "water-tank/:id",
+        element: lazyElement(WaterTankIndex),
+      },
+
+      {
+        path: "water-tank/create",
+        element: lazyElement(WaterTankCreate),
+      },
+
+      {
+        path: "water-tank-detail/:id",
+        element: lazyElement(WaterTankDetail),
+      },
+      {
+        path: "water-tank/edit/:id",
+        element: lazyElement(WaterTankEdit),
+      },
       {
         path: "price_changes",
         element: lazyElement(IndexPriceChange),
@@ -280,7 +345,7 @@ const router = createBrowserRouter([
         path: "promotion_jobs_detail/:id",
         element: lazyElement(DetailPromotionJob),
       },
-            {
+      {
         path: "handover",
         element: lazyElement(HandoverIndex),
       },
