@@ -414,7 +414,7 @@ export default function () {
                 id: apiProduct.barcode,
             };
             if(!data.error){
-                if (result.product_name && result.product_name.includes("(Cancel)")) {
+                if (result.product_name && result.product_name.includes("Cancel")) {
                     cancelledCodes.push(result);
                     return { isCancelled: true, product: result };
                 }
