@@ -131,6 +131,29 @@ export default function () {
     const isOverdueForm = checkOverdueForm(svrDateObj, new Date(formState.effective_date))
     // console.log(checkOverdueForm(svrDateObj, new Date(formState.effectiveDateObj)))
     console.log(isOverdueForm,'overdue form');
+
+    // Start Effective Date Message
+        // console.log(new Date(formState.effective_date).toDateString() , new Date(svrDateObj).toDateString())
+        console.log(new Date(formState.effective_date) , new Date(svrDateObj));
+        const isEffectiveToday = (new Date(formState.effective_date).toDateString() === new Date(svrDateObj).toDateString()); 
+        // const isEffectivePast = (new Date(formState.effective_date) < new Date(svrDateObj));
+        // Effective Past same as isOverdueForm
+        const isEffectivePast = isOverdueForm;
+
+        console.log(isEffectiveToday,'isEffectiveToday');
+        console.log(isEffectivePast,'isEffectivePast');
+        // const showAlert = isEffectivePast || (isEffectiveToday && !formState.urgent_price_change);
+        let effectiveDateMessage = "";
+        if (isEffectivePast) {
+            effectiveDateMessage =
+                `Effective Date သည် Today (${formatLaravelStyleDate(svrDateObj)}) ထက်ငယ်နေပါသည်။`;
+        } else if (isEffectiveToday && !formState.urgent_price_change) {
+            effectiveDateMessage =
+                `Today (${formatLaravelStyleDate(svrDateObj)}) Date ဖြင့် စျေးချိန်းဝင်ပါမည်။`;
+        }
+        console.log(effectiveDateMessage);
+    // End Effective Date Message
+
     const isRunner = (formState.status == "Approved" || formState.status == "Partial") && (getApprover?.approval_users?.id === user.id || pcMonitor);
     const computeHasPendingBranch = (formState)=> {
         return  formState?.price_change_branches?.some(
@@ -1051,7 +1074,7 @@ export default function () {
 
         Swal.fire({
             icon: "question",
-            text:  `Are you sure you want to ${btnText}?`,
+            text:  `Are you sure you want to ${btnText}? ${effectiveDateMessage}`,
             showCancelButton: true,
             confirmButtonText: "OK",
             cancelButtonText: "Cancel",
