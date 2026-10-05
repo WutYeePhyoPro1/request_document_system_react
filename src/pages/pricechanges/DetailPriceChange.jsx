@@ -149,7 +149,7 @@ export default function () {
                 `Effective Date သည် Today (${formatLaravelStyleDate(svrDateObj)}) ထက်ငယ်နေပါသည်။`;
         } else if (isEffectiveToday && !formState.urgent_price_change) {
             effectiveDateMessage =
-                `Today (${formatLaravelStyleDate(svrDateObj)}) Date ဖြင့် စျေးချိန်းဝင်ပါမည်။`;
+                `Today Date (${formatLaravelStyleDate(svrDateObj)}) ဖြင့်စျေးချိန်းဝင်ပါမည်။`;
         }
         console.log(effectiveDateMessage);
     // End Effective Date Message
@@ -1074,7 +1074,14 @@ export default function () {
 
         Swal.fire({
             icon: "question",
-            text:  `Are you sure you want to ${btnText}? ${effectiveDateMessage}`,
+            // text:  `Are you sure you want to ${btnText}? ${effectiveDateMessage}`,
+            html: `
+                Are you sure you want to <b>${btnText}</b>?
+                <br>
+                <span style="color: red; font-weight: bold;">
+                    ${effectiveDateMessage}
+                </span>
+            `,
             showCancelButton: true,
             confirmButtonText: "OK",
             cancelButtonText: "Cancel",
