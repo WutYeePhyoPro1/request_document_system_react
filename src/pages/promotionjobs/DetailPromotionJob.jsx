@@ -3,7 +3,7 @@ import {useDispatch,useSelector} from "react-redux"
 import { confirmAlert } from "react-confirm-alert";
 import { useNavigate,useParams,Link } from "react-router-dom";
 import NavPath from "../../components/NavPath";
-import { FaFileImport,FaSpinner,FaLock, FaPen, FaEye,FaTimes } from "react-icons/fa";
+import { FaFileImport,FaSpinner,FaLock, FaPen, FaEye,FaTimes,FaChevronRight } from "react-icons/fa";
 
 import Select from 'react-select'
 import axios from "axios";
@@ -13,6 +13,7 @@ import ServerTime,{fetchServerTime as SvrTime}  from "../../components/ServerTim
 import { setFilter } from "../../store/pricechangeSlice";
 import StatusBadge from '../../components/ui/StatusBadge';
 import {formatLaravelStyleDate} from "../../components/Fomatter.jsx";
+import DiffPromoItemsModal from "./DiffPromoItemsModal.jsx";
 
 export default function () {
     const { user, token } = useSelector((state) => state.auth);
@@ -36,6 +37,7 @@ export default function () {
     const [filteredBranches,setFilteredBranches] = useState([]);
 
     const [pjLoading,setPJLoading] = useState(true);
+    const [selectedPromotionJob, setSelectedPromotionJob] = useState(null);
 
     const toggleBranch = (id) => {
         if(isEdit) return;
@@ -598,17 +600,17 @@ export default function () {
                                 <ul className="space-y-3 overflow-y-auto max-h-[600px] p-2">
                                     {form?.promotion_jobs?.map((pjbranch) => (
                                         <li
-                                        key={pjbranch}
-                                        className="flex items-center justify-between p-1 rounded-lg borders"
+                                        key={pjbranch.id ?? pjbranch.branch_id}
+                                        onClick={() => setSelectedPromotionJob(pjbranch)}
+                                        className="flex cursor-pointer items-center justify-between gap-3 rounded-lg p-1"
                                         >
-                                        <span className="font-medium">
+                                        <span className="min-w-0 truncate font-medium">
                                             {pjbranch.branch?.branch_name}: {pjbranch.message} 
-                                            {/* {pjbranch.status}  */}
                                         </span>
                     
                     
                                         {/* Status */}
-                                        <div>
+                                        <div className="flex shrink-0 items-center gap-2">
                                         {(pjbranch.status.toLowerCase()  == "default" || pjbranch.status.toLowerCase() === "pending" ) && (
                                             <span className="text-sm text-yellow-600">
                                             ⏳ Pending
@@ -632,12 +634,21 @@ export default function () {
                                             ❌ Failed
                                             </span>
                                         )}
+
+                                        <span className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-blue-100 py-1 pl-3 pr-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-200">
+                                            <span className="min-w-3 text-center text-sm font-bold leading-none tabular-nums text-blue-800">
+                                                {pjbranch.diff_promo_items.length}
+                                            </span>
+                                            <span>Diff Promo Items</span>
+                                            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+                                                <FaChevronRight className="text-[8px]" aria-hidden="true" />
+                                            </span>
+                                        </span>
                                         </div>
                     
                                         </li>
                                     ))}
                                 </ul>
-
                                 <div className="sticky bottom-0 bg-blue-50 border-t border-blue-200 shadow-md">
                                     {/* TITLE */}
                                     <div className="px-4 pt-2 text-xs text-blue-600 uppercase tracking-wide font-medium">
@@ -680,6 +691,13 @@ export default function () {
                 }
                 
             </div>
+
+            {selectedPromotionJob && (
+                <DiffPromoItemsModal
+                    promotionJob={selectedPromotionJob}
+                    onClose={() => setSelectedPromotionJob(null)}
+                />
+            )}
         </>
     );
 
