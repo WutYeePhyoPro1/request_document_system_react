@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { FaTimes } from "react-icons/fa";
-import {formatDate,formatLaravelStyleDate,formatTo2Decimals,formatNumber} from "../../components/Fomatter.jsx";
+import { FaBarcode, FaTimes } from "react-icons/fa";
+import {formatNumber} from "../../components/Fomatter.jsx";
 
 export default function DiffPromoItemsModal({ promotionJob, onClose }) {
     useEffect(() => {
@@ -30,18 +30,23 @@ export default function DiffPromoItemsModal({ promotionJob, onClose }) {
                 aria-labelledby="diff-promo-items-title"
             >
                 <header className="flex items-start justify-between border-b border-slate-200 bg-slate-50 px-5 py-4 sm:px-6">
-                    <div>
-                        <h2 id="diff-promo-items-title" className="text-lg font-semibold text-slate-900">
-                            Diff Promo Items
-                        </h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                            {promotionJob?.branch?.branch_name ?? "Branch"} promotion price changes
-                        </p>
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                            <FaBarcode aria-hidden="true" />
+                        </div>
+                        <div>
+                            <h2 id="diff-promo-items-title" className="text-lg font-semibold text-slate-900">
+                                Diff Promo Items
+                            </h2>
+                            <p className="mt-0.5 text-sm text-slate-500">
+                                {promotionJob?.branch?.branch_name ?? "Branch"} promotion price changes
+                            </p>
+                        </div>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700"
+                        className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         aria-label="Close diff promo items"
                     >
                         <FaTimes />
@@ -56,19 +61,19 @@ export default function DiffPromoItemsModal({ promotionJob, onClose }) {
                         Status: <strong className="capitalize text-slate-800">{promotionJob?.status ?? "-"}</strong>
                     </span>
                     <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                        {promotionJob.diff_promo_items.length} Diff Promo Items
+                        {promotionJob?.diff_promo_items?.length ?? 0} Diff Promo Items
                     </span>
                 </div>
 
                 <div className="max-h-[60vh] overflow-auto p-5 sm:p-6">
-                    <table className="w-full min-w-[760px] border border-slate-200 text-sm">
+                    <table className="w-full min-w-[760px] overflow-hidden rounded-xl border border-slate-200 text-sm">
                         <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-600">
                             <tr>
                                 <th className="border-b px-4 py-3">No.</th>
                                 <th className="border-b px-4 py-3">Barcode</th>
                                 <th className="border-b px-4 py-3 text-right">Goods Price</th>
-                                <th className="border-b px-4 py-3 text-right">Promotion Value</th>
-                                <th className="border-b px-4 py-3 text-right">Final Price</th>
+                                <th className="border-b px-4 py-3 text-right">Cross Selling Value</th>
+                                <th className="border-b px-4 py-3 text-right">Price Free</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -100,8 +105,8 @@ export default function DiffPromoItemsModal({ promotionJob, onClose }) {
                                         <td className="px-4 py-3 text-slate-500">{++idx}</td>
                                         <td className="px-4 py-3 font-mono font-medium">{diffPromoItem.promotion_cross_selling_barcode}</td>
                                         <td className="px-4 py-3 text-right">{formatNumber(diffPromoItem.promotion_cross_selling_goods_price)}</td>
-                                        <td className="px-4 py-3 text-right font-medium text-rose-600">{formatNumber(diffPromoItem.promotion_cross_selling_price_free)}</td>
-                                        <td className="px-4 py-3 text-right font-semibold text-emerald-700">{formatNumber(diffPromoItem.promotion_cross_selling_value)}</td>
+                                        <td className="px-4 py-3 text-right font-semibold text-rose-600">{formatNumber(diffPromoItem.promotion_cross_selling_value)}</td>
+                                        <td className="px-4 py-3 text-right font-medium text-emerald-700">{formatNumber(diffPromoItem.promotion_cross_selling_price_free)}</td>
                                     </tr>
                                     </>
                                 ))}
@@ -113,7 +118,7 @@ export default function DiffPromoItemsModal({ promotionJob, onClose }) {
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg bg-slate-700 px-5 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                        className="rounded-lg bg-slate-700 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
                     >
                         Close
                     </button>
