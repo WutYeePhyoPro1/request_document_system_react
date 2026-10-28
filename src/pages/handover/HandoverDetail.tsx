@@ -490,7 +490,7 @@ const HandoverDetail: React.FC = () => {
                         detailData?.generalForm?.status ?? "",
                       ) ? (
                         <div>
-                          <div className="font-medium ">Approved By</div>
+                          <div className="font-medium ">Approved By Branch Manager</div>
                           <div className="font-semibold text-blue-400 mt-1">
                             {detailData?.getApprover?.approval_users?.title}{" "}
                             {detailData?.getApprover?.approval_users?.name}
@@ -515,11 +515,11 @@ const HandoverDetail: React.FC = () => {
                           )}
                         </div>
                       ) : (
-                        <div className="opacity-40">Approved By</div>
+                        <div className="opacity-40">Approved By Branch Manager</div>
                       )
                     ) : (
                       <div className="opacity-40">
-                        <div>Approved By</div>
+                        <div>Approved By Branch Manager</div>
                         <div>-------------------</div>
                         <div>
                           {dateTimeFormat(detailData?.form?.created_at)}
@@ -533,7 +533,7 @@ const HandoverDetail: React.FC = () => {
                         detailData?.generalForm?.status ?? "",
                       ) ? (
                         <div>
-                          <div className="font-medium ">Completed By</div>
+                          <div className="font-medium ">Completed By SD Manager</div>
                           <div className="font-semibold text-blue-400 mt-1">
                             {detailData?.getManager?.approval_users?.title}{" "}
                             {detailData?.getManager?.approval_users?.name}
@@ -556,11 +556,11 @@ const HandoverDetail: React.FC = () => {
                           )}
                         </div>
                       ) : (
-                        <div className="opacity-40">Completed By</div>
+                        <div className="opacity-40">Completed By SD Manager</div>
                       )
                     ) : (
                       <div className="opacity-40">
-                        <div>Completed By</div>
+                        <div>Completed By SD Manager</div>
                         <div>-------------------</div>
                         {/* <div>Operation Analysis</div> */}
                         <div>
