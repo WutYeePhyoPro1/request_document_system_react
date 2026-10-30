@@ -2749,11 +2749,11 @@ let shouldShowBackToPreviousFinal = shouldShowBackToPrevious || (isOpManager && 
                                    const shouldShowBackToPreviousOp = (isOpManager && (resolvedStatusLower === 'bm approved' || resolvedStatusLower === 'ac_acknowledged' || resolvedStatusLower === 'opapproved' || resolvedStatusLower === 'op approved'));
   
   // Hide Cancel for BM in Ongoing status
-  const shouldShowCancel = !isBMViewingOwnApprovedForm && 
+  // Checker can also see Cancel when actions.cancel is enabled (Ongoing forms)
+  const shouldShowCancel = !isBMViewingOwnApprovedForm &&
                           !shouldHideButtonsForBMInOngoing &&
                           !!(typeof actions !== 'undefined' && actions.cancel) &&
-                          !isCheckerRole &&
-                          (isBranchAccount && isBranchAccountStage ? 
+                          (isBranchAccount && isBranchAccountStage ?
                             // Branch account at branch account stage (including BM Approved) - always show
                             true :
                             // Existing logic for other cases - hide if BM Approved

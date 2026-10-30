@@ -8,6 +8,7 @@ import {
   Shield,
   AlertTriangle,
   Users,
+  Package,
   Save,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -268,6 +269,7 @@ const InvestigationFormModal = ({
         if (r === 'delivery') return 'Delivery';
         if (r === 'accident') return 'Accident';
         if (r === 'safety') return 'Safety';
+        if (r === 'pkdamage' || r === 'pk damage' || r === 'pk_damage' || r === 'pallet') return 'Pk Damage';
         if (r === 'other') return 'Other';
         // Fallback: capitalize first letter
         return reasonRaw[0]?.toUpperCase() + reasonRaw.slice(1);
@@ -629,6 +631,8 @@ const InvestigationFormModal = ({
       displine: 'discipline', // Support typo variant for backward compatibility
       accident: 'accident',
       safety: 'safety',
+      'pk damage': 'pkdamage',
+      pkdamage: 'pkdamage',
       other: 'other',
     };
 
@@ -764,6 +768,7 @@ const InvestigationFormModal = ({
     { id: "Discipline", label: t('investigation.categories.discipline'), icon: Shield },
     { id: "Accident", label: t('investigation.categories.accident'), icon: AlertTriangle },
     { id: "Safety", label: t('investigation.categories.safety'), icon: Users },
+    { id: "Pk Damage", label: t('investigation.categories.pkDamage'), icon: Package },
     { id: "Other", label: t('investigation.categories.other'), icon: FileText },
   ];
 
@@ -948,6 +953,7 @@ const InvestigationFormModal = ({
             if (r === 'delivery') return 'Delivery';
             if (r === 'accident') return 'Accident';
             if (r === 'safety') return 'Safety';
+            if (r === 'pkdamage' || r === 'pk damage' || r === 'pk_damage' || r === 'pallet') return 'Pk Damage';
             if (r === 'other') return 'Other';
             return reasonRaw[0]?.toUpperCase() + reasonRaw.slice(1);
           };

@@ -59,6 +59,7 @@
       "discipline": "Discipline",
       "accident": "Accident",
       "safety": "Safety",
+      "pkDamage": "Pk damage/pallet damage",
       "other": "Other"
     }
   },
